@@ -1,0 +1,56 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import {
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+} from '@/components/ui/sidebar';
+import {
+  LayoutGrid,
+  MessageSquare,
+  FolderKanban,
+  Users,
+} from 'lucide-react';
+import { Logo } from '@/components/logo';
+
+const links = [
+  { href: '/', label: 'Dashboard', icon: LayoutGrid },
+  { href: '/instructions', label: 'Instructions', icon: MessageSquare },
+  { href: '/projects', label: 'Projects', icon: FolderKanban },
+  { href: '/clients', label: 'Clients', icon: Users },
+];
+
+export function AppSidebar() {
+  const pathname = usePathname();
+
+  return (
+    <Sidebar collapsible="icon" className="group-data-[variant=floating]:bg-card/95 group-data-[variant=floating]:backdrop-blur-sm">
+      <SidebarHeader>
+        <Logo className="text-sidebar-foreground transition-all duration-200 group-data-[collapsible=icon]:-ml-14" />
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarMenu>
+          {links.map((link) => (
+            <SidebarMenuItem key={link.href}>
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === link.href}
+                tooltip={{ children: link.label }}
+              >
+                <Link href={link.href}>
+                  <link.icon />
+                  <span>{link.label}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
+      </SidebarContent>
+    </Sidebar>
+  );
+}

@@ -1,0 +1,128 @@
+'use server';
+
+import type { Client, Project, Instruction } from './types';
+import { unstable_noStore as noStore } from 'next/cache';
+
+let clients: Client[] = [
+  { id: '1', name: 'Global Construct Inc.', avatarUrl: 'https://picsum.photos/seed/1/40/40' },
+  { id: '2', name: 'Pioneer Builders', avatarUrl: 'https://picsum.photos/seed/2/40/40' },
+  { id: '3', name: 'Apex Developments', avatarUrl: 'https://picsum.photos/seed/3/40/40' },
+];
+
+let projects: Project[] = [
+  { id: '101', name: 'Downtown Tower', clientId: '1' },
+  { id: '102', name: 'Suburban Mall', clientId: '1' },
+  { id: '201', name: 'Riverside Bridge', clientId: '2' },
+  { id: '301', name: 'Hilltop Estates', clientId: '3' },
+  { id: '302', name: 'Oceanview Villas', clientId: '3' },
+];
+
+let instructions: Instruction[] = [
+  {
+    id: '1',
+    clientId: '1',
+    projectId: '101',
+    originalText:
+      'Please ensure that all exterior windows on the south side of the Downtown Tower are fitted with the new energy-efficient glass by the end of the month. Also, check the HVAC system on the top three floors and report any issues by Friday.',
+    summary:
+      'Install energy-efficient glass on all south-facing exterior windows of the Downtown Tower by month-end. Inspect the HVAC system on the top three floors and report any problems by this Friday.',
+    actionItems: [
+      'Fit all exterior windows on the south side of the Downtown Tower with new energy-efficient glass.',
+      'Complete the window installation by the end of the month.',
+      'Check the HVAC system on the top three floors.',
+      'Report any HVAC issues by Friday.',
+    ],
+    createdAt: new Date('2023-10-15T09:00:00Z').toISOString(),
+  },
+  {
+    id: '2',
+    clientId: '2',
+    projectId: '201',
+    originalText:
+      'The structural steel for the Riverside Bridge needs to be inspected for any signs of corrosion. This needs to be done before the concrete pouring next week. Also, arrange for the delivery of the pre-cast concrete slabs for the pedestrian walkway.',
+    summary:
+      'Before next week\'s concrete pour, inspect the Riverside Bridge\'s structural steel for corrosion. Additionally, schedule the delivery of pre-cast concrete slabs for the pedestrian walkway.',
+    actionItems: [
+      'Inspect structural steel of the Riverside Bridge for corrosion.',
+      'Complete inspection before the concrete pouring next week.',
+      'Arrange delivery of pre-cast concrete slabs for the pedestrian walkway.',
+    ],
+    createdAt: new Date('2023-10-18T14:30:00Z').toISOString(),
+  },
+  {
+    id: '3',
+    clientId: '3',
+    projectId: '301',
+    originalText:
+      'For Hilltop Estates, we need to finalize the landscaping plan for lots 10 through 15. The client wants more native plants included. Please submit a revised plan by Monday. Also, confirm the plumbing inspection schedule for Phase 2.',
+    summary:
+      'Revise the landscaping plan for lots 10-15 at Hilltop Estates to include more native plants, submitting the new plan by Monday. Also, confirm the Phase 2 plumbing inspection schedule.',
+    actionItems: [
+      'Finalize the landscaping plan for lots 10 through 15.',
+      'Include more native plants in the revised plan.',
+      'Submit the revised landscaping plan by Monday.',
+      'Confirm the plumbing inspection schedule for Phase 2.',
+    ],
+    createdAt: new Date('2023-10-20T11:00:00Z').toISOString(),
+  },
+];
+
+// Simulate a database with async functions
+export async function getClients(): Promise<Client[]> {
+  noStore();
+  return new Promise((resolve) => setTimeout(() => resolve(clients), 100));
+}
+
+export async function getProjects(clientId?: string): Promise<Project[]> {
+  noStore();
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      if (clientId) {
+        resolve(projects.filter((p) => p.clientId === clientId));
+      } else {
+        resolve(projects);
+      }
+    }, 100);
+  });
+}
+
+export async function getInstructions({
+  clientId,
+  projectId,
+}: {
+  clientId?: string;
+  projectId?: string;
+}): Promise<Instruction[]> {
+  noStore();
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      let filteredInstructions = [...instructions];
+      if (clientId) {
+        filteredInstructions = filteredInstructions.filter(
+          (i) => i.clientId === clientId
+        );
+      }
+      if (projectId) {
+        filteredInstructions = filteredInstructions.filter(
+          (i) => i.projectId === projectId
+        );
+      }
+      resolve(filteredInstructions.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    }, 100);
+  });
+}
+
+export async function createInstruction(instructionData: Omit<Instruction, 'id' | 'createdAt'>): Promise<Instruction> {
+    noStore();
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            const newInstruction: Instruction = {
+                ...instructionData,
+                id: (instructions.length + 1).toString(),
+                createdAt: new Date().toISOString(),
+            };
+            instructions = [newInstruction, ...instructions];
+            resolve(newInstruction);
+        }, 500);
+    });
+}
