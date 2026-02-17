@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Header } from '@/components/layout/header';
-import { MessageSquare, Sparkles, ListChecks } from 'lucide-react';
+import { MessageSquare, Sparkles, ListChecks, HardHat } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function Dashboard() {
@@ -14,6 +14,7 @@ export default async function Dashboard() {
     <div className="flex flex-col w-full">
       <Header title="Dashboard" />
       <main className="flex flex-1 flex-col items-center justify-center gap-8 p-4 md:p-8">
+        <HardHat className="h-24 w-24 text-primary" />
         <div className="text-center">
             <h1 className="text-3xl font-bold tracking-tight">Welcome to SiteCommand</h1>
             <p className="text-muted-foreground">Select an action to get started.</p>
