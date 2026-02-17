@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Client, Project, Instruction, DistributionUser } from './types';
+import type { Client, Project, Instruction, DistributionUser, CleanUpNotice, SubContractor } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 
 let clients: Client[] = [
@@ -74,10 +74,30 @@ let instructions: Instruction[] = [
   },
 ];
 
+let cleanUpNotices: CleanUpNotice[] = [
+    {
+        id: 'cl1',
+        clientId: '1',
+        projectId: '101',
+        description: 'Debris from drywall installation on floor 12 needs to be cleared by end of day. Please ensure all hallways are clear for inspection tomorrow morning.',
+        createdAt: new Date('2023-10-22T16:00:00Z').toISOString(),
+        recipients: ['cleanup-crew@example.com'],
+        photo: {
+          url: 'https://picsum.photos/seed/cleanup1/600/400',
+          takenAt: new Date('2023-10-22T16:01:30Z').toISOString(),
+        },
+    }
+];
+
 let distributionUsers: DistributionUser[] = [
   { id: 'user-1', name: 'Project Manager', email: 'pm@example.com' },
   { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com' },
   { id: 'user-3', name: 'Lead Engineer', email: 'engineer@example.com' },
+];
+
+let subContractors: SubContractor[] = [
+    { id: 'sub-1', name: 'General Cleaners LLC', email: 'contact@generalcleaners.com' },
+    { id: 'sub-2', name: 'Site-Ready Services', email: 'ops@siteready.com' },
 ];
 
 // Simulate a database with async functions
@@ -166,6 +186,78 @@ export async function removeDistributionUser(userId: string): Promise<{ success:
       const initialLength = distributionUsers.length;
       distributionUsers = distributionUsers.filter((user) => user.id !== userId);
       resolve({ success: distributionUsers.length < initialLength });
+    }, 100);
+  });
+}
+
+
+export async function getCleanUpNotices({
+  clientId,
+  projectId,
+}: {
+  clientId?: string;
+  projectId?: string;
+}): Promise<CleanUpNotice[]> {
+  noStore();
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      let filteredNotices = [...cleanUpNotices];
+      if (clientId) {
+        filteredNotices = filteredNotices.filter(
+          (i) => i.clientId === clientId
+        );
+      }
+      if (projectId) {
+        filteredNotices = filteredNotices.filter(
+          (i) => i.projectId === projectId
+        );
+      }
+      resolve(filteredNotices.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    }, 100);
+  });
+}
+
+export async function createCleanUpNotice(noticeData: Omit<CleanUpNotice, 'id' | 'createdAt'>): Promise<CleanUpNotice> {
+    noStore();
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            const newNotice: CleanUpNotice = {
+                ...noticeData,
+                id: `cl${cleanUpNotices.length + 1}`,
+                createdAt: new Date().toISOString(),
+            };
+            cleanUpNotices = [newNotice, ...cleanUpNotices];
+            resolve(newNotice);
+        }, 500);
+    });
+}
+
+export async function getSubContractors(): Promise<SubContractor[]> {
+  noStore();
+  return new Promise((resolve) => setTimeout(() => resolve(subContractors), 100));
+}
+
+export async function addSubContractor(userData: Omit<SubContractor, 'id'>): Promise<SubContractor> {
+  noStore();
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const newUser: SubContractor = {
+        ...userData,
+        id: `sub-${Date.now()}`,
+      };
+      subContractors.push(newUser);
+      resolve(newUser);
+    }, 100);
+  });
+}
+
+export async function removeSubContractor(userId: string): Promise<{ success: boolean }> {
+  noStore();
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const initialLength = subContractors.length;
+      subContractors = subContractors.filter((user) => user.id !== userId);
+      resolve({ success: subContractors.length < initialLength });
     }, 100);
   });
 }

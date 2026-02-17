@@ -19,12 +19,14 @@ import {
   FolderKanban,
   Users,
   Cog,
+  Sparkles,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
   { href: '/instructions', label: 'Instructions', icon: MessageSquare },
+  { href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/clients', label: 'Clients', icon: Users },
 ];
@@ -45,7 +47,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={link.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === link.href}
+                isActive={pathname.startsWith(link.href) && (link.href === '/' ? pathname === '/' : true) }
                 tooltip={{ children: link.label }}
               >
                 <Link href={link.href}>
@@ -64,7 +66,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={link.href}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === link.href}
+                isActive={pathname.startsWith(link.href)}
                 tooltip={{ children: link.label }}
               >
                 <Link href={link.href}>

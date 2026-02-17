@@ -2,177 +2,49 @@
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { getClients, getInstructions, getProjects } from '@/lib/data';
 import { Header } from '@/components/layout/header';
-import { Users, FolderKanban, MessageSquare } from 'lucide-react';
-import type { Instruction, Project, Client } from '@/lib/types';
+import { MessageSquare, Sparkles } from 'lucide-react';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 
 export default async function Dashboard() {
-  const [instructions, projects, clients] = await Promise.all([
-    getInstructions({}),
-    getProjects(),
-    getClients(),
-  ]);
-
-  const recentInstructions = instructions.slice(0, 5);
-  const instructionMap = new Map<string, Instruction>(instructions.map((i) => [i.id, i]));
-  const projectMap = new Map<string, Project>(projects.map((p) => [p.id, p]));
-  const clientMap = new Map<string, Client>(clients.map((c) => [c.id, c]));
-
   return (
     <div className="flex flex-col w-full">
       <Header title="Dashboard" />
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8">
-        <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-3">
-          <Link href="/instructions">
-            <Card className="hover:bg-muted/50 transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Instructions
-                </CardTitle>
-                <MessageSquare className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{instructions.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  Across all projects
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/projects">
-            <Card className="hover:bg-muted/50 transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Total Projects
-                </CardTitle>
-                <FolderKanban className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{projects.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  Currently active and archived
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/clients">
-            <Card className="hover:bg-muted/50 transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Clients</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{clients.length}</div>
-                <p className="text-xs text-muted-foreground">
-                  Managed across the firm
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
+      <main className="flex flex-1 flex-col items-center justify-center gap-8 p-4 md:p-8">
+        <div className="text-center">
+            <h1 className="text-3xl font-bold tracking-tight">Welcome to SiteCommand</h1>
+            <p className="text-muted-foreground">Select an action to get started.</p>
         </div>
-        <div className="grid gap-4 md:gap-8 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Instructions</CardTitle>
-              <CardDescription>
-                The latest instructions recorded from clients.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Project</TableHead>
-                    <TableHead className="hidden sm:table-cell">Client</TableHead>
-                    <TableHead className="text-right">Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recentInstructions.map((instruction) => {
-                    const project = projectMap.get(instruction.projectId);
-                    const client = clientMap.get(instruction.clientId);
-                    return (
-                      <TableRow key={instruction.id}>
-                        <TableCell>
-                          <div className="font-medium">
-                            {project?.name || 'N/A'}
-                          </div>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          {client?.name || 'N/A'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {new Date(instruction.createdAt).toLocaleDateString()}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-               <div className="mt-4 flex justify-end">
-                <Button asChild variant="outline">
-                    <Link href="/instructions">View All Instructions</Link>
-                </Button>
-            </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Projects Overview</CardTitle>
-              <CardDescription>
-                An overview of all your projects.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Project</TableHead>
-                      <TableHead className="text-right">Instructions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                  {projects.slice(0, 5).map(p => {
-                    const instructionCount = instructions.filter(i => i.projectId === p.id).length;
-                    return (
-                      <TableRow key={p.id}>
-                        <TableCell>
-                          <div className="font-medium">{p.name}</div>
-                          <div className="hidden text-sm text-muted-foreground md:inline">
-                            {clientMap.get(p.clientId)?.name}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant="outline">{instructionCount}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                  </TableBody>
-              </Table>
-              <div className="mt-4 flex justify-end">
-                <Button asChild variant="outline">
-                    <Link href="/projects">View All Projects</Link>
-                </Button>
-            </div>
-            </CardContent>
-          </Card>
+        <div className="grid max-w-4xl gap-6 md:grid-cols-2 lg:gap-8">
+          <Link href="/instructions">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
+              <CardHeader className="p-0">
+                <MessageSquare className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">Instructions</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 mt-2">
+                <p className="text-muted-foreground">
+                  Record, summarize, and distribute client instructions to your team.
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/cleanup-notices">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
+              <CardHeader className="p-0">
+                <Sparkles className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">Clean Up Notices</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 mt-2">
+                <p className="text-muted-foreground">
+                  Create and send clean up notices to sub-contractors with photos.
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </main>
     </div>

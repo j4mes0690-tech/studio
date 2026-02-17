@@ -26,7 +26,26 @@ export type Instruction = {
   recipients?: string[];
 };
 
+export type CleanUpNotice = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  description: string;
+  createdAt: string;
+  photo?: {
+    url: string;
+    takenAt: string;
+  };
+  recipients?: string[];
+};
+
 export type DistributionUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type SubContractor = {
   id: string;
   name: string;
   email: string;
