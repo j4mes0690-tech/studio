@@ -36,8 +36,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { createInstructionAction, type FormState } from './actions';
 import { PlusCircle, Camera, RefreshCw } from 'lucide-react';
-import type { Client, Project } from '@/lib/types';
+import type { Client, Project, DistributionUser } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 
 const NewInstructionSchema = z.object({
   clientId: z.string().min(1, 'Client is required.'),
@@ -47,6 +49,7 @@ const NewInstructionSchema = z.object({
     .min(10, 'Instructions must be at least 10 characters.'),
   photoUrl: z.string().optional(),
   photoTimestamp: z.string().optional(),
+  recipients: z.array(z.string()).optional(),
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
@@ -54,9 +57,10 @@ type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
 type NewInstructionProps = {
   clients: Client[];
   projects: Project[];
+  distributionUsers: DistributionUser[];
 };
 
-export function NewInstruction({ clients, projects }: NewInstructionProps) {
+export function NewInstruction({ clients, projects, distributionUsers }: NewInstructionProps) {
   const [open, setOpen] = useState(false);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -76,6 +80,7 @@ export function NewInstruction({ clients, projects }: NewInstructionProps) {
       originalText: '',
       photoUrl: '',
       photoTimestamp: '',
+      recipients: [],
     },
   });
 
@@ -187,7 +192,7 @@ export function NewInstruction({ clients, projects }: NewInstructionProps) {
           New Instruction
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Record New Instruction</DialogTitle>
           <DialogDescription>
@@ -341,6 +346,57 @@ export function NewInstruction({ clients, projects }: NewInstructionProps) {
                 </Button>
               )}
             </FormItem>
+
+            <Separator />
+            
+            <FormItem>
+              <div className="mb-4">
+                <FormLabel>Email Distribution</FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  Select who to notify about this instruction.
+                </p>
+              </div>
+              <div className="space-y-2">
+              {distributionUsers.map((user) => (
+                <FormField
+                  key={user.id}
+                  control={form.control}
+                  name="recipients"
+                  render={({ field }) => {
+                    return (
+                      <FormItem
+                        key={user.id}
+                        className="flex flex-row items-center space-x-3 space-y-0"
+                      >
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value?.includes(user.id)}
+                            onCheckedChange={(checked) => {
+                              const updatedValue = field.value ? [...field.value] : [];
+                              if (checked) {
+                                updatedValue.push(user.id);
+                              } else {
+                                const index = updatedValue.indexOf(user.id);
+                                if (index > -1) {
+                                  updatedValue.splice(index, 1);
+                                }
+                              }
+                              field.onChange(updatedValue);
+                            }}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">
+                          {user.name} <span className="text-muted-foreground">({user.email})</span>
+                        </FormLabel>
+                      </FormItem>
+                    );
+                  }}
+                />
+              ))}
+              </div>
+              <FormMessage />
+            </FormItem>
+
             <canvas ref={canvasRef} className="hidden" />
 
             <DialogFooter>

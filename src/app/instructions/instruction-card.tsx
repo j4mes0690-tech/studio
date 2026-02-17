@@ -15,7 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { FileText, CheckSquare, MessageCircle, Camera } from 'lucide-react';
+import { FileText, CheckSquare, MessageCircle, Camera, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 type InstructionCardProps = {
@@ -72,6 +72,25 @@ export function InstructionCard({
               </ul>
             </AccordionContent>
           </AccordionItem>
+          {instruction.recipients && instruction.recipients.length > 0 && (
+             <AccordionItem value="recipients">
+             <AccordionTrigger className="text-sm font-semibold">
+               <div className="flex items-center gap-2">
+                 <Users className="h-4 w-4" />
+                 <span>
+                   Distribution List ({instruction.recipients.length})
+                 </span>
+               </div>
+             </AccordionTrigger>
+             <AccordionContent>
+              <div className="flex flex-wrap gap-1">
+                {instruction.recipients.map((email, index) => (
+                  <Badge key={index} variant="outline">{email}</Badge>
+                ))}
+              </div>
+             </AccordionContent>
+           </AccordionItem>
+          )}
           {instruction.photo && (
             <AccordionItem value="photo">
               <AccordionTrigger className="text-sm font-semibold">

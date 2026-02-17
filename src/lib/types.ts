@@ -23,4 +23,11 @@ export type Instruction = {
     url: string;
     takenAt: string;
   };
+  recipients?: string[];
+};
+
+export type DistributionUser = {
+  id: string;
+  name: string;
+  email: string;
 };

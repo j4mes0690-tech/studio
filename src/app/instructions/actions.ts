@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createInstruction } from '@/lib/data';
+import { createInstruction, getDistributionUsers } from '@/lib/data';
 import { summarizeClientInstructions } from '@/ai/flows/summarize-client-instructions';
 import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
 import type { Instruction } from '@/lib/types';
@@ -14,6 +14,7 @@ const NewInstructionSchema = z.object({
   originalText: z.string().min(10, 'Instructions must be at least 10 characters.'),
   photoUrl: z.string().optional(),
   photoTimestamp: z.string().optional(),
+  recipients: z.array(z.string()).optional(),
 });
 
 export type FormState = {
@@ -32,6 +33,7 @@ export async function createInstructionAction(
     originalText: formData.get('originalText'),
     photoUrl: formData.get('photoUrl'),
     photoTimestamp: formData.get('photoTimestamp'),
+    recipients: formData.getAll('recipients'),
   });
 
   if (!validatedFields.success) {
@@ -41,12 +43,13 @@ export async function createInstructionAction(
     };
   }
 
-  const { originalText, clientId, projectId, photoUrl, photoTimestamp } = validatedFields.data;
+  const { originalText, clientId, projectId, photoUrl, photoTimestamp, recipients: recipientIds } = validatedFields.data;
 
   try {
-    const [summaryResult, actionItemsResult] = await Promise.all([
+    const [summaryResult, actionItemsResult, distributionUsers] = await Promise.all([
       summarizeClientInstructions({ instructions: originalText }),
       extractInstructionActionItems({ instructionText: originalText }),
+      getDistributionUsers(),
     ]);
 
     const newInstructionData: Omit<Instruction, 'id' | 'createdAt'> = {
@@ -63,6 +66,13 @@ export async function createInstructionAction(
             takenAt: photoTimestamp,
         }
     }
+
+    if (recipientIds && recipientIds.length > 0) {
+      const recipientEmails = distributionUsers
+        .filter(user => recipientIds.includes(user.id))
+        .map(user => user.email);
+      newInstructionData.recipients = recipientEmails;
+    }
     
     await createInstruction(newInstructionData);
 
@@ -72,6 +82,6 @@ export async function createInstructionAction(
 
   } catch (error) {
     console.error('Failed to create instruction:', error);
-    return { success: false, message: 'Failed to process and create instruction.' };
+    return { success: false, message: 'Failed to process and create instruction. Please note, email sending is not yet implemented.' };
   }
 }

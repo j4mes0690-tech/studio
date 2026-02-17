@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Client, Project, Instruction } from './types';
+import type { Client, Project, Instruction, DistributionUser } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 
 let clients: Client[] = [
@@ -34,6 +34,7 @@ let instructions: Instruction[] = [
       'Report any HVAC issues by Friday.',
     ],
     createdAt: new Date('2023-10-15T09:00:00Z').toISOString(),
+    recipients: ['pm@example.com', 'supervisor@example.com'],
     photo: {
       url: 'https://picsum.photos/seed/instruction1/600/400',
       takenAt: new Date('2023-10-15T09:02:15Z').toISOString(),
@@ -53,6 +54,7 @@ let instructions: Instruction[] = [
       'Arrange delivery of pre-cast concrete slabs for the pedestrian walkway.',
     ],
     createdAt: new Date('2023-10-18T14:30:00Z').toISOString(),
+    recipients: ['engineer@example.com'],
   },
   {
     id: '3',
@@ -70,6 +72,12 @@ let instructions: Instruction[] = [
     ],
     createdAt: new Date('2023-10-20T11:00:00Z').toISOString(),
   },
+];
+
+let distributionUsers: DistributionUser[] = [
+  { id: 'user-1', name: 'Project Manager', email: 'pm@example.com' },
+  { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com' },
+  { id: 'user-3', name: 'Lead Engineer', email: 'engineer@example.com' },
 ];
 
 // Simulate a database with async functions
@@ -130,4 +138,34 @@ export async function createInstruction(instructionData: Omit<Instruction, 'id' 
             resolve(newInstruction);
         }, 500);
     });
+}
+
+export async function getDistributionUsers(): Promise<DistributionUser[]> {
+  noStore();
+  return new Promise((resolve) => setTimeout(() => resolve(distributionUsers), 100));
+}
+
+export async function addDistributionUser(userData: Omit<DistributionUser, 'id'>): Promise<DistributionUser> {
+  noStore();
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const newUser: DistributionUser = {
+        ...userData,
+        id: `user-${Date.now()}`,
+      };
+      distributionUsers.push(newUser);
+      resolve(newUser);
+    }, 100);
+  });
+}
+
+export async function removeDistributionUser(userId: string): Promise<{ success: boolean }> {
+  noStore();
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const initialLength = distributionUsers.length;
+      distributionUsers = distributionUsers.filter((user) => user.id !== userId);
+      resolve({ success: distributionUsers.length < initialLength });
+    }, 100);
+  });
 }
