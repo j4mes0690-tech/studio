@@ -1,3 +1,4 @@
+
 export type Client = {
   id: string;
   name: string;
@@ -18,4 +19,8 @@ export type Instruction = {
   summary: string;
   actionItems: string[];
   createdAt: string;
+  photo?: {
+    url: string;
+    takenAt: string;
+  };
 };

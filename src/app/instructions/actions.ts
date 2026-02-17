@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -5,11 +6,14 @@ import { revalidatePath } from 'next/cache';
 import { createInstruction } from '@/lib/data';
 import { summarizeClientInstructions } from '@/ai/flows/summarize-client-instructions';
 import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
+import type { Instruction } from '@/lib/types';
 
 const NewInstructionSchema = z.object({
   clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   originalText: z.string().min(10, 'Instructions must be at least 10 characters.'),
+  photoUrl: z.string().optional(),
+  photoTimestamp: z.string().optional(),
 });
 
 export type FormState = {
@@ -26,6 +30,8 @@ export async function createInstructionAction(
     clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     originalText: formData.get('originalText'),
+    photoUrl: formData.get('photoUrl'),
+    photoTimestamp: formData.get('photoTimestamp'),
   });
 
   if (!validatedFields.success) {
@@ -35,7 +41,7 @@ export async function createInstructionAction(
     };
   }
 
-  const { originalText, clientId, projectId } = validatedFields.data;
+  const { originalText, clientId, projectId, photoUrl, photoTimestamp } = validatedFields.data;
 
   try {
     const [summaryResult, actionItemsResult] = await Promise.all([
@@ -43,13 +49,20 @@ export async function createInstructionAction(
       extractInstructionActionItems({ instructionText: originalText }),
     ]);
 
-    const newInstructionData = {
+    const newInstructionData: Omit<Instruction, 'id' | 'createdAt'> = {
       clientId,
       projectId,
       originalText,
       summary: summaryResult.summary,
       actionItems: actionItemsResult.actionItems,
     };
+
+    if (photoUrl && photoTimestamp) {
+        newInstructionData.photo = {
+            url: photoUrl,
+            takenAt: photoTimestamp,
+        }
+    }
     
     await createInstruction(newInstructionData);
 

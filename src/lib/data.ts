@@ -1,3 +1,4 @@
+
 'use server';
 
 import type { Client, Project, Instruction } from './types';
@@ -33,6 +34,10 @@ let instructions: Instruction[] = [
       'Report any HVAC issues by Friday.',
     ],
     createdAt: new Date('2023-10-15T09:00:00Z').toISOString(),
+    photo: {
+      url: 'https://picsum.photos/seed/instruction1/600/400',
+      takenAt: new Date('2023-10-15T09:02:15Z').toISOString(),
+    },
   },
   {
     id: '2',

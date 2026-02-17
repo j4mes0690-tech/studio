@@ -1,4 +1,6 @@
+
 import type { Instruction, Client, Project } from '@/lib/types';
+import Image from 'next/image';
 import {
   Card,
   CardContent,
@@ -13,7 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { FileText, CheckSquare, MessageCircle } from 'lucide-react';
+import { FileText, CheckSquare, MessageCircle, Camera } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 type InstructionCardProps = {
@@ -70,6 +72,32 @@ export function InstructionCard({
               </ul>
             </AccordionContent>
           </AccordionItem>
+          {instruction.photo && (
+            <AccordionItem value="photo">
+              <AccordionTrigger className="text-sm font-semibold">
+                <div className="flex items-center gap-2">
+                  <Camera className="h-4 w-4" />
+                  <span>Attached Photo</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-2">
+                  <Image
+                    src={instruction.photo.url}
+                    alt="Instruction photo"
+                    width={600}
+                    height={400}
+                    className="rounded-md border object-cover"
+                    data-ai-hint="construction site"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Taken on:{' '}
+                    {new Date(instruction.photo.takenAt).toLocaleString()}
+                  </p>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
           <AccordionItem value="original-text">
             <AccordionTrigger className="text-sm font-semibold">
               <div className="flex items-center gap-2">
