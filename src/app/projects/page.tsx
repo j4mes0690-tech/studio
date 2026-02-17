@@ -53,7 +53,10 @@ export default async function ProjectsPage() {
                   );
                   const client = clientMap.get(project.clientId);
                   return (
-                    <TableRow key={project.id}>
+                    <TableRow
+                      key={project.id}
+                      href={`/instructions?project=${project.id}`}
+                    >
                       <TableCell>
                         <div className="font-medium">{project.name}</div>
                       </TableCell>
@@ -61,7 +64,9 @@ export default async function ProjectsPage() {
                         {client?.name || 'N/A'}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Badge variant="outline">{projectInstructions.length}</Badge>
+                        <Badge variant="outline">
+                          {projectInstructions.length}
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   );

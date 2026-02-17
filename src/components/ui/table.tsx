@@ -1,4 +1,7 @@
+"use client"
+
 import * as React from "react"
+import { useRouter } from "next/navigation"
 
 import { cn } from "@/lib/utils"
 
@@ -53,17 +56,30 @@ TableFooter.displayName = "TableFooter"
 
 const TableRow = React.forwardRef<
   HTMLTableRowElement,
-  React.HTMLAttributes<HTMLTableRowElement>
->(({ className, ...props }, ref) => (
-  <tr
-    ref={ref}
-    className={cn(
-      "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
-      className
-    )}
-    {...props}
-  />
-))
+  React.HTMLAttributes<HTMLTableRowElement> & { href?: string }
+>(({ className, href, onClick, ...props }, ref) => {
+  const router = useRouter()
+  const handleClick = (e: React.MouseEvent<HTMLTableRowElement>) => {
+    if (href) {
+      router.push(href)
+    }
+    if (onClick) {
+      onClick(e)
+    }
+  }
+  return (
+    <tr
+      ref={ref}
+      className={cn(
+        "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+        href && "cursor-pointer",
+        className
+      )}
+      onClick={handleClick}
+      {...props}
+    />
+  )
+})
 TableRow.displayName = "TableRow"
 
 const TableHead = React.forwardRef<
