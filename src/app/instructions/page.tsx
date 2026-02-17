@@ -4,6 +4,7 @@ import { getClients, getProjects, getInstructions, getDistributionUsers } from '
 import { InstructionCard } from './instruction-card';
 import { NewInstruction } from './new-instruction';
 import { InstructionFilters } from './instruction-filters';
+import { ExportButton } from './export-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,7 +33,10 @@ export default async function InstructionsPage({
           <h2 className="text-2xl font-bold tracking-tight">
             Instruction Log
           </h2>
-          <NewInstruction clients={clients} projects={allProjects} distributionUsers={distributionUsers} />
+          <div className="flex items-center gap-2">
+            <ExportButton instructions={instructions} clients={clients} projects={allProjects} />
+            <NewInstruction clients={clients} projects={allProjects} distributionUsers={distributionUsers} />
+          </div>
         </div>
         <InstructionFilters clients={clients} projects={allProjects} />
         <div className="grid gap-4 md:gap-6">
