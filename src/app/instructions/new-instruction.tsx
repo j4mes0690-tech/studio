@@ -40,6 +40,7 @@ import type { Client, Project, DistributionUser } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewInstructionSchema = z.object({
   clientId: z.string().min(1, 'Client is required.'),
@@ -356,44 +357,46 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
                   Select who to notify about this instruction.
                 </p>
               </div>
-              <div className="space-y-2">
-              {distributionUsers.map((user) => (
-                <FormField
-                  key={user.id}
-                  control={form.control}
-                  name="recipients"
-                  render={({ field }) => {
-                    return (
-                      <FormItem
-                        key={user.id}
-                        className="flex flex-row items-center space-x-3 space-y-0"
-                      >
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value?.includes(user.id)}
-                            onCheckedChange={(checked) => {
-                              const updatedValue = field.value ? [...field.value] : [];
-                              if (checked) {
-                                updatedValue.push(user.id);
-                              } else {
-                                const index = updatedValue.indexOf(user.id);
-                                if (index > -1) {
-                                  updatedValue.splice(index, 1);
-                                }
-                              }
-                              field.onChange(updatedValue);
-                            }}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal">
-                          {user.name} <span className="text-muted-foreground">({user.email})</span>
-                        </FormLabel>
-                      </FormItem>
-                    );
-                  }}
-                />
-              ))}
-              </div>
+              <ScrollArea className="h-40 rounded-md border">
+                <div className="p-4 space-y-2">
+                  {distributionUsers.map((user) => (
+                    <FormField
+                      key={user.id}
+                      control={form.control}
+                      name="recipients"
+                      render={({ field }) => {
+                        return (
+                          <FormItem
+                            key={user.id}
+                            className="flex flex-row items-center space-x-3 space-y-0"
+                          >
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(user.id)}
+                                onCheckedChange={(checked) => {
+                                  const updatedValue = field.value ? [...field.value] : [];
+                                  if (checked) {
+                                    updatedValue.push(user.id);
+                                  } else {
+                                    const index = updatedValue.indexOf(user.id);
+                                    if (index > -1) {
+                                      updatedValue.splice(index, 1);
+                                    }
+                                  }
+                                  field.onChange(updatedValue);
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal">
+                              {user.name} <span className="text-muted-foreground">({user.email})</span>
+                            </FormLabel>
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+              </ScrollArea>
               <FormMessage />
             </FormItem>
 
