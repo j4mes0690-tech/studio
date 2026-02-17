@@ -8,7 +8,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { CircleUser } from 'lucide-react';
+import { CircleUser, Home } from 'lucide-react';
+import Link from 'next/link';
 
 export function Header({ title }: { title: string }) {
   return (
@@ -17,6 +18,16 @@ export function Header({ title }: { title: string }) {
       <div className="w-full flex-1">
         <h1 className="text-lg font-semibold">{title}</h1>
       </div>
+
+      {title !== 'Dashboard' && (
+        <Button asChild variant="ghost" size="icon">
+          <Link href="/">
+            <Home className="h-5 w-5" />
+            <span className="sr-only">Home</span>
+          </Link>
+        </Button>
+      )}
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="secondary" size="icon" className="rounded-full">
@@ -27,7 +38,9 @@ export function Header({ title }: { title: string }) {
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>Settings</DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/settings">Settings</Link>
+          </DropdownMenuItem>
           <DropdownMenuItem>Support</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem>Logout</DropdownMenuItem>
