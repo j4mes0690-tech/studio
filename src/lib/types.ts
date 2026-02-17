@@ -39,6 +39,18 @@ export type CleanUpNotice = {
   recipients?: string[];
 };
 
+export type SnaggingItem = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  description: string;
+  createdAt: string;
+  photo?: {
+    url: string;
+    takenAt: string;
+  };
+};
+
 export type DistributionUser = {
   id: string;
   name: string;

@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Client, Project, Instruction, DistributionUser, CleanUpNotice, SubContractor } from './types';
+import type { Client, Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 
 let clients: Client[] = [
@@ -86,6 +86,27 @@ let cleanUpNotices: CleanUpNotice[] = [
           url: 'https://picsum.photos/seed/cleanup1/600/400',
           takenAt: new Date('2023-10-22T16:01:30Z').toISOString(),
         },
+    }
+];
+
+let snaggingLists: SnaggingItem[] = [
+    {
+        id: 'snag1',
+        clientId: '1',
+        projectId: '101',
+        description: 'Paint on the west wall of apartment 1201 is chipped. Needs repainting.',
+        createdAt: new Date('2023-10-25T10:00:00Z').toISOString(),
+        photo: {
+          url: 'https://picsum.photos/seed/snag1/600/400',
+          takenAt: new Date('2023-10-25T10:01:00Z').toISOString(),
+        },
+    },
+    {
+        id: 'snag2',
+        clientId: '3',
+        projectId: '302',
+        description: 'Leaky faucet in the master bathroom of Villa #5.',
+        createdAt: new Date('2023-10-26T11:30:00Z').toISOString(),
     }
 ];
 
@@ -260,4 +281,45 @@ export async function removeSubContractor(userId: string): Promise<{ success: bo
       resolve({ success: subContractors.length < initialLength });
     }, 100);
   });
+}
+
+export async function getSnaggingLists({
+  clientId,
+  projectId,
+}: {
+  clientId?: string;
+  projectId?: string;
+}): Promise<SnaggingItem[]> {
+  noStore();
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      let filteredItems = [...snaggingLists];
+      if (clientId) {
+        filteredItems = filteredItems.filter(
+          (i) => i.clientId === clientId
+        );
+      }
+      if (projectId) {
+        filteredItems = filteredItems.filter(
+          (i) => i.projectId === projectId
+        );
+      }
+      resolve(filteredItems.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    }, 100);
+  });
+}
+
+export async function createSnaggingItem(itemData: Omit<SnaggingItem, 'id' | 'createdAt'>): Promise<SnaggingItem> {
+    noStore();
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            const newItem: SnaggingItem = {
+                ...itemData,
+                id: `snag${snaggingLists.length + 1}`,
+                createdAt: new Date().toISOString(),
+            };
+            snaggingLists = [newItem, ...snaggingLists];
+            resolve(newItem);
+        }, 500);
+    });
 }
