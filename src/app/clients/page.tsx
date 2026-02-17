@@ -55,7 +55,10 @@ export default async function ClientsPage() {
                     (i) => i.clientId === client.id
                   );
                   return (
-                    <TableRow key={client.id}>
+                    <TableRow
+                      key={client.id}
+                      href={`/instructions?client=${client.id}`}
+                    >
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <Avatar className="h-9 w-9">
