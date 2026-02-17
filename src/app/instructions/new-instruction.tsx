@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect, useRef } from 'react';
-import { useFormState } from 'react-dom';
+import { useState, useEffect, useRef, useActionState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -65,7 +64,7 @@ export function NewInstruction({ clients, projects }: NewInstructionProps) {
     },
   });
 
-  const [formState, formAction] = useFormState<FormState, FormData>(
+  const [formState, formAction] = useActionState<FormState, FormData>(
     createInstructionAction,
     { success: false, message: '' }
   );
