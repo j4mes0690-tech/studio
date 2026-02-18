@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useActionState, useEffect, useRef } from 'react';
-import { addUserAction, type AddUserFormState } from './actions';
+import { addUserAction, type FormState } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -34,7 +34,7 @@ export function AddUserForm() {
     defaultValues: { name: '', email: '' },
   });
 
-  const [formState, formAction] = useActionState<AddUserFormState, FormData>(
+  const [formState, formAction] = useActionState<FormState, FormData>(
     addUserAction,
     { success: false, message: '' }
   );
@@ -59,7 +59,7 @@ export function AddUserForm() {
       <form
         ref={formRef}
         action={formAction}
-        onSubmit={form.handleSubmit(() => formRef.current?.submit())}
+        onSubmit={form.handleSubmit(() => formRef.current?.requestSubmit())}
         className="space-y-4"
       >
         <FormField

@@ -59,7 +59,7 @@ export function AddSubcontractorForm() {
       <form
         ref={formRef}
         action={formAction}
-        onSubmit={form.handleSubmit(() => formRef.current?.submit())}
+        onSubmit={form.handleSubmit(() => formRef.current?.requestSubmit())}
         className="space-y-4"
       >
         <FormField

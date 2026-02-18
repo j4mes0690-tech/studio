@@ -210,7 +210,7 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
           <form
             ref={formRef}
             action={formAction}
-            onSubmit={form.handleSubmit(() => formRef.current?.submit())}
+            onSubmit={form.handleSubmit(() => formRef.current?.requestSubmit())}
             className="space-y-4"
           >
             <input type="hidden" {...form.register('id')} />
