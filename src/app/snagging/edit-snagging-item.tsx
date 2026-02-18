@@ -34,12 +34,13 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { createSnaggingItemAction, type FormState } from './actions';
-import { PlusCircle, Camera, RefreshCw } from 'lucide-react';
-import type { Client, Project } from '@/lib/types';
+import { updateSnaggingItemAction, type FormState } from './actions';
+import { Pencil, Camera, RefreshCw } from 'lucide-react';
+import type { Client, Project, SnaggingItem } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-const SnaggingItemSchema = z.object({
+const EditSnaggingItemSchema = z.object({
+  id: z.string().min(1),
   clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
@@ -47,14 +48,15 @@ const SnaggingItemSchema = z.object({
   photoTimestamp: z.string().optional(),
 });
 
-type NewSnaggingItemFormValues = z.infer<typeof SnaggingItemSchema>;
+type EditSnaggingItemFormValues = z.infer<typeof EditSnaggingItemSchema>;
 
-type NewSnaggingItemProps = {
+type EditSnaggingItemProps = {
+  item: SnaggingItem;
   clients: Client[];
   projects: Project[];
 };
 
-export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
+export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemProps) {
   const [open, setOpen] = useState(false);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -66,19 +68,20 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const form = useForm<NewSnaggingItemFormValues>({
-    resolver: zodResolver(SnaggingItemSchema),
+  const form = useForm<EditSnaggingItemFormValues>({
+    resolver: zodResolver(EditSnaggingItemSchema),
     defaultValues: {
-      clientId: '',
-      projectId: '',
-      description: '',
-      photoUrl: '',
-      photoTimestamp: '',
+      id: item.id,
+      clientId: item.clientId,
+      projectId: item.projectId,
+      description: item.description,
+      photoUrl: item.photo?.url || '',
+      photoTimestamp: item.photo?.takenAt || '',
     },
   });
 
   const [formState, formAction] = useActionState<FormState, FormData>(
-    createSnaggingItemAction,
+    updateSnaggingItemAction,
     { success: false, message: '' }
   );
 
@@ -90,8 +93,6 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
           description: formState.message,
         });
         setOpen(false);
-        form.reset();
-        clearPhoto();
       } else {
         toast({
           title: 'Error',
@@ -100,15 +101,21 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
         });
       }
     }
-  }, [formState, toast, form]);
+  }, [formState, toast]);
 
   useEffect(() => {
     if (!open) {
       setIsCameraOpen(false);
-      clearPhoto();
-      form.reset();
+      form.reset({
+        id: item.id,
+        clientId: item.clientId,
+        projectId: item.projectId,
+        description: item.description,
+        photoUrl: item.photo?.url || '',
+        photoTimestamp: item.photo?.takenAt || '',
+      });
     }
-  }, [open, form]);
+  }, [open, form, item]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -148,11 +155,18 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
       setFilteredProjects(
         projects.filter((p) => p.clientId === selectedClientId)
       );
-      form.setValue('projectId', '');
     } else {
       setFilteredProjects([]);
     }
   }, [selectedClientId, projects, form]);
+  
+  // Set project on initial load if client is already selected
+  useEffect(() => {
+     setFilteredProjects(
+        projects.filter((p) => p.clientId === item.clientId)
+      );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.clientId, projects])
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -180,16 +194,16 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          New Snagging Item
+        <Button variant="ghost" size="icon">
+            <Pencil className="h-4 w-4" />
+            <span className="sr-only">Edit Item</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Record New Snagging Item</DialogTitle>
+          <DialogTitle>Edit Snagging Item</DialogTitle>
           <DialogDescription>
-            Capture a snagging issue to be addressed.
+            Update the details for this snagging item.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -199,6 +213,7 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
             onSubmit={form.handleSubmit(() => formRef.current?.submit())}
             className="space-y-4"
           >
+            <input type="hidden" {...form.register('id')} />
             <input type="hidden" {...form.register('photoUrl')} />
             <input type="hidden" {...form.register('photoTimestamp')} />
             
@@ -209,7 +224,10 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
                 <FormItem>
                   <FormLabel>Client</FormLabel>
                   <Select
-                    onValueChange={field.onChange}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      form.setValue('projectId', '');
+                    }}
                     defaultValue={field.value}
                   >
                     <FormControl>
@@ -293,7 +311,7 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
                     onClick={clearPhoto}
                   >
                     <RefreshCw className="mr-2 h-4 w-4" />
-                    Retake Photo
+                    Change Photo
                   </Button>
                 </div>
               ) : isCameraOpen ? (
@@ -345,7 +363,7 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting
                   ? 'Saving...'
-                  : 'Save Item'}
+                  : 'Save Changes'}
               </Button>
             </DialogFooter>
           </form>

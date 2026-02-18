@@ -335,6 +335,21 @@ export async function createSnaggingItem(itemData: Omit<SnaggingItem, 'id' | 'cr
     });
 }
 
+export async function updateSnaggingItem(itemData: SnaggingItem): Promise<SnaggingItem> {
+    noStore();
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const index = snaggingLists.findIndex(item => item.id === itemData.id);
+            if (index !== -1) {
+                snaggingLists[index] = itemData;
+                resolve(itemData);
+            } else {
+                reject(new Error('Snagging item not found'));
+            }
+        }, 500);
+    });
+}
+
 
 export async function getInformationRequests({
     clientId,

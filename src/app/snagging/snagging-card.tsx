@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/accordion';
 import { Camera } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { EditSnaggingItem } from './edit-snagging-item';
 
 type SnaggingItemCardProps = {
   item: SnaggingItem;
@@ -49,7 +50,10 @@ export function SnaggingItemCard({
               </span>
             </CardDescription>
           </div>
-          <Badge variant="outline">Snagging Item</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline">Snagging Item</Badge>
+            <EditSnaggingItem item={item} clients={clients} projects={projects} />
+          </div>
         </div>
       </CardHeader>
       <CardContent>
