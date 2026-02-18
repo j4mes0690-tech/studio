@@ -21,6 +21,7 @@ import {
   Cog,
   Sparkles,
   ListChecks,
+  HelpCircle,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
@@ -29,6 +30,7 @@ const links = [
   { href: '/instructions', label: 'Instructions', icon: MessageSquare },
   { href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles },
   { href: '/snagging', label: 'Snagging', icon: ListChecks },
+  { href: '/information-requests', label: 'Info Requests', icon: HelpCircle },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
   { href: '/clients', label: 'Clients', icon: Users },
 ];

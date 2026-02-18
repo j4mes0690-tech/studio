@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Client, Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem } from './types';
+import type { Client, Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 
 let clients: Client[] = [
@@ -107,6 +107,17 @@ let snaggingLists: SnaggingItem[] = [
         projectId: '302',
         description: 'Leaky faucet in the master bathroom of Villa #5.',
         createdAt: new Date('2023-10-26T11:30:00Z').toISOString(),
+    }
+];
+
+let informationRequests: InformationRequest[] = [
+    {
+        id: 'ir1',
+        clientId: '1',
+        projectId: '101',
+        description: 'Client needs floor plans for level 5.',
+        assignedTo: 'engineer@example.com',
+        createdAt: new Date('2023-10-28T10:00:00Z').toISOString(),
     }
 ];
 
@@ -323,3 +334,45 @@ export async function createSnaggingItem(itemData: Omit<SnaggingItem, 'id' | 'cr
         }, 500);
     });
 }
+
+
+export async function getInformationRequests({
+    clientId,
+    projectId,
+  }: {
+    clientId?: string;
+    projectId?: string;
+  }): Promise<InformationRequest[]> {
+    noStore();
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        let filteredItems = [...informationRequests];
+        if (clientId) {
+          filteredItems = filteredItems.filter(
+            (i) => i.clientId === clientId
+          );
+        }
+        if (projectId) {
+          filteredItems = filteredItems.filter(
+            (i) => i.projectId === projectId
+          );
+        }
+        resolve(filteredItems.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      }, 100);
+    });
+  }
+  
+  export async function createInformationRequest(itemData: Omit<InformationRequest, 'id' | 'createdAt'>): Promise<InformationRequest> {
+      noStore();
+      return new Promise((resolve) => {
+          setTimeout(() => {
+              const newItem: InformationRequest = {
+                  ...itemData,
+                  id: `ir${informationRequests.length + 1}`,
+                  createdAt: new Date().toISOString(),
+              };
+              informationRequests = [newItem, ...informationRequests];
+              resolve(newItem);
+          }, 500);
+      });
+  }

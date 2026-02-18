@@ -51,6 +51,19 @@ export type SnaggingItem = {
   };
 };
 
+export type InformationRequest = {
+  id: string;
+  clientId: string;
+  projectId: string;
+  description: string;
+  assignedTo: string;
+  createdAt: string;
+  photo?: {
+    url: string;
+    takenAt: string;
+  };
+};
+
 export type DistributionUser = {
   id: string;
   name: string;
