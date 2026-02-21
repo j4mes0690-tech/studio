@@ -1,4 +1,3 @@
-
 import type { SnaggingItem, Client, Project } from '@/lib/types';
 import Image from 'next/image';
 import {
@@ -25,6 +24,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
+import { ClientDate } from '@/components/client-date';
 
 type SnaggingItemCardProps = {
   item: SnaggingItem;
@@ -53,7 +53,7 @@ export function SnaggingItemCard({
               </Avatar>
               <span>{client?.name || 'Unknown Client'}</span>
               <span className="text-xs text-muted-foreground/80">
-                - {new Date(item.createdAt).toLocaleString()}
+                - <ClientDate date={item.createdAt} />
               </span>
             </CardDescription>
           </div>
@@ -91,7 +91,7 @@ export function SnaggingItemCard({
                             />
                             <p className="text-xs text-muted-foreground">
                               Taken on:{' '}
-                              {new Date(photo.takenAt).toLocaleString()}
+                              <ClientDate date={photo.takenAt} />
                             </p>
                           </div>
                         </div>

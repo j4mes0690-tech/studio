@@ -1,4 +1,3 @@
-
 import type { CleanUpNotice, Client, Project } from '@/lib/types';
 import Image from 'next/image';
 import {
@@ -24,6 +23,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
+import { ClientDate } from '@/components/client-date';
 
 type NoticeCardProps = {
   notice: CleanUpNotice;
@@ -52,7 +52,7 @@ export function NoticeCard({
               </Avatar>
               <span>{client?.name || 'Unknown Client'}</span>
               <span className="text-xs text-muted-foreground/80">
-                - {new Date(notice.createdAt).toLocaleString()}
+                - <ClientDate date={notice.createdAt} />
               </span>
             </CardDescription>
           </div>
@@ -106,7 +106,7 @@ export function NoticeCard({
                             />
                             <p className="text-xs text-muted-foreground">
                               Taken on:{' '}
-                              {new Date(photo.takenAt).toLocaleString()}
+                              <ClientDate date={photo.takenAt} />
                             </p>
                           </div>
                         </div>

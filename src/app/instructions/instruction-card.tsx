@@ -1,4 +1,3 @@
-
 import type { Instruction, Client, Project } from '@/lib/types';
 import Image from 'next/image';
 import {
@@ -24,6 +23,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
+import { ClientDate } from '@/components/client-date';
 
 type InstructionCardProps = {
   instruction: Instruction;
@@ -52,7 +52,7 @@ export function InstructionCard({
               </Avatar>
               <span>{client?.name || 'Unknown Client'}</span>
               <span className="text-xs text-muted-foreground/80">
-                - {new Date(instruction.createdAt).toLocaleString()}
+                - <ClientDate date={instruction.createdAt} />
               </span>
             </CardDescription>
           </div>
@@ -123,7 +123,7 @@ export function InstructionCard({
                             />
                             <p className="text-xs text-muted-foreground">
                               Taken on:{' '}
-                              {new Date(photo.takenAt).toLocaleString()}
+                              <ClientDate date={photo.takenAt} />
                             </p>
                           </div>
                         </div>
