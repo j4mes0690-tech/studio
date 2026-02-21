@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useActionState } from 'react';
+import { useState, useEffect, useRef, useTransition } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { updateSnaggingItemAction, type FormState } from './actions';
+import { updateSnaggingItemAction } from './actions';
 import { Pencil, Camera, RefreshCw } from 'lucide-react';
 import type { Client, Project, SnaggingItem } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -64,9 +64,9 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
     boolean | undefined
   >();
   const { toast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isPending, startTransition] = useTransition();
 
   const form = useForm<EditSnaggingItemFormValues>({
     resolver: zodResolver(EditSnaggingItemSchema),
@@ -80,28 +80,33 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
     },
   });
 
-  const [formState, formAction, isPending] = useActionState<FormState, FormData>(
-    updateSnaggingItemAction,
-    { success: false, message: '' }
-  );
+  const onSubmit = (values: EditSnaggingItemFormValues) => {
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.append('id', values.id);
+      formData.append('clientId', values.clientId);
+      formData.append('projectId', values.projectId);
+      formData.append('description', values.description);
+      if (values.photoUrl) formData.append('photoUrl', values.photoUrl);
+      if (values.photoTimestamp) formData.append('photoTimestamp', values.photoTimestamp);
+      
+      const result = await updateSnaggingItemAction(formData);
 
-  useEffect(() => {
-    if (formState.message) {
-      if (formState.success) {
+      if (result.success) {
         toast({
           title: 'Success',
-          description: formState.message,
+          description: result.message,
         });
         setOpen(false);
       } else {
         toast({
           title: 'Error',
-          description: formState.message,
+          description: result.message,
           variant: 'destructive',
         });
       }
-    }
-  }, [formState, toast]);
+    });
+  };
 
   useEffect(() => {
     if (!open) {
@@ -208,9 +213,7 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
         </DialogHeader>
         <Form {...form}>
           <form
-            ref={formRef}
-            action={formAction}
-            onSubmit={form.handleSubmit(() => formRef.current?.requestSubmit())}
+            onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-4"
           >
             <input type="hidden" {...form.register('id')} />

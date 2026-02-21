@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useActionState } from 'react';
+import { useState, useEffect, useRef, useTransition } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { createInstructionAction, type FormState } from './actions';
+import { createInstructionAction } from './actions';
 import { PlusCircle, Camera, RefreshCw } from 'lucide-react';
 import type { Client, Project, DistributionUser } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -69,9 +69,9 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
     boolean | undefined
   >();
   const { toast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isPending, startTransition] = useTransition();
 
   const form = useForm<NewInstructionFormValues>({
     resolver: zodResolver(NewInstructionSchema),
@@ -85,17 +85,22 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
     },
   });
 
-  const [formState, formAction, isPending] = useActionState<FormState, FormData>(
-    createInstructionAction,
-    { success: false, message: '' }
-  );
+  const onSubmit = (values: NewInstructionFormValues) => {
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.append('clientId', values.clientId);
+      formData.append('projectId', values.projectId);
+      formData.append('originalText', values.originalText);
+      if (values.photoUrl) formData.append('photoUrl', values.photoUrl);
+      if (values.photoTimestamp) formData.append('photoTimestamp', values.photoTimestamp);
+      values.recipients?.forEach(r => formData.append('recipients', r));
+      
+      const result = await createInstructionAction(formData);
 
-  useEffect(() => {
-    if (formState.message) {
-      if (formState.success) {
+      if (result.success) {
         toast({
           title: 'Success',
-          description: formState.message,
+          description: result.message,
         });
         setOpen(false);
         form.reset();
@@ -103,12 +108,12 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
       } else {
         toast({
           title: 'Error',
-          description: formState.message,
+          description: result.message,
           variant: 'destructive',
         });
       }
-    }
-  }, [formState, toast, form]);
+    });
+  };
 
   useEffect(() => {
     if (!open) {
@@ -203,9 +208,7 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
         </DialogHeader>
         <Form {...form}>
           <form
-            ref={formRef}
-            action={formAction}
-            onSubmit={form.handleSubmit(() => formRef.current?.requestSubmit())}
+            onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-4"
           >
             <input type="hidden" {...form.register('photoUrl')} />

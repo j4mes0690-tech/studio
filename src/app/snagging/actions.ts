@@ -24,7 +24,6 @@ export type FormState = {
 };
 
 export async function createSnaggingItemAction(
-  prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
   
@@ -71,7 +70,6 @@ export async function createSnaggingItemAction(
 }
 
 export async function updateSnaggingItemAction(
-  prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
   

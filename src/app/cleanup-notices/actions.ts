@@ -21,7 +21,6 @@ export type FormState = {
 };
 
 export async function createCleanUpNoticeAction(
-  prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
   

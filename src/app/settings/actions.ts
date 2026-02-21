@@ -16,7 +16,6 @@ export type FormState = {
 };
 
 export async function addUserAction(
-  prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
   const validatedFields = UserSchema.safeParse({
@@ -57,7 +56,6 @@ export async function removeUserAction(userId: string) {
 
 
 export async function addSubContractorAction(
-  prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
   const validatedFields = UserSchema.safeParse({

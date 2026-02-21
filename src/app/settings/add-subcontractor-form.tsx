@@ -4,8 +4,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useActionState, useEffect, useRef } from 'react';
-import { addSubContractorAction, type FormState } from './actions';
+import { useTransition } from 'react';
+import { addSubContractorAction } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,39 +27,38 @@ type AddUserFormValues = z.infer<typeof AddUserSchema>;
 
 export function AddSubcontractorForm() {
   const { toast } = useToast();
-  const formRef = useRef<HTMLFormElement>(null);
+  const [isPending, startTransition] = useTransition();
 
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(AddUserSchema),
     defaultValues: { name: '', email: '' },
   });
 
-  const [formState, formAction, isPending] = useActionState<FormState, FormData>(
-    addSubContractorAction,
-    { success: false, message: '' }
-  );
+  const onSubmit = (values: AddUserFormValues) => {
+    startTransition(async () => {
+      const formData = new FormData();
+      formData.append('name', values.name);
+      formData.append('email', values.email);
 
-  useEffect(() => {
-    if (formState.message) {
-      if (formState.success) {
-        toast({ title: 'Success', description: formState.message });
+      const result = await addSubContractorAction(formData);
+
+      if (result.success) {
+        toast({ title: 'Success', description: result.message });
         form.reset();
       } else {
         toast({
           title: 'Error',
-          description: formState.message,
+          description: result.message,
           variant: 'destructive',
         });
       }
-    }
-  }, [formState, toast, form]);
+    });
+  };
 
   return (
     <Form {...form}>
       <form
-        ref={formRef}
-        action={formAction}
-        onSubmit={form.handleSubmit(() => formRef.current?.requestSubmit())}
+        onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-4"
       >
         <FormField

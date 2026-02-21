@@ -25,7 +25,6 @@ export type FormState = {
 };
 
 export async function createInformationRequestAction(
-  prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
   
@@ -83,7 +82,6 @@ export async function createInformationRequestAction(
 }
 
 export async function updateInformationRequestAction(
-    prevState: FormState,
     formData: FormData
   ): Promise<FormState> {
     

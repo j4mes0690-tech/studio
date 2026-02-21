@@ -23,7 +23,6 @@ export type FormState = {
 };
 
 export async function createInstructionAction(
-  prevState: FormState,
   formData: FormData
 ): Promise<FormState> {
   
