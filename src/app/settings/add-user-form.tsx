@@ -34,7 +34,7 @@ export function AddUserForm() {
     defaultValues: { name: '', email: '' },
   });
 
-  const [formState, formAction] = useActionState<FormState, FormData>(
+  const [formState, formAction, isPending] = useActionState<FormState, FormData>(
     addUserAction,
     { success: false, message: '' }
   );
@@ -88,8 +88,8 @@ export function AddUserForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? 'Adding...' : 'Add User'}
+        <Button type="submit" disabled={isPending}>
+          {isPending ? 'Adding...' : 'Add User'}
         </Button>
       </form>
     </Form>

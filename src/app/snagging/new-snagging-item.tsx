@@ -77,7 +77,7 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
     },
   });
 
-  const [formState, formAction] = useActionState<FormState, FormData>(
+  const [formState, formAction, isPending] = useActionState<FormState, FormData>(
     createSnaggingItemAction,
     { success: false, message: '' }
   );
@@ -342,8 +342,8 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
             <canvas ref={canvasRef} className="hidden" />
 
             <DialogFooter>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting
+              <Button type="submit" disabled={isPending}>
+                {isPending
                   ? 'Saving...'
                   : 'Save Item'}
               </Button>

@@ -34,7 +34,7 @@ export function AddSubcontractorForm() {
     defaultValues: { name: '', email: '' },
   });
 
-  const [formState, formAction] = useActionState<FormState, FormData>(
+  const [formState, formAction, isPending] = useActionState<FormState, FormData>(
     addSubContractorAction,
     { success: false, message: '' }
   );
@@ -88,8 +88,8 @@ export function AddSubcontractorForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? 'Adding...' : 'Add Sub-Contractor'}
+        <Button type="submit" disabled={isPending}>
+          {isPending ? 'Adding...' : 'Add Sub-Contractor'}
         </Button>
       </form>
     </Form>

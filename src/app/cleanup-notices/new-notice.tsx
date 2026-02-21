@@ -83,7 +83,7 @@ export function NewNotice({ clients, projects, subContractors }: NewNoticeProps)
     },
   });
 
-  const [formState, formAction] = useActionState<FormState, FormData>(
+  const [formState, formAction, isPending] = useActionState<FormState, FormData>(
     createCleanUpNoticeAction,
     { success: false, message: '' }
   );
@@ -400,8 +400,8 @@ export function NewNotice({ clients, projects, subContractors }: NewNoticeProps)
             <canvas ref={canvasRef} className="hidden" />
 
             <DialogFooter>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting
+              <Button type="submit" disabled={isPending}>
+                {isPending
                   ? 'Saving...'
                   : 'Save Notice'}
               </Button>

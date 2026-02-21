@@ -85,7 +85,7 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
     },
   });
 
-  const [formState, formAction] = useActionState<FormState, FormData>(
+  const [formState, formAction, isPending] = useActionState<FormState, FormData>(
     createInstructionAction,
     { success: false, message: '' }
   );
@@ -403,8 +403,8 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
             <canvas ref={canvasRef} className="hidden" />
 
             <DialogFooter>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting
+              <Button type="submit" disabled={isPending}>
+                {isPending
                   ? 'Saving...'
                   : 'Save Instruction'}
               </Button>

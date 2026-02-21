@@ -81,7 +81,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
     },
   });
 
-  const [formState, formAction] = useActionState<FormState, FormData>(
+  const [formState, formAction, isPending] = useActionState<FormState, FormData>(
     createInformationRequestAction,
     { success: false, message: '' }
   );
@@ -374,8 +374,8 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
             <canvas ref={canvasRef} className="hidden" />
 
             <DialogFooter>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting
+              <Button type="submit" disabled={isPending}>
+                {isPending
                   ? 'Saving...'
                   : 'Save Request'}
               </Button>
