@@ -15,7 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users } from 'lucide-react';
+import { Camera, Users, MessageSquareReply, CalendarClock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditInformationRequest } from './edit-information-request';
 import {
@@ -25,6 +25,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
+import { RespondToRequest } from './respond-to-request';
 
 type InformationRequestCardProps = {
   item: InformationRequest;
@@ -52,20 +53,34 @@ export function InformationRequestCard({
         <div className="flex justify-between items-start">
           <div>
             <CardTitle>{project?.name || 'Unknown Project'}</CardTitle>
-            <CardDescription className="flex items-center gap-2 pt-1">
-              <Avatar className="h-6 w-6">
-                <AvatarImage src={client?.avatarUrl} />
-                <AvatarFallback>{client?.name?.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <span>{client?.name || 'Unknown Client'}</span>
-              <span className="text-xs text-muted-foreground/80">
-                - {new Date(item.createdAt).toLocaleString()}
-              </span>
+            <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
+                <span className='flex items-center gap-2'>
+                    <Avatar className="h-6 w-6">
+                        <AvatarImage src={client?.avatarUrl} />
+                        <AvatarFallback>{client?.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <span>{client?.name || 'Unknown Client'}</span>
+                </span>
+                <span className="hidden sm:inline-block">-</span>
+                <span className="text-xs text-muted-foreground/80">
+                    {new Date(item.createdAt).toLocaleString()}
+                </span>
             </CardDescription>
+            {item.requiredBy && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                    <CalendarClock className="h-4 w-4" />
+                    <span>Required by: {new Date(item.requiredBy).toLocaleDateString()}</span>
+                </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
-            <Badge>Info Request</Badge>
-            <EditInformationRequest item={item} clients={clients} projects={projects} distributionUsers={distributionUsers} />
+            <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className='capitalize'>{item.status}</Badge>
+            {item.status === 'open' && (
+                <>
+                    <RespondToRequest item={item} />
+                    <EditInformationRequest item={item} clients={clients} projects={projects} distributionUsers={distributionUsers} />
+                </>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -90,6 +105,22 @@ export function InformationRequestCard({
                     return <Badge key={index} variant="outline">{displayName}</Badge>;
                   })}
                 </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
+          {item.status === 'closed' && item.response && (
+            <AccordionItem value="response">
+              <AccordionTrigger className="text-sm font-semibold">
+                <div className="flex items-center gap-2">
+                  <MessageSquareReply className="h-4 w-4" />
+                  <span>Response</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-2">
+                <p className="text-sm text-foreground whitespace-pre-wrap">{item.response}</p>
+                <p className="text-xs text-muted-foreground">
+                    Responded at: {new Date(item.respondedAt!).toLocaleString()}
+                </p>
               </AccordionContent>
             </AccordionItem>
           )}

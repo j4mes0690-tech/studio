@@ -55,6 +55,10 @@ export type InformationRequest = {
   assignedTo: string[];
   createdAt: string;
   photos?: Photo[];
+  requiredBy?: string;
+  status: 'open' | 'closed';
+  response?: string;
+  respondedAt?: string;
 };
 
 export type DistributionUser = {

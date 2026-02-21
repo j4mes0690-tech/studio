@@ -12,10 +12,16 @@ const NewInformationRequestSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
   photos: z.string().optional(),
+  requiredBy: z.string().optional(),
 });
 
 const UpdateInformationRequestSchema = NewInformationRequestSchema.extend({
     id: z.string().min(1, 'Item ID is required.'),
+});
+
+const RespondToRequestSchema = z.object({
+    id: z.string().min(1, 'Item ID is required.'),
+    response: z.string().min(1, 'Response cannot be empty.'),
 });
 
 export type FormState = {
@@ -33,6 +39,7 @@ export async function createInformationRequestAction(
     description: formData.get('description'),
     assignedTo: formData.getAll('assignedTo'),
     photos: formData.get('photos'),
+    requiredBy: formData.get('requiredBy'),
   });
 
   if (!validatedFields.success) {
@@ -44,7 +51,7 @@ export async function createInformationRequestAction(
     };
   }
 
-  const { description, clientId, projectId, assignedTo: assignedToIds, photos: photosJson } = validatedFields.data;
+  const { description, clientId, projectId, assignedTo: assignedToIds, photos: photosJson, requiredBy } = validatedFields.data;
 
   try {
     const users = await getDistributionUsers();
@@ -61,10 +68,14 @@ export async function createInformationRequestAction(
       projectId,
       description,
       assignedTo: assignedEmails,
+      status: 'open',
     };
 
     if (photosJson) {
         newRequestData.photos = JSON.parse(photosJson);
+    }
+    if (requiredBy) {
+        newRequestData.requiredBy = requiredBy;
     }
     
     await createInformationRequest(newRequestData);
@@ -89,6 +100,7 @@ export async function updateInformationRequestAction(
       description: formData.get('description'),
       assignedTo: formData.getAll('assignedTo'),
       photos: formData.get('photos'),
+      requiredBy: formData.get('requiredBy'),
     });
   
     if (!validatedFields.success) {
@@ -100,7 +112,7 @@ export async function updateInformationRequestAction(
       };
     }
   
-    const { id, description, clientId, projectId, assignedTo: assignedToIds, photos: photosJson } = validatedFields.data;
+    const { id, description, clientId, projectId, assignedTo: assignedToIds, photos: photosJson, requiredBy } = validatedFields.data;
   
     try {
       const [users, allItems] = await Promise.all([
@@ -128,6 +140,12 @@ export async function updateInformationRequestAction(
         description,
         assignedTo: assignedEmails,
       };
+
+      if (requiredBy) {
+        updatedItem.requiredBy = requiredBy;
+      } else {
+        delete updatedItem.requiredBy;
+      }
   
       if (photosJson) {
         updatedItem.photos = JSON.parse(photosJson);
@@ -145,3 +163,46 @@ export async function updateInformationRequestAction(
       return { success: false, message: 'Failed to update information request.' };
     }
   }
+
+export async function addResponseToInformationRequestAction(
+    formData: FormData
+    ): Promise<FormState> {
+    
+    const validatedFields = RespondToRequestSchema.safeParse({
+        id: formData.get('id'),
+        response: formData.get('response'),
+    });
+
+    if (!validatedFields.success) {
+        return {
+        success: false,
+        message: validatedFields.error.flatten().fieldErrors.response?.[0] || 'Invalid data provided.',
+        };
+    }
+
+    const { id, response } = validatedFields.data;
+
+    try {
+        const allItems = await getInformationRequests({});
+        const existingItem = allItems.find(i => i.id === id);
+
+        if (!existingItem) {
+        return { success: false, message: 'Information request not found.' };
+        }
+
+        const updatedItem: InformationRequest = {
+        ...existingItem,
+        response,
+        status: 'closed',
+        respondedAt: new Date().toISOString(),
+        };
+
+        await updateInformationRequest(updatedItem);
+
+        revalidatePath('/information-requests');
+        return { success: true, message: 'Response submitted successfully.' };
+    } catch (error) {
+        console.error('Failed to add response:', error);
+        return { success: false, message: 'Failed to add response.' };
+    }
+}

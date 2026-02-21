@@ -6,7 +6,9 @@ import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { format } from 'date-fns';
 
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -35,11 +37,13 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { updateInformationRequestAction } from './actions';
-import { Pencil, Camera, Upload, X } from 'lucide-react';
+import { Pencil, Camera, Upload, X, CalendarIcon } from 'lucide-react';
 import type { Client, Project, InformationRequest, DistributionUser, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 const EditInformationRequestSchema = z.object({
   id: z.string().min(1),
@@ -48,6 +52,7 @@ const EditInformationRequestSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
   photos: z.string().optional(),
+  requiredBy: z.string().optional(),
 });
 
 type EditInformationRequestFormValues = z.infer<typeof EditInformationRequestSchema>;
@@ -88,6 +93,7 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
       description: item.description,
       assignedTo: assignedUserIds,
       photos: JSON.stringify(item.photos || []),
+      requiredBy: item.requiredBy,
     },
   });
 
@@ -103,7 +109,10 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
       formData.append('projectId', values.projectId);
       formData.append('description', values.description);
       values.assignedTo.forEach(id => formData.append('assignedTo', id));
-      formData.append('photos', values.photos);
+      formData.append('photos', values.photos || '[]');
+      if (values.requiredBy) {
+        formData.append('requiredBy', values.requiredBy);
+      }
       
       const result = await updateInformationRequestAction(formData);
 
@@ -137,6 +146,7 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
         description: item.description,
         assignedTo: assignedUserIdsOnReset,
         photos: JSON.stringify(item.photos || []),
+        requiredBy: item.requiredBy,
       });
       setPhotos(item.photos || []);
     } else {
@@ -328,6 +338,45 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
                 </FormItem>
               )}
             />
+
+            <FormField
+                control={form.control}
+                name="requiredBy"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Required By (Optional)</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={'outline'}
+                            className={cn(
+                              'w-[240px] pl-3 text-left font-normal',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                          >
+                            {field.value ? (
+                              format(new Date(field.value), 'PPP')
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) => field.onChange(date?.toISOString())}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
             <FormItem>
               <div className="mb-4">

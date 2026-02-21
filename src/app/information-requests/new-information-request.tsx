@@ -6,7 +6,9 @@ import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { format } from 'date-fns';
 
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -32,10 +34,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { createInformationRequestAction } from './actions';
-import { PlusCircle, Camera, Upload, X } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, CalendarIcon } from 'lucide-react';
 import type { Client, Project, DistributionUser, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -47,6 +55,7 @@ const NewInformationRequestSchema = z.object({
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
   photos: z.string().optional(),
+  requiredBy: z.string().optional(),
 });
 
 type NewInformationRequestFormValues = z.infer<typeof NewInformationRequestSchema>;
@@ -80,6 +89,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
       description: '',
       assignedTo: [],
       photos: '',
+      requiredBy: '',
     },
   });
 
@@ -95,6 +105,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
       formData.append('description', values.description);
       values.assignedTo.forEach(id => formData.append('assignedTo', id));
       if (values.photos) formData.append('photos', values.photos);
+      if (values.requiredBy) formData.append('requiredBy', values.requiredBy);
 
       const result = await createInformationRequestAction(formData);
 
@@ -296,6 +307,44 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
                 </FormItem>
               )}
             />
+            <FormField
+                control={form.control}
+                name="requiredBy"
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel>Required By (Optional)</FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button
+                            variant={'outline'}
+                            className={cn(
+                              'w-[240px] pl-3 text-left font-normal',
+                              !field.value && 'text-muted-foreground'
+                            )}
+                          >
+                            {field.value ? (
+                              format(new Date(field.value), 'PPP')
+                            ) : (
+                              <span>Pick a date</span>
+                            )}
+                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={field.value ? new Date(field.value) : undefined}
+                          onSelect={(date) => field.onChange(date?.toISOString())}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
             <FormItem>
               <div className="mb-4">
