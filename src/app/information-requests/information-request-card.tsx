@@ -35,6 +35,10 @@ export function InformationRequestCard({
   const client = clients.find((c) => c.id === item.clientId);
   const project = projects.find((p) => p.id === item.projectId);
 
+  const assignedToArray = Array.isArray(item.assignedTo)
+    ? item.assignedTo
+    : item.assignedTo ? [item.assignedTo] : [];
+
   return (
     <Card>
       <CardHeader>
@@ -61,19 +65,19 @@ export function InformationRequestCard({
       <CardContent>
         <p className="text-sm text-foreground mb-4">{item.description}</p>
         <Accordion type="single" collapsible className="w-full">
-          {item.assignedTo && item.assignedTo.length > 0 && (
+          {assignedToArray.length > 0 && (
             <AccordionItem value="assigned-to">
               <AccordionTrigger className="text-sm font-semibold">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   <span>
-                    Assigned To ({item.assignedTo.length})
+                    Assigned To ({assignedToArray.length})
                   </span>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
                 <div className="flex flex-wrap gap-1">
-                  {item.assignedTo.map((email, index) => {
+                  {assignedToArray.map((email, index) => {
                     const user = distributionUsers.find(u => u.email === email);
                     const displayName = user ? `${user.name} (${user.email})` : email;
                     return <Badge key={index} variant="outline">{displayName}</Badge>;

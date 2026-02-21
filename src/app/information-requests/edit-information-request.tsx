@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -72,7 +71,10 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPending, startTransition] = useTransition();
 
-  const assignedUserIds = distributionUsers.filter(u => item.assignedTo.includes(u.email)).map(u => u.id);
+  const assignedToEmails = Array.isArray(item.assignedTo)
+    ? item.assignedTo
+    : item.assignedTo ? [item.assignedTo] : [];
+  const assignedUserIds = distributionUsers.filter(u => assignedToEmails.includes(u.email)).map(u => u.id);
 
   const form = useForm<EditInformationRequestFormValues>({
     resolver: zodResolver(EditInformationRequestSchema),
@@ -119,17 +121,23 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
   useEffect(() => {
     if (!open) {
       setIsCameraOpen(false);
+      
+      const assignedToEmailsOnReset = Array.isArray(item.assignedTo)
+        ? item.assignedTo
+        : item.assignedTo ? [item.assignedTo] : [];
+      const assignedUserIdsOnReset = distributionUsers.filter(u => assignedToEmailsOnReset.includes(u.email)).map(u => u.id);
+
       form.reset({
         id: item.id,
         clientId: item.clientId,
         projectId: item.projectId,
         description: item.description,
-        assignedTo: assignedUserIds,
+        assignedTo: assignedUserIdsOnReset,
         photoUrl: item.photo?.url || '',
         photoTimestamp: item.photo?.takenAt || '',
       });
     }
-  }, [open, form, item, assignedUserIds]);
+  }, [open, form, item, distributionUsers]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;

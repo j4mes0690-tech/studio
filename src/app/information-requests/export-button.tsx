@@ -50,7 +50,8 @@ export function ExportButton({
     const rows = items.map((item) => {
       const project = projectMap.get(item.projectId);
       const client = clientMap.get(item.clientId);
-      const assignedToNames = item.assignedTo.map(email => userMap.get(email) || email).join('; ');
+      const assignedToArray = Array.isArray(item.assignedTo) ? item.assignedTo : (item.assignedTo ? [item.assignedTo] : []);
+      const assignedToNames = assignedToArray.map(email => userMap.get(email) || email).join('; ');
       return [
         project?.name || 'N/A',
         client?.name || 'N/A',
