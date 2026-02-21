@@ -66,6 +66,7 @@ type EditInformationRequestProps = {
 
 export function EditInformationRequest({ item, clients, projects, distributionUsers }: EditInformationRequestProps) {
   const [open, setOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
@@ -149,6 +150,7 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
         requiredBy: item.requiredBy,
       });
       setPhotos(item.photos || []);
+      setCalendarOpen(false);
     } else {
       setIsCameraOpen(false);
     }
@@ -345,7 +347,7 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Required By (Optional)</FormLabel>
-                    <Popover>
+                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
@@ -368,7 +370,10 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
                         <Calendar
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => field.onChange(date?.toISOString())}
+                          onSelect={(date) => {
+                            field.onChange(date ? date.toISOString() : undefined);
+                            setCalendarOpen(false);
+                          }}
                           initialFocus
                         />
                       </PopoverContent>

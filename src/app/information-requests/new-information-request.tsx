@@ -68,6 +68,7 @@ type NewInformationRequestProps = {
 
 export function NewInformationRequest({ clients, projects, distributionUsers }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
@@ -89,7 +90,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
       description: '',
       assignedTo: [],
       photos: '',
-      requiredBy: '',
+      requiredBy: undefined,
     },
   });
 
@@ -130,6 +131,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
       setIsCameraOpen(false);
       setPhotos([]);
       form.reset();
+      setCalendarOpen(false);
     }
   }, [open, form]);
 
@@ -313,7 +315,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Required By (Optional)</FormLabel>
-                    <Popover>
+                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
@@ -336,7 +338,10 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
                         <Calendar
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => field.onChange(date?.toISOString())}
+                          onSelect={(date) => {
+                            field.onChange(date ? date.toISOString() : undefined);
+                            setCalendarOpen(false);
+                          }}
                           initialFocus
                         />
                       </PopoverContent>
