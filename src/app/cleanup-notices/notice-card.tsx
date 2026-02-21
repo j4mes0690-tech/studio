@@ -23,7 +23,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
-import { ClientDate } from '@/components/client-date';
+import { ClientDate } from '../../components/client-date';
 
 type NoticeCardProps = {
   notice: CleanUpNotice;

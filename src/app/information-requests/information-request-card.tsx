@@ -42,7 +42,7 @@ import { closeInformationRequestAction, reopenInformationRequestAction } from '.
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { ClientDate } from '@/components/client-date';
+import { ClientDate } from '../../components/client-date';
 
 
 function CloseRequestButton({ requestId }: { requestId: string }) {
