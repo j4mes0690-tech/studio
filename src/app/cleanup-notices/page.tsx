@@ -26,7 +26,7 @@ export default async function CleanUpNoticesPage({
   ]);
 
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full min-h-screen">
       <Header title="Clean Up Notices" />
       <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
@@ -34,7 +34,6 @@ export default async function CleanUpNoticesPage({
             Notice Log
           </h2>
           <div className="flex items-center gap-2">
-            <ExportButton notices={notices} clients={clients} projects={allProjects} />
             <NewNotice clients={clients} projects={allProjects} subContractors={subContractors} />
           </div>
         </div>
@@ -56,6 +55,11 @@ export default async function CleanUpNoticesPage({
             </div>
           )}
         </div>
+        {notices.length > 0 && (
+          <div className="flex justify-center mt-auto pt-6">
+            <ExportButton notices={notices} clients={clients} projects={allProjects} />
+          </div>
+        )}
       </main>
     </div>
   );

@@ -1,9 +1,14 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 import type { CleanUpNotice, Client, Project } from '@/lib/types';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 type ExportButtonProps = {
   notices: CleanUpNotice[];
@@ -67,9 +72,18 @@ export function ExportButton({
   };
 
   return (
-    <Button variant="outline" onClick={handleExport}>
-      <Download className="mr-2 h-4 w-4" />
-      Export CSV
-    </Button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" onClick={handleExport}>
+            <Download className="h-5 w-5" />
+            <span className="sr-only">Export CSV</span>
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Export CSV</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

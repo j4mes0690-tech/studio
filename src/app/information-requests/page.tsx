@@ -26,7 +26,7 @@ export default async function InformationRequestsPage({
   ]);
 
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col w-full min-h-screen">
       <Header title="Information Requests" />
       <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
@@ -34,7 +34,6 @@ export default async function InformationRequestsPage({
             Information Request Log
           </h2>
           <div className="flex items-center gap-2">
-            <ExportButton items={items} clients={clients} projects={allProjects} distributionUsers={distributionUsers} />
             <NewInformationRequest clients={clients} projects={allProjects} distributionUsers={distributionUsers} />
           </div>
         </div>
@@ -57,6 +56,11 @@ export default async function InformationRequestsPage({
             </div>
           )}
         </div>
+        {items.length > 0 && (
+          <div className="flex justify-center mt-auto pt-6">
+            <ExportButton items={items} clients={clients} projects={allProjects} distributionUsers={distributionUsers} />
+          </div>
+        )}
       </main>
     </div>
   );
