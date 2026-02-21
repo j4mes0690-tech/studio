@@ -15,7 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, User } from 'lucide-react';
+import { Camera, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditInformationRequest } from './edit-information-request';
 
@@ -34,7 +34,6 @@ export function InformationRequestCard({
 }: InformationRequestCardProps) {
   const client = clients.find((c) => c.id === item.clientId);
   const project = projects.find((p) => p.id === item.projectId);
-  const assignedUser = distributionUsers.find(u => u.email === item.assignedTo);
 
   return (
     <Card>
@@ -61,11 +60,28 @@ export function InformationRequestCard({
       </CardHeader>
       <CardContent>
         <p className="text-sm text-foreground mb-4">{item.description}</p>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-            <User className="h-4 w-4"/>
-            <span>Assigned to: {assignedUser?.name || item.assignedTo}</span>
-        </div>
         <Accordion type="single" collapsible className="w-full">
+          {item.assignedTo && item.assignedTo.length > 0 && (
+            <AccordionItem value="assigned-to">
+              <AccordionTrigger className="text-sm font-semibold">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  <span>
+                    Assigned To ({item.assignedTo.length})
+                  </span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="flex flex-wrap gap-1">
+                  {item.assignedTo.map((email, index) => {
+                    const user = distributionUsers.find(u => u.email === email);
+                    const displayName = user ? `${user.name} (${user.email})` : email;
+                    return <Badge key={index} variant="outline">{displayName}</Badge>;
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          )}
           {item.photo && (
             <AccordionItem value="photo">
               <AccordionTrigger className="text-sm font-semibold">

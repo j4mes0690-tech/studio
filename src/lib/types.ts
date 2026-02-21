@@ -56,7 +56,7 @@ export type InformationRequest = {
   clientId: string;
   projectId: string;
   description: string;
-  assignedTo: string;
+  assignedTo: string[];
   createdAt: string;
   photo?: {
     url: string;

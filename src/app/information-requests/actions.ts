@@ -10,7 +10,7 @@ const NewInformationRequestSchema = z.object({
   clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
-  assignedTo: z.string().min(1, 'Please assign this request to a user.'),
+  assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
   photoUrl: z.string().optional(),
   photoTimestamp: z.string().optional(),
 });
@@ -32,7 +32,7 @@ export async function createInformationRequestAction(
     clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     description: formData.get('description'),
-    assignedTo: formData.get('assignedTo'),
+    assignedTo: formData.getAll('assignedTo'),
     photoUrl: formData.get('photoUrl'),
     photoTimestamp: formData.get('photoTimestamp'),
   });
@@ -46,21 +46,23 @@ export async function createInformationRequestAction(
     };
   }
 
-  const { description, clientId, projectId, assignedTo: assignedToId, photoUrl, photoTimestamp } = validatedFields.data;
+  const { description, clientId, projectId, assignedTo: assignedToIds, photoUrl, photoTimestamp } = validatedFields.data;
 
   try {
     const users = await getDistributionUsers();
-    const assignedUser = users.find(u => u.id === assignedToId);
+    const assignedUsers = users.filter(u => assignedToIds.includes(u.id));
 
-    if (!assignedUser) {
-        return { success: false, message: 'Assigned user not found.' };
+    if (assignedUsers.length !== assignedToIds.length) {
+        return { success: false, message: 'One or more assigned users were not found.' };
     }
+    const assignedEmails = assignedUsers.map(u => u.email);
+
 
     const newRequestData: Omit<InformationRequest, 'id' | 'createdAt'> = {
       clientId,
       projectId,
       description,
-      assignedTo: assignedUser.email,
+      assignedTo: assignedEmails,
     };
 
     if (photoUrl && photoTimestamp) {
@@ -90,7 +92,7 @@ export async function updateInformationRequestAction(
       clientId: formData.get('clientId'),
       projectId: formData.get('projectId'),
       description: formData.get('description'),
-      assignedTo: formData.get('assignedTo'),
+      assignedTo: formData.getAll('assignedTo'),
       photoUrl: formData.get('photoUrl'),
       photoTimestamp: formData.get('photoTimestamp'),
     });
@@ -104,7 +106,7 @@ export async function updateInformationRequestAction(
       };
     }
   
-    const { id, description, clientId, projectId, assignedTo: assignedToId, photoUrl, photoTimestamp } = validatedFields.data;
+    const { id, description, clientId, projectId, assignedTo: assignedToIds, photoUrl, photoTimestamp } = validatedFields.data;
   
     try {
       const [users, allItems] = await Promise.all([
@@ -118,18 +120,19 @@ export async function updateInformationRequestAction(
         return { success: false, message: 'Information request not found.' };
       }
   
-      const assignedUser = users.find(u => u.id === assignedToId);
+      const assignedUsers = users.filter(u => assignedToIds.includes(u.id));
   
-      if (!assignedUser) {
-          return { success: false, message: 'Assigned user not found.' };
+      if (assignedUsers.length !== assignedToIds.length) {
+          return { success: false, message: 'One or more assigned users not found.' };
       }
+      const assignedEmails = assignedUsers.map(u => u.email);
   
       const updatedItem: InformationRequest = {
         ...existingItem,
         clientId,
         projectId,
         description,
-        assignedTo: assignedUser.email,
+        assignedTo: assignedEmails,
       };
   
       if (photoUrl && photoTimestamp) {

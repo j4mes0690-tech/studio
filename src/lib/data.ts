@@ -16,16 +16,18 @@ declare global {
   var subContractors: SubContractor[];
 }
 
-if (!global.clients) {
-  global.clients = [
+const g = global as any;
+
+if (!g.clients) {
+  g.clients = [
     { id: '1', name: 'Global Construct Inc.', avatarUrl: 'https://picsum.photos/seed/1/40/40' },
     { id: '2', name: 'Pioneer Builders', avatarUrl: 'https://picsum.photos/seed/2/40/40' },
     { id: '3', name: 'Apex Developments', avatarUrl: 'https://picsum.photos/seed/3/40/40' },
   ];
 }
 
-if (!global.projects) {
-  global.projects = [
+if (!g.projects) {
+  g.projects = [
     { id: '101', name: 'Downtown Tower', clientId: '1' },
     { id: '102', name: 'Suburban Mall', clientId: '1' },
     { id: '201', name: 'Riverside Bridge', clientId: '2' },
@@ -34,8 +36,8 @@ if (!global.projects) {
   ];
 }
 
-if (!global.instructions) {
-  global.instructions = [
+if (!g.instructions) {
+  g.instructions = [
     {
       id: '1',
       clientId: '1',
@@ -92,8 +94,8 @@ if (!global.instructions) {
   ];
 }
 
-if (!global.cleanUpNotices) {
-    global.cleanUpNotices = [
+if (!g.cleanUpNotices) {
+    g.cleanUpNotices = [
         {
             id: 'cl1',
             clientId: '1',
@@ -109,8 +111,8 @@ if (!global.cleanUpNotices) {
     ];
 }
 
-if (!global.snaggingLists) {
-    global.snaggingLists = [
+if (!g.snaggingLists) {
+    g.snaggingLists = [
         {
             id: 'snag1',
             clientId: '1',
@@ -132,29 +134,29 @@ if (!global.snaggingLists) {
     ];
 }
 
-if (!global.informationRequests) {
-    global.informationRequests = [
+if (!g.informationRequests) {
+    g.informationRequests = [
         {
             id: 'ir1',
             clientId: '1',
             projectId: '101',
             description: 'Client needs floor plans for level 5.',
-            assignedTo: 'engineer@example.com',
+            assignedTo: ['engineer@example.com'],
             createdAt: new Date('2023-10-28T10:00:00Z').toISOString(),
         }
     ];
 }
 
-if (!global.distributionUsers) {
-  global.distributionUsers = [
+if (!g.distributionUsers) {
+  g.distributionUsers = [
     { id: 'user-1', name: 'Project Manager', email: 'pm@example.com' },
     { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com' },
     { id: 'user-3', name: 'Lead Engineer', email: 'engineer@example.com' },
   ];
 }
 
-if (!global.subContractors) {
-  global.subContractors = [
+if (!g.subContractors) {
+  g.subContractors = [
       { id: 'sub-1', name: 'General Cleaners LLC', email: 'contact@generalcleaners.com' },
       { id: 'sub-2', name: 'Site-Ready Services', email: 'ops@siteready.com' },
   ];
@@ -164,7 +166,7 @@ if (!global.subContractors) {
 // Simulate a database with async functions
 export async function getClients(): Promise<Client[]> {
   noStore();
-  return new Promise((resolve) => setTimeout(() => resolve(global.clients), 100));
+  return new Promise((resolve) => setTimeout(() => resolve(g.clients), 100));
 }
 
 export async function getProjects(clientId?: string): Promise<Project[]> {
@@ -172,9 +174,9 @@ export async function getProjects(clientId?: string): Promise<Project[]> {
   return new Promise((resolve) => {
     setTimeout(() => {
       if (clientId) {
-        resolve(global.projects.filter((p) => p.clientId === clientId));
+        resolve(g.projects.filter((p) => p.clientId === clientId));
       } else {
-        resolve(global.projects);
+        resolve(g.projects);
       }
     }, 100);
   });
@@ -190,7 +192,7 @@ export async function getInstructions({
   noStore();
   return new Promise((resolve) => {
     setTimeout(() => {
-      let filteredInstructions = [...global.instructions];
+      let filteredInstructions = [...g.instructions];
       if (clientId) {
         filteredInstructions = filteredInstructions.filter(
           (i) => i.clientId === clientId
@@ -212,10 +214,10 @@ export async function createInstruction(instructionData: Omit<Instruction, 'id' 
         setTimeout(() => {
             const newInstruction: Instruction = {
                 ...instructionData,
-                id: (global.instructions.length + 1).toString(),
+                id: (g.instructions.length + 1).toString(),
                 createdAt: new Date().toISOString(),
             };
-            global.instructions = [newInstruction, ...global.instructions];
+            g.instructions = [newInstruction, ...g.instructions];
             resolve(newInstruction);
         }, 500);
     });
@@ -223,7 +225,7 @@ export async function createInstruction(instructionData: Omit<Instruction, 'id' 
 
 export async function getDistributionUsers(): Promise<DistributionUser[]> {
   noStore();
-  return new Promise((resolve) => setTimeout(() => resolve(global.distributionUsers), 100));
+  return new Promise((resolve) => setTimeout(() => resolve(g.distributionUsers), 100));
 }
 
 export async function addDistributionUser(userData: Omit<DistributionUser, 'id'>): Promise<DistributionUser> {
@@ -234,7 +236,7 @@ export async function addDistributionUser(userData: Omit<DistributionUser, 'id'>
         ...userData,
         id: `user-${Date.now()}`,
       };
-      global.distributionUsers.push(newUser);
+      g.distributionUsers.push(newUser);
       resolve(newUser);
     }, 100);
   });
@@ -244,9 +246,9 @@ export async function removeDistributionUser(userId: string): Promise<{ success:
   noStore();
   return new Promise((resolve) => {
     setTimeout(() => {
-      const initialLength = global.distributionUsers.length;
-      global.distributionUsers = global.distributionUsers.filter((user) => user.id !== userId);
-      resolve({ success: global.distributionUsers.length < initialLength });
+      const initialLength = g.distributionUsers.length;
+      g.distributionUsers = g.distributionUsers.filter((user) => user.id !== userId);
+      resolve({ success: g.distributionUsers.length < initialLength });
     }, 100);
   });
 }
@@ -255,9 +257,9 @@ export async function updateDistributionUser(userData: DistributionUser): Promis
     noStore();
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        const index = global.distributionUsers.findIndex(user => user.id === userData.id);
+        const index = g.distributionUsers.findIndex(user => user.id === userData.id);
         if (index !== -1) {
-          global.distributionUsers[index] = userData;
+          g.distributionUsers[index] = userData;
           resolve(userData);
         } else {
           reject(new Error('User not found'));
@@ -277,7 +279,7 @@ export async function getCleanUpNotices({
   noStore();
   return new Promise((resolve) => {
     setTimeout(() => {
-      let filteredNotices = [...global.cleanUpNotices];
+      let filteredNotices = [...g.cleanUpNotices];
       if (clientId) {
         filteredNotices = filteredNotices.filter(
           (i) => i.clientId === clientId
@@ -299,10 +301,10 @@ export async function createCleanUpNotice(noticeData: Omit<CleanUpNotice, 'id' |
         setTimeout(() => {
             const newNotice: CleanUpNotice = {
                 ...noticeData,
-                id: `cl${global.cleanUpNotices.length + 1}`,
+                id: `cl${g.cleanUpNotices.length + 1}`,
                 createdAt: new Date().toISOString(),
             };
-            global.cleanUpNotices = [newNotice, ...global.cleanUpNotices];
+            g.cleanUpNotices = [newNotice, ...g.cleanUpNotices];
             resolve(newNotice);
         }, 500);
     });
@@ -310,7 +312,7 @@ export async function createCleanUpNotice(noticeData: Omit<CleanUpNotice, 'id' |
 
 export async function getSubContractors(): Promise<SubContractor[]> {
   noStore();
-  return new Promise((resolve) => setTimeout(() => resolve(global.subContractors), 100));
+  return new Promise((resolve) => setTimeout(() => resolve(g.subContractors), 100));
 }
 
 export async function addSubContractor(userData: Omit<SubContractor, 'id'>): Promise<SubContractor> {
@@ -321,7 +323,7 @@ export async function addSubContractor(userData: Omit<SubContractor, 'id'>): Pro
         ...userData,
         id: `sub-${Date.now()}`,
       };
-      global.subContractors.push(newUser);
+      g.subContractors.push(newUser);
       resolve(newUser);
     }, 100);
   });
@@ -331,9 +333,9 @@ export async function removeSubContractor(userId: string): Promise<{ success: bo
   noStore();
   return new Promise((resolve) => {
     setTimeout(() => {
-      const initialLength = global.subContractors.length;
-      global.subContractors = global.subContractors.filter((user) => user.id !== userId);
-      resolve({ success: global.subContractors.length < initialLength });
+      const initialLength = g.subContractors.length;
+      g.subContractors = g.subContractors.filter((user) => user.id !== userId);
+      resolve({ success: g.subContractors.length < initialLength });
     }, 100);
   });
 }
@@ -342,9 +344,9 @@ export async function updateSubContractor(userData: SubContractor): Promise<SubC
     noStore();
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        const index = global.subContractors.findIndex(user => user.id === userData.id);
+        const index = g.subContractors.findIndex(user => user.id === userData.id);
         if (index !== -1) {
-          global.subContractors[index] = userData;
+          g.subContractors[index] = userData;
           resolve(userData);
         } else {
           reject(new Error('Sub-contractor not found'));
@@ -363,7 +365,7 @@ export async function getSnaggingLists({
   noStore();
   return new Promise((resolve) => {
     setTimeout(() => {
-      let filteredItems = [...global.snaggingLists];
+      let filteredItems = [...g.snaggingLists];
       if (clientId) {
         filteredItems = filteredItems.filter(
           (i) => i.clientId === clientId
@@ -385,10 +387,10 @@ export async function createSnaggingItem(itemData: Omit<SnaggingItem, 'id' | 'cr
         setTimeout(() => {
             const newItem: SnaggingItem = {
                 ...itemData,
-                id: `snag${global.snaggingLists.length + 1}`,
+                id: `snag${g.snaggingLists.length + 1}`,
                 createdAt: new Date().toISOString(),
             };
-            global.snaggingLists = [newItem, ...global.snaggingLists];
+            g.snaggingLists = [newItem, ...g.snaggingLists];
             resolve(newItem);
         }, 500);
     });
@@ -398,9 +400,9 @@ export async function updateSnaggingItem(itemData: SnaggingItem): Promise<Snaggi
     noStore();
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const index = global.snaggingLists.findIndex(item => item.id === itemData.id);
+            const index = g.snaggingLists.findIndex(item => item.id === itemData.id);
             if (index !== -1) {
-                global.snaggingLists[index] = itemData;
+                g.snaggingLists[index] = itemData;
                 resolve(itemData);
             } else {
                 reject(new Error('Snagging item not found'));
@@ -420,7 +422,7 @@ export async function getInformationRequests({
     noStore();
     return new Promise((resolve) => {
       setTimeout(() => {
-        let filteredItems = [...global.informationRequests];
+        let filteredItems = [...g.informationRequests];
         if (clientId) {
           filteredItems = filteredItems.filter(
             (i) => i.clientId === clientId
@@ -442,10 +444,10 @@ export async function getInformationRequests({
           setTimeout(() => {
               const newItem: InformationRequest = {
                   ...itemData,
-                  id: `ir${global.informationRequests.length + 1}`,
+                  id: `ir${g.informationRequests.length + 1}`,
                   createdAt: new Date().toISOString(),
               };
-              global.informationRequests = [newItem, ...global.informationRequests];
+              g.informationRequests = [newItem, ...g.informationRequests];
               resolve(newItem);
           }, 500);
       });
@@ -455,9 +457,9 @@ export async function getInformationRequests({
     noStore();
     return new Promise((resolve, reject) => {
         setTimeout(() => {
-            const index = global.informationRequests.findIndex(item => item.id === itemData.id);
+            const index = g.informationRequests.findIndex(item => item.id === itemData.id);
             if (index !== -1) {
-                global.informationRequests[index] = itemData;
+                g.informationRequests[index] = itemData;
                 resolve(itemData);
             } else {
                 reject(new Error('Information request not found'));
@@ -465,5 +467,3 @@ export async function getInformationRequests({
         }, 500);
     });
 }
-
-    

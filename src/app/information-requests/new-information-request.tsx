@@ -38,12 +38,15 @@ import { createInformationRequestAction } from './actions';
 import { PlusCircle, Camera, RefreshCw } from 'lucide-react';
 import type { Client, Project, DistributionUser } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const NewInformationRequestSchema = z.object({
   clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
-  assignedTo: z.string().min(1, 'Please assign this request to a user.'),
+  assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
   photoUrl: z.string().optional(),
   photoTimestamp: z.string().optional(),
 });
@@ -74,7 +77,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
       clientId: '',
       projectId: '',
       description: '',
-      assignedTo: '',
+      assignedTo: [],
       photoUrl: '',
       photoTimestamp: '',
     },
@@ -86,7 +89,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
       formData.append('clientId', values.clientId);
       formData.append('projectId', values.projectId);
       formData.append('description', values.description);
-      formData.append('assignedTo', values.assignedTo);
+      values.assignedTo.forEach(id => formData.append('assignedTo', id));
       if (values.photoUrl) formData.append('photoUrl', values.photoUrl);
       if (values.photoTimestamp) formData.append('photoTimestamp', values.photoTimestamp);
 
@@ -280,34 +283,57 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
                 </FormItem>
               )}
             />
+
+            <FormItem>
+              <div className="mb-4">
+                <FormLabel>Assign To</FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  Select who to assign this request to.
+                </p>
+              </div>
+              <ScrollArea className="h-40 rounded-md border">
+                <div className="p-4 space-y-2">
+                  {distributionUsers.map((user) => (
+                    <FormField
+                      key={user.id}
+                      control={form.control}
+                      name="assignedTo"
+                      render={({ field }) => {
+                        return (
+                          <FormItem
+                            key={user.id}
+                            className="flex flex-row items-center space-x-3 space-y-0"
+                          >
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(user.id)}
+                                onCheckedChange={(checked) => {
+                                  const updatedValue = field.value ? [...field.value] : [];
+                                  if (checked) {
+                                    updatedValue.push(user.id);
+                                  } else {
+                                    const index = updatedValue.indexOf(user.id);
+                                    if (index > -1) {
+                                      updatedValue.splice(index, 1);
+                                    }
+                                  }
+                                  field.onChange(updatedValue);
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal">
+                              {user.name} <span className="text-muted-foreground">({user.email})</span>
+                            </FormLabel>
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+              </ScrollArea>
+              <FormMessage />
+            </FormItem>
             
-            <FormField
-              control={form.control}
-              name="assignedTo"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Assign To</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a user to assign the request" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {distributionUsers.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
-                          {user.name} ({user.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormItem>
               <FormLabel>Photo</FormLabel>
