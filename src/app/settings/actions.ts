@@ -43,6 +43,7 @@ export async function addUserAction(
     revalidatePath('/settings');
     revalidatePath('/instructions');
     revalidatePath('/information-requests');
+    revalidatePath('/', 'layout');
     return { success: true, message: 'User added successfully.' };
   } catch (error) {
     return { success: false, message: 'Failed to add user.' };
@@ -55,6 +56,7 @@ export async function removeUserAction(userId: string) {
     revalidatePath('/settings');
     revalidatePath('/instructions');
     revalidatePath('/information-requests');
+    revalidatePath('/', 'layout');
   } catch (error) {
     // In a real app, you'd handle this more gracefully
     console.error('Failed to remove user:', error);
@@ -83,6 +85,7 @@ export async function updateUserAction(
       revalidatePath('/settings');
       revalidatePath('/instructions');
       revalidatePath('/information-requests');
+      revalidatePath('/', 'layout');
       return { success: true, message: 'User updated successfully.' };
     } catch (error) {
       return { success: false, message: 'Failed to update user.' };
@@ -110,6 +113,7 @@ export async function addSubContractorAction(
     await addSubContractor(validatedFields.data);
     revalidatePath('/settings');
     revalidatePath('/cleanup-notices');
+    revalidatePath('/', 'layout');
     return { success: true, message: 'Sub-contractor added successfully.' };
   } catch (error) {
     return { success: false, message: 'Failed to add sub-contractor.' };
@@ -121,6 +125,7 @@ export async function removeSubContractorAction(userId: string) {
     await removeSubContractor(userId);
     revalidatePath('/settings');
     revalidatePath('/cleanup-notices');
+    revalidatePath('/', 'layout');
   } catch (error) {
     console.error('Failed to remove sub-contractor:', error);
   }
@@ -148,6 +153,7 @@ export async function updateSubContractorAction(
       await updateSubContractor(validatedFields.data as SubContractor);
       revalidatePath('/settings');
       revalidatePath('/cleanup-notices');
+      revalidatePath('/', 'layout');
       return { success: true, message: 'Sub-contractor updated successfully.' };
     } catch (error) {
       return { success: false, message: 'Failed to update sub-contractor.' };
