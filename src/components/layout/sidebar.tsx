@@ -17,7 +17,6 @@ import {
   LayoutGrid,
   MessageSquare,
   FolderKanban,
-  Users,
   Cog,
   Sparkles,
   ListChecks,
@@ -32,7 +31,6 @@ const links = [
   { href: '/snagging', label: 'Snagging', icon: ListChecks },
   { href: '/information-requests', label: 'Info Requests', icon: HelpCircle },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
-  { href: '/clients', label: 'Clients', icon: Users },
 ];
 
 const secondaryLinks = [{ href: '/settings', label: 'Settings', icon: Cog }];

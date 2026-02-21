@@ -1,4 +1,4 @@
-import type { SnaggingItem, Client, Project } from '@/lib/types';
+import type { SnaggingItem, Project } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Accordion,
   AccordionContent,
@@ -28,16 +27,13 @@ import { ClientDate } from '../../components/client-date';
 
 type SnaggingItemCardProps = {
   item: SnaggingItem;
-  clients: Client[];
   projects: Project[];
 };
 
 export function SnaggingItemCard({
   item,
-  clients,
   projects,
 }: SnaggingItemCardProps) {
-  const client = clients.find((c) => c.id === item.clientId);
   const project = projects.find((p) => p.id === item.projectId);
 
   return (
@@ -47,11 +43,6 @@ export function SnaggingItemCard({
           <div>
             <CardTitle>{project?.name || 'Unknown Project'}</CardTitle>
             <CardDescription className="flex items-center gap-2 pt-1">
-              <Avatar className="h-6 w-6">
-                <AvatarImage src={client?.avatarUrl} />
-                <AvatarFallback>{client?.name?.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <span>{client?.name || 'Unknown Client'}</span>
               <span className="text-xs text-muted-foreground/80">
                 - <ClientDate date={item.createdAt} />
               </span>
@@ -59,7 +50,7 @@ export function SnaggingItemCard({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline">Snagging Item</Badge>
-            <EditSnaggingItem item={item} clients={clients} projects={projects} />
+            <EditSnaggingItem item={item} projects={projects} />
           </div>
         </div>
       </CardHeader>

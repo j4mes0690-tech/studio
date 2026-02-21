@@ -36,14 +36,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { createCleanUpNoticeAction } from './actions';
 import { PlusCircle, Camera, Upload, X } from 'lucide-react';
-import type { Client, Project, SubContractor, Photo } from '@/lib/types';
+import type { Project, SubContractor, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewNoticeSchema = z.object({
-  clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   photos: z.string().optional(),
@@ -53,14 +52,12 @@ const NewNoticeSchema = z.object({
 type NewNoticeFormValues = z.infer<typeof NewNoticeSchema>;
 
 type NewNoticeProps = {
-  clients: Client[];
   projects: Project[];
   subContractors: SubContractor[];
 };
 
-export function NewNotice({ clients, projects, subContractors }: NewNoticeProps) {
+export function NewNotice({ projects, subContractors }: NewNoticeProps) {
   const [open, setOpen] = useState(false);
-  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
     boolean | undefined
@@ -76,7 +73,6 @@ export function NewNotice({ clients, projects, subContractors }: NewNoticeProps)
   const form = useForm<NewNoticeFormValues>({
     resolver: zodResolver(NewNoticeSchema),
     defaultValues: {
-      clientId: '',
       projectId: '',
       description: '',
       photos: '',
@@ -91,7 +87,6 @@ export function NewNotice({ clients, projects, subContractors }: NewNoticeProps)
   const onSubmit = (values: NewNoticeFormValues) => {
     startTransition(async () => {
       const formData = new FormData();
-      formData.append('clientId', values.clientId);
       formData.append('projectId', values.projectId);
       formData.append('description', values.description);
       if (values.photos) formData.append('photos', values.photos);
@@ -152,19 +147,6 @@ export function NewNotice({ clients, projects, subContractors }: NewNoticeProps)
       stream?.getTracks().forEach((track) => track.stop());
     };
   }, [isCameraOpen, toast]);
-
-  const selectedClientId = form.watch('clientId');
-
-  useEffect(() => {
-    if (selectedClientId) {
-      setFilteredProjects(
-        projects.filter((p) => p.clientId === selectedClientId)
-      );
-      form.setValue('projectId', '');
-    } else {
-      setFilteredProjects([]);
-    }
-  }, [selectedClientId, projects, form]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -227,33 +209,6 @@ export function NewNotice({ clients, projects, subContractors }: NewNoticeProps)
             
             <FormField
               control={form.control}
-              name="clientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Client</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="projectId"
               render={({ field }) => (
                 <FormItem>
@@ -261,7 +216,6 @@ export function NewNotice({ clients, projects, subContractors }: NewNoticeProps)
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={!selectedClientId}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -269,7 +223,7 @@ export function NewNotice({ clients, projects, subContractors }: NewNoticeProps)
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {filteredProjects.map((project) => (
+                      {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
                         </SelectItem>

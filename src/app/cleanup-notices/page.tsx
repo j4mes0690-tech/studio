@@ -1,6 +1,6 @@
 
 import { Header } from '@/components/layout/header';
-import { getClients, getProjects, getCleanUpNotices, getSubContractors } from '@/lib/data';
+import { getProjects, getCleanUpNotices, getSubContractors } from '@/lib/data';
 import { NoticeCard } from './notice-card';
 import { NewNotice } from './new-notice';
 import { NoticeFilters } from './notice-filters';
@@ -13,14 +13,11 @@ export default async function CleanUpNoticesPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const clientId =
-    typeof searchParams.client === 'string' ? searchParams.client : undefined;
   const projectId =
     typeof searchParams.project === 'string' ? searchParams.project : undefined;
 
-  const [notices, clients, allProjects, subContractors] = await Promise.all([
-    getCleanUpNotices({ clientId, projectId }),
-    getClients(),
+  const [notices, allProjects, subContractors] = await Promise.all([
+    getCleanUpNotices({ projectId }),
     getProjects(),
     getSubContractors(),
   ]);
@@ -34,17 +31,16 @@ export default async function CleanUpNoticesPage({
             Notice Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewNotice clients={clients} projects={allProjects} subContractors={subContractors} />
+            <NewNotice projects={allProjects} subContractors={subContractors} />
           </div>
         </div>
-        <NoticeFilters clients={clients} projects={allProjects} />
+        <NoticeFilters projects={allProjects} />
         <div className="grid gap-4 md:gap-6">
           {notices.length > 0 ? (
             notices.map((notice) => (
               <NoticeCard
                 key={notice.id}
                 notice={notice}
-                clients={clients}
                 projects={allProjects}
               />
             ))
@@ -57,7 +53,7 @@ export default async function CleanUpNoticesPage({
         </div>
         {notices.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton notices={notices} clients={clients} projects={allProjects} />
+            <ExportButton notices={notices} projects={allProjects} />
           </div>
         )}
       </main>

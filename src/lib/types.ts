@@ -1,14 +1,8 @@
 
-export type Client = {
-  id: string;
-  name: string;
-  avatarUrl: string;
-};
 
 export type Project = {
   id: string;
   name:string;
-  clientId: string;
 };
 
 export type Photo = {
@@ -18,7 +12,6 @@ export type Photo = {
 
 export type Instruction = {
   id: string;
-  clientId: string;
   projectId: string;
   originalText: string;
   summary: string;
@@ -30,7 +23,6 @@ export type Instruction = {
 
 export type CleanUpNotice = {
   id: string;
-  clientId: string;
   projectId: string;
   description: string;
   createdAt: string;
@@ -40,7 +32,6 @@ export type CleanUpNotice = {
 
 export type SnaggingItem = {
   id: string;
-  clientId: string;
   projectId: string;
   description: string;
   createdAt: string;
@@ -56,7 +47,6 @@ export type ChatMessage = {
 
 export type InformationRequest = {
   id: string;
-  clientId: string;
   projectId: string;
   description: string;
   assignedTo: string[];

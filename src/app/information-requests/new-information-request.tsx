@@ -44,13 +44,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { createInformationRequestAction } from './actions';
 import { PlusCircle, Camera, Upload, X, CalendarIcon } from 'lucide-react';
-import type { Client, Project, DistributionUser, Photo } from '@/lib/types';
+import type { Project, DistributionUser, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 
 const NewInformationRequestSchema = z.object({
-  clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
@@ -61,15 +60,13 @@ const NewInformationRequestSchema = z.object({
 type NewInformationRequestFormValues = z.infer<typeof NewInformationRequestSchema>;
 
 type NewInformationRequestProps = {
-  clients: Client[];
   projects: Project[];
   distributionUsers: DistributionUser[];
 };
 
-export function NewInformationRequest({ clients, projects, distributionUsers }: NewInformationRequestProps) {
+export function NewInformationRequest({ projects, distributionUsers }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
     boolean | undefined
@@ -85,7 +82,6 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
   const form = useForm<NewInformationRequestFormValues>({
     resolver: zodResolver(NewInformationRequestSchema),
     defaultValues: {
-      clientId: '',
       projectId: '',
       description: '',
       assignedTo: [],
@@ -101,7 +97,6 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
   const onSubmit = (values: NewInformationRequestFormValues) => {
     startTransition(async () => {
       const formData = new FormData();
-      formData.append('clientId', values.clientId);
       formData.append('projectId', values.projectId);
       formData.append('description', values.description);
       values.assignedTo.forEach(id => formData.append('assignedTo', id));
@@ -165,19 +160,6 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
     };
   }, [isCameraOpen, toast]);
 
-  const selectedClientId = form.watch('clientId');
-
-  useEffect(() => {
-    if (selectedClientId) {
-      setFilteredProjects(
-        projects.filter((p) => p.clientId === selectedClientId)
-      );
-      form.setValue('projectId', '');
-    } else {
-      setFilteredProjects([]);
-    }
-  }, [selectedClientId, projects, form]);
-
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
@@ -227,7 +209,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
         <DialogHeader>
           <DialogTitle>Log New Information Request</DialogTitle>
           <DialogDescription>
-            Record a client's request for information and assign it to a team member.
+            Record a request for information and assign it to a team member.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -239,33 +221,6 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
             
             <FormField
               control={form.control}
-              name="clientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Client</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="projectId"
               render={({ field }) => (
                 <FormItem>
@@ -273,7 +228,6 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={!selectedClientId}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -281,7 +235,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {filteredProjects.map((project) => (
+                      {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
                         </SelectItem>
@@ -300,7 +254,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
                   <FormLabel>Information Requested</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="e.g., Client requires updated floor plans for level 3..."
+                      placeholder="e.g., Updated floor plans for level 3..."
                       className="min-h-[150px]"
                       {...field}
                     />

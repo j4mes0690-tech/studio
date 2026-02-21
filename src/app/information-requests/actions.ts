@@ -7,7 +7,6 @@ import { createInformationRequest, getDistributionUsers, getInformationRequests,
 import type { InformationRequest, ChatMessage } from '@/lib/types';
 
 const NewInformationRequestSchema = z.object({
-  clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
@@ -43,7 +42,6 @@ export async function createInformationRequestAction(
 ): Promise<FormState> {
   
   const validatedFields = NewInformationRequestSchema.safeParse({
-    clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     description: formData.get('description'),
     assignedTo: formData.getAll('assignedTo'),
@@ -60,7 +58,7 @@ export async function createInformationRequestAction(
     };
   }
 
-  const { description, clientId, projectId, assignedTo: assignedToIds, photos: photosJson, requiredBy } = validatedFields.data;
+  const { description, projectId, assignedTo: assignedToIds, photos: photosJson, requiredBy } = validatedFields.data;
 
   try {
     const users = await getDistributionUsers();
@@ -73,7 +71,6 @@ export async function createInformationRequestAction(
 
 
     const newRequestData: Omit<InformationRequest, 'id' | 'createdAt'> = {
-      clientId,
       projectId,
       description,
       assignedTo: assignedEmails,
@@ -105,7 +102,6 @@ export async function updateInformationRequestAction(
     
     const validatedFields = UpdateInformationRequestSchema.safeParse({
       id: formData.get('id'),
-      clientId: formData.get('clientId'),
       projectId: formData.get('projectId'),
       description: formData.get('description'),
       assignedTo: formData.getAll('assignedTo'),
@@ -122,7 +118,7 @@ export async function updateInformationRequestAction(
       };
     }
   
-    const { id, description, clientId, projectId, assignedTo: assignedToIds, photos: photosJson, requiredBy } = validatedFields.data;
+    const { id, description, projectId, assignedTo: assignedToIds, photos: photosJson, requiredBy } = validatedFields.data;
   
     try {
       const [users, allItems] = await Promise.all([
@@ -145,7 +141,6 @@ export async function updateInformationRequestAction(
   
       const updatedItem: InformationRequest = {
         ...existingItem,
-        clientId,
         projectId,
         description,
         assignedTo: assignedEmails,

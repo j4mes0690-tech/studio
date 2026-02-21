@@ -1,6 +1,6 @@
 
 import { Header } from '@/components/layout/header';
-import { getClients, getProjects, getInformationRequests, getDistributionUsers } from '@/lib/data';
+import { getProjects, getInformationRequests, getDistributionUsers } from '@/lib/data';
 import { InformationRequestCard } from './information-request-card';
 import { NewInformationRequest } from './new-information-request';
 import { InformationRequestFilters } from './information-request-filters';
@@ -13,14 +13,11 @@ export default async function InformationRequestsPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const clientId =
-    typeof searchParams.client === 'string' ? searchParams.client : undefined;
   const projectId =
     typeof searchParams.project === 'string' ? searchParams.project : undefined;
 
-  const [items, clients, allProjects, distributionUsers] = await Promise.all([
-    getInformationRequests({ clientId, projectId }),
-    getClients(),
+  const [items, allProjects, distributionUsers] = await Promise.all([
+    getInformationRequests({ projectId }),
     getProjects(),
     getDistributionUsers(),
   ]);
@@ -34,17 +31,16 @@ export default async function InformationRequestsPage({
             Information Request Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewInformationRequest clients={clients} projects={allProjects} distributionUsers={distributionUsers} />
+            <NewInformationRequest projects={allProjects} distributionUsers={distributionUsers} />
           </div>
         </div>
-        <InformationRequestFilters clients={clients} projects={allProjects} />
+        <InformationRequestFilters projects={allProjects} />
         <div className="grid gap-4 md:gap-6">
           {items.length > 0 ? (
             items.map((item) => (
               <InformationRequestCard
                 key={item.id}
                 item={item}
-                clients={clients}
                 projects={allProjects}
                 distributionUsers={distributionUsers}
               />
@@ -58,7 +54,7 @@ export default async function InformationRequestsPage({
         </div>
         {items.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton items={items} clients={clients} projects={allProjects} distributionUsers={distributionUsers} />
+            <ExportButton items={items} projects={allProjects} distributionUsers={distributionUsers} />
           </div>
         )}
       </main>

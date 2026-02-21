@@ -7,7 +7,6 @@ import { createSnaggingItem, getSnaggingLists, updateSnaggingItem } from '@/lib/
 import type { SnaggingItem } from '@/lib/types';
 
 const SnaggingItemSchema = z.object({
-  clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   photos: z.string().optional(),
@@ -27,7 +26,6 @@ export async function createSnaggingItemAction(
 ): Promise<FormState> {
   
   const validatedFields = SnaggingItemSchema.safeParse({
-    clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     description: formData.get('description'),
     photos: formData.get('photos'),
@@ -40,11 +38,10 @@ export async function createSnaggingItemAction(
     };
   }
 
-  const { description, clientId, projectId, photos: photosJson } = validatedFields.data;
+  const { description, projectId, photos: photosJson } = validatedFields.data;
 
   try {
     const newSnaggingItemData: Omit<SnaggingItem, 'id' | 'createdAt'> = {
-      clientId,
       projectId,
       description,
     };
@@ -70,7 +67,6 @@ export async function updateSnaggingItemAction(
   
   const validatedFields = UpdateSnaggingItemSchema.safeParse({
     id: formData.get('id'),
-    clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     description: formData.get('description'),
     photos: formData.get('photos'),
@@ -83,7 +79,7 @@ export async function updateSnaggingItemAction(
     };
   }
 
-  const { id, description, clientId, projectId, photos: photosJson } = validatedFields.data;
+  const { id, description, projectId, photos: photosJson } = validatedFields.data;
 
   try {
     const allItems = await getSnaggingLists({});
@@ -95,7 +91,6 @@ export async function updateSnaggingItemAction(
 
     const updatedItem: SnaggingItem = {
       ...existingItem,
-      clientId,
       projectId,
       description,
     };

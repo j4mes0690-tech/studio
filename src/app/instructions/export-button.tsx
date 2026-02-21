@@ -3,7 +3,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import type { Instruction, Client, Project } from '@/lib/types';
+import type { Instruction, Project } from '@/lib/types';
 import {
   Tooltip,
   TooltipContent,
@@ -13,17 +13,14 @@ import {
 
 type ExportButtonProps = {
   instructions: Instruction[];
-  clients: Client[];
   projects: Project[];
 };
 
 export function ExportButton({
   instructions,
-  clients,
   projects,
 }: ExportButtonProps) {
   const projectMap = new Map(projects.map((p) => [p.id, p]));
-  const clientMap = new Map(clients.map((c) => [c.id, c]));
 
   const escapeCsvCell = (cell: string) => {
     if (!cell) return '""';
@@ -36,7 +33,6 @@ export function ExportButton({
   const handleExport = () => {
     const headers = [
       'Project',
-      'Client',
       'Date',
       'Summary',
       'Action Items',
@@ -47,13 +43,11 @@ export function ExportButton({
 
     const rows = instructions.map((instruction) => {
       const project = projectMap.get(instruction.projectId);
-      const client = clientMap.get(instruction.clientId);
       const photoUrls = instruction.photos?.map(p => p.url).join('; ') || '';
       const photoTimestamps = instruction.photos?.map(p => new Date(p.takenAt).toLocaleString()).join('; ') || '';
       
       return [
         project?.name || 'N/A',
-        client?.name || 'N/A',
         new Date(instruction.createdAt).toLocaleString(),
         instruction.summary,
         instruction.actionItems.join('; '),

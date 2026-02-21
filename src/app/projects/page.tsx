@@ -1,5 +1,5 @@
 import { Header } from '@/components/layout/header';
-import { getClients, getProjects, getInstructions } from '@/lib/data';
+import { getProjects, getInstructions } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -16,15 +16,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { Client, Project, Instruction } from '@/lib/types';
+import type { Project, Instruction } from '@/lib/types';
 
 export default async function ProjectsPage() {
-  const [projects, clients, instructions] = await Promise.all([
+  const [projects, instructions] = await Promise.all([
     getProjects(),
-    getClients(),
     getInstructions({}),
   ]);
-  const clientMap = new Map(clients.map((c) => [c.id, c]));
 
   return (
     <div className="flex flex-col w-full">
@@ -34,7 +32,7 @@ export default async function ProjectsPage() {
           <CardHeader>
             <CardTitle>Project Directory</CardTitle>
             <CardDescription>
-              A list of all projects across all clients.
+              A list of all projects.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -42,7 +40,6 @@ export default async function ProjectsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Project</TableHead>
-                  <TableHead className="hidden sm:table-cell">Client</TableHead>
                   <TableHead className="text-right">Instructions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -51,7 +48,6 @@ export default async function ProjectsPage() {
                   const projectInstructions = instructions.filter(
                     (i) => i.projectId === project.id
                   );
-                  const client = clientMap.get(project.clientId);
                   return (
                     <TableRow
                       key={project.id}
@@ -59,9 +55,6 @@ export default async function ProjectsPage() {
                     >
                       <TableCell>
                         <div className="font-medium">{project.name}</div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">
-                        {client?.name || 'N/A'}
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge variant="outline">

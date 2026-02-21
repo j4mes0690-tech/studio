@@ -36,14 +36,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { createInstructionAction } from './actions';
 import { PlusCircle, Camera, Upload, X } from 'lucide-react';
-import type { Client, Project, DistributionUser, Photo } from '@/lib/types';
+import type { Project, DistributionUser, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewInstructionSchema = z.object({
-  clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   originalText: z
     .string()
@@ -55,14 +54,12 @@ const NewInstructionSchema = z.object({
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
 
 type NewInstructionProps = {
-  clients: Client[];
   projects: Project[];
   distributionUsers: DistributionUser[];
 };
 
-export function NewInstruction({ clients, projects, distributionUsers }: NewInstructionProps) {
+export function NewInstruction({ projects, distributionUsers }: NewInstructionProps) {
   const [open, setOpen] = useState(false);
-  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
     boolean | undefined
@@ -78,7 +75,6 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
   const form = useForm<NewInstructionFormValues>({
     resolver: zodResolver(NewInstructionSchema),
     defaultValues: {
-      clientId: '',
       projectId: '',
       originalText: '',
       photos: '',
@@ -93,7 +89,6 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
       const formData = new FormData();
-      formData.append('clientId', values.clientId);
       formData.append('projectId', values.projectId);
       formData.append('originalText', values.originalText);
       if (values.photos) formData.append('photos', values.photos);
@@ -155,19 +150,6 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
     };
   }, [isCameraOpen, toast]);
 
-  const selectedClientId = form.watch('clientId');
-
-  useEffect(() => {
-    if (selectedClientId) {
-      setFilteredProjects(
-        projects.filter((p) => p.clientId === selectedClientId)
-      );
-      form.setValue('projectId', '');
-    } else {
-      setFilteredProjects([]);
-    }
-  }, [selectedClientId, projects, form]);
-
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
@@ -217,7 +199,7 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
         <DialogHeader>
           <DialogTitle>Record New Instruction</DialogTitle>
           <DialogDescription>
-            Capture client instructions on-site. The AI will summarize and
+            Capture instructions on-site. The AI will summarize and
             extract action items automatically.
           </DialogDescription>
         </DialogHeader>
@@ -230,33 +212,6 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
             
             <FormField
               control={form.control}
-              name="clientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Client</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="projectId"
               render={({ field }) => (
                 <FormItem>
@@ -264,7 +219,6 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={!selectedClientId}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -272,7 +226,7 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {filteredProjects.map((project) => (
+                      {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
                         </SelectItem>
@@ -291,7 +245,7 @@ export function NewInstruction({ clients, projects, distributionUsers }: NewInst
                   <FormLabel>Instruction Text</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Enter client instructions here..."
+                      placeholder="Enter instructions here..."
                       className="min-h-[150px]"
                       {...field}
                     />

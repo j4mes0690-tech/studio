@@ -36,11 +36,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { createSnaggingItemAction } from './actions';
 import { PlusCircle, Camera, Upload, X } from 'lucide-react';
-import type { Client, Project, Photo } from '@/lib/types';
+import type { Project, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const SnaggingItemSchema = z.object({
-  clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   photos: z.string().optional(),
@@ -49,13 +48,11 @@ const SnaggingItemSchema = z.object({
 type NewSnaggingItemFormValues = z.infer<typeof SnaggingItemSchema>;
 
 type NewSnaggingItemProps = {
-  clients: Client[];
   projects: Project[];
 };
 
-export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
+export function NewSnaggingItem({ projects }: NewSnaggingItemProps) {
   const [open, setOpen] = useState(false);
-  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
     boolean | undefined
@@ -71,7 +68,6 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
   const form = useForm<NewSnaggingItemFormValues>({
     resolver: zodResolver(SnaggingItemSchema),
     defaultValues: {
-      clientId: '',
       projectId: '',
       description: '',
       photos: '',
@@ -85,7 +81,6 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
   const onSubmit = (values: NewSnaggingItemFormValues) => {
     startTransition(async () => {
       const formData = new FormData();
-      formData.append('clientId', values.clientId);
       formData.append('projectId', values.projectId);
       formData.append('description', values.description);
       if (values.photos) formData.append('photos', values.photos);
@@ -145,19 +140,6 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
       stream?.getTracks().forEach((track) => track.stop());
     };
   }, [isCameraOpen, toast]);
-
-  const selectedClientId = form.watch('clientId');
-
-  useEffect(() => {
-    if (selectedClientId) {
-      setFilteredProjects(
-        projects.filter((p) => p.clientId === selectedClientId)
-      );
-      form.setValue('projectId', '');
-    } else {
-      setFilteredProjects([]);
-    }
-  }, [selectedClientId, projects, form]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -220,33 +202,6 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
             
             <FormField
               control={form.control}
-              name="clientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Client</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="projectId"
               render={({ field }) => (
                 <FormItem>
@@ -254,7 +209,6 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={!selectedClientId}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -262,7 +216,7 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {filteredProjects.map((project) => (
+                      {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
                         </SelectItem>

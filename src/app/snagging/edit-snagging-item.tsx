@@ -36,12 +36,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { updateSnaggingItemAction } from './actions';
 import { Pencil, Camera, Upload, X } from 'lucide-react';
-import type { Client, Project, SnaggingItem, Photo } from '@/lib/types';
+import type { Project, SnaggingItem, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const EditSnaggingItemSchema = z.object({
   id: z.string().min(1),
-  clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   photos: z.string().optional(),
@@ -51,13 +50,11 @@ type EditSnaggingItemFormValues = z.infer<typeof EditSnaggingItemSchema>;
 
 type EditSnaggingItemProps = {
   item: SnaggingItem;
-  clients: Client[];
   projects: Project[];
 };
 
-export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemProps) {
+export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
   const [open, setOpen] = useState(false);
-  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
     boolean | undefined
@@ -74,7 +71,6 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
     resolver: zodResolver(EditSnaggingItemSchema),
     defaultValues: {
       id: item.id,
-      clientId: item.clientId,
       projectId: item.projectId,
       description: item.description,
       photos: JSON.stringify(item.photos || []),
@@ -89,7 +85,6 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
     startTransition(async () => {
       const formData = new FormData();
       formData.append('id', values.id);
-      formData.append('clientId', values.clientId);
       formData.append('projectId', values.projectId);
       formData.append('description', values.description);
       formData.append('photos', values.photos);
@@ -116,7 +111,6 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
     if (open) {
       form.reset({
         id: item.id,
-        clientId: item.clientId,
         projectId: item.projectId,
         description: item.description,
         photos: JSON.stringify(item.photos || []),
@@ -156,25 +150,6 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
       stream?.getTracks().forEach((track) => track.stop());
     };
   }, [isCameraOpen, toast]);
-
-  const selectedClientId = form.watch('clientId');
-
-  useEffect(() => {
-    if (selectedClientId) {
-      setFilteredProjects(
-        projects.filter((p) => p.clientId === selectedClientId)
-      );
-    } else {
-      setFilteredProjects([]);
-    }
-  }, [selectedClientId, projects, form]);
-  
-  useEffect(() => {
-     setFilteredProjects(
-        projects.filter((p) => p.clientId === item.clientId)
-      );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.clientId, projects])
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -238,36 +213,6 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
             
             <FormField
               control={form.control}
-              name="clientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Client</FormLabel>
-                  <Select
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue('projectId', '');
-                    }}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="projectId"
               render={({ field }) => (
                 <FormItem>
@@ -275,7 +220,6 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={!selectedClientId}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -283,7 +227,7 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {filteredProjects.map((project) => (
+                      {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
                         </SelectItem>

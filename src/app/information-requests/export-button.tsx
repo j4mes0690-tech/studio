@@ -3,7 +3,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import type { InformationRequest, Client, Project, DistributionUser } from '@/lib/types';
+import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
 import {
   Tooltip,
   TooltipContent,
@@ -13,19 +13,16 @@ import {
 
 type ExportButtonProps = {
   items: InformationRequest[];
-  clients: Client[];
   projects: Project[];
   distributionUsers: DistributionUser[];
 };
 
 export function ExportButton({
   items,
-  clients,
   projects,
   distributionUsers,
 }: ExportButtonProps) {
   const projectMap = new Map(projects.map((p) => [p.id, p]));
-  const clientMap = new Map(clients.map((c) => [c.id, c]));
   const userMap = new Map(distributionUsers.map((u) => [u.email, u.name]));
 
   const escapeCsvCell = (cell: string) => {
@@ -39,7 +36,6 @@ export function ExportButton({
   const handleExport = () => {
     const headers = [
       'Project',
-      'Client',
       'Date',
       'Required By',
       'Status',
@@ -52,7 +48,6 @@ export function ExportButton({
 
     const rows = items.map((item) => {
       const project = projectMap.get(item.projectId);
-      const client = clientMap.get(item.clientId);
       const assignedToArray = Array.isArray(item.assignedTo) ? item.assignedTo : (item.assignedTo ? [item.assignedTo] : []);
       const assignedToNames = assignedToArray.map(email => userMap.get(email) || email).join('; ');
       
@@ -65,7 +60,6 @@ export function ExportButton({
 
       return [
         project?.name || 'N/A',
-        client?.name || 'N/A',
         new Date(item.createdAt).toLocaleString(),
         item.requiredBy ? new Date(item.requiredBy).toLocaleDateString() : 'N/A',
         item.status,

@@ -9,7 +9,6 @@ import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-ac
 import type { Instruction } from '@/lib/types';
 
 const NewInstructionSchema = z.object({
-  clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   originalText: z.string().min(10, 'Instructions must be at least 10 characters.'),
   photos: z.string().optional(),
@@ -26,7 +25,6 @@ export async function createInstructionAction(
 ): Promise<FormState> {
   
   const validatedFields = NewInstructionSchema.safeParse({
-    clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     originalText: formData.get('originalText'),
     photos: formData.get('photos'),
@@ -40,7 +38,7 @@ export async function createInstructionAction(
     };
   }
 
-  const { originalText, clientId, projectId, photos: photosJson, recipients: recipientIds } = validatedFields.data;
+  const { originalText, projectId, photos: photosJson, recipients: recipientIds } = validatedFields.data;
 
   try {
     const [summaryResult, actionItemsResult, distributionUsers] = await Promise.all([
@@ -50,7 +48,6 @@ export async function createInstructionAction(
     ]);
 
     const newInstructionData: Omit<Instruction, 'id' | 'createdAt'> = {
-      clientId,
       projectId,
       originalText,
       summary: summaryResult.summary,

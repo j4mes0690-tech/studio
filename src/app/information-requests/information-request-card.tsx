@@ -1,6 +1,6 @@
 'use client';
 
-import type { InformationRequest, Client, Project, DistributionUser } from '@/lib/types';
+import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -9,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Accordion,
   AccordionContent,
@@ -143,18 +142,15 @@ function ReopenRequestButton({ requestId }: { requestId: string }) {
 
 type InformationRequestCardProps = {
   item: InformationRequest;
-  clients: Client[];
   projects: Project[];
   distributionUsers: DistributionUser[];
 };
 
 export function InformationRequestCard({
   item,
-  clients,
   projects,
   distributionUsers,
 }: InformationRequestCardProps) {
-  const client = clients.find((c) => c.id === item.clientId);
   const project = projects.find((p) => p.id === item.projectId);
 
   const assignedToArray = Array.isArray(item.assignedTo)
@@ -170,14 +166,6 @@ export function InformationRequestCard({
           <div>
             <CardTitle>{project?.name || 'Unknown Project'}</CardTitle>
             <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
-                <span className='flex items-center gap-2'>
-                    <Avatar className="h-6 w-6">
-                        <AvatarImage src={client?.avatarUrl} />
-                        <AvatarFallback>{client?.name?.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <span>{client?.name || 'Unknown Client'}</span>
-                </span>
-                <span className="hidden sm:inline-block">-</span>
                 <span className="text-xs text-muted-foreground/80">
                     <ClientDate date={item.createdAt} />
                 </span>
@@ -195,7 +183,7 @@ export function InformationRequestCard({
                 <>
                     <RespondToRequest item={item} distributionUsers={distributionUsers} />
                     <CloseRequestButton requestId={item.id} />
-                    <EditInformationRequest item={item} clients={clients} projects={projects} distributionUsers={distributionUsers} />
+                    <EditInformationRequest item={item} projects={projects} distributionUsers={distributionUsers} />
                 </>
             )}
             {item.status === 'closed' && (

@@ -1,6 +1,6 @@
 
 import { Header } from '@/components/layout/header';
-import { getClients, getProjects, getInstructions, getDistributionUsers } from '@/lib/data';
+import { getProjects, getInstructions, getDistributionUsers } from '@/lib/data';
 import { InstructionCard } from './instruction-card';
 import { NewInstruction } from './new-instruction';
 import { InstructionFilters } from './instruction-filters';
@@ -13,14 +13,11 @@ export default async function InstructionsPage({
 }: {
   searchParams: { [key: string]: string | string[] | undefined };
 }) {
-  const clientId =
-    typeof searchParams.client === 'string' ? searchParams.client : undefined;
   const projectId =
     typeof searchParams.project === 'string' ? searchParams.project : undefined;
 
-  const [instructions, clients, allProjects, distributionUsers] = await Promise.all([
-    getInstructions({ clientId, projectId }),
-    getClients(),
+  const [instructions, allProjects, distributionUsers] = await Promise.all([
+    getInstructions({ projectId }),
     getProjects(),
     getDistributionUsers(),
   ]);
@@ -34,17 +31,16 @@ export default async function InstructionsPage({
             Instruction Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewInstruction clients={clients} projects={allProjects} distributionUsers={distributionUsers} />
+            <NewInstruction projects={allProjects} distributionUsers={distributionUsers} />
           </div>
         </div>
-        <InstructionFilters clients={clients} projects={allProjects} />
+        <InstructionFilters projects={allProjects} />
         <div className="grid gap-4 md:gap-6">
           {instructions.length > 0 ? (
             instructions.map((instruction) => (
               <InstructionCard
                 key={instruction.id}
                 instruction={instruction}
-                clients={clients}
                 projects={allProjects}
               />
             ))
@@ -57,7 +53,7 @@ export default async function InstructionsPage({
         </div>
         {instructions.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton instructions={instructions} clients={clients} projects={allProjects} />
+            <ExportButton instructions={instructions} projects={allProjects} />
           </div>
         )}
       </main>

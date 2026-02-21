@@ -1,4 +1,4 @@
-import type { Instruction, Client, Project } from '@/lib/types';
+import type { Instruction, Project } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -7,7 +7,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Accordion,
   AccordionContent,
@@ -27,16 +26,13 @@ import { ClientDate } from '../../components/client-date';
 
 type InstructionCardProps = {
   instruction: Instruction;
-  clients: Client[];
   projects: Project[];
 };
 
 export function InstructionCard({
   instruction,
-  clients,
   projects,
 }: InstructionCardProps) {
-  const client = clients.find((c) => c.id === instruction.clientId);
   const project = projects.find((p) => p.id === instruction.projectId);
 
   return (
@@ -46,13 +42,8 @@ export function InstructionCard({
           <div>
             <CardTitle>{project?.name || 'Unknown Project'}</CardTitle>
             <CardDescription className="flex items-center gap-2 pt-1">
-              <Avatar className="h-6 w-6">
-                <AvatarImage src={client?.avatarUrl} />
-                <AvatarFallback>{client?.name?.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <span>{client?.name || 'Unknown Client'}</span>
               <span className="text-xs text-muted-foreground/80">
-                - <ClientDate date={instruction.createdAt} />
+                <ClientDate date={instruction.createdAt} />
               </span>
             </CardDescription>
           </div>

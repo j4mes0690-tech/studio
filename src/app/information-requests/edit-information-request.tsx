@@ -38,7 +38,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { updateInformationRequestAction } from './actions';
 import { Pencil, Camera, Upload, X, CalendarIcon } from 'lucide-react';
-import type { Client, Project, InformationRequest, DistributionUser, Photo } from '@/lib/types';
+import type { Project, InformationRequest, DistributionUser, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -47,7 +47,6 @@ import { Calendar } from '@/components/ui/calendar';
 
 const EditInformationRequestSchema = z.object({
   id: z.string().min(1),
-  clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
@@ -59,15 +58,13 @@ type EditInformationRequestFormValues = z.infer<typeof EditInformationRequestSch
 
 type EditInformationRequestProps = {
   item: InformationRequest;
-  clients: Client[];
   projects: Project[];
   distributionUsers: DistributionUser[];
 };
 
-export function EditInformationRequest({ item, clients, projects, distributionUsers }: EditInformationRequestProps) {
+export function EditInformationRequest({ item, projects, distributionUsers }: EditInformationRequestProps) {
   const [open, setOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
     boolean | undefined
@@ -89,7 +86,6 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
     resolver: zodResolver(EditInformationRequestSchema),
     defaultValues: {
       id: item.id,
-      clientId: item.clientId,
       projectId: item.projectId,
       description: item.description,
       assignedTo: assignedUserIds,
@@ -106,7 +102,6 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
     startTransition(async () => {
       const formData = new FormData();
       formData.append('id', values.id);
-      formData.append('clientId', values.clientId);
       formData.append('projectId', values.projectId);
       formData.append('description', values.description);
       values.assignedTo.forEach(id => formData.append('assignedTo', id));
@@ -142,7 +137,6 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
 
       form.reset({
         id: item.id,
-        clientId: item.clientId,
         projectId: item.projectId,
         description: item.description,
         assignedTo: assignedUserIdsOnReset,
@@ -185,25 +179,6 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
       stream?.getTracks().forEach((track) => track.stop());
     };
   }, [isCameraOpen, toast]);
-
-  const selectedClientId = form.watch('clientId');
-
-  useEffect(() => {
-    if (selectedClientId) {
-      setFilteredProjects(
-        projects.filter((p) => p.clientId === selectedClientId)
-      );
-    } else {
-      setFilteredProjects([]);
-    }
-  }, [selectedClientId, projects]);
-  
-  useEffect(() => {
-     setFilteredProjects(
-        projects.filter((p) => p.clientId === item.clientId)
-      );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.clientId, projects])
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -267,36 +242,6 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
             
             <FormField
               control={form.control}
-              name="clientId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Client</FormLabel>
-                  <Select
-                    onValueChange={(value) => {
-                      field.onChange(value);
-                      form.setValue('projectId', '');
-                    }}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a client" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id}>
-                          {client.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="projectId"
               render={({ field }) => (
                 <FormItem>
@@ -304,7 +249,6 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
                   <Select
                     onValueChange={field.onChange}
                     value={field.value}
-                    disabled={!selectedClientId}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -312,7 +256,7 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {filteredProjects.map((project) => (
+                      {projects.map((project) => (
                         <SelectItem key={project.id} value={project.id}>
                           {project.name}
                         </SelectItem>

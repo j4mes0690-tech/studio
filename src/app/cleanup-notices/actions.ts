@@ -7,7 +7,6 @@ import { createCleanUpNotice, getSubContractors } from '@/lib/data';
 import type { CleanUpNotice } from '@/lib/types';
 
 const NewNoticeSchema = z.object({
-  clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   photos: z.string().optional(),
@@ -24,7 +23,6 @@ export async function createCleanUpNoticeAction(
 ): Promise<FormState> {
   
   const validatedFields = NewNoticeSchema.safeParse({
-    clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     description: formData.get('description'),
     photos: formData.get('photos'),
@@ -38,13 +36,12 @@ export async function createCleanUpNoticeAction(
     };
   }
 
-  const { description, clientId, projectId, photos: photosJson, recipients: recipientIds } = validatedFields.data;
+  const { description, projectId, photos: photosJson, recipients: recipientIds } = validatedFields.data;
 
   try {
     const subContractors = await getSubContractors();
 
     const newNoticeData: Omit<CleanUpNotice, 'id' | 'createdAt'> = {
-      clientId,
       projectId,
       description,
     };

@@ -3,7 +3,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
-import type { CleanUpNotice, Client, Project } from '@/lib/types';
+import type { CleanUpNotice, Project } from '@/lib/types';
 import {
   Tooltip,
   TooltipContent,
@@ -13,17 +13,14 @@ import {
 
 type ExportButtonProps = {
   notices: CleanUpNotice[];
-  clients: Client[];
   projects: Project[];
 };
 
 export function ExportButton({
   notices,
-  clients,
   projects,
 }: ExportButtonProps) {
   const projectMap = new Map(projects.map((p) => [p.id, p]));
-  const clientMap = new Map(clients.map((c) => [c.id, c]));
 
   const escapeCsvCell = (cell: string) => {
     if (!cell) return '""';
@@ -36,7 +33,6 @@ export function ExportButton({
   const handleExport = () => {
     const headers = [
       'Project',
-      'Client',
       'Date',
       'Description',
       'Recipients',
@@ -46,13 +42,11 @@ export function ExportButton({
 
     const rows = notices.map((notice) => {
       const project = projectMap.get(notice.projectId);
-      const client = clientMap.get(notice.clientId);
       const photoUrls = notice.photos?.map(p => p.url).join('; ') || '';
       const photoTimestamps = notice.photos?.map(p => new Date(p.takenAt).toLocaleString()).join('; ') || '';
 
       return [
         project?.name || 'N/A',
-        client?.name || 'N/A',
         new Date(notice.createdAt).toLocaleString(),
         notice.description,
         notice.recipients?.join('; ') || '',

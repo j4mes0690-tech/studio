@@ -1,12 +1,11 @@
 
 'use server';
 
-import type { Client, Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo } from './types';
+import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 
 // Widen the global type to include our in-memory data
 declare global {
-  var clients: Client[];
   var projects: Project[];
   var instructions: Instruction[];
   var cleanUpNotices: CleanUpNotice[];
@@ -17,7 +16,6 @@ declare global {
 }
 
 const g: {
-  clients: Client[];
   projects: Project[];
   instructions: Instruction[];
   cleanUpNotices: CleanUpNotice[];
@@ -28,21 +26,13 @@ const g: {
 } = global as any;
 
 
-if (!g.clients) {
-  g.clients = [
-    { id: '1', name: 'Global Construct Inc.', avatarUrl: 'https://picsum.photos/seed/1/40/40' },
-    { id: '2', name: 'Pioneer Builders', avatarUrl: 'https://picsum.photos/seed/2/40/40' },
-    { id: '3', name: 'Apex Developments', avatarUrl: 'https://picsum.photos/seed/3/40/40' },
-  ];
-}
-
 if (!g.projects) {
   g.projects = [
-    { id: '101', name: 'Downtown Tower', clientId: '1' },
-    { id: '102', name: 'Suburban Mall', clientId: '1' },
-    { id: '201', name: 'Riverside Bridge', clientId: '2' },
-    { id: '301', name: 'Hilltop Estates', clientId: '3' },
-    { id: '302', name: 'Oceanview Villas', clientId: '3' },
+    { id: '101', name: 'Downtown Tower' },
+    { id: '102', name: 'Suburban Mall' },
+    { id: '201', name: 'Riverside Bridge' },
+    { id: '301', name: 'Hilltop Estates' },
+    { id: '302', name: 'Oceanview Villas' },
   ];
 }
 
@@ -50,7 +40,6 @@ if (!g.instructions) {
   g.instructions = [
     {
       id: '1',
-      clientId: '1',
       projectId: '101',
       originalText:
         'Please ensure that all exterior windows on the south side of the Downtown Tower are fitted with the new energy-efficient glass by the end of the month. Also, check the HVAC system on the top three floors and report any issues by Friday.',
@@ -71,7 +60,6 @@ if (!g.instructions) {
     },
     {
       id: '2',
-      clientId: '2',
       projectId: '201',
       originalText:
         'The structural steel for the Riverside Bridge needs to be inspected for any signs of corrosion. This needs to be done before the concrete pouring next week. Also, arrange for the delivery of the pre-cast concrete slabs for the pedestrian walkway.',
@@ -87,7 +75,6 @@ if (!g.instructions) {
     },
     {
       id: '3',
-      clientId: '3',
       projectId: '301',
       originalText:
         'For Hilltop Estates, we need to finalize the landscaping plan for lots 10 through 15. The client wants more native plants included. Please submit a revised plan by Monday. Also, confirm the plumbing inspection schedule for Phase 2.',
@@ -108,7 +95,6 @@ if (!g.cleanUpNotices) {
     g.cleanUpNotices = [
         {
             id: 'cl1',
-            clientId: '1',
             projectId: '101',
             description: 'Debris from drywall installation on floor 12 needs to be cleared by end of day. Please ensure all hallways are clear for inspection tomorrow morning.',
             createdAt: new Date('2023-10-22T16:00:00Z').toISOString(),
@@ -125,7 +111,6 @@ if (!g.snaggingLists) {
     g.snaggingLists = [
         {
             id: 'snag1',
-            clientId: '1',
             projectId: '101',
             description: 'Paint on the west wall of apartment 1201 is chipped. Needs repainting.',
             createdAt: new Date('2023-10-25T10:00:00Z').toISOString(),
@@ -136,7 +121,6 @@ if (!g.snaggingLists) {
         },
         {
             id: 'snag2',
-            clientId: '3',
             projectId: '302',
             description: 'Leaky faucet in the master bathroom of Villa #5.',
             createdAt: new Date('2023-10-26T11:30:00Z').toISOString(),
@@ -148,7 +132,6 @@ if (!g.informationRequests) {
     g.informationRequests = [
         {
             id: 'ir1',
-            clientId: '1',
             projectId: '101',
             description: 'Client needs floor plans for level 5.',
             assignedTo: ['engineer@example.com'],
@@ -177,40 +160,24 @@ if (!g.subContractors) {
 
 
 // Simulate a database with async functions
-export async function getClients(): Promise<Client[]> {
-  noStore();
-  return new Promise((resolve) => setTimeout(() => resolve(g.clients), 100));
-}
-
-export async function getProjects(clientId?: string): Promise<Project[]> {
+export async function getProjects(): Promise<Project[]> {
   noStore();
   return new Promise((resolve) => {
     setTimeout(() => {
-      if (clientId) {
-        resolve(g.projects.filter((p) => p.clientId === clientId));
-      } else {
         resolve(g.projects);
-      }
     }, 100);
   });
 }
 
 export async function getInstructions({
-  clientId,
   projectId,
 }: {
-  clientId?: string;
   projectId?: string;
 }): Promise<Instruction[]> {
   noStore();
   return new Promise((resolve) => {
     setTimeout(() => {
       let filteredInstructions = [...g.instructions];
-      if (clientId) {
-        filteredInstructions = filteredInstructions.filter(
-          (i) => i.clientId === clientId
-        );
-      }
       if (projectId) {
         filteredInstructions = filteredInstructions.filter(
           (i) => i.projectId === projectId
@@ -283,21 +250,14 @@ export async function updateDistributionUser(userData: DistributionUser): Promis
 
 
 export async function getCleanUpNotices({
-  clientId,
   projectId,
 }: {
-  clientId?: string;
   projectId?: string;
 }): Promise<CleanUpNotice[]> {
   noStore();
   return new Promise((resolve) => {
     setTimeout(() => {
       let filteredNotices = [...g.cleanUpNotices];
-      if (clientId) {
-        filteredNotices = filteredNotices.filter(
-          (i) => i.clientId === clientId
-        );
-      }
       if (projectId) {
         filteredNotices = filteredNotices.filter(
           (i) => i.projectId === projectId
@@ -369,21 +329,14 @@ export async function updateSubContractor(subContractorData: SubContractor): Pro
   }
 
 export async function getSnaggingLists({
-  clientId,
   projectId,
 }: {
-  clientId?: string;
   projectId?: string;
 }): Promise<SnaggingItem[]> {
   noStore();
   return new Promise((resolve) => {
     setTimeout(() => {
       let filteredItems = [...g.snaggingLists];
-      if (clientId) {
-        filteredItems = filteredItems.filter(
-          (i) => i.clientId === clientId
-        );
-      }
       if (projectId) {
         filteredItems = filteredItems.filter(
           (i) => i.projectId === projectId
@@ -426,21 +379,14 @@ export async function updateSnaggingItem(itemData: SnaggingItem): Promise<Snaggi
 
 
 export async function getInformationRequests({
-    clientId,
     projectId,
   }: {
-    clientId?: string;
     projectId?: string;
   }): Promise<InformationRequest[]> {
     noStore();
     return new Promise((resolve) => {
       setTimeout(() => {
         let filteredItems = [...g.informationRequests];
-        if (clientId) {
-          filteredItems = filteredItems.filter(
-            (i) => i.clientId === clientId
-          );
-        }
         if (projectId) {
           filteredItems = filteredItems.filter(
             (i) => i.projectId === projectId
