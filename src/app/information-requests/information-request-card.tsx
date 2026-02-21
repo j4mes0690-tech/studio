@@ -193,7 +193,7 @@ export function InformationRequestCard({
             <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className='capitalize'>{item.status}</Badge>
             {item.status === 'open' && (
                 <>
-                    <RespondToRequest item={item} />
+                    <RespondToRequest item={item} distributionUsers={distributionUsers} />
                     <CloseRequestButton requestId={item.id} />
                     <EditInformationRequest item={item} clients={clients} projects={projects} distributionUsers={distributionUsers} />
                 </>

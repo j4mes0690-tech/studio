@@ -24,24 +24,33 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { addChatMessageAction } from './actions';
 import { MessageSquareReply } from 'lucide-react';
-import type { InformationRequest } from '@/lib/types';
+import type { InformationRequest, DistributionUser } from '@/lib/types';
 
 const AddChatMessageSchema = z.object({
   id: z.string().min(1),
   message: z.string().min(1, 'Message cannot be empty.'),
+  senderId: z.string().min(1, 'You must select who is sending the message.'),
 });
 
 type AddChatMessageFormValues = z.infer<typeof AddChatMessageSchema>;
 
 type RespondToRequestProps = {
   item: InformationRequest;
+  distributionUsers: DistributionUser[];
 };
 
-export function RespondToRequest({ item }: RespondToRequestProps) {
+export function RespondToRequest({ item, distributionUsers }: RespondToRequestProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -51,6 +60,7 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
     defaultValues: {
       id: item.id,
       message: '',
+      senderId: '',
     },
   });
 
@@ -59,6 +69,7 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
       form.reset({
         id: item.id,
         message: '',
+        senderId: '',
       });
     }
   }, [open, item, form]);
@@ -68,6 +79,7 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
       const formData = new FormData();
       formData.append('id', values.id);
       formData.append('message', values.message);
+      formData.append('senderId', values.senderId);
 
       const result = await addChatMessageAction(formData);
 
@@ -96,7 +108,7 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add to conversation</DialogTitle>
+          <DialogTitle>Reply to Request</DialogTitle>
           <DialogDescription>
             Add a message to the conversation thread for this request.
           </DialogDescription>
@@ -119,6 +131,30 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
                     </div>
                 ))}
             </div>
+            <FormField
+              control={form.control}
+              name="senderId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Replying As</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select user..." />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {distributionUsers.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.name} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="message"

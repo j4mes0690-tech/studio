@@ -22,6 +22,7 @@ const UpdateInformationRequestSchema = NewInformationRequestSchema.extend({
 const AddChatMessageSchema = z.object({
     id: z.string().min(1, 'Item ID is required.'),
     message: z.string().min(1, 'Message cannot be empty.'),
+    senderId: z.string().min(1, 'Sender is required.'),
 });
 
 const CloseRequestSchema = z.object({
@@ -180,28 +181,39 @@ export async function addChatMessageAction(
     const validatedFields = AddChatMessageSchema.safeParse({
         id: formData.get('id'),
         message: formData.get('message'),
+        senderId: formData.get('senderId'),
     });
 
     if (!validatedFields.success) {
+        const fieldErrors = validatedFields.error.flatten().fieldErrors;
+        const message = fieldErrors.message?.[0] || fieldErrors.senderId?.[0] || 'Invalid data provided.';
         return {
-        success: false,
-        message: validatedFields.error.flatten().fieldErrors.message?.[0] || 'Invalid data provided.',
+          success: false,
+          message,
         };
     }
 
-    const { id, message } = validatedFields.data;
+    const { id, message, senderId } = validatedFields.data;
 
     try {
-        const allItems = await getInformationRequests({});
+        const [allItems, users] = await Promise.all([
+            getInformationRequests({}),
+            getDistributionUsers()
+        ]);
         const existingItem = allItems.find(i => i.id === id);
 
         if (!existingItem) {
         return { success: false, message: 'Information request not found.' };
         }
+        
+        const sender = users.find(u => u.id === senderId);
+        if (!sender) {
+            return { success: false, message: 'Invalid sender specified.' };
+        }
 
         const newChatMessage: ChatMessage = {
             id: `msg-${Date.now()}`,
-            sender: 'Internal Team', // Hardcoded sender
+            sender: sender.name,
             message,
             createdAt: new Date().toISOString(),
         };
