@@ -35,7 +35,7 @@ export async function addUserAction(
   try {
     await addDistributionUser(validatedFields.data);
     revalidatePath('/settings');
-    revalidatePath('/instructions/new');
+    revalidatePath('/instructions');
     return { success: true, message: 'User added successfully.' };
   } catch (error) {
     return { success: false, message: 'Failed to add user.' };
@@ -46,7 +46,7 @@ export async function removeUserAction(userId: string) {
   try {
     await removeDistributionUser(userId);
     revalidatePath('/settings');
-    revalidatePath('/instructions/new');
+    revalidatePath('/instructions');
   } catch (error) {
     // In a real app, you'd handle this more gracefully
     console.error('Failed to remove user:', error);
