@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -221,7 +222,7 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
             <span className="sr-only">Edit Request</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Information Request</DialogTitle>
           <DialogDescription>

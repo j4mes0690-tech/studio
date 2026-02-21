@@ -196,7 +196,7 @@ export function NewNotice({ clients, projects, subContractors }: NewNoticeProps)
           New Notice
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record New Clean Up Notice</DialogTitle>
           <DialogDescription>

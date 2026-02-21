@@ -189,7 +189,7 @@ export function NewSnaggingItem({ clients, projects }: NewSnaggingItemProps) {
           New Snagging Item
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record New Snagging Item</DialogTitle>
           <DialogDescription>
