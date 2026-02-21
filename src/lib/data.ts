@@ -391,3 +391,18 @@ export async function getInformationRequests({
           }, 500);
       });
   }
+
+  export async function updateInformationRequest(itemData: InformationRequest): Promise<InformationRequest> {
+    noStore();
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const index = informationRequests.findIndex(item => item.id === itemData.id);
+            if (index !== -1) {
+                informationRequests[index] = itemData;
+                resolve(itemData);
+            } else {
+                reject(new Error('Information request not found'));
+            }
+        }, 500);
+    });
+}

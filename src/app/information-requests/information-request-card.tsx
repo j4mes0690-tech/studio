@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/accordion';
 import { Camera, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { EditInformationRequest } from './edit-information-request';
 
 type InformationRequestCardProps = {
   item: InformationRequest;
@@ -52,7 +53,10 @@ export function InformationRequestCard({
               </span>
             </CardDescription>
           </div>
-          <Badge>Info Request</Badge>
+          <div className="flex items-center gap-2">
+            <Badge>Info Request</Badge>
+            <EditInformationRequest item={item} clients={clients} projects={projects} distributionUsers={distributionUsers} />
+          </div>
         </div>
       </CardHeader>
       <CardContent>

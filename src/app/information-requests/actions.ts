@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createInformationRequest, getDistributionUsers } from '@/lib/data';
+import { createInformationRequest, getDistributionUsers, getInformationRequests, updateInformationRequest } from '@/lib/data';
 import type { InformationRequest } from '@/lib/types';
 
 const NewInformationRequestSchema = z.object({
@@ -13,6 +13,10 @@ const NewInformationRequestSchema = z.object({
   assignedTo: z.string().min(1, 'Please assign this request to a user.'),
   photoUrl: z.string().optional(),
   photoTimestamp: z.string().optional(),
+});
+
+const UpdateInformationRequestSchema = NewInformationRequestSchema.extend({
+    id: z.string().min(1, 'Item ID is required.'),
 });
 
 export type FormState = {
@@ -77,3 +81,75 @@ export async function createInformationRequestAction(
     return { success: false, message: 'Failed to create information request. Please note, email sending is not yet implemented.' };
   }
 }
+
+export async function updateInformationRequestAction(
+    prevState: FormState,
+    formData: FormData
+  ): Promise<FormState> {
+    
+    const validatedFields = UpdateInformationRequestSchema.safeParse({
+      id: formData.get('id'),
+      clientId: formData.get('clientId'),
+      projectId: formData.get('projectId'),
+      description: formData.get('description'),
+      assignedTo: formData.get('assignedTo'),
+      photoUrl: formData.get('photoUrl'),
+      photoTimestamp: formData.get('photoTimestamp'),
+    });
+  
+    if (!validatedFields.success) {
+      const fieldErrors = validatedFields.error.flatten().fieldErrors;
+      const message = fieldErrors.description?.[0] || fieldErrors.assignedTo?.[0] || 'Invalid data provided.';
+      return {
+        success: false,
+        message,
+      };
+    }
+  
+    const { id, description, clientId, projectId, assignedTo: assignedToId, photoUrl, photoTimestamp } = validatedFields.data;
+  
+    try {
+      const [users, allItems] = await Promise.all([
+          getDistributionUsers(),
+          getInformationRequests({}),
+      ]);
+      
+      const existingItem = allItems.find(i => i.id === id);
+  
+      if (!existingItem) {
+        return { success: false, message: 'Information request not found.' };
+      }
+  
+      const assignedUser = users.find(u => u.id === assignedToId);
+  
+      if (!assignedUser) {
+          return { success: false, message: 'Assigned user not found.' };
+      }
+  
+      const updatedItem: InformationRequest = {
+        ...existingItem,
+        clientId,
+        projectId,
+        description,
+        assignedTo: assignedUser.email,
+      };
+  
+      if (photoUrl && photoTimestamp) {
+        updatedItem.photo = {
+          url: photoUrl,
+          takenAt: photoTimestamp,
+        };
+      } else {
+        delete updatedItem.photo;
+      }
+  
+      await updateInformationRequest(updatedItem);
+  
+      revalidatePath('/information-requests');
+      return { success: true, message: 'Information request updated successfully.' };
+  
+    } catch (error) {
+      console.error('Failed to update information request:', error);
+      return { success: false, message: 'Failed to update information request.' };
+    }
+  }
