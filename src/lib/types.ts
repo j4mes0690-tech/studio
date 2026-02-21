@@ -47,6 +47,13 @@ export type SnaggingItem = {
   photos?: Photo[];
 };
 
+export type ChatMessage = {
+  id: string;
+  sender: string;
+  message: string;
+  createdAt: string;
+};
+
 export type InformationRequest = {
   id: string;
   clientId: string;
@@ -57,8 +64,7 @@ export type InformationRequest = {
   photos?: Photo[];
   requiredBy?: string;
   status: 'open' | 'closed';
-  response?: string;
-  respondedAt?: string;
+  messages: ChatMessage[];
 };
 
 export type DistributionUser = {

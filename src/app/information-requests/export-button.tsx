@@ -45,8 +45,7 @@ export function ExportButton({
       'Status',
       'Request Description',
       'Assigned To',
-      'Response',
-      'Responded At',
+      'Conversation',
       'Photo URLs',
       'Photo Timestamps',
     ];
@@ -60,6 +59,10 @@ export function ExportButton({
       const photoUrls = item.photos?.map(p => p.url).join('; ') || '';
       const photoTimestamps = item.photos?.map(p => new Date(p.takenAt).toLocaleString()).join('; ') || '';
 
+      const conversation = item.messages
+        .map(m => `[${new Date(m.createdAt).toLocaleString()}] ${m.sender}: ${m.message}`)
+        .join('; ');
+
       return [
         project?.name || 'N/A',
         client?.name || 'N/A',
@@ -68,8 +71,7 @@ export function ExportButton({
         item.status,
         item.description,
         assignedToNames,
-        item.response || '',
-        item.respondedAt ? new Date(item.respondedAt).toLocaleString() : '',
+        conversation,
         photoUrls,
         photoTimestamps,
       ].map(escapeCsvCell);

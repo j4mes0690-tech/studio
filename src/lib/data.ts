@@ -155,6 +155,7 @@ if (!g.informationRequests) {
             createdAt: new Date('2023-10-28T10:00:00Z').toISOString(),
             requiredBy: new Date('2023-11-05T17:00:00Z').toISOString(),
             status: 'open',
+            messages: [],
         }
     ];
 }
@@ -265,32 +266,19 @@ export async function removeDistributionUser(userId: string): Promise<{ success:
   });
 }
 
-export async function updateUserAction(
-    formData: FormData
-  ): Promise<FormState> {
-    const validatedFields = UpdateUserSchema.safeParse({
-      id: formData.get('id'),
-      name: formData.get('name'),
-      email: formData.get('email'),
+export async function updateDistributionUser(userData: DistributionUser): Promise<DistributionUser> {
+    noStore();
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const index = g.distributionUsers.findIndex(u => u.id === userData.id);
+        if (index !== -1) {
+          g.distributionUsers[index] = userData;
+          resolve(userData);
+        } else {
+          reject(new Error('User not found.'));
+        }
+      }, 100);
     });
-  
-    if (!validatedFields.success) {
-      const errors = validatedFields.error.flatten().fieldErrors;
-      return {
-        success: false,
-        message: errors.name?.[0] || errors.email?.[0] || 'Invalid data.',
-      };
-    }
-  
-    try {
-      await updateDistributionUser(validatedFields.data as DistributionUser);
-      revalidatePath('/settings');
-      revalidatePath('/instructions', 'layout');
-      revalidatePath('/information-requests', 'layout');
-      return { success: true, message: 'User updated successfully.' };
-    } catch (error) {
-      return { success: false, message: 'Failed to update user.' };
-    }
   }
 
 
@@ -365,31 +353,19 @@ export async function removeSubContractor(userId: string): Promise<{ success: bo
   });
 }
 
-export async function updateSubContractorAction(
-    formData: FormData
-  ): Promise<FormState> {
-    const validatedFields = UpdateUserSchema.safeParse({
-      id: formData.get('id'),
-      name: formData.get('name'),
-      email: formData.get('email'),
+export async function updateSubContractor(subContractorData: SubContractor): Promise<SubContractor> {
+    noStore();
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const index = g.subContractors.findIndex(sc => sc.id === subContractorData.id);
+        if (index !== -1) {
+          g.subContractors[index] = subContractorData;
+          resolve(subContractorData);
+        } else {
+          reject(new Error('Sub-contractor not found.'));
+        }
+      }, 100);
     });
-  
-    if (!validatedFields.success) {
-      const errors = validatedFields.error.flatten().fieldErrors;
-      return {
-        success: false,
-        message: errors.name?.[0] || errors.email?.[0] || 'Invalid data.',
-      };
-    }
-  
-    try {
-      await updateSubContractor(validatedFields.data as SubContractor);
-      revalidatePath('/settings');
-      revalidatePath('/cleanup-notices', 'layout');
-      return { success: true, message: 'Sub-contractor updated successfully.' };
-    } catch (error) {
-      return { success: false, message: 'Failed to update sub-contractor.' };
-    }
   }
 
 export async function getSnaggingLists({

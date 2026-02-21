@@ -26,16 +26,16 @@ import {
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { addResponseToInformationRequestAction } from './actions';
+import { addChatMessageAction } from './actions';
 import { MessageSquareReply } from 'lucide-react';
 import type { InformationRequest } from '@/lib/types';
 
-const RespondToRequestSchema = z.object({
+const AddChatMessageSchema = z.object({
   id: z.string().min(1),
-  response: z.string().min(1, 'Response cannot be empty.'),
+  message: z.string().min(1, 'Message cannot be empty.'),
 });
 
-type RespondToRequestFormValues = z.infer<typeof RespondToRequestSchema>;
+type AddChatMessageFormValues = z.infer<typeof AddChatMessageSchema>;
 
 type RespondToRequestProps = {
   item: InformationRequest;
@@ -46,11 +46,11 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
-  const form = useForm<RespondToRequestFormValues>({
-    resolver: zodResolver(RespondToRequestSchema),
+  const form = useForm<AddChatMessageFormValues>({
+    resolver: zodResolver(AddChatMessageSchema),
     defaultValues: {
       id: item.id,
-      response: '',
+      message: '',
     },
   });
 
@@ -58,18 +58,18 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
     if (open) {
       form.reset({
         id: item.id,
-        response: '',
+        message: '',
       });
     }
   }, [open, item, form]);
 
-  const onSubmit = (values: RespondToRequestFormValues) => {
+  const onSubmit = (values: AddChatMessageFormValues) => {
     startTransition(async () => {
       const formData = new FormData();
       formData.append('id', values.id);
-      formData.append('response', values.response);
+      formData.append('message', values.message);
 
-      const result = await addResponseToInformationRequestAction(formData);
+      const result = await addChatMessageAction(formData);
 
       if (result.success) {
         toast({ title: 'Success', description: result.message });
@@ -87,16 +87,16 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
+        <Button>
             <MessageSquareReply className="mr-2 h-4 w-4" />
-            Respond
+            Reply
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Respond to Information Request</DialogTitle>
+          <DialogTitle>Add to conversation</DialogTitle>
           <DialogDescription>
-            Provide a response to the client's request. This will mark the request as closed.
+            Add a message to the conversation thread for this request.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -105,19 +105,27 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
             className="space-y-4"
           >
             <input type="hidden" {...form.register('id')} />
-            <div className='p-4 border rounded-md bg-muted/50'>
-                <p className='text-sm font-semibold'>Original Request:</p>
-                <p className='text-sm text-muted-foreground mt-1'>{item.description}</p>
+            <div className='p-4 border rounded-md bg-muted/50 max-h-48 overflow-y-auto space-y-4'>
+                <div>
+                    <p className='text-sm font-semibold'>Original Request:</p>
+                    <p className='text-sm text-muted-foreground mt-1'>{item.description}</p>
+                </div>
+                {item.messages.map(msg => (
+                    <div key={msg.id}>
+                        <p className='text-sm font-semibold'>{msg.sender}:</p>
+                        <p className='text-sm text-muted-foreground mt-1'>{msg.message}</p>
+                    </div>
+                ))}
             </div>
             <FormField
               control={form.control}
-              name="response"
+              name="message"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Your Response</FormLabel>
+                  <FormLabel>Your Message</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Type your response here..."
+                      placeholder="Type your message here..."
                       className="min-h-[150px]"
                       {...field}
                     />
@@ -128,7 +136,7 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
             />
             <DialogFooter>
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Submitting...' : 'Submit Response'}
+                {isPending ? 'Sending...' : 'Send Message'}
               </Button>
             </DialogFooter>
           </form>

@@ -1,10 +1,9 @@
-
 'use server';
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { createInformationRequest, getDistributionUsers, getInformationRequests, updateInformationRequest } from '@/lib/data';
-import type { InformationRequest } from '@/lib/types';
+import type { InformationRequest, ChatMessage } from '@/lib/types';
 
 const NewInformationRequestSchema = z.object({
   clientId: z.string().min(1, 'Client is required.'),
@@ -19,9 +18,13 @@ const UpdateInformationRequestSchema = NewInformationRequestSchema.extend({
     id: z.string().min(1, 'Item ID is required.'),
 });
 
-const RespondToRequestSchema = z.object({
+const AddChatMessageSchema = z.object({
     id: z.string().min(1, 'Item ID is required.'),
-    response: z.string().min(1, 'Response cannot be empty.'),
+    message: z.string().min(1, 'Message cannot be empty.'),
+});
+
+const CloseRequestSchema = z.object({
+    id: z.string().min(1, 'Item ID is required.'),
 });
 
 export type FormState = {
@@ -69,6 +72,7 @@ export async function createInformationRequestAction(
       description,
       assignedTo: assignedEmails,
       status: 'open',
+      messages: [],
     };
 
     if (photosJson) {
@@ -164,23 +168,23 @@ export async function updateInformationRequestAction(
     }
   }
 
-export async function addResponseToInformationRequestAction(
+export async function addChatMessageAction(
     formData: FormData
     ): Promise<FormState> {
     
-    const validatedFields = RespondToRequestSchema.safeParse({
+    const validatedFields = AddChatMessageSchema.safeParse({
         id: formData.get('id'),
-        response: formData.get('response'),
+        message: formData.get('message'),
     });
 
     if (!validatedFields.success) {
         return {
         success: false,
-        message: validatedFields.error.flatten().fieldErrors.response?.[0] || 'Invalid data provided.',
+        message: validatedFields.error.flatten().fieldErrors.message?.[0] || 'Invalid data provided.',
         };
     }
 
-    const { id, response } = validatedFields.data;
+    const { id, message } = validatedFields.data;
 
     try {
         const allItems = await getInformationRequests({});
@@ -190,19 +194,58 @@ export async function addResponseToInformationRequestAction(
         return { success: false, message: 'Information request not found.' };
         }
 
+        const newChatMessage: ChatMessage = {
+            id: `msg-${Date.now()}`,
+            sender: 'Internal Team', // Hardcoded sender
+            message,
+            createdAt: new Date().toISOString(),
+        };
+        
         const updatedItem: InformationRequest = {
-        ...existingItem,
-        response,
-        status: 'closed',
-        respondedAt: new Date().toISOString(),
+            ...existingItem,
+            messages: [...existingItem.messages, newChatMessage],
         };
 
         await updateInformationRequest(updatedItem);
 
         revalidatePath('/information-requests');
-        return { success: true, message: 'Response submitted successfully.' };
+        return { success: true, message: 'Message sent successfully.' };
     } catch (error) {
-        console.error('Failed to add response:', error);
-        return { success: false, message: 'Failed to add response.' };
+        console.error('Failed to add message:', error);
+        return { success: false, message: 'Failed to add message.' };
+    }
+}
+
+export async function closeInformationRequestAction(formData: FormData): Promise<FormState> {
+    const validatedFields = CloseRequestSchema.safeParse({
+        id: formData.get('id'),
+    });
+
+    if (!validatedFields.success) {
+        return { success: false, message: 'Invalid Request ID.' };
+    }
+
+    const { id } = validatedFields.data;
+
+    try {
+        const allItems = await getInformationRequests({});
+        const existingItem = allItems.find(i => i.id === id);
+
+        if (!existingItem) {
+            return { success: false, message: 'Information request not found.' };
+        }
+
+        const updatedItem: InformationRequest = {
+            ...existingItem,
+            status: 'closed',
+        };
+
+        await updateInformationRequest(updatedItem);
+
+        revalidatePath('/information-requests');
+        return { success: true, message: 'Request has been closed.' };
+    } catch (error) {
+        console.error('Failed to close request:', error);
+        return { success: false, message: 'Failed to close request.' };
     }
 }

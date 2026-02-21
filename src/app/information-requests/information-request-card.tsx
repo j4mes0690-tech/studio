@@ -1,4 +1,6 @@
 
+'use client';
+
 import type { InformationRequest, Client, Project, DistributionUser } from '@/lib/types';
 import Image from 'next/image';
 import {
@@ -15,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, MessageSquareReply, CalendarClock } from 'lucide-react';
+import { Camera, Users, MessageSquareReply, CalendarClock, XCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditInformationRequest } from './edit-information-request';
 import {
@@ -26,6 +28,70 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import { RespondToRequest } from './respond-to-request';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { closeInformationRequestAction } from './actions';
+import { useTransition } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+
+
+function CloseRequestButton({ requestId }: { requestId: string }) {
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+
+    const handleClose = () => {
+        startTransition(async () => {
+            const formData = new FormData();
+            formData.append('id', requestId);
+            const result = await closeInformationRequestAction(formData);
+
+            if (result.success) {
+                toast({ title: 'Success', description: result.message });
+            } else {
+                toast({
+                    title: 'Error',
+                    description: result.message,
+                    variant: 'destructive',
+                });
+            }
+        });
+    };
+
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="outline">
+                    <XCircle className="mr-2 h-4 w-4" />
+                    Close Request
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will close the information request and no more replies can be added. This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleClose} disabled={isPending}>
+                        {isPending ? 'Closing...' : 'Confirm'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
 
 type InformationRequestCardProps = {
   item: InformationRequest;
@@ -78,6 +144,7 @@ export function InformationRequestCard({
             {item.status === 'open' && (
                 <>
                     <RespondToRequest item={item} />
+                    <CloseRequestButton requestId={item.id} />
                     <EditInformationRequest item={item} clients={clients} projects={projects} distributionUsers={distributionUsers} />
                 </>
             )}
@@ -108,22 +175,29 @@ export function InformationRequestCard({
               </AccordionContent>
             </AccordionItem>
           )}
-          {item.status === 'closed' && item.response && (
-            <AccordionItem value="response">
-              <AccordionTrigger className="text-sm font-semibold">
-                <div className="flex items-center gap-2">
-                  <MessageSquareReply className="h-4 w-4" />
-                  <span>Response</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="space-y-2">
-                <p className="text-sm text-foreground whitespace-pre-wrap">{item.response}</p>
-                <p className="text-xs text-muted-foreground">
-                    Responded at: {new Date(item.respondedAt!).toLocaleString()}
-                </p>
-              </AccordionContent>
-            </AccordionItem>
-          )}
+          <AccordionItem value="conversation">
+            <AccordionTrigger className="text-sm font-semibold">
+              <div className="flex items-center gap-2">
+                <MessageSquareReply className="h-4 w-4" />
+                <span>Conversation ({item.messages.length})</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="space-y-4 pt-4">
+              {item.messages.length === 0 ? (
+                  <p className="text-center text-sm text-muted-foreground">No replies yet.</p>
+              ) : (
+                  item.messages.map((msg) => (
+                        <div key={msg.id} className="rounded-md border bg-muted/50 p-3">
+                          <div className="flex items-center justify-between">
+                              <p className="font-semibold text-sm">{msg.sender}</p>
+                              <p className="text-xs text-muted-foreground">{new Date(msg.createdAt).toLocaleString()}</p>
+                          </div>
+                          <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{msg.message}</p>
+                      </div>
+                  ))
+              )}
+            </AccordionContent>
+          </AccordionItem>
           {item.photos && item.photos.length > 0 && (
             <AccordionItem value="photo">
               <AccordionTrigger className="text-sm font-semibold">
