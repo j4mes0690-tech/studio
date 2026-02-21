@@ -112,6 +112,8 @@ export function InformationRequestCard({
   const assignedToArray = Array.isArray(item.assignedTo)
     ? item.assignedTo
     : item.assignedTo ? [item.assignedTo] : [];
+    
+  const messages = item.messages || [];
 
   return (
     <Card>
@@ -179,14 +181,14 @@ export function InformationRequestCard({
             <AccordionTrigger className="text-sm font-semibold">
               <div className="flex items-center gap-2">
                 <MessageSquareReply className="h-4 w-4" />
-                <span>Conversation ({item.messages.length})</span>
+                <span>Conversation ({messages.length})</span>
               </div>
             </AccordionTrigger>
             <AccordionContent className="space-y-4 pt-4">
-              {item.messages.length === 0 ? (
+              {messages.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground">No replies yet.</p>
               ) : (
-                  item.messages.map((msg) => (
+                  messages.map((msg) => (
                         <div key={msg.id} className="rounded-md border bg-muted/50 p-3">
                           <div className="flex items-center justify-between">
                               <p className="font-semibold text-sm">{msg.sender}</p>

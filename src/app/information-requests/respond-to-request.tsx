@@ -84,6 +84,8 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
     });
   };
 
+  const messages = item.messages || [];
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -110,7 +112,7 @@ export function RespondToRequest({ item }: RespondToRequestProps) {
                     <p className='text-sm font-semibold'>Original Request:</p>
                     <p className='text-sm text-muted-foreground mt-1'>{item.description}</p>
                 </div>
-                {item.messages.map(msg => (
+                {messages.map(msg => (
                     <div key={msg.id}>
                         <p className='text-sm font-semibold'>{msg.sender}:</p>
                         <p className='text-sm text-muted-foreground mt-1'>{msg.message}</p>

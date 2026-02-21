@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -203,7 +204,7 @@ export async function addChatMessageAction(
         
         const updatedItem: InformationRequest = {
             ...existingItem,
-            messages: [...existingItem.messages, newChatMessage],
+            messages: [...(existingItem.messages || []), newChatMessage],
         };
 
         await updateInformationRequest(updatedItem);
