@@ -351,6 +351,7 @@ export function EditInformationRequest({ item, clients, projects, distributionUs
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
+                            type="button"
                             variant={'outline'}
                             className={cn(
                               'w-[240px] pl-3 text-left font-normal',

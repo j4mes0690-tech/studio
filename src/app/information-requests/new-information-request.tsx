@@ -319,6 +319,7 @@ export function NewInformationRequest({ clients, projects, distributionUsers }: 
                       <PopoverTrigger asChild>
                         <FormControl>
                           <Button
+                            type="button"
                             variant={'outline'}
                             className={cn(
                               'w-[240px] pl-3 text-left font-normal',
