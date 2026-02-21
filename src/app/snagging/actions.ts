@@ -10,8 +10,7 @@ const SnaggingItemSchema = z.object({
   clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
-  photoUrl: z.string().optional(),
-  photoTimestamp: z.string().optional(),
+  photos: z.string().optional(),
 });
 
 const UpdateSnaggingItemSchema = SnaggingItemSchema.extend({
@@ -31,8 +30,7 @@ export async function createSnaggingItemAction(
     clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     description: formData.get('description'),
-    photoUrl: formData.get('photoUrl'),
-    photoTimestamp: formData.get('photoTimestamp'),
+    photos: formData.get('photos'),
   });
 
   if (!validatedFields.success) {
@@ -42,7 +40,7 @@ export async function createSnaggingItemAction(
     };
   }
 
-  const { description, clientId, projectId, photoUrl, photoTimestamp } = validatedFields.data;
+  const { description, clientId, projectId, photos: photosJson } = validatedFields.data;
 
   try {
     const newSnaggingItemData: Omit<SnaggingItem, 'id' | 'createdAt'> = {
@@ -51,11 +49,8 @@ export async function createSnaggingItemAction(
       description,
     };
 
-    if (photoUrl && photoTimestamp) {
-        newSnaggingItemData.photo = {
-            url: photoUrl,
-            takenAt: photoTimestamp,
-        }
+    if (photosJson) {
+        newSnaggingItemData.photos = JSON.parse(photosJson);
     }
     
     await createSnaggingItem(newSnaggingItemData);
@@ -78,8 +73,7 @@ export async function updateSnaggingItemAction(
     clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     description: formData.get('description'),
-    photoUrl: formData.get('photoUrl'),
-    photoTimestamp: formData.get('photoTimestamp'),
+    photos: formData.get('photos'),
   });
 
   if (!validatedFields.success) {
@@ -89,7 +83,7 @@ export async function updateSnaggingItemAction(
     };
   }
 
-  const { id, description, clientId, projectId, photoUrl, photoTimestamp } = validatedFields.data;
+  const { id, description, clientId, projectId, photos: photosJson } = validatedFields.data;
 
   try {
     const allItems = await getSnaggingLists({});
@@ -106,13 +100,10 @@ export async function updateSnaggingItemAction(
       description,
     };
 
-    if (photoUrl && photoTimestamp) {
-      updatedItem.photo = {
-        url: photoUrl,
-        takenAt: photoTimestamp,
-      };
+    if (photosJson) {
+      updatedItem.photos = JSON.parse(photosJson);
     } else {
-      delete updatedItem.photo;
+      delete updatedItem.photos;
     }
 
     await updateSnaggingItem(updatedItem);

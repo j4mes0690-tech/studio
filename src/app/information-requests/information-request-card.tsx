@@ -18,6 +18,13 @@ import {
 import { Camera, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditInformationRequest } from './edit-information-request';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel';
 
 type InformationRequestCardProps = {
   item: InformationRequest;
@@ -86,29 +93,45 @@ export function InformationRequestCard({
               </AccordionContent>
             </AccordionItem>
           )}
-          {item.photo && (
+          {item.photos && item.photos.length > 0 && (
             <AccordionItem value="photo">
               <AccordionTrigger className="text-sm font-semibold">
                 <div className="flex items-center gap-2">
                   <Camera className="h-4 w-4" />
-                  <span>Attached Photo</span>
+                  <span>Attached Photos ({item.photos.length})</span>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
-                <div className="space-y-2">
-                  <Image
-                    src={item.photo.url}
-                    alt="Information request photo"
-                    width={600}
-                    height={400}
-                    className="rounded-md border object-cover"
-                    data-ai-hint="document blueprint"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Taken on:{' '}
-                    {new Date(item.photo.takenAt).toLocaleString()}
-                  </p>
-                </div>
+                <Carousel className="w-full max-w-sm mx-auto">
+                  <CarouselContent>
+                    {item.photos.map((photo, index) => (
+                      <CarouselItem key={index}>
+                        <div className="p-1">
+                          <div className="space-y-2">
+                            <Image
+                              src={photo.url}
+                              alt={`Information request photo ${index + 1}`}
+                              width={600}
+                              height={400}
+                              className="rounded-md border object-cover aspect-video"
+                              data-ai-hint="document blueprint"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Taken on:{' '}
+                              {new Date(photo.takenAt).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  {item.photos.length > 1 && (
+                    <>
+                      <CarouselPrevious />
+                      <CarouselNext />
+                    </>
+                  )}
+                </Carousel>
               </AccordionContent>
             </AccordionItem>
           )}

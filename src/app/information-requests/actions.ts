@@ -11,8 +11,7 @@ const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
-  photoUrl: z.string().optional(),
-  photoTimestamp: z.string().optional(),
+  photos: z.string().optional(),
 });
 
 const UpdateInformationRequestSchema = NewInformationRequestSchema.extend({
@@ -33,8 +32,7 @@ export async function createInformationRequestAction(
     projectId: formData.get('projectId'),
     description: formData.get('description'),
     assignedTo: formData.getAll('assignedTo'),
-    photoUrl: formData.get('photoUrl'),
-    photoTimestamp: formData.get('photoTimestamp'),
+    photos: formData.get('photos'),
   });
 
   if (!validatedFields.success) {
@@ -46,7 +44,7 @@ export async function createInformationRequestAction(
     };
   }
 
-  const { description, clientId, projectId, assignedTo: assignedToIds, photoUrl, photoTimestamp } = validatedFields.data;
+  const { description, clientId, projectId, assignedTo: assignedToIds, photos: photosJson } = validatedFields.data;
 
   try {
     const users = await getDistributionUsers();
@@ -65,11 +63,8 @@ export async function createInformationRequestAction(
       assignedTo: assignedEmails,
     };
 
-    if (photoUrl && photoTimestamp) {
-        newRequestData.photo = {
-            url: photoUrl,
-            takenAt: photoTimestamp,
-        }
+    if (photosJson) {
+        newRequestData.photos = JSON.parse(photosJson);
     }
     
     await createInformationRequest(newRequestData);
@@ -93,8 +88,7 @@ export async function updateInformationRequestAction(
       projectId: formData.get('projectId'),
       description: formData.get('description'),
       assignedTo: formData.getAll('assignedTo'),
-      photoUrl: formData.get('photoUrl'),
-      photoTimestamp: formData.get('photoTimestamp'),
+      photos: formData.get('photos'),
     });
   
     if (!validatedFields.success) {
@@ -106,7 +100,7 @@ export async function updateInformationRequestAction(
       };
     }
   
-    const { id, description, clientId, projectId, assignedTo: assignedToIds, photoUrl, photoTimestamp } = validatedFields.data;
+    const { id, description, clientId, projectId, assignedTo: assignedToIds, photos: photosJson } = validatedFields.data;
   
     try {
       const [users, allItems] = await Promise.all([
@@ -135,13 +129,10 @@ export async function updateInformationRequestAction(
         assignedTo: assignedEmails,
       };
   
-      if (photoUrl && photoTimestamp) {
-        updatedItem.photo = {
-          url: photoUrl,
-          takenAt: photoTimestamp,
-        };
+      if (photosJson) {
+        updatedItem.photos = JSON.parse(photosJson);
       } else {
-        delete updatedItem.photo;
+        delete updatedItem.photos;
       }
   
       await updateInformationRequest(updatedItem);

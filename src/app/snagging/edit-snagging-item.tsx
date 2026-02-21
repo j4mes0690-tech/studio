@@ -35,8 +35,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { updateSnaggingItemAction } from './actions';
-import { Pencil, Camera, RefreshCw } from 'lucide-react';
-import type { Client, Project, SnaggingItem } from '@/lib/types';
+import { Pencil, Camera, Upload, X } from 'lucide-react';
+import type { Client, Project, SnaggingItem, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const EditSnaggingItemSchema = z.object({
@@ -44,8 +44,7 @@ const EditSnaggingItemSchema = z.object({
   clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
-  photoUrl: z.string().optional(),
-  photoTimestamp: z.string().optional(),
+  photos: z.string().optional(),
 });
 
 type EditSnaggingItemFormValues = z.infer<typeof EditSnaggingItemSchema>;
@@ -66,7 +65,10 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
+
+  const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
 
   const form = useForm<EditSnaggingItemFormValues>({
     resolver: zodResolver(EditSnaggingItemSchema),
@@ -75,10 +77,13 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
       clientId: item.clientId,
       projectId: item.projectId,
       description: item.description,
-      photoUrl: item.photo?.url || '',
-      photoTimestamp: item.photo?.takenAt || '',
+      photos: JSON.stringify(item.photos || []),
     },
   });
+
+  useEffect(() => {
+    form.setValue('photos', JSON.stringify(photos));
+  }, [photos, form]);
 
   const onSubmit = (values: EditSnaggingItemFormValues) => {
     startTransition(async () => {
@@ -87,8 +92,7 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
       formData.append('clientId', values.clientId);
       formData.append('projectId', values.projectId);
       formData.append('description', values.description);
-      if (values.photoUrl) formData.append('photoUrl', values.photoUrl);
-      if (values.photoTimestamp) formData.append('photoTimestamp', values.photoTimestamp);
+      formData.append('photos', values.photos);
       
       const result = await updateSnaggingItemAction(formData);
 
@@ -109,16 +113,17 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
   };
 
   useEffect(() => {
-    if (!open) {
-      setIsCameraOpen(false);
+    if (open) {
       form.reset({
         id: item.id,
         clientId: item.clientId,
         projectId: item.projectId,
         description: item.description,
-        photoUrl: item.photo?.url || '',
-        photoTimestamp: item.photo?.takenAt || '',
+        photos: JSON.stringify(item.photos || []),
       });
+      setPhotos(item.photos || []);
+    } else {
+      setIsCameraOpen(false);
     }
   }, [open, form, item]);
 
@@ -153,7 +158,6 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
   }, [isCameraOpen, toast]);
 
   const selectedClientId = form.watch('clientId');
-  const photoUrl = form.watch('photoUrl');
 
   useEffect(() => {
     if (selectedClientId) {
@@ -165,7 +169,6 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
     }
   }, [selectedClientId, projects, form]);
   
-  // Set project on initial load if client is already selected
   useEffect(() => {
      setFilteredProjects(
         projects.filter((p) => p.clientId === item.clientId)
@@ -185,15 +188,29 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
 
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      form.setValue('photoUrl', dataUrl);
-      form.setValue('photoTimestamp', new Date().toISOString());
+      
+      setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
   };
 
-  const clearPhoto = () => {
-    form.setValue('photoUrl', '');
-    form.setValue('photoTimestamp', '');
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
@@ -217,8 +234,7 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
             className="space-y-4"
           >
             <input type="hidden" {...form.register('id')} />
-            <input type="hidden" {...form.register('photoUrl')} />
-            <input type="hidden" {...form.register('photoTimestamp')} />
+            <input type="hidden" {...form.register('photos')} />
             
             <FormField
               control={form.control}
@@ -297,67 +313,102 @@ export function EditSnaggingItem({ item, clients, projects }: EditSnaggingItemPr
             />
 
             <FormItem>
-              <FormLabel>Photo</FormLabel>
-              {photoUrl ? (
-                <div className="space-y-2">
-                  <Image
-                    src={photoUrl}
-                    alt="Snagging photo preview"
-                    width={600}
-                    height={400}
-                    className="rounded-md border object-cover"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={clearPhoto}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Change Photo
-                  </Button>
-                </div>
-              ) : isCameraOpen ? (
-                <div className="space-y-2">
-                  {hasCameraPermission === false ? (
-                    <Alert variant="destructive">
-                      <AlertTitle>Camera Access Required</AlertTitle>
-                      <AlertDescription>
-                        Please allow camera access to use this feature.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    <>
-                      <div className="relative w-full aspect-video bg-muted rounded-md overflow-hidden">
-                        <video
-                          ref={videoRef}
-                          className="w-full h-full object-cover"
-                          autoPlay
-                          muted
-                          playsInline
+              <FormLabel>Photos</FormLabel>
+              <div className="space-y-4">
+                {photos.length > 0 && (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {photos.map((photo, index) => (
+                      <div key={index} className="relative group">
+                        <Image
+                          src={photo.url}
+                          alt={`Photo ${index + 1}`}
+                          width={200}
+                          height={150}
+                          className="rounded-md border object-cover aspect-video"
                         />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
+                          onClick={() => removePhoto(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        onClick={takePhoto}
-                        disabled={hasCameraPermission === undefined}
-                      >
-                        <Camera className="mr-2 h-4 w-4" />
-                        Take Photo
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsCameraOpen(true)}
-                >
-                  <Camera className="mr-2 h-4 w-4" />
-                  Add Photo
-                </Button>
-              )}
+                    ))}
+                  </div>
+                )}
+              
+                {isCameraOpen ? (
+                  <div className="space-y-2">
+                    {hasCameraPermission === false ? (
+                      <Alert variant="destructive">
+                        <AlertTitle>Camera Access Required</AlertTitle>
+                        <AlertDescription>
+                          Please allow camera access to use this feature.
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <>
+                        <div className="relative w-full aspect-video bg-muted rounded-md overflow-hidden">
+                          <video
+                            ref={videoRef}
+                            className="w-full h-full object-cover"
+                            autoPlay
+                            muted
+                            playsInline
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            onClick={takePhoto}
+                            disabled={hasCameraPermission === undefined}
+                          >
+                            <Camera className="mr-2 h-4 w-4" />
+                            Take Photo
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setIsCameraOpen(false)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsCameraOpen(true)}
+                    >
+                      <Camera className="mr-2 h-4 w-4" />
+                      Take Photo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload
+                    </Button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      multiple
+                      onChange={handleFileSelect}
+                    />
+                  </div>
+                )}
+              </div>
             </FormItem>
             
             <canvas ref={canvasRef} className="hidden" />

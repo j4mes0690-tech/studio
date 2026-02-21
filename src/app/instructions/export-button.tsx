@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -40,13 +41,16 @@ export function ExportButton({
       'Summary',
       'Action Items',
       'Recipients',
-      'Photo URL',
-      'Photo Timestamp',
+      'Photo URLs',
+      'Photo Timestamps',
     ];
 
     const rows = instructions.map((instruction) => {
       const project = projectMap.get(instruction.projectId);
       const client = clientMap.get(instruction.clientId);
+      const photoUrls = instruction.photos?.map(p => p.url).join('; ') || '';
+      const photoTimestamps = instruction.photos?.map(p => new Date(p.takenAt).toLocaleString()).join('; ') || '';
+      
       return [
         project?.name || 'N/A',
         client?.name || 'N/A',
@@ -54,8 +58,8 @@ export function ExportButton({
         instruction.summary,
         instruction.actionItems.join('; '),
         instruction.recipients?.join('; ') || '',
-        instruction.photo?.url || '',
-        instruction.photo?.takenAt ? new Date(instruction.photo.takenAt).toLocaleString() : '',
+        photoUrls,
+        photoTimestamps,
       ].map(escapeCsvCell);
     });
 

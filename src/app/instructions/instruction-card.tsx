@@ -15,8 +15,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { FileText, CheckSquare, MessageCircle, Camera, Users } from 'lucide-react';
+import { CheckSquare, MessageCircle, Camera, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel';
 
 type InstructionCardProps = {
   instruction: Instruction;
@@ -91,29 +98,45 @@ export function InstructionCard({
              </AccordionContent>
            </AccordionItem>
           )}
-          {instruction.photo && (
+          {instruction.photos && instruction.photos.length > 0 && (
             <AccordionItem value="photo">
               <AccordionTrigger className="text-sm font-semibold">
                 <div className="flex items-center gap-2">
                   <Camera className="h-4 w-4" />
-                  <span>Attached Photo</span>
+                  <span>Attached Photos ({instruction.photos.length})</span>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
-                <div className="space-y-2">
-                  <Image
-                    src={instruction.photo.url}
-                    alt="Instruction photo"
-                    width={600}
-                    height={400}
-                    className="rounded-md border object-cover"
-                    data-ai-hint="construction site"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Taken on:{' '}
-                    {new Date(instruction.photo.takenAt).toLocaleString()}
-                  </p>
-                </div>
+                <Carousel className="w-full max-w-sm mx-auto">
+                  <CarouselContent>
+                    {instruction.photos.map((photo, index) => (
+                      <CarouselItem key={index}>
+                        <div className="p-1">
+                          <div className="space-y-2">
+                            <Image
+                              src={photo.url}
+                              alt={`Instruction photo ${index + 1}`}
+                              width={600}
+                              height={400}
+                              className="rounded-md border object-cover aspect-video"
+                              data-ai-hint="construction site"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Taken on:{' '}
+                              {new Date(photo.takenAt).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                   {instruction.photos.length > 1 && (
+                    <>
+                      <CarouselPrevious />
+                      <CarouselNext />
+                    </>
+                  )}
+                </Carousel>
               </AccordionContent>
             </AccordionItem>
           )}

@@ -43,8 +43,8 @@ export function ExportButton({
       'Date',
       'Request Description',
       'Assigned To',
-      'Photo URL',
-      'Photo Timestamp',
+      'Photo URLs',
+      'Photo Timestamps',
     ];
 
     const rows = items.map((item) => {
@@ -52,14 +52,18 @@ export function ExportButton({
       const client = clientMap.get(item.clientId);
       const assignedToArray = Array.isArray(item.assignedTo) ? item.assignedTo : (item.assignedTo ? [item.assignedTo] : []);
       const assignedToNames = assignedToArray.map(email => userMap.get(email) || email).join('; ');
+      
+      const photoUrls = item.photos?.map(p => p.url).join('; ') || '';
+      const photoTimestamps = item.photos?.map(p => new Date(p.takenAt).toLocaleString()).join('; ') || '';
+
       return [
         project?.name || 'N/A',
         client?.name || 'N/A',
         new Date(item.createdAt).toLocaleString(),
         item.description,
         assignedToNames,
-        item.photo?.url || '',
-        item.photo?.takenAt ? new Date(item.photo.takenAt).toLocaleString() : '',
+        photoUrls,
+        photoTimestamps,
       ].map(escapeCsvCell);
     });
 

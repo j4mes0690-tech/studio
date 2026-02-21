@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Client, Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest } from './types';
+import type { Client, Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 
 // Widen the global type to include our in-memory data
@@ -54,10 +54,10 @@ if (!g.instructions) {
       ],
       createdAt: new Date('2023-10-15T09:00:00Z').toISOString(),
       recipients: ['pm@example.com', 'supervisor@example.com'],
-      photo: {
+      photos: [{
         url: 'https://picsum.photos/seed/instruction1/600/400',
         takenAt: new Date('2023-10-15T09:02:15Z').toISOString(),
-      },
+      }],
     },
     {
       id: '2',
@@ -103,10 +103,10 @@ if (!g.cleanUpNotices) {
             description: 'Debris from drywall installation on floor 12 needs to be cleared by end of day. Please ensure all hallways are clear for inspection tomorrow morning.',
             createdAt: new Date('2023-10-22T16:00:00Z').toISOString(),
             recipients: ['cleanup-crew@example.com'],
-            photo: {
+            photos: [{
               url: 'https://picsum.photos/seed/cleanup1/600/400',
               takenAt: new Date('2023-10-22T16:01:30Z').toISOString(),
-            },
+            }],
         }
     ];
 }
@@ -119,10 +119,10 @@ if (!g.snaggingLists) {
             projectId: '101',
             description: 'Paint on the west wall of apartment 1201 is chipped. Needs repainting.',
             createdAt: new Date('2023-10-25T10:00:00Z').toISOString(),
-            photo: {
+            photos: [{
               url: 'https://picsum.photos/seed/snag1/600/400',
               takenAt: new Date('2023-10-25T10:01:00Z').toISOString(),
-            },
+            }],
         },
         {
             id: 'snag2',

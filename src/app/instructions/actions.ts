@@ -12,8 +12,7 @@ const NewInstructionSchema = z.object({
   clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   originalText: z.string().min(10, 'Instructions must be at least 10 characters.'),
-  photoUrl: z.string().optional(),
-  photoTimestamp: z.string().optional(),
+  photos: z.string().optional(),
   recipients: z.array(z.string()).optional(),
 });
 
@@ -30,8 +29,7 @@ export async function createInstructionAction(
     clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     originalText: formData.get('originalText'),
-    photoUrl: formData.get('photoUrl'),
-    photoTimestamp: formData.get('photoTimestamp'),
+    photos: formData.get('photos'),
     recipients: formData.getAll('recipients'),
   });
 
@@ -42,7 +40,7 @@ export async function createInstructionAction(
     };
   }
 
-  const { originalText, clientId, projectId, photoUrl, photoTimestamp, recipients: recipientIds } = validatedFields.data;
+  const { originalText, clientId, projectId, photos: photosJson, recipients: recipientIds } = validatedFields.data;
 
   try {
     const [summaryResult, actionItemsResult, distributionUsers] = await Promise.all([
@@ -59,11 +57,8 @@ export async function createInstructionAction(
       actionItems: actionItemsResult.actionItems,
     };
 
-    if (photoUrl && photoTimestamp) {
-        newInstructionData.photo = {
-            url: photoUrl,
-            takenAt: photoTimestamp,
-        }
+    if (photosJson) {
+        newInstructionData.photos = JSON.parse(photosJson);
     }
 
     if (recipientIds && recipientIds.length > 0) {

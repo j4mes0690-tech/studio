@@ -10,8 +10,7 @@ const NewNoticeSchema = z.object({
   clientId: z.string().min(1, 'Client is required.'),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
-  photoUrl: z.string().optional(),
-  photoTimestamp: z.string().optional(),
+  photos: z.string().optional(),
   recipients: z.array(z.string()).optional(),
 });
 
@@ -28,8 +27,7 @@ export async function createCleanUpNoticeAction(
     clientId: formData.get('clientId'),
     projectId: formData.get('projectId'),
     description: formData.get('description'),
-    photoUrl: formData.get('photoUrl'),
-    photoTimestamp: formData.get('photoTimestamp'),
+    photos: formData.get('photos'),
     recipients: formData.getAll('recipients'),
   });
 
@@ -40,7 +38,7 @@ export async function createCleanUpNoticeAction(
     };
   }
 
-  const { description, clientId, projectId, photoUrl, photoTimestamp, recipients: recipientIds } = validatedFields.data;
+  const { description, clientId, projectId, photos: photosJson, recipients: recipientIds } = validatedFields.data;
 
   try {
     const subContractors = await getSubContractors();
@@ -51,11 +49,8 @@ export async function createCleanUpNoticeAction(
       description,
     };
 
-    if (photoUrl && photoTimestamp) {
-        newNoticeData.photo = {
-            url: photoUrl,
-            takenAt: photoTimestamp,
-        }
+    if (photosJson) {
+        newNoticeData.photos = JSON.parse(photosJson);
     }
 
     if (recipientIds && recipientIds.length > 0) {

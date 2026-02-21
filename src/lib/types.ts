@@ -11,6 +11,11 @@ export type Project = {
   clientId: string;
 };
 
+export type Photo = {
+  url: string;
+  takenAt: string;
+};
+
 export type Instruction = {
   id: string;
   clientId: string;
@@ -19,10 +24,7 @@ export type Instruction = {
   summary: string;
   actionItems: string[];
   createdAt: string;
-  photo?: {
-    url: string;
-    takenAt: string;
-  };
+  photos?: Photo[];
   recipients?: string[];
 };
 
@@ -32,10 +34,7 @@ export type CleanUpNotice = {
   projectId: string;
   description: string;
   createdAt: string;
-  photo?: {
-    url: string;
-    takenAt: string;
-  };
+  photos?: Photo[];
   recipients?: string[];
 };
 
@@ -45,10 +44,7 @@ export type SnaggingItem = {
   projectId: string;
   description: string;
   createdAt: string;
-  photo?: {
-    url: string;
-    takenAt: string;
-  };
+  photos?: Photo[];
 };
 
 export type InformationRequest = {
@@ -58,10 +54,7 @@ export type InformationRequest = {
   description: string;
   assignedTo: string[];
   createdAt: string;
-  photo?: {
-    url: string;
-    takenAt: string;
-  };
+  photos?: Photo[];
 };
 
 export type DistributionUser = {

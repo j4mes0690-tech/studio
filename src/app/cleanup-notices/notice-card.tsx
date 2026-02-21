@@ -15,8 +15,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { FileText, Camera, Users } from 'lucide-react';
+import { Camera, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from '@/components/ui/carousel';
 
 type NoticeCardProps = {
   notice: CleanUpNotice;
@@ -74,29 +81,45 @@ export function NoticeCard({
              </AccordionContent>
            </AccordionItem>
           )}
-          {notice.photo && (
+          {notice.photos && notice.photos.length > 0 && (
             <AccordionItem value="photo">
               <AccordionTrigger className="text-sm font-semibold">
                 <div className="flex items-center gap-2">
                   <Camera className="h-4 w-4" />
-                  <span>Attached Photo</span>
+                  <span>Attached Photos ({notice.photos.length})</span>
                 </div>
               </AccordionTrigger>
               <AccordionContent>
-                <div className="space-y-2">
-                  <Image
-                    src={notice.photo.url}
-                    alt="Clean up notice photo"
-                    width={600}
-                    height={400}
-                    className="rounded-md border object-cover"
-                    data-ai-hint="construction mess debris"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Taken on:{' '}
-                    {new Date(notice.photo.takenAt).toLocaleString()}
-                  </p>
-                </div>
+                <Carousel className="w-full max-w-sm mx-auto">
+                  <CarouselContent>
+                    {notice.photos.map((photo, index) => (
+                      <CarouselItem key={index}>
+                        <div className="p-1">
+                          <div className="space-y-2">
+                            <Image
+                              src={photo.url}
+                              alt={`Clean up notice photo ${index + 1}`}
+                              width={600}
+                              height={400}
+                              className="rounded-md border object-cover aspect-video"
+                              data-ai-hint="construction mess debris"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Taken on:{' '}
+                              {new Date(photo.takenAt).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  {notice.photos.length > 1 && (
+                    <>
+                      <CarouselPrevious />
+                      <CarouselNext />
+                    </>
+                  )}
+                </Carousel>
               </AccordionContent>
             </AccordionItem>
           )}
