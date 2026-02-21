@@ -222,6 +222,21 @@ export async function removeDistributionUser(userId: string): Promise<{ success:
   });
 }
 
+export async function updateDistributionUser(userData: DistributionUser): Promise<DistributionUser> {
+    noStore();
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const index = distributionUsers.findIndex(user => user.id === userData.id);
+        if (index !== -1) {
+          distributionUsers[index] = userData;
+          resolve(userData);
+        } else {
+          reject(new Error('User not found'));
+        }
+      }, 100);
+    });
+  }
+
 
 export async function getCleanUpNotices({
   clientId,
@@ -293,6 +308,21 @@ export async function removeSubContractor(userId: string): Promise<{ success: bo
     }, 100);
   });
 }
+
+export async function updateSubContractor(userData: SubContractor): Promise<SubContractor> {
+    noStore();
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const index = subContractors.findIndex(user => user.id === userData.id);
+        if (index !== -1) {
+          subContractors[index] = userData;
+          resolve(userData);
+        } else {
+          reject(new Error('Sub-contractor not found'));
+        }
+      }, 100);
+    });
+  }
 
 export async function getSnaggingLists({
   clientId,
