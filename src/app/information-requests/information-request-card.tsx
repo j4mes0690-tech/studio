@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { InformationRequest, Client, Project, DistributionUser } from '@/lib/types';
@@ -43,6 +42,7 @@ import { closeInformationRequestAction, reopenInformationRequestAction } from '.
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { ClientDate } from '@/components/client-date';
 
 
 function CloseRequestButton({ requestId }: { requestId: string }) {
@@ -118,9 +118,9 @@ function ReopenRequestButton({ requestId }: { requestId: string }) {
     return (
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button variant="outline">
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Reopen Request
+                <Button variant="ghost" size="icon">
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="sr-only">Reopen Request</span>
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -179,13 +179,13 @@ export function InformationRequestCard({
                 </span>
                 <span className="hidden sm:inline-block">-</span>
                 <span className="text-xs text-muted-foreground/80">
-                    {new Date(item.createdAt).toLocaleString()}
+                    <ClientDate date={item.createdAt} />
                 </span>
             </CardDescription>
             {item.requiredBy && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
                     <CalendarClock className="h-4 w-4" />
-                    <span>Required by: {new Date(item.requiredBy).toLocaleDateString()}</span>
+                    <span>Required by: <ClientDate date={item.requiredBy} format="date" /></span>
                 </div>
             )}
           </div>
@@ -243,7 +243,7 @@ export function InformationRequestCard({
                         <div key={msg.id} className="rounded-md border bg-muted/50 p-3">
                           <div className="flex items-center justify-between">
                               <p className="font-semibold text-sm">{msg.sender}</p>
-                              <p className="text-xs text-muted-foreground">{new Date(msg.createdAt).toLocaleString()}</p>
+                              <p className="text-xs text-muted-foreground"><ClientDate date={msg.createdAt} /></p>
                           </div>
                           <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{msg.message}</p>
                       </div>
@@ -276,7 +276,7 @@ export function InformationRequestCard({
                             />
                             <p className="text-xs text-muted-foreground">
                               Taken on:{' '}
-                              {new Date(photo.takenAt).toLocaleString()}
+                              <ClientDate date={photo.takenAt} />
                             </p>
                           </div>
                         </div>
