@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, MessageSquareReply, CalendarClock, XCircle } from 'lucide-react';
+import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditInformationRequest } from './edit-information-request';
 import {
@@ -39,7 +39,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { closeInformationRequestAction } from './actions';
+import { closeInformationRequestAction, reopenInformationRequestAction } from './actions';
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -86,6 +86,54 @@ function CloseRequestButton({ requestId }: { requestId: string }) {
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleClose} disabled={isPending}>
                         {isPending ? 'Closing...' : 'Confirm'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
+
+function ReopenRequestButton({ requestId }: { requestId: string }) {
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+
+    const handleReopen = () => {
+        startTransition(async () => {
+            const formData = new FormData();
+            formData.append('id', requestId);
+            const result = await reopenInformationRequestAction(formData);
+
+            if (result.success) {
+                toast({ title: 'Success', description: result.message });
+            } else {
+                toast({
+                    title: 'Error',
+                    description: result.message,
+                    variant: 'destructive',
+                });
+            }
+        });
+    };
+
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="outline">
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reopen Request
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will reopen the information request, allowing replies to be added again.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleReopen} disabled={isPending}>
+                        {isPending ? 'Reopening...' : 'Confirm'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -149,6 +197,9 @@ export function InformationRequestCard({
                     <CloseRequestButton requestId={item.id} />
                     <EditInformationRequest item={item} clients={clients} projects={projects} distributionUsers={distributionUsers} />
                 </>
+            )}
+            {item.status === 'closed' && (
+              <ReopenRequestButton requestId={item.id} />
             )}
           </div>
         </div>

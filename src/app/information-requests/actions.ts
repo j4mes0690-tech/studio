@@ -28,6 +28,10 @@ const CloseRequestSchema = z.object({
     id: z.string().min(1, 'Item ID is required.'),
 });
 
+const ReopenRequestSchema = z.object({
+    id: z.string().min(1, 'Item ID is required.'),
+});
+
 export type FormState = {
   message: string;
   success: boolean;
@@ -248,5 +252,40 @@ export async function closeInformationRequestAction(formData: FormData): Promise
     } catch (error) {
         console.error('Failed to close request:', error);
         return { success: false, message: 'Failed to close request.' };
+    }
+}
+
+
+export async function reopenInformationRequestAction(formData: FormData): Promise<FormState> {
+    const validatedFields = ReopenRequestSchema.safeParse({
+        id: formData.get('id'),
+    });
+
+    if (!validatedFields.success) {
+        return { success: false, message: 'Invalid Request ID.' };
+    }
+
+    const { id } = validatedFields.data;
+
+    try {
+        const allItems = await getInformationRequests({});
+        const existingItem = allItems.find(i => i.id === id);
+
+        if (!existingItem) {
+            return { success: false, message: 'Information request not found.' };
+        }
+
+        const updatedItem: InformationRequest = {
+            ...existingItem,
+            status: 'open',
+        };
+
+        await updateInformationRequest(updatedItem);
+
+        revalidatePath('/information-requests');
+        return { success: true, message: 'Request has been reopened.' };
+    } catch (error) {
+        console.error('Failed to reopen request:', error);
+        return { success: false, message: 'Failed to reopen request.' };
     }
 }
