@@ -47,7 +47,7 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => logoutAction()} className="cursor-pointer">
+                <DropdownMenuItem onSelect={() => logoutAction()} className="cursor-pointer">
                     Logout
                 </DropdownMenuItem>
             </DropdownMenuContent>
