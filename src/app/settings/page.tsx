@@ -61,7 +61,7 @@ export default async function SettingsPage() {
                     <div className="grid gap-8 lg:grid-cols-2">
                         <div className="space-y-4">
                             <h3 className="text-lg font-medium">Add New Sub-Contractor</h3>
-                            <p className="text-sm text-muted-foreground">Add sub-contractors to receive clean up notices.</p>
+                            <p className="text-sm text-muted-foreground">Add sub-contractor companies to the system.</p>
                             <AddSubcontractorForm />
                         </div>
                         <div className="space-y-4">
