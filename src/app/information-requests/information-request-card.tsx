@@ -1,6 +1,6 @@
 'use client';
 
-import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
+import type { InformationRequest, Project, DistributionUser, ChatMessage } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -48,7 +48,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { ClientDate } from '../../components/client-date';
 import { useFirestore } from '@/firebase';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, arrayRemove } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -167,6 +167,56 @@ function DeleteRequestButton({ requestId }: { requestId: string }) {
     );
 }
 
+function DeleteMessageButton({ requestId, message }: { requestId: string, message: ChatMessage }) {
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+    const db = useFirestore();
+
+    const handleDelete = () => {
+        startTransition(async () => {
+            const docRef = doc(db, 'information-requests', requestId);
+            const updates = {
+                messages: arrayRemove(message)
+            };
+            updateDoc(docRef, updates)
+              .then(() => toast({ title: 'Success', description: 'Message deleted.' }))
+              .catch((error) => {
+                const permissionError = new FirestorePermissionError({
+                  path: docRef.path,
+                  operation: 'update',
+                  requestResourceData: updates,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+              });
+        });
+    };
+
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                    <span className="sr-only">Delete Message</span>
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Message?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will permanently remove your message from the conversation history.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} disabled={isPending} className="bg-destructive hover:bg-destructive/90">
+                        {isPending ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
+
 
 type InformationRequestCardProps = {
   item: InformationRequest;
@@ -264,10 +314,15 @@ export function InformationRequestCard({
               ) : (
                   <div className="space-y-4">
                     {messages.map((msg) => (
-                          <div key={msg.id} className="rounded-md border bg-muted/50 p-3">
+                          <div key={msg.id} className="group relative rounded-md border bg-muted/50 p-3">
                             <div className="flex items-center justify-between">
                                 <p className="font-semibold text-sm">{msg.sender}</p>
-                                <p className="text-xs text-muted-foreground"><ClientDate date={msg.createdAt} /></p>
+                                <div className="flex items-center gap-2">
+                                    <p className="text-xs text-muted-foreground"><ClientDate date={msg.createdAt} /></p>
+                                    {msg.senderEmail === currentUser.email.toLowerCase().trim() && (
+                                        <DeleteMessageButton requestId={item.id} message={msg} />
+                                    )}
+                                </div>
                             </div>
                             <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{msg.message}</p>
                         </div>
