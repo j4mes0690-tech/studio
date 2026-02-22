@@ -4,6 +4,8 @@
 import { z } from 'zod';
 import { getDistributionUsers } from '@/lib/data';
 import { setSession } from '@/lib/session';
+import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 
 const LoginSchema = z.object({
   email: z.string().email(),
@@ -40,11 +42,17 @@ export async function loginAction(
     }
 
     await setSession(user.id);
-    return { success: true };
+    
+    // Revalidate the layout to ensure the new session is picked up everywhere.
+    revalidatePath('/', 'layout');
+    
   } catch (error) {
     if (error instanceof Error) {
       return { error: error.message };
     }
     return { error: 'An unknown error occurred.' };
   }
+
+  // Redirect to the dashboard on success.
+  redirect('/');
 }

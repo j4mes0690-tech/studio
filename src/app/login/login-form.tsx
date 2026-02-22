@@ -2,8 +2,7 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { useActionState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useActionState } from 'react';
 import { loginAction, type LoginState } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +17,7 @@ import {
 } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertTriangle } from 'lucide-react';
+import Image from 'next/image';
 
 function LoginButton() {
   const { pending } = useFormStatus();
@@ -30,15 +30,6 @@ function LoginButton() {
 
 export function LoginForm() {
   const [state, formAction] = useActionState<LoginState | undefined, FormData>(loginAction, undefined);
-  const router = useRouter();
-
-  useEffect(() => {
-    if (state?.success) {
-      router.push('/');
-      router.refresh();
-    }
-  }, [state, router]);
-
 
   return (
     <form action={formAction}>
