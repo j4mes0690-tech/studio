@@ -1,7 +1,6 @@
 
 import { Header } from '@/components/layout/header';
 import { getProjects, getQualityChecklists } from '@/lib/data';
-import { NewChecklist } from './new-checklist';
 import { ChecklistCard } from './checklist-card';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +19,6 @@ export default async function QualityControlPage() {
           <h2 className="text-2xl font-bold tracking-tight">
             Quality Control Checklists
           </h2>
-          <NewChecklist projects={projects} />
         </div>
         
         <div className="grid gap-4 md:gap-6">
@@ -35,7 +33,7 @@ export default async function QualityControlPage() {
           ) : (
             <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
               <p className="text-lg font-semibold">No checklists yet.</p>
-              <p className="text-sm">Create your first checklist to get started.</p>
+              <p className="text-sm">Create checklists from the Settings page.</p>
             </div>
           )}
         </div>

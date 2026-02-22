@@ -15,6 +15,7 @@ import { SubcontractorsList } from './subcontractors-list';
 import { Separator } from '@/components/ui/separator';
 import { AddProjectForm } from './add-project-form';
 import { ProjectsList } from './projects-list';
+import { NewChecklist } from '../quality-control/new-checklist';
 
 export const dynamic = 'force-dynamic';
 
@@ -67,7 +68,7 @@ export default async function SettingsPage() {
                 <CardHeader>
                     <CardTitle>Manage Projects</CardTitle>
                     <CardDescription>
-                    Add or remove projects from the project list.
+                    Add or remove projects and manage project areas.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-8 lg:grid-cols-2">
@@ -83,6 +84,17 @@ export default async function SettingsPage() {
                         </div>
                         <ProjectsList projects={projects} />
                     </div>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Manage Checklists</CardTitle>
+                    <CardDescription>
+                        Create new quality control checklists for your projects.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <NewChecklist projects={projects} />
                 </CardContent>
             </Card>
         </div>
