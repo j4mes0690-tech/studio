@@ -6,7 +6,9 @@ export function middleware(request: NextRequest) {
   const userId = request.cookies.get('userId')?.value;
   const { pathname } = request.nextUrl;
 
-  // If the user is trying to access the login page but is already logged in,
+  const publicPaths = ['/login', '/logout'];
+
+  // If the user is logged in and is trying to access the login page,
   // redirect them to the dashboard.
   if (userId && pathname === '/login') {
     return NextResponse.redirect(new URL('/', request.url));
@@ -14,7 +16,7 @@ export function middleware(request: NextRequest) {
 
   // If the user is not logged in and is trying to access a protected route,
   // redirect them to the login page.
-  if (!userId && pathname !== '/login') {
+  if (!userId && !publicPaths.includes(pathname)) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 

@@ -13,7 +13,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
-import { useRef } from 'react';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -27,39 +26,31 @@ function getInitials(name?: string) {
 
 export function UserMenu({ user }: { user: DistributionUser }) {
     const initials = getInitials(user?.name);
-    const logoutFormRef = useRef<HTMLFormElement>(null);
     
-    const handleLogout = () => {
-        logoutFormRef.current?.requestSubmit();
-    };
-
     return (
-        <>
-            <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                    <Button variant="secondary" size="icon" className="rounded-full">
-                    <Avatar>
-                        <AvatarFallback>{initials}</AvatarFallback>
-                    </Avatar>
-                    <span className="sr-only">Toggle user menu</span>
-                    </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>{user?.name || 'My Account'}</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild className="cursor-pointer">
-                        <Link href="/account">Account</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild className="cursor-pointer">
-                        <Link href="/settings">Settings</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={handleLogout} className="cursor-pointer">
-                        Log Out
-                    </DropdownMenuItem>
-                </DropdownMenuContent>
-            </DropdownMenu>
-            <form ref={logoutFormRef} action="/api/logout" method="POST" className="hidden" />
-        </>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="secondary" size="icon" className="rounded-full">
+                <Avatar>
+                    <AvatarFallback>{initials}</AvatarFallback>
+                </Avatar>
+                <span className="sr-only">Toggle user menu</span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{user?.name || 'My Account'}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/account">Account</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/settings">Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/logout">Log Out</Link>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }
