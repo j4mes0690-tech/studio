@@ -1,23 +1,9 @@
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { getSession } from '@/lib/session';
  
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  const session = await getSession();
-
-  // If user is trying to access login page but is already logged in, redirect to home
-  if (session && pathname === '/login') {
-    return NextResponse.redirect(new URL('/', request.url));
-  }
-
-  // If user is not logged in and is trying to access a protected page, redirect to login
-  if (!session && pathname !== '/login') {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
- 
+  // Authentication is temporarily disabled to stabilize the application.
   return NextResponse.next();
 }
  

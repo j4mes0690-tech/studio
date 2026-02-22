@@ -16,28 +16,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const user = await getCurrentUser();
-
-  // The login page is a special case that does not use the AppShell
-  if (!user) {
-    return (
-      <html lang="en" suppressHydrationWarning>
-         <head>
-          <link rel="preconnect" href="https://fonts.googleapis.com" />
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-          <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-            rel="stylesheet"
-          />
-        </head>
-        <body className="font-body antialiased">
-          {children}
-          <Toaster />
-        </body>
-      </html>
-    );
-  }
-
+  // The authentication system has been temporarily disabled for stability.
+  // The AppShell is now always rendered.
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
