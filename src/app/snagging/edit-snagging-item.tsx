@@ -357,8 +357,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                               <Button 
                                 variant="ghost" 
                                 className={cn(
-                                  "w-full justify-start font-normal transition-colors hover:bg-accent",
-                                  !pendingSubId && "bg-accent/50"
+                                  "w-full justify-start font-normal transition-all px-3 py-2",
+                                  !pendingSubId ? "bg-primary/10 text-primary font-semibold" : "hover:bg-accent hover:text-accent-foreground"
                                 )} 
                                 onClick={() => setPendingSubId(undefined)}
                               >
@@ -369,8 +369,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                                   key={sub.id} 
                                   variant="ghost" 
                                   className={cn(
-                                    "w-full justify-between font-normal text-xs transition-colors hover:bg-primary/10 hover:text-primary",
-                                    pendingSubId === sub.id && "bg-primary/10 text-primary font-medium"
+                                    "w-full justify-between font-normal text-xs transition-all px-3 py-2",
+                                    pendingSubId === sub.id 
+                                      ? "bg-primary text-primary-foreground font-semibold hover:bg-primary/90" 
+                                      : "hover:bg-accent hover:text-accent-foreground"
                                   )}
                                   onClick={() => setPendingSubId(sub.id)}
                                 >
