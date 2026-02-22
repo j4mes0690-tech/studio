@@ -11,21 +11,21 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import type { User } from 'firebase/auth';
+import type { DistributionUser } from '@/lib/types';
 
-function getInitials(user: User) {
-    if (user.displayName) {
-        const nameParts = user.displayName.trim().split(' ').filter(Boolean);
+function getInitials(profile: DistributionUser | null, email: string) {
+    if (profile?.name) {
+        const nameParts = profile.name.trim().split(/\s+/).filter(Boolean);
         if (nameParts.length >= 2) {
             return `${nameParts[0].charAt(0)}${nameParts[nameParts.length - 1].charAt(0)}`.toUpperCase();
         }
         return nameParts[0].charAt(0).toUpperCase();
     }
-    return user.email?.charAt(0).toUpperCase() || 'U';
+    return email?.charAt(0).toUpperCase() || 'U';
 }
 
-export function UserMenu({ user }: { user: User }) {
-    const initials = getInitials(user);
+export function UserMenu({ profile, email }: { profile: DistributionUser | null, email: string }) {
+    const initials = getInitials(profile, email);
     
     return (
         <DropdownMenu>
@@ -38,7 +38,7 @@ export function UserMenu({ user }: { user: User }) {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{user.displayName || user.email || 'My Account'}</DropdownMenuLabel>
+                <DropdownMenuLabel>{profile?.name || email || 'My Account'}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/account">Account Settings</Link>

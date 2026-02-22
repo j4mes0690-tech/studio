@@ -1,21 +1,34 @@
-
 'use client';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Home, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useDoc } from '@/firebase';
 import { UserMenu } from './user-menu';
 import { usePathname } from 'next/navigation';
+import { useMemo } from 'react';
+import { doc } from 'firebase/firestore';
+import type { DistributionUser } from '@/lib/types';
 
 export function Header({ title }: { title: string }) {
-  const { user, isLoading } = useUser();
+  const { user: sessionUser, isLoading: sessionLoading } = useUser();
+  const db = useFirestore();
   const pathname = usePathname();
+
+  // Fetch the full user profile from Firestore using the session email
+  const profileRef = useMemo(() => {
+    if (!db || !sessionUser?.email) return null;
+    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
+  }, [db, sessionUser?.email]);
+
+  const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
+
+  const isLoading = sessionLoading || profileLoading;
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-      {user && <SidebarTrigger className="md:hidden" />}
+      {sessionUser && <SidebarTrigger className="md:hidden" />}
       <div className="w-full flex-1">
         <h1 className="text-lg font-semibold">{title}</h1>
       </div>
@@ -23,10 +36,10 @@ export function Header({ title }: { title: string }) {
       <div className="flex items-center gap-2 md:gap-4">
         {isLoading ? (
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        ) : user ? (
+        ) : sessionUser ? (
           <>
             <div className="text-sm text-muted-foreground hidden lg:block">
-              Logged in as: {user.displayName || user.email}
+              Logged in as: {profile?.name || sessionUser.email}
             </div>
 
             {pathname !== '/' && (
@@ -38,7 +51,7 @@ export function Header({ title }: { title: string }) {
               </Button>
             )}
 
-            <UserMenu user={user} />
+            <UserMenu profile={profile} email={sessionUser.email} />
           </>
         ) : (
           <div className="text-sm text-muted-foreground">
