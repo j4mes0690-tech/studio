@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -61,7 +62,7 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
     defaultValues: {
       id: item.id,
       message: '',
-      senderId: currentUser.id,
+      senderId: currentUser.name, // Simplified: Pass the name as the "ID" for display in the mock DB
     },
   });
 
@@ -70,10 +71,10 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
       form.reset({
         id: item.id,
         message: '',
-        senderId: currentUser.id,
+        senderId: currentUser.name,
       });
     }
-  }, [open, item, form, currentUser.id]);
+  }, [open, item, form, currentUser.name]);
 
   const onSubmit = (values: AddChatMessageFormValues) => {
     startTransition(async () => {
@@ -155,7 +156,7 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
                     </FormControl>
                     <SelectContent>
                       {distributionUsers.map((user) => (
-                        <SelectItem key={user.id} value={user.id}>
+                        <SelectItem key={user.id} value={user.name}>
                           {user.name} ({user.email})
                         </SelectItem>
                       ))}

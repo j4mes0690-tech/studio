@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createInstruction, getDistributionUsers } from '@/lib/data';
+import { createInstruction } from '@/lib/data';
 import { summarizeInstructions } from '@/ai/flows/summarize-client-instructions';
 import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
 import type { Instruction } from '@/lib/types';
@@ -38,13 +38,12 @@ export async function createInstructionAction(
     };
   }
 
-  const { originalText, projectId, photos: photosJson, recipients: recipientIds } = validatedFields.data;
+  const { originalText, projectId, photos: photosJson, recipients: recipientEmails } = validatedFields.data;
 
   try {
-    const [summaryResult, actionItemsResult, distributionUsers] = await Promise.all([
+    const [summaryResult, actionItemsResult] = await Promise.all([
       summarizeInstructions({ instructions: originalText }),
       extractInstructionActionItems({ instructionText: originalText }),
-      getDistributionUsers(),
     ]);
 
     const newInstructionData: Omit<Instruction, 'id' | 'createdAt'> = {
@@ -52,17 +51,11 @@ export async function createInstructionAction(
       originalText,
       summary: summaryResult.summary,
       actionItems: actionItemsResult.actionItems,
+      recipients: recipientEmails, // IDs are already emails in the new system
     };
 
     if (photosJson) {
         newInstructionData.photos = JSON.parse(photosJson);
-    }
-
-    if (recipientIds && recipientIds.length > 0) {
-      const recipientEmails = distributionUsers
-        .filter(user => recipientIds.includes(user.id))
-        .map(user => user.email);
-      newInstructionData.recipients = recipientEmails;
     }
     
     await createInstruction(newInstructionData);
@@ -73,6 +66,6 @@ export async function createInstructionAction(
 
   } catch (error) {
     console.error('Failed to create instruction:', error);
-    return { success: false, message: 'Failed to process and create instruction. Please note, email sending is not yet implemented.' };
+    return { success: false, message: 'Failed to process and create instruction.' };
   }
 }

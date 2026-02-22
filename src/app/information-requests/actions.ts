@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createInformationRequest, getDistributionUsers, getInformationRequests, updateInformationRequest, deleteInformationRequest } from '@/lib/data';
+import { createInformationRequest, getInformationRequests, updateInformationRequest, deleteInformationRequest } from '@/lib/data';
 import type { InformationRequest, ChatMessage } from '@/lib/types';
 
 const NewInformationRequestSchema = z.object({
@@ -62,22 +62,13 @@ export async function createInformationRequestAction(
     };
   }
 
-  const { description, projectId, assignedTo: assignedToIds, photos: photosJson, requiredBy } = validatedFields.data;
+  const { description, projectId, assignedTo: assignedEmails, photos: photosJson, requiredBy } = validatedFields.data;
 
   try {
-    const users = await getDistributionUsers();
-    const assignedUsers = users.filter(u => assignedToIds.includes(u.id));
-
-    if (assignedUsers.length !== assignedToIds.length) {
-        return { success: false, message: 'One or more assigned users were not found.' };
-    }
-    const assignedEmails = assignedUsers.map(u => u.email);
-
-
     const newRequestData: Omit<InformationRequest, 'id' | 'createdAt'> = {
       projectId,
       description,
-      assignedTo: assignedEmails,
+      assignedTo: assignedEmails, // IDs are already emails in the new system
       status: 'open',
       messages: [],
     };
@@ -96,7 +87,7 @@ export async function createInformationRequestAction(
 
   } catch (error) {
     console.error('Failed to create information request:', error);
-    return { success: false, message: 'Failed to create information request. Please note, email sending is not yet implemented.' };
+    return { success: false, message: 'Failed to create information request.' };
   }
 }
 
@@ -122,32 +113,21 @@ export async function updateInformationRequestAction(
       };
     }
   
-    const { id, description, projectId, assignedTo: assignedToIds, photos: photosJson, requiredBy } = validatedFields.data;
+    const { id, description, projectId, assignedTo: assignedEmails, photos: photosJson, requiredBy } = validatedFields.data;
   
     try {
-      const [users, allItems] = await Promise.all([
-          getDistributionUsers(),
-          getInformationRequests({}),
-      ]);
-      
+      const allItems = await getInformationRequests({});
       const existingItem = allItems.find(i => i.id === id);
   
       if (!existingItem) {
         return { success: false, message: 'Information request not found.' };
       }
   
-      const assignedUsers = users.filter(u => assignedToIds.includes(u.id));
-  
-      if (assignedUsers.length !== assignedToIds.length) {
-          return { success: false, message: 'One or more assigned users not found.' };
-      }
-      const assignedEmails = assignedUsers.map(u => u.email);
-  
       const updatedItem: InformationRequest = {
         ...existingItem,
         projectId,
         description,
-        assignedTo: assignedEmails,
+        assignedTo: assignedEmails, // IDs are already emails
       };
 
       if (requiredBy) {
@@ -180,7 +160,7 @@ export async function addChatMessageAction(
     const validatedFields = AddChatMessageSchema.safeParse({
         id: formData.get('id'),
         message: formData.get('message'),
-        senderId: formData.get('senderId'),
+        senderId: formData.get('senderId'), // This is currently passing the sender's name or email from UI
     });
 
     if (!validatedFields.success) {
@@ -195,24 +175,17 @@ export async function addChatMessageAction(
     const { id, message, senderId } = validatedFields.data;
 
     try {
-        const [allItems, users] = await Promise.all([
-            getInformationRequests({}),
-            getDistributionUsers()
-        ]);
+        const allItems = await getInformationRequests({});
         const existingItem = allItems.find(i => i.id === id);
 
         if (!existingItem) {
-        return { success: false, message: 'Information request not found.' };
+            return { success: false, message: 'Information request not found.' };
         }
         
-        const sender = users.find(u => u.id === senderId);
-        if (!sender) {
-            return { success: false, message: 'Invalid sender specified.' };
-        }
-
+        // In the internal system, senderId from the UI is the sender's name for simplified chat display
         const newChatMessage: ChatMessage = {
             id: `msg-${Date.now()}`,
-            sender: sender.name,
+            sender: senderId, 
             message,
             createdAt: new Date().toISOString(),
         };
