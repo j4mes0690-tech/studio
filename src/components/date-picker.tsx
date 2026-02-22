@@ -1,21 +1,8 @@
 "use client";
 
-import { useState } from 'react';
-import { format } from 'date-fns';
-import { Calendar as CalendarIcon } from 'lucide-react';
-import type { ControllerRenderProps } from 'react-hook-form';
-
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { FormLabel, FormMessage, FormItem } from '@/components/ui/form';
+import { FormLabel, FormMessage, FormItem, FormControl } from '@/components/ui/form';
+import type { ControllerRenderProps } from 'react-hook-form';
 
 type DatePickerProps = {
   field: ControllerRenderProps<any, any>;
@@ -23,45 +10,39 @@ type DatePickerProps = {
 };
 
 export function DatePicker({ field, label }: DatePickerProps) {
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  // The native date input expects a 'yyyy-mm-dd' string.
+  // The form state stores an ISO string. We convert it for the input.
+  const value = field.value ? new Date(field.value).toISOString().split('T')[0] : '';
+
+  // On change, the input gives us a 'yyyy-mm-dd' string.
+  // We need to convert it back to an ISO string for the form state.
+  // We construct the date as UTC to avoid timezone-related off-by-one day errors.
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value) {
+      const [year, month, day] = e.target.value.split('-').map(Number);
+      const dateInUTC = new Date(Date.UTC(year, month - 1, day));
+      field.onChange(dateInUTC.toISOString());
+    } else {
+      field.onChange(undefined);
+    }
+  };
 
   return (
-    <FormItem className="flex flex-col">
+    <FormItem>
       <FormLabel>{label}</FormLabel>
-      <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
-        <DialogTrigger asChild>
-          <Button
-            type="button"
-            variant={'outline'}
-            className={cn(
-              'w-[240px] justify-start text-left font-normal',
-              !field.value && 'text-muted-foreground'
-            )}
-          >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {field.value ? (
-              format(new Date(field.value), 'PPP')
-            ) : (
-              <span>Pick a date</span>
-            )}
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="w-auto p-0">
-          <DialogHeader className="p-4 pb-0">
-            <DialogTitle>Pick a date</DialogTitle>
-          </DialogHeader>
-          <Calendar
-            mode="single"
-            selected={field.value ? new Date(field.value) : undefined}
-            onSelect={(date) => {
-              field.onChange(date ? date.toISOString() : undefined);
-              setCalendarOpen(false);
-            }}
-            initialFocus
-            hideHead
-          />
-        </DialogContent>
-      </Dialog>
+      <FormControl>
+        <input
+          type="date"
+          className={cn(
+            "flex h-10 w-[240px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          )}
+          value={value}
+          onChange={handleChange}
+          onBlur={field.onBlur}
+          name={field.name}
+          ref={field.ref}
+        />
+      </FormControl>
       <FormMessage />
     </FormItem>
   );
