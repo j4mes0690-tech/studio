@@ -3,7 +3,6 @@
 import { z } from 'zod';
 import { getDistributionUsers } from '@/lib/data';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 
 const LoginSchema = z.object({
   email: z.string().email('Invalid email address.'),
@@ -52,5 +51,5 @@ export async function loginAction(
     path: '/',
   });
   
-  redirect('/');
+  return { success: true, message: 'Login successful.' };
 }
