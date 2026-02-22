@@ -119,11 +119,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
     }
   }, [selectedProjectId, projects]);
 
-  // Default title to Area Name + Completion Snags when changed
   useEffect(() => {
     if (selectedAreaId && selectedAreaId !== 'none' && open) {
       const area = availableAreas.find(a => a.id === selectedAreaId);
-      if (area && area.id !== item.areaId) { // Only update if changing from the original area
+      if (area && area.id !== item.areaId) { 
         form.setValue('title', `${area.name} Completion Snags`);
       }
     }
@@ -148,7 +147,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
     }
   }, [open, item, form]);
 
-  // Handle Camera Stream
   useEffect(() => {
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
@@ -364,10 +362,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                       
                       <div className="flex gap-1 flex-shrink-0">
                         <Select value={pendingSubId || 'unassigned'} onValueChange={(val) => setPendingSubId(val === 'unassigned' ? undefined : val)}>
-                          <SelectTrigger className="w-10 px-0 flex justify-center" title="Assign subcontractor">
+                          <SelectTrigger className="w-10 px-0 flex justify-center hover:bg-accent" title="Assign subcontractor">
                             <UserPlus className="h-4 w-4" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="min-w-[200px]">
                             <SelectItem value="unassigned">Unassigned</SelectItem>
                             {subContractors.map(sub => (
                               <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>

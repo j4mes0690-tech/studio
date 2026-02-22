@@ -87,8 +87,8 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   
   // Camera States
-  const [isCameraOpen, setIsCameraOpen] = useState(false); // General photos
-  const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); // Item specific
+  const [isCameraOpen, setIsCameraOpen] = useState(false); 
+  const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); 
   const [itemPhotoTargetIdx, setItemPhotoTargetIdx] = useState<number | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
 
@@ -110,7 +110,6 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
     }
   }, [selectedProjectId, projects, form]);
 
-  // Default title to Area Name + Completion Snags
   useEffect(() => {
     if (selectedAreaId && selectedAreaId !== 'none') {
       const area = availableAreas.find(a => a.id === selectedAreaId);
@@ -120,7 +119,6 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
     }
   }, [selectedAreaId, availableAreas, form]);
 
-  // Handle Camera Stream
   useEffect(() => {
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
@@ -356,10 +354,10 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                       
                       <div className="flex gap-1 flex-shrink-0">
                         <Select value={pendingSubId || 'unassigned'} onValueChange={(val) => setPendingSubId(val === 'unassigned' ? undefined : val)}>
-                          <SelectTrigger className="w-10 px-0 flex justify-center" title="Assign subcontractor">
+                          <SelectTrigger className="w-10 px-0 flex justify-center hover:bg-accent" title="Assign subcontractor">
                             <UserPlus className="h-4 w-4" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="min-w-[200px]">
                             <SelectItem value="unassigned">Unassigned</SelectItem>
                             {subContractors.map(sub => (
                               <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
