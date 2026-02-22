@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -289,7 +288,7 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
                           </Button>
                         </FormControl>
                       </PopoverTrigger>
-                      <PopoverContent className="w-max p-0" align="start">
+                      <PopoverContent className="p-0" align="start">
                         <Calendar
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
@@ -467,5 +466,3 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
     </Dialog>
   );
 }
-
-    
