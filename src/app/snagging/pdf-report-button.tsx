@@ -25,23 +25,19 @@ export function PdfReportButton({
   const generatePdf = async () => {
     setIsGenerating(true);
     try {
-      // Dynamic imports to prevent SSR issues in NextJS 15
       const { jsPDF } = await import('jspdf');
       const html2canvas = (await import('html2canvas')).default;
 
-      // Create a temporary element for the report layout
       const reportElement = document.createElement('div');
       reportElement.style.padding = '40px';
       reportElement.style.width = '800px';
       reportElement.style.background = 'white';
       reportElement.style.color = 'black';
       reportElement.style.fontFamily = 'sans-serif';
-      reportElement.className = 'pdf-report-container';
 
       const area = project?.areas?.find(a => a.id === item.areaId);
       const formattedDate = new Date(item.createdAt).toLocaleDateString();
 
-      // HTML Content for PDF
       reportElement.innerHTML = `
         <div style="border-bottom: 2px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
           <h1 style="margin: 0; color: #1e40af; font-size: 28px;">Snagging Report</h1>
@@ -72,10 +68,11 @@ export function PdfReportButton({
         <div style="margin-bottom: 40px;">
           ${item.items.map(listItem => {
             const sub = subContractors.find(s => s.id === listItem.subContractorId);
-            const hasPhotos = listItem.photos && listItem.photos.length > 0;
+            const hasIssuePhotos = listItem.photos && listItem.photos.length > 0;
+            const hasCompletionPhotos = listItem.completionPhotos && listItem.completionPhotos.length > 0;
             
             return `
-              <div style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; overflow: hidden; page-break-inside: avoid;">
+              <div style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 25px; overflow: hidden; page-break-inside: avoid;">
                 <div style="background: #f8fafc; padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
                   <div style="flex: 1;">
                     <p style="margin: 0; font-size: 14px; font-weight: bold; color: #1e293b;">${listItem.description}</p>
@@ -86,15 +83,29 @@ export function PdfReportButton({
                   </div>
                 </div>
                 
-                ${hasPhotos ? `
-                  <div style="padding: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                    ${listItem.photos!.map(p => `
-                      <div style="border: 1px solid #f1f5f9; border-radius: 4px; overflow: hidden;">
-                        <img src="${p.url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
-                      </div>
-                    `).join('')}
-                  </div>
-                ` : ''}
+                <div style="padding: 12px;">
+                  ${hasIssuePhotos ? `
+                    <p style="margin: 0 0 8px 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">Issue Photos</p>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px;">
+                      ${listItem.photos!.map(p => `
+                        <div style="border: 1px solid #f1f5f9; border-radius: 4px; overflow: hidden;">
+                          <img src="${p.url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+
+                  ${hasCompletionPhotos ? `
+                    <p style="margin: 0 0 8px 0; font-size: 9px; font-weight: bold; color: #16a34a; text-transform: uppercase;">Completion Evidence</p>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                      ${listItem.completionPhotos!.map(p => `
+                        <div style="border: 2px solid #dcfce7; border-radius: 4px; overflow: hidden;">
+                          <img src="${p.url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+                </div>
               </div>
             `;
           }).join('')}
@@ -113,27 +124,14 @@ export function PdfReportButton({
         ` : ''}
       `;
 
-      // Append to body temporarily to capture
       document.body.appendChild(reportElement);
-      
-      // Use html2canvas to render the content
-      const canvas = await html2canvas(reportElement, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-      });
-      
+      const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      
-      // Cleanup
       document.body.removeChild(reportElement);
-      
-      // Download
       pdf.save(`snagging-report-${item.title.replace(/\s+/g, '-').toLowerCase()}-${formattedDate}.pdf`);
     } catch (err) {
       console.error('PDF Generation Error:', err);

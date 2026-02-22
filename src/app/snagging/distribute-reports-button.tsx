@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -61,7 +60,6 @@ export function DistributeReportsButton({
         const formattedDate = new Date(item.createdAt).toLocaleDateString();
         const fileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${item.title.replace(/\s+/g, '-')}.pdf`;
 
-        // Create Report Layout
         const reportElement = document.createElement('div');
         reportElement.style.position = 'absolute';
         reportElement.style.left = '-9999px';
@@ -92,7 +90,9 @@ export function DistributeReportsButton({
           
           <div style="margin-bottom: 40px;">
             ${filteredItems.map(listItem => {
-              const hasPhotos = listItem.photos && listItem.photos.length > 0;
+              const hasIssuePhotos = listItem.photos && listItem.photos.length > 0;
+              const hasCompletionPhotos = listItem.completionPhotos && listItem.completionPhotos.length > 0;
+              
               return `
                 <div style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; overflow: hidden; page-break-inside: avoid;">
                   <div style="background: #f8fafc; padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
@@ -101,15 +101,22 @@ export function DistributeReportsButton({
                       ${listItem.status}
                     </div>
                   </div>
-                  ${hasPhotos ? `
-                    <div style="padding: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                      ${listItem.photos!.map(p => `
-                        <div style="border: 1px solid #f1f5f9; border-radius: 4px; overflow: hidden;">
-                          <img src="${p.url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
-                        </div>
-                      `).join('')}
-                    </div>
-                  ` : ''}
+                  
+                  <div style="padding: 12px;">
+                    ${hasIssuePhotos ? `
+                      <p style="margin: 0 0 5px 0; font-size: 8px; color: #64748b; font-weight: bold; text-transform: uppercase;">Defect Reference</p>
+                      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
+                        ${listItem.photos!.map(p => `<img src="${p.url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px;" />`).join('')}
+                      </div>
+                    ` : ''}
+
+                    ${hasCompletionPhotos ? `
+                      <p style="margin: 0 0 5px 0; font-size: 8px; color: #16a34a; font-weight: bold; text-transform: uppercase;">Completion Visual</p>
+                      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                        ${listItem.completionPhotos!.map(p => `<img src="${p.url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid #dcfce7;" />`).join('')}
+                      </div>
+                    ` : ''}
+                  </div>
                 </div>
               `;
             }).join('')}
@@ -121,20 +128,16 @@ export function DistributeReportsButton({
         `;
 
         document.body.appendChild(reportElement);
-        
         const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
         const imgData = canvas.toDataURL('image/jpeg', 0.9);
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-        
         document.body.removeChild(reportElement);
 
-        // Convert to Base64 for the Server Action
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-        // Call Server Action to actually send the email
         const result = await sendSubcontractorReportAction({
           email: sub.email,
           name: sub.name,
@@ -145,31 +148,16 @@ export function DistributeReportsButton({
         });
 
         if (result.success) {
-          toast({
-            title: "Report Sent",
-            description: result.message,
-          });
+          toast({ title: "Report Sent", description: result.message });
         } else {
-          toast({
-            title: "Transmission Failed",
-            description: `${sub.name}: ${result.message}`,
-            variant: "destructive"
-          });
+          toast({ title: "Transmission Failed", description: `${sub.name}: ${result.message}`, variant: "destructive" });
         }
       }
 
-      toast({
-        title: "Process Complete",
-        description: "Finished processing all assigned subcontractor reports.",
-      });
-
+      toast({ title: "Process Complete", description: "Finished all assigned subcontractor reports." });
     } catch (err) {
       console.error('Distribution Error:', err);
-      toast({
-        title: "Critical Error",
-        description: "An unexpected error occurred while distributing reports.",
-        variant: "destructive"
-      });
+      toast({ title: "Critical Error", description: "Unexpected error during distribution.", variant: "destructive" });
     } finally {
       setIsDistributing(false);
     }
@@ -181,11 +169,11 @@ export function DistributeReportsButton({
         <TooltipTrigger asChild>
           <Button variant="ghost" size="icon" onClick={handleDistribute} disabled={isDistributing}>
             {isDistributing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            <span className="sr-only">Email filtered reports to subcontractors</span>
+            <span className="sr-only">Email reports to subcontractors</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Email filtered tasks to all assigned subcontractors</p>
+          <p>Email filtered tasks to assigned subcontractors</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

@@ -1,6 +1,6 @@
 'use client';
 
-import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
+import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -15,7 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User } from 'lucide-react';
+import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User, Upload, X, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditSnaggingItem } from '@/app/snagging/edit-snagging-item';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/carousel';
 import { ClientDate } from '@/components/client-date';
 import { cn } from '@/lib/utils';
-import { useTransition } from 'react';
+import { useTransition, useState, useRef, useEffect } from 'react';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -47,6 +47,15 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type SnaggingItemCardProps = {
   item: SnaggingItem;
@@ -65,28 +74,97 @@ export function SnaggingItemCard({
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
+  // Completion Dialog State
+  const [completingItem, setCompletingItem] = useState<SnaggingListItem | null>(null);
+  const [completionPhotos, setCompletionPhotos] = useState<Photo[]>([]);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const totalItems = item.items?.length || 0;
   const closedItems = item.items?.filter(i => i.status === 'closed').length || 0;
   const isComplete = totalItems > 0 && totalItems === closedItems;
 
-  const toggleItemStatus = (itemId: string) => {
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const getCameraPermission = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setHasCameraPermission(true);
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (error) {
+        setHasCameraPermission(false);
+      }
+    };
+    if (isCameraOpen) getCameraPermission();
+    return () => stream?.getTracks().forEach((track) => track.stop());
+  }, [isCameraOpen]);
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      if (!context) return null;
+
+      const aspectRatio = video.videoWidth / video.videoHeight;
+      canvas.width = 800;
+      canvas.height = 800 / aspectRatio;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Timestamp Overlay
+      const now = new Date();
+      const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+      context.font = 'bold 24px sans-serif';
+      context.fillStyle = 'white';
+      context.shadowColor = 'black';
+      context.shadowBlur = 6;
+      context.fillText(timestamp, canvas.width - context.measureText(timestamp).width - 20, canvas.height - 20);
+      
+      return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: now.toISOString() };
+    }
+    return null;
+  };
+
+  const handleToggleStatus = (subItem: SnaggingListItem) => {
+    if (subItem.status === 'open') {
+      setCompletingItem(subItem);
+      setCompletionPhotos([]);
+      setIsCameraOpen(false);
+    } else {
+      updateItemOnServer(subItem.id, 'open', []);
+    }
+  };
+
+  const updateItemOnServer = (itemId: string, status: 'open' | 'closed', photos: Photo[]) => {
     startTransition(async () => {
-        const updatedItems = item.items.map(i => 
-            i.id === itemId ? { ...i, status: i.status === 'open' ? 'closed' : 'open' } : i
-        );
-        const docRef = doc(db, 'snagging-items', item.id);
-        const updates = { items: updatedItems };
-        
-        updateDoc(docRef, updates)
-          .catch((error) => {
-            const permissionError = new FirestorePermissionError({
-              path: docRef.path,
-              operation: 'update',
-              requestResourceData: updates,
-            });
-            errorEmitter.emit('permission-error', permissionError);
+      const updatedItems = item.items.map(i => 
+        i.id === itemId ? { 
+          ...i, 
+          status, 
+          completionPhotos: status === 'closed' ? photos : [] 
+        } : i
+      );
+      const docRef = doc(db, 'snagging-items', item.id);
+      updateDoc(docRef, { items: updatedItems })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: { items: updatedItems },
           });
+          errorEmitter.emit('permission-error', permissionError);
+        });
     });
+  };
+
+  const finalizeCompletion = () => {
+    if (completingItem) {
+      updateItemOnServer(completingItem.id, 'closed', completionPhotos);
+      setCompletingItem(null);
+    }
   };
 
   const handleDeleteList = () => {
@@ -185,7 +263,7 @@ export function SnaggingItemCard({
                     <div key={subItem.id} className="space-y-2 group">
                         <div className="flex items-start gap-2">
                             <button 
-                                onClick={() => toggleItemStatus(subItem.id)}
+                                onClick={() => handleToggleStatus(subItem)}
                                 disabled={isPending}
                                 className="mt-0.5 flex-shrink-0 transition-colors"
                             >
@@ -196,7 +274,7 @@ export function SnaggingItemCard({
                                 )}
                             </button>
                             <div className="flex flex-col">
-                                <span className={cn("text-sm", subItem.status === 'closed' && "line-through text-muted-foreground")}>
+                                <span className={cn("text-sm font-medium", subItem.status === 'closed' && "line-through text-muted-foreground")}>
                                     {subItem.description}
                                 </span>
                                 {sub && (
@@ -209,20 +287,33 @@ export function SnaggingItemCard({
                                 )}
                             </div>
                         </div>
-                        {subItem.photos && subItem.photos.length > 0 && (
-                            <div className="flex flex-wrap gap-2 pl-6">
+                        
+                        {/* Photos Section */}
+                        {(subItem.photos && subItem.photos.length > 0) || (subItem.completionPhotos && subItem.completionPhotos.length > 0) ? (
+                          <div className="pl-6 space-y-2">
+                            {subItem.photos && subItem.photos.length > 0 && (
+                              <div className="flex flex-wrap gap-2">
                                 {subItem.photos.map((p, idx) => (
-                                    <div key={idx} className="relative w-16 h-12">
-                                        <Image 
-                                            src={p.url} 
-                                            alt={`Item specific photo ${idx + 1}`} 
-                                            fill 
-                                            className="rounded object-cover border" 
-                                        />
-                                    </div>
+                                  <div key={idx} className="relative w-16 h-12">
+                                    <Image src={p.url} alt="Defect" fill className="rounded object-cover border" />
+                                  </div>
                                 ))}
-                            </div>
-                        )}
+                              </div>
+                            )}
+                            {subItem.completionPhotos && subItem.completionPhotos.length > 0 && (
+                              <div className="space-y-1">
+                                <p className="text-[9px] font-bold text-green-600 uppercase tracking-tighter">Completion Visual</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {subItem.completionPhotos.map((p, idx) => (
+                                    <div key={idx} className="relative w-16 h-12">
+                                      <Image src={p.url} alt="Fixed" fill className="rounded object-cover border border-green-200" />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : null}
                     </div>
                 );
             })}
@@ -272,6 +363,79 @@ export function SnaggingItemCard({
           )}
         </Accordion>
       </CardContent>
+
+      {/* Completion Dialog */}
+      <Dialog open={!!completingItem} onOpenChange={() => setCompletingItem(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark Item as Complete</DialogTitle>
+            <DialogDescription>
+              "{completingItem?.description}"
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">Add a photo to document the completed work (Optional):</p>
+            
+            <div className="flex flex-wrap gap-2">
+              {completionPhotos.map((p, idx) => (
+                <div key={idx} className="relative w-20 h-20">
+                  <Image src={p.url} alt="Fixed" fill className="rounded-md object-cover border" />
+                  <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setCompletionPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></Button>
+                </div>
+              ))}
+              <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => setIsCameraOpen(true)}>
+                <Camera className="h-6 w-6" />
+                <span className="text-[10px]">Photo</span>
+              </Button>
+              <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => fileInputRef.current?.click()}>
+                <Upload className="h-6 w-6" />
+                <span className="text-[10px]">Upload</span>
+              </Button>
+            </div>
+
+            {isCameraOpen && (
+              <div className="space-y-2 border rounded-md p-2 bg-muted/30">
+                {hasCameraPermission === false && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Camera Denied</AlertTitle>
+                    <AlertDescription>Please allow camera access.</AlertDescription>
+                  </Alert>
+                )}
+                <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => {
+                    const p = capturePhoto();
+                    if (p) {
+                      setCompletionPhotos(prev => [...prev, p]);
+                      setIsCameraOpen(false);
+                    }
+                  }}>Capture</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setCompletingItem(null)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => { setCompletionPhotos([]); finalizeCompletion(); }}>Skip Photo & Complete</Button>
+            <Button onClick={finalizeCompletion} disabled={completionPhotos.length === 0 && !isCameraOpen}>Complete Item</Button>
+          </DialogFooter>
+          
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+            const files = e.target.files;
+            if (!files) return;
+            Array.from(files).forEach(f => {
+              const reader = new FileReader();
+              reader.onload = (re) => setCompletionPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+              reader.readAsDataURL(f);
+            });
+          }} />
+          <canvas ref={canvasRef} className="hidden" />
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

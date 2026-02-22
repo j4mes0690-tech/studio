@@ -178,29 +178,17 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 800;
       canvas.height = 800 / aspectRatio;
-      
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      // Draw Timestamp Overlay
       const now = new Date();
-      const dateStr = now.toLocaleDateString();
-      const timeStr = now.toLocaleTimeString();
-      const fullStr = `${dateStr} ${timeStr}`;
-      
+      const fullStr = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
       context.font = 'bold 24px sans-serif';
       context.fillStyle = 'white';
       context.shadowColor = 'black';
       context.shadowBlur = 6;
-      context.lineWidth = 2;
+      context.fillText(fullStr, canvas.width - context.measureText(fullStr).width - 20, canvas.height - 20);
       
-      const metrics = context.measureText(fullStr);
-      const textWidth = metrics.width;
-      const padding = 20;
-      
-      context.fillText(fullStr, canvas.width - textWidth - padding, canvas.height - padding);
-      
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      return { url: dataUrl, takenAt: now.toISOString() };
+      return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: now.toISOString() };
     }
     return null;
   };
@@ -219,7 +207,9 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       if (itemPhotoTargetId) {
         setItems(prev => prev.map(i => {
           if (i.id === itemPhotoTargetId) {
-            return { ...i, photos: [...(i.photos || []), photo] };
+            const isClosing = i.status === 'open'; // It will be closed
+            const field = i.status === 'closed' ? 'photos' : 'completionPhotos';
+            return { ...i, [field]: [...(i[field] || []), photo] };
           }
           return i;
         }));
@@ -255,12 +245,12 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
     setItems(items.map(i => i.id === id ? { ...i, status: i.status === 'open' ? 'closed' : 'open' } : i));
   };
 
-  const removeItemPhoto = (itemId: string, photoIdx: number) => {
+  const removeItemPhoto = (itemId: string, photoIdx: number, type: 'photos' | 'completionPhotos') => {
     setItems(prev => prev.map(i => {
       if (i.id === itemId) {
         return {
           ...i,
-          photos: (i.photos || []).filter((_, idx) => idx !== photoIdx)
+          [type]: (i[type] || []).filter((_, idx) => idx !== photoIdx)
         };
       }
       return i;
@@ -388,9 +378,9 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                             <UserPlus className="h-4 w-4" />
                           </SelectTrigger>
                           <SelectContent className="min-w-[200px]">
-                            <SelectItem value="unassigned" className="cursor-pointer hover:bg-accent focus:bg-accent">Unassigned</SelectItem>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
                             {subContractors.map(sub => (
-                              <SelectItem key={sub.id} value={sub.id} className="cursor-pointer hover:bg-accent focus:bg-accent">{sub.name}</SelectItem>
+                              <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -416,13 +406,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
 
                   {(isItemCameraOpen || itemPhotoTargetId) && (
                     <div className="space-y-2 border rounded-md p-2 bg-muted/30">
-                      {hasCameraPermission === false && (
-                        <Alert variant="destructive">
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertTitle>Camera Denied</AlertTitle>
-                          <AlertDescription>Please allow camera access in your browser.</AlertDescription>
-                        </Alert>
-                      )}
                       <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
                       <div className="flex gap-2">
                         <Button type="button" size="sm" onClick={takeItemPhoto}>Capture Photo</Button>
@@ -476,7 +459,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                                             )}
                                         </Button>
                                         <div className="flex flex-col flex-1">
-                                            <span className={cn("text-sm", item.status === 'closed' && "line-through text-muted-foreground")}>
+                                            <span className={cn("text-sm font-medium", item.status === 'closed' && "line-through text-muted-foreground")}>
                                                 {item.description}
                                             </span>
                                             {sub && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><User className="h-2.5 w-2.5" /> {sub.name}</span>}
@@ -520,16 +503,34 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                                         </div>
                                     </div>
 
+                                    {/* Defect Photos */}
                                     {item.photos && item.photos.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 pl-10">
+                                        <div className="flex flex-wrap gap-2 pl-10 mb-2">
                                             {item.photos.map((p, pIdx) => (
                                                 <div key={pIdx} className="relative w-12 h-12">
                                                     <Image src={p.url} alt="Item photo" fill className="rounded object-cover border" />
-                                                    <button type="button" className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => removeItemPhoto(item.id, pIdx)}>
+                                                    <button type="button" className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => removeItemPhoto(item.id, pIdx, 'photos')}>
                                                         <X className="h-2 w-2" />
                                                     </button>
                                                 </div>
                                             ))}
+                                        </div>
+                                    )}
+
+                                    {/* Completion Photos */}
+                                    {item.completionPhotos && item.completionPhotos.length > 0 && (
+                                        <div className="pl-10 space-y-1">
+                                            <p className="text-[9px] font-bold text-green-600 uppercase tracking-tighter">Completion Visual</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {item.completionPhotos.map((p, pIdx) => (
+                                                    <div key={pIdx} className="relative w-12 h-12">
+                                                        <Image src={p.url} alt="Fixed photo" fill className="rounded object-cover border border-green-200" />
+                                                        <button type="button" className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => removeItemPhoto(item.id, pIdx, 'completionPhotos')}>
+                                                            <X className="h-2 w-2" />
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -579,7 +580,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
               )}
             </div>
 
-            {/* Hidden file inputs */}
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
               const files = e.target.files;
               if (!files) return;
@@ -588,18 +588,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                 reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
                 reader.readAsDataURL(f);
               });
-            }} />
-            <input type="file" ref={pendingItemFileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                const files = e.target.files;
-                if (!files) return;
-                Array.from(files).forEach(f => {
-                    const reader = new FileReader();
-                    reader.onload = (re) => {
-                        const newPhoto = { url: re.target?.result as string, takenAt: new Date().toISOString() };
-                        setPendingItemPhotos(prev => [...prev, newPhoto]);
-                    };
-                    reader.readAsDataURL(f);
-                });
             }} />
           </form>
         </Form>
