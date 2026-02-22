@@ -1,14 +1,25 @@
 
-import { HardHat } from 'lucide-react';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+  } from '@/components/ui/card';
+import { LogoutForm } from './logout-form';
 
 export default function LogoutPage() {
-    return (
-        <div className="flex flex-col items-center justify-center h-screen bg-background text-foreground">
-            <HardHat className="h-16 w-16 text-muted-foreground mb-4" />
-            <h1 className="text-xl font-semibold">Logout Disabled</h1>
-            <p className="text-muted-foreground mt-2">
-                The logout functionality has been temporarily disabled for maintenance.
-            </p>
-        </div>
-    );
+  return (
+    <div className="flex h-screen w-full items-center justify-center bg-background">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <CardTitle>Log Out</CardTitle>
+          <CardDescription>Are you sure you want to log out?</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <LogoutForm />
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

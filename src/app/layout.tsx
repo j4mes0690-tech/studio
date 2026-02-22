@@ -4,7 +4,6 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AppShell } from '@/components/layout/app-shell';
 import { getCurrentUser } from '@/lib/data';
-import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'SiteCommand',
@@ -16,8 +15,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // The authentication system has been temporarily disabled for stability.
-  // The AppShell is now always rendered.
+  const currentUser = await getCurrentUser();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -29,7 +28,7 @@ export default async function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        <AppShell>{children}</AppShell>
+        {currentUser ? <AppShell>{children}</AppShell> : <>{children}</>}
         <Toaster />
       </body>
     </html>
