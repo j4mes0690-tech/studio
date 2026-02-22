@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -22,6 +21,7 @@ import {
   ListChecks,
   HelpCircle,
   ClipboardCheck,
+  CircleUser,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
@@ -35,7 +35,10 @@ const links = [
   { href: '/projects', label: 'Projects', icon: FolderKanban },
 ];
 
-const secondaryLinks = [{ href: '/settings', label: 'Settings', icon: Cog }];
+const secondaryLinks = [
+    { href: '/account', label: 'My Account', icon: CircleUser },
+    { href: '/settings', label: 'Settings', icon: Cog }
+];
 
 export function AppSidebar() {
   const pathname = usePathname();

@@ -39,6 +39,9 @@ export function Header({ title }: { title: string }) {
           <DropdownMenuLabel>My Account</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
+            <Link href="/account">Account</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
             <Link href="/settings">Settings</Link>
           </DropdownMenuItem>
           <DropdownMenuItem>Support</DropdownMenuItem>
