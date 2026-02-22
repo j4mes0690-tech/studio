@@ -1,3 +1,9 @@
 'use server';
 
-// This file is intentionally left blank as the logout action has been moved.
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+
+export async function logoutAction() {
+  cookies().set('userId', '', { expires: new Date(0), path: '/' });
+  redirect('/login');
+}
