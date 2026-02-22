@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -103,7 +102,7 @@ export function LoginForm() {
                                     className="w-full mt-2 bg-white text-destructive hover:bg-destructive/10"
                                     asChild
                                 >
-                                    <a href="https://console.firebase.google.com/project/site-command-7b7e1/authentication/users" target="_blank" rel="noopener noreferrer">
+                                    <a href="https://console.firebase.google.com/project/sitecommand2-93834253-fc971/authentication/users" target="_blank" rel="noopener noreferrer">
                                         <ExternalLink className="mr-2 h-3 w-3" />
                                         Open Firebase User List
                                     </a>
@@ -130,9 +129,9 @@ export function LoginForm() {
             <Info className="h-4 w-4 text-primary" />
             <AlertTitle className="text-primary">Required Action: Add User</AlertTitle>
             <AlertDescription className="text-xs space-y-3 pt-2">
-                <p className="font-semibold">The app is connected to project "site-command-7b7e1". To log in, you must add your account to that project:</p>
+                <p className="font-semibold">The app is connected to project "sitecommand2-93834253-fc971". To log in, you must add your account to that project:</p>
                 <ol className="list-decimal ml-4 space-y-2">
-                    <li>Open the <a href="https://console.firebase.google.com/project/site-command-7b7e1/authentication/users" target="_blank" className="underline font-bold">Firebase Console Users Tab</a>.</li>
+                    <li>Open the <a href="https://console.firebase.google.com/project/sitecommand2-93834253-fc971/authentication/users" target="_blank" className="underline font-bold">Firebase Console Users Tab</a>.</li>
                     <li>Ensure <strong>Email/Password</strong> is enabled in "Sign-in method".</li>
                     <li>Click the <strong>Add user</strong> button.</li>
                     <li>Use Email: <code>j4mes0690@googlemail.com</code></li>
