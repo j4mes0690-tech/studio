@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, AlertTriangle } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -42,6 +42,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const SnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -56,17 +57,28 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
+  
+  // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const itemFileInputRef = useRef<HTMLInputElement>(null);
   const pendingItemFileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [availableAreas, setAreas] = useState<Area[]>([]);
   
+  // Item States
   const [items, setItems] = useState<Omit<SnaggingListItem, 'id'>[]>([]);
   const [newItemText, setNewItemText] = useState('');
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
+  
+  // Camera States
+  const [isCameraOpen, setIsCameraOpen] = useState(false); // General photos
+  const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); // Item specific
   const [itemPhotoTargetIdx, setItemPhotoTargetIdx] = useState<number | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
 
   const form = useForm<NewSnaggingListFormValues>({
     resolver: zodResolver(SnaggingListSchema),
@@ -85,6 +97,71 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
     }
   }, [selectedProjectId, projects, form]);
 
+  // Handle Camera Stream
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const getCameraPermission = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setHasCameraPermission(true);
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (error) {
+        setHasCameraPermission(false);
+      }
+    };
+
+    if (isCameraOpen || isItemCameraOpen || itemPhotoTargetIdx !== null) {
+      getCameraPermission();
+    }
+
+    return () => {
+      if (stream) stream.getTracks().forEach((track) => track.stop());
+    };
+  }, [isCameraOpen, isItemCameraOpen, itemPhotoTargetIdx]);
+
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      const aspectRatio = video.videoWidth / video.videoHeight;
+      canvas.width = 600;
+      canvas.height = 600 / aspectRatio;
+      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      return { url: dataUrl, takenAt: new Date().toISOString() };
+    }
+    return null;
+  };
+
+  const takeGeneralPhoto = () => {
+    const photo = capturePhoto();
+    if (photo) {
+      setPhotos(prev => [...prev, photo]);
+      setIsCameraOpen(false);
+    }
+  };
+
+  const takeItemPhoto = () => {
+    const photo = capturePhoto();
+    if (photo) {
+      if (itemPhotoTargetIdx !== null) {
+        // Adding photo to existing item in list
+        setItems(prev => prev.map((item, i) => {
+          if (i === itemPhotoTargetIdx) {
+            return { ...item, photos: [...(item.photos || []), photo] };
+          }
+          return item;
+        }));
+        setItemPhotoTargetIdx(null);
+      } else {
+        // Adding photo to pending new item
+        setPendingItemPhotos(prev => [...prev, photo]);
+        setIsItemCameraOpen(false);
+      }
+    }
+  };
+
   const handleAddItem = () => {
     if (newItemText.trim() || pendingItemPhotos.length > 0) {
       setItems([...items, { 
@@ -94,16 +171,12 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
       }]);
       setNewItemText('');
       setPendingItemPhotos([]);
+      setIsItemCameraOpen(false);
     }
   };
 
   const handleRemoveItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index));
-  };
-
-  const handleAddItemPhoto = (index: number) => {
-    setItemPhotoTargetIdx(index);
-    itemFileInputRef.current?.click();
   };
 
   const removeItemPhoto = (itemIdx: number, photoIdx: number) => {
@@ -158,9 +231,14 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
       setItems([]);
       setNewItemText('');
       setPendingItemPhotos([]);
+      setIsCameraOpen(false);
+      setIsItemCameraOpen(false);
+      setItemPhotoTargetIdx(null);
       form.reset();
     }
   }, [open, form]);
+
+  const isAnyCameraActive = isCameraOpen || isItemCameraOpen || itemPhotoTargetIdx !== null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -243,7 +321,7 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                     />
                 </div>
                 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex gap-2">
                       <Input 
                           placeholder="Describe a defect..." 
@@ -253,10 +331,14 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                       />
                       <Button 
                         type="button" 
-                        variant="outline" 
+                        variant={isItemCameraOpen ? "secondary" : "outline"}
                         size="icon" 
-                        onClick={() => pendingItemFileInputRef.current?.click()}
-                        title="Attach photo to this item"
+                        onClick={() => {
+                          setIsItemCameraOpen(!isItemCameraOpen);
+                          setIsCameraOpen(false);
+                          setItemPhotoTargetIdx(null);
+                        }}
+                        title="Take photo for this item"
                       >
                         <Camera className="h-4 w-4" />
                       </Button>
@@ -264,6 +346,27 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                         <Plus className="h-4 w-4" />
                       </Button>
                   </div>
+
+                  {isItemCameraOpen && (
+                    <div className="space-y-2 border rounded-md p-2 bg-muted/30">
+                      {hasCameraPermission === false && (
+                        <Alert variant="destructive">
+                          <AlertTriangle className="h-4 w-4" />
+                          <AlertTitle>Camera Denied</AlertTitle>
+                          <AlertDescription>Please allow camera access in your browser.</AlertDescription>
+                        </Alert>
+                      )}
+                      <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" onClick={takeItemPhoto}>Capture Photo</Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => setIsItemCameraOpen(false)}>Cancel</Button>
+                        <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => pendingItemFileInputRef.current?.click()}>
+                          <Upload className="mr-2 h-3 w-3" /> Upload
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {pendingItemPhotos.length > 0 && (
                     <div className="flex flex-wrap gap-2 p-2 bg-muted/30 rounded-md border border-dashed">
                       {pendingItemPhotos.map((p, pIdx) => (
@@ -287,7 +390,17 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium">{item.description}</span>
                                     <div className="flex items-center gap-1">
-                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleAddItemPhoto(idx)}>
+                                        <Button 
+                                          type="button" 
+                                          variant="ghost" 
+                                          size="icon" 
+                                          className="h-8 w-8 text-primary" 
+                                          onClick={() => {
+                                            setItemPhotoTargetIdx(idx);
+                                            setIsCameraOpen(false);
+                                            setIsItemCameraOpen(false);
+                                          }}
+                                        >
                                             <Camera className="h-4 w-4" />
                                         </Button>
                                         <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}>
@@ -295,6 +408,17 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                                         </Button>
                                     </div>
                                 </div>
+
+                                {itemPhotoTargetIdx === idx && (
+                                  <div className="space-y-2 border rounded-md p-2 bg-muted/10">
+                                    <video ref={videoRef} className="w-full h-32 bg-black rounded-md object-cover" autoPlay muted playsInline />
+                                    <div className="flex gap-2">
+                                      <Button type="button" size="xs" onClick={takeItemPhoto}>Capture</Button>
+                                      <Button type="button" variant="ghost" size="xs" onClick={() => setItemPhotoTargetIdx(null)}>Cancel</Button>
+                                    </div>
+                                  </div>
+                                )}
+
                                 {item.photos && item.photos.length > 0 && (
                                     <div className="flex flex-wrap gap-2 pt-1">
                                         {item.photos.map((p, pIdx) => (
@@ -324,69 +448,58 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                     <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
                   </div>
                 ))}
-                <Button type="button" variant="outline" size="icon" className="w-20 h-20" onClick={() => fileInputRef.current?.click()}><Camera className="h-6 w-6" /></Button>
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                  const files = e.target.files;
-                  if (!files) return;
-                  Array.from(files).forEach(f => {
-                    const reader = new FileReader();
-                    reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                    reader.readAsDataURL(f);
-                  });
-                }} />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="icon" 
+                  className="w-20 h-20" 
+                  onClick={() => {
+                    setIsCameraOpen(true);
+                    setIsItemCameraOpen(false);
+                    setItemPhotoTargetIdx(null);
+                  }}
+                >
+                  <Camera className="h-6 w-6" />
+                </Button>
               </div>
+
+              {isCameraOpen && (
+                <div className="space-y-2 border rounded-md p-2 bg-muted/30 mt-2">
+                  <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
+                  <div className="flex gap-2">
+                    <Button type="button" onClick={takeGeneralPhoto}>Capture General Photo</Button>
+                    <Button type="button" variant="ghost" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                    <Button type="button" variant="outline" className="ml-auto" onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="mr-2 h-4 w-4" /> Upload
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* Hidden file inputs */}
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+              const files = e.target.files;
+              if (!files) return;
+              Array.from(files).forEach(f => {
+                const reader = new FileReader();
+                reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                reader.readAsDataURL(f);
+              });
+            }} />
+            <input type="file" ref={pendingItemFileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+              const files = e.target.files;
+              if (!files) return;
+              Array.from(files).forEach(f => {
+                const reader = new FileReader();
+                reader.onload = (re) => setPendingItemPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                reader.readAsDataURL(f);
+              });
+            }} />
           </form>
         </Form>
 
-        {/* Hidden file input for existing item photos */}
-        <input 
-            type="file" 
-            ref={itemFileInputRef} 
-            className="hidden" 
-            accept="image/*" 
-            onChange={(e) => {
-                const files = e.target.files;
-                if (!files || itemPhotoTargetIdx === null) return;
-                
-                Array.from(files).forEach(f => {
-                    const reader = new FileReader();
-                    reader.onload = (re) => {
-                        const newPhoto = { url: re.target?.result as string, takenAt: new Date().toISOString() };
-                        setItems(prev => prev.map((item, i) => {
-                            if (i === itemPhotoTargetIdx) {
-                                return { ...item, photos: [...(item.photos || []), newPhoto] };
-                            }
-                            return item;
-                        }));
-                    };
-                    reader.readAsDataURL(f);
-                });
-                setItemPhotoTargetIdx(null);
-            }} 
-        />
-
-        {/* Hidden file input for new pending item photos */}
-        <input 
-            type="file" 
-            ref={pendingItemFileInputRef} 
-            className="hidden" 
-            accept="image/*" 
-            multiple 
-            onChange={(e) => {
-                const files = e.target.files;
-                if (!files) return;
-                
-                Array.from(files).forEach(f => {
-                    const reader = new FileReader();
-                    reader.onload = (re) => {
-                        const newPhoto = { url: re.target?.result as string, takenAt: new Date().toISOString() };
-                        setPendingItemPhotos(prev => [...prev, newPhoto]);
-                    };
-                    reader.readAsDataURL(f);
-                });
-            }} 
-        />
+        <canvas ref={canvasRef} className="hidden" />
 
         <DialogFooter className="mt-4 pt-4 border-t">
           <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>{isPending ? 'Saving...' : 'Save Snagging List'}</Button>
