@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +11,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import Link from 'next/link';
 import { logoutAction } from '@/app/login/actions';
 import type { DistributionUser } from '@/lib/types';
 
@@ -25,6 +25,7 @@ function getInitials(name?: string) {
 }
 
 export function UserMenu({ user }: { user: DistributionUser }) {
+    const router = useRouter();
     const initials = getInitials(user?.name);
     
     return (
@@ -40,11 +41,11 @@ export function UserMenu({ user }: { user: DistributionUser }) {
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{user?.name || 'My Account'}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                    <Link href="/account">Account</Link>
+                <DropdownMenuItem onSelect={() => router.push('/account')} className="cursor-pointer">
+                    Account
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                    <Link href="/settings">Settings</Link>
+                <DropdownMenuItem onSelect={() => router.push('/settings')} className="cursor-pointer">
+                    Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => logoutAction()} className="cursor-pointer">
