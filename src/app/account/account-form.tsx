@@ -39,9 +39,9 @@ export function AccountForm({ user }: AccountFormProps) {
   const form = useForm<UpdateAccountFormValues>({
     resolver: zodResolver(UpdateAccountSchema),
     defaultValues: {
-      id: user?.id || '',
-      name: user?.name || '',
-      email: user?.email || '',
+      id: '',
+      name: '',
+      email: '',
       password: '',
     },
   });
