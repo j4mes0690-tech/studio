@@ -3,15 +3,17 @@ import { Button } from '@/components/ui/button';
 import { Home } from 'lucide-react';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/data';
-import { redirect } from 'next/navigation';
 import { UserMenu } from './user-menu';
+import { redirect } from 'next/navigation';
 
 export async function Header({ title }: { title: string }) {
   const currentUser = await getCurrentUser();
 
+  // Middleware now handles the redirect, but we need to pass the user to the menu.
+  // If currentUser is null here, it means the middleware is not configured correctly.
   if (!currentUser) {
-    // AppShell handles hiding this header on the login page, so this redirect is safe.
-    redirect('/login');
+    // This redirect is a safeguard.
+    return redirect('/login');
   }
 
   return (

@@ -5,7 +5,6 @@ import { InformationRequestCard } from './information-request-card';
 import { NewInformationRequest } from './new-information-request';
 import { InformationRequestFilters } from './information-request-filters';
 import { ExportButton } from './export-button';
-import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,8 +23,9 @@ export default async function InformationRequestsPage({
     getCurrentUser(),
   ]);
 
+  // This should not be possible if middleware is working, but it's a good safeguard.
   if (!currentUser) {
-    redirect('/login');
+    return null;
   }
 
   return (

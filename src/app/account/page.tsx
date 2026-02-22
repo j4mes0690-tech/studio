@@ -8,17 +8,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AccountPage() {
+  // Middleware now handles the auth check, but we still need the user data.
   const currentUser = await getCurrentUser();
 
+  // This should not be possible if middleware is working, but it's a good safeguard.
   if (!currentUser) {
-    // In a real app with proper auth, this would be handled by middleware
-    // For now, redirect to login if no user session is found.
-    redirect('/login');
+    return null;
   }
 
   return (

@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
-import { useState } from 'react';
+import { logoutAction } from '@/app/login/actions';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -26,10 +26,9 @@ function getInitials(name?: string) {
 
 export function UserMenu({ user }: { user: DistributionUser }) {
     const initials = getInitials(user?.name);
-    const [open, setOpen] = useState(false);
     
     return (
-        <DropdownMenu open={open} onOpenChange={setOpen}>
+        <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar>
@@ -48,12 +47,13 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                {/* Conditionally render to prevent pre-fetching */}
-                {open && (
-                    <DropdownMenuItem asChild className="cursor-pointer">
-                        <Link href="/logout">Logout</Link>
-                    </DropdownMenuItem>
-                )}
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="p-0">
+                  <form action={logoutAction} className="w-full">
+                    <button type="submit" className="w-full text-left px-2 py-1.5 text-sm">
+                      Logout
+                    </button>
+                  </form>
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );
