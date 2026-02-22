@@ -501,13 +501,22 @@ export async function deleteInformationRequest(id: string): Promise<{ success: b
 
 export async function getQualityChecklists({
     projectId,
+    template,
   }: {
     projectId?: string;
+    template?: boolean;
   }): Promise<QualityChecklist[]> {
     noStore();
     return new Promise((resolve) => {
       setTimeout(() => {
         let filteredItems = [...g.qualityChecklists];
+
+        if (template === true) {
+            filteredItems = filteredItems.filter(c => !c.projectId);
+        } else if (template === false) {
+            filteredItems = filteredItems.filter(c => !!c.projectId);
+        }
+        
         if (projectId) {
           filteredItems = filteredItems.filter(
             (i) => i.projectId === projectId
@@ -544,6 +553,39 @@ export async function updateQualityChecklist(itemData: QualityChecklist): Promis
             } else {
                 reject(new Error('Quality checklist not found'));
             }
+        }, 500);
+    });
+}
+
+export async function assignChecklistToProject(
+    templateId: string, 
+    projectId: string, 
+    areaId: string
+): Promise<QualityChecklist> {
+    noStore();
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const template = g.qualityChecklists.find(c => c.id === templateId && !c.projectId);
+            if (!template) {
+                return reject(new Error('Checklist template not found.'));
+            }
+
+            const newChecklistInstance: QualityChecklist = {
+                ...template,
+                id: `qc-instance-${Date.now()}`,
+                projectId,
+                areaId,
+                createdAt: new Date().toISOString(),
+                // Reset item statuses and comments for the new instance
+                items: template.items.map(item => ({
+                    ...item,
+                    status: 'pending',
+                    comment: undefined,
+                })),
+            };
+
+            g.qualityChecklists.push(newChecklistInstance);
+            resolve(newChecklistInstance);
         }, 500);
     });
 }

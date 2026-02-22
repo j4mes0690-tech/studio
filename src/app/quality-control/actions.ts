@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createQualityChecklist, getQualityChecklists, updateQualityChecklist } from '@/lib/data';
+import { createQualityChecklist, getQualityChecklists, updateQualityChecklist, assignChecklistToProject } from '@/lib/data';
 import type { QualityChecklist, ChecklistItem } from '@/lib/types';
 
 const NewChecklistSchema = z.object({
@@ -15,6 +15,12 @@ const NewChecklistSchema = z.object({
 const UpdateChecklistItemsSchema = z.object({
     checklistId: z.string(),
     items: z.string(), // JSON string of ChecklistItem[]
+});
+
+const AssignChecklistSchema = z.object({
+    templateId: z.string().min(1, 'A checklist template is required.'),
+    projectId: z.string().min(1, 'A project is required.'),
+    areaId: z.string().min(1, 'A project area is required.'),
 });
 
 
@@ -99,4 +105,31 @@ export async function updateChecklistItemsAction(formData: FormData): Promise<Fo
         console.error('Failed to update checklist:', error);
         return { success: false, message: 'Failed to update checklist.' };
     }
+}
+
+
+export async function assignChecklistAction(formData: FormData): Promise<FormState> {
+  const validatedFields = AssignChecklistSchema.safeParse({
+    templateId: formData.get('templateId'),
+    projectId: formData.get('projectId'),
+    areaId: formData.get('areaId'),
+  });
+
+  if (!validatedFields.success) {
+    const fieldErrors = validatedFields.error.flatten().fieldErrors;
+    const message = fieldErrors.templateId?.[0] || fieldErrors.projectId?.[0] || fieldErrors.areaId?.[0] || 'Invalid data provided.';
+    return { success: false, message };
+  }
+
+  try {
+    const { templateId, projectId, areaId } = validatedFields.data;
+    await assignChecklistToProject(templateId, projectId, areaId);
+
+    revalidatePath('/quality-control');
+    return { success: true, message: 'Checklist assigned to project successfully.' };
+
+  } catch (error: any) {
+    console.error('Failed to assign checklist:', error);
+    return { success: false, message: error.message || 'Failed to assign checklist.' };
+  }
 }
