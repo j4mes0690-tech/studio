@@ -67,52 +67,45 @@ export function PdfReportButton({
           </div>
         </div>
 
-        <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Defect Items</h2>
+        <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Defect Log</h2>
         
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
-          <thead>
-            <tr style="background: #f8fafc; text-align: left;">
-              <th style="padding: 12px; border: 1px solid #e2e8f0; font-size: 12px;">Description</th>
-              <th style="padding: 12px; border: 1px solid #e2e8f0; font-size: 12px;">Assigned To</th>
-              <th style="padding: 12px; border: 1px solid #e2e8f0; font-size: 12px; width: 80px;">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${item.items.map(listItem => {
-              const sub = subContractors.find(s => s.id === listItem.subContractorId);
-              return `
-                <tr>
-                  <td style="padding: 12px; border: 1px solid #e2e8f0; font-size: 13px;">${listItem.description}</td>
-                  <td style="padding: 12px; border: 1px solid #e2e8f0; font-size: 13px;">${sub?.name || 'Unassigned'}</td>
-                  <td style="padding: 12px; border: 1px solid #e2e8f0; font-size: 12px; font-weight: bold; color: ${listItem.status === 'closed' ? '#10b981' : '#f59e0b'};">
-                    ${listItem.status.toUpperCase()}
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-
-        ${item.items.some(i => i.photos && i.photos.length > 0) ? `
-          <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Item Photos</h2>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 40px;">
-            ${item.items.flatMap(listItem => 
-              (listItem.photos || []).map(p => `
-                <div style="border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px;">
-                  <img src="${p.url}" style="width: 100%; border-radius: 4px; object-fit: cover; aspect-ratio: 4/3;" />
-                  <p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b;">${listItem.description}</p>
+        <div style="margin-bottom: 40px;">
+          ${item.items.map(listItem => {
+            const sub = subContractors.find(s => s.id === listItem.subContractorId);
+            const hasPhotos = listItem.photos && listItem.photos.length > 0;
+            
+            return `
+              <div style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; overflow: hidden; page-break-inside: avoid;">
+                <div style="background: #f8fafc; padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                  <div style="flex: 1;">
+                    <p style="margin: 0; font-size: 14px; font-weight: bold; color: #1e293b;">${listItem.description}</p>
+                    <p style="margin: 4px 0 0 0; font-size: 11px; color: #64748b;">Assigned to: ${sub?.name || 'Unassigned'}</p>
+                  </div>
+                  <div style="background: ${listItem.status === 'closed' ? '#dcfce7' : '#fef3c7'}; color: ${listItem.status === 'closed' ? '#166534' : '#92400e'}; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
+                    ${listItem.status}
+                  </div>
                 </div>
-              `)
-            ).join('')}
-          </div>
-        ` : ''}
+                
+                ${hasPhotos ? `
+                  <div style="padding: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                    ${listItem.photos!.map(p => `
+                      <div style="border: 1px solid #f1f5f9; border-radius: 4px; overflow: hidden;">
+                        <img src="${p.url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </div>
 
         ${item.photos && item.photos.length > 0 ? `
           <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">General Site Photos</h2>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; page-break-inside: avoid;">
             ${item.photos.map(p => `
               <div style="border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px;">
-                <img src="${p.url}" style="width: 100%; border-radius: 4px; object-fit: cover; aspect-ratio: 4/3;" />
+                <img src="${p.url}" style="width: 100%; border-radius: 4px; object-fit: cover; aspect-ratio: 4/3; display: block;" />
                 <p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b;">Captured: ${new Date(p.takenAt).toLocaleString()}</p>
               </div>
             `).join('')}
