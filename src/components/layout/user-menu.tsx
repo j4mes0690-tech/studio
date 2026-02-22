@@ -1,8 +1,6 @@
-
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
-import { useTransition } from 'react';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -28,16 +25,6 @@ function getInitials(name?: string) {
 
 export function UserMenu({ user }: { user: DistributionUser }) {
     const initials = getInitials(user?.name);
-    const router = useRouter();
-    const [isPending, startTransition] = useTransition();
-
-    const handleLogout = () => {
-        startTransition(async () => {
-            await fetch('/api/logout', { method: 'POST' });
-            router.push('/login');
-            router.refresh();
-        });
-    };
     
     return (
         <DropdownMenu>
@@ -59,8 +46,8 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={handleLogout} disabled={isPending} className="cursor-pointer">
-                    Log Out
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/logout">Log Out</Link>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
