@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -32,6 +33,7 @@ const EditUserSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
+  password: z.string().optional(),
 });
 
 type EditUserFormValues = z.infer<typeof EditUserSchema>;
@@ -51,6 +53,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
       id: user.id,
       name: user.name,
       email: user.email,
+      password: '',
     },
   });
   
@@ -60,6 +63,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
         id: user.id,
         name: user.name,
         email: user.email,
+        password: '',
       });
     }
   }, [open, user, form]);
@@ -70,6 +74,9 @@ export function EditUserForm({ user }: EditUserFormProps) {
       formData.append('id', values.id);
       formData.append('name', values.name);
       formData.append('email', values.email);
+      if (values.password) {
+        formData.append('password', values.password);
+      }
 
       const result = await updateUserAction(formData);
 
@@ -128,6 +135,19 @@ export function EditUserForm({ user }: EditUserFormProps) {
                   <FormLabel>Email</FormLabel>
                   <FormControl>
                     <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>New Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" placeholder="Leave blank to keep current password" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

@@ -3,17 +3,21 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { addDistributionUser, removeDistributionUser, addSubContractor, removeSubContractor, updateDistributionUser, updateSubContractor, addProject, removeProject, getProjects, updateProject } from '@/lib/data';
+import { addDistributionUser, removeDistributionUser, addSubContractor, removeSubContractor, updateDistributionUser, updateSubContractor, addProject, removeProject, getProjects, updateProject, getDistributionUsers } from '@/lib/data';
 import type { DistributionUser, SubContractor, Project } from '@/lib/types';
 
 
 const UserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
+  password: z.string().min(6, 'Password must be at least 6 characters.'),
 });
 
-const UpdateUserSchema = UserSchema.extend({
+const UpdateUserSchema = z.object({
     id: z.string().min(1, 'User ID is required.'),
+    name: z.string().min(1, 'Name is required.'),
+    email: z.string().email('Invalid email address.'),
+    password: z.string().min(6, 'Password must be at least 6 characters.').optional(),
 });
 
 const ProjectSchema = z.object({
@@ -37,13 +41,14 @@ export async function addUserAction(
   const validatedFields = UserSchema.safeParse({
     name: formData.get('name'),
     email: formData.get('email'),
+    password: formData.get('password'),
   });
 
   if (!validatedFields.success) {
     const errors = validatedFields.error.flatten().fieldErrors;
     return {
       success: false,
-      message: errors.name?.[0] || errors.email?.[0] || 'Invalid data.',
+      message: errors.name?.[0] || errors.email?.[0] || errors.password?.[0] || 'Invalid data.',
     };
   }
 
@@ -75,22 +80,37 @@ export async function removeUserAction(userId: string) {
 export async function updateUserAction(
     formData: FormData
   ): Promise<FormState> {
-    const validatedFields = UpdateUserSchema.safeParse({
+    const password = formData.get('password');
+    const dataToValidate: any = {
       id: formData.get('id'),
       name: formData.get('name'),
       email: formData.get('email'),
-    });
+    };
+    if (password) {
+      dataToValidate.password = password;
+    }
+  
+    const validatedFields = UpdateUserSchema.safeParse(dataToValidate);
   
     if (!validatedFields.success) {
       const errors = validatedFields.error.flatten().fieldErrors;
       return {
         success: false,
-        message: errors.name?.[0] || errors.email?.[0] || 'Invalid data.',
+        message: errors.name?.[0] || errors.email?.[0] || errors.password?.[0] || 'Invalid data.',
       };
     }
   
     try {
-      await updateDistributionUser(validatedFields.data as DistributionUser);
+        const users = await getDistributionUsers();
+        const existingUser = users.find(u => u.id === validatedFields.data.id);
+        if (!existingUser) {
+            return { success: false, message: 'User not found.' };
+        }
+        const updatedUser: DistributionUser = {
+            ...existingUser,
+            ...validatedFields.data
+        };
+      await updateDistributionUser(updatedUser);
       revalidatePath('/settings');
       revalidatePath('/instructions');
       revalidatePath('/information-requests');
@@ -105,7 +125,7 @@ export async function updateUserAction(
 export async function addSubContractorAction(
   formData: FormData
 ): Promise<FormState> {
-  const validatedFields = UserSchema.safeParse({
+  const validatedFields = UserSchema.omit({ password: true }).safeParse({
     name: formData.get('name'),
     email: formData.get('email'),
   });
@@ -144,7 +164,7 @@ export async function removeSubContractorAction(userId: string) {
 export async function updateSubContractorAction(
     formData: FormData
   ): Promise<FormState> {
-    const validatedFields = UpdateUserSchema.safeParse({
+    const validatedFields = UpdateUserSchema.omit({password: true}).safeParse({
       id: formData.get('id'),
       name: formData.get('name'),
       email: formData.get('email'),

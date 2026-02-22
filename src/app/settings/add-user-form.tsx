@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 const AddUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
+  password: z.string().min(6, 'Password must be at least 6 characters long.'),
 });
 
 type AddUserFormValues = z.infer<typeof AddUserSchema>;
@@ -31,7 +32,7 @@ export function AddUserForm() {
 
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(AddUserSchema),
-    defaultValues: { name: '', email: '' },
+    defaultValues: { name: '', email: '', password: '' },
   });
 
   const onSubmit = (values: AddUserFormValues) => {
@@ -39,6 +40,7 @@ export function AddUserForm() {
       const formData = new FormData();
       formData.append('name', values.name);
       formData.append('email', values.email);
+      formData.append('password', values.password);
 
       const result = await addUserAction(formData);
 
@@ -82,6 +84,19 @@ export function AddUserForm() {
               <FormLabel>Email</FormLabel>
               <FormControl>
                 <Input placeholder="john.doe@example.com" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="••••••••" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
