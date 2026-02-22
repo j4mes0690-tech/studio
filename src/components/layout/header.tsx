@@ -1,3 +1,4 @@
+
 'use client';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -26,6 +27,14 @@ export function Header({ title }: { title: string }) {
 
   const isLoading = sessionLoading || profileLoading;
 
+  const hasAnyAdminPermission = !!(
+    profile?.permissions &&
+    (profile.permissions.canManageUsers ||
+      profile.permissions.canManageSubcontractors ||
+      profile.permissions.canManageProjects ||
+      profile.permissions.canManageChecklists)
+  );
+
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
       {sessionUser && <SidebarTrigger className="md:hidden" />}
@@ -51,12 +60,14 @@ export function Header({ title }: { title: string }) {
               </Button>
             )}
 
-            <Button asChild variant="ghost" size="icon">
-              <Link href="/settings">
-                <Settings className="h-5 w-5" />
-                <span className="sr-only">Settings</span>
-              </Link>
-            </Button>
+            {hasAnyAdminPermission && (
+              <Button asChild variant="ghost" size="icon">
+                <Link href="/settings">
+                  <Settings className="h-5 w-5" />
+                  <span className="sr-only">Settings</span>
+                </Link>
+              </Button>
+            )}
 
             <UserMenu profile={profile} email={sessionUser.email} />
           </>
