@@ -173,12 +173,34 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       const canvas = canvasRef.current;
       const video = videoRef.current;
       const context = canvas.getContext('2d');
+      if (!context) return null;
+
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 600;
-      canvas.height = 600 / aspectRatio;
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      return { url: dataUrl, takenAt: new Date().toISOString() };
+      canvas.width = 800;
+      canvas.height = 800 / aspectRatio;
+      
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Draw Timestamp Overlay
+      const now = new Date();
+      const dateStr = now.toLocaleDateString();
+      const timeStr = now.toLocaleTimeString();
+      const fullStr = `${dateStr} ${timeStr}`;
+      
+      context.font = 'bold 24px sans-serif';
+      context.fillStyle = 'white';
+      context.shadowColor = 'black';
+      context.shadowBlur = 6;
+      context.lineWidth = 2;
+      
+      const metrics = context.measureText(fullStr);
+      const textWidth = metrics.width;
+      const padding = 20;
+      
+      context.fillText(fullStr, canvas.width - textWidth - padding, canvas.height - padding);
+      
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      return { url: dataUrl, takenAt: now.toISOString() };
     }
     return null;
   };
@@ -366,9 +388,9 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                             <UserPlus className="h-4 w-4" />
                           </SelectTrigger>
                           <SelectContent className="min-w-[200px]">
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            <SelectItem value="unassigned" className="cursor-pointer hover:bg-accent focus:bg-accent">Unassigned</SelectItem>
                             {subContractors.map(sub => (
-                              <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
+                              <SelectItem key={sub.id} value={sub.id} className="cursor-pointer hover:bg-accent focus:bg-accent">{sub.name}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
