@@ -46,8 +46,8 @@ export function LoginForm() {
         message = 'The API key in src/firebase/config.ts is invalid. Please replace it with the valid key from your Firebase Console settings (Project Settings > General).';
         isConfig = true;
       } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        title = 'Account Not Found';
-        message = 'The email or password you entered is incorrect. IMPORTANT: You must manually create this user account in the Firebase Console before you can log in.';
+        title = 'Account Not Found in Firebase';
+        message = 'This email/password combination was not found. You must manually add this user to the "Users" tab in your Firebase Console before you can log in.';
       } else if (err.code === 'auth/operation-not-allowed') {
         title = 'Auth Provider Disabled';
         message = 'Email/Password sign-in is not enabled. Go to Authentication > Sign-in method in the Firebase Console to enable it.';
@@ -63,7 +63,7 @@ export function LoginForm() {
   return (
     <div className="space-y-6">
         <form onSubmit={handleLogin}>
-            <Card>
+            <Card className={error ? "border-destructive" : ""}>
                 <CardHeader>
                     <CardTitle>Log In</CardTitle>
                     <CardDescription>Enter your credentials to continue.</CardDescription>
@@ -92,7 +92,7 @@ export function LoginForm() {
                     </div>
 
                     {error && (
-                        <Alert variant="destructive">
+                        <Alert variant="destructive" className="bg-destructive/5">
                             <AlertTriangle className="h-4 w-4" />
                             <AlertTitle>{error.title}</AlertTitle>
                             <AlertDescription className="space-y-2">
@@ -103,9 +103,9 @@ export function LoginForm() {
                                     className="w-full mt-2 bg-white text-destructive hover:bg-destructive/10"
                                     asChild
                                 >
-                                    <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer">
+                                    <a href="https://console.firebase.google.com/project/site-command-7b7e1/authentication/users" target="_blank" rel="noopener noreferrer">
                                         <ExternalLink className="mr-2 h-3 w-3" />
-                                        Go to Firebase Console
+                                        Open Firebase User List
                                     </a>
                                 </Button>
                             </AlertDescription>
@@ -126,16 +126,19 @@ export function LoginForm() {
             </Card>
         </form>
 
-        <Alert>
-            <Info className="h-4 w-4" />
-            <AlertTitle>How to enable access</AlertTitle>
-            <AlertDescription className="text-xs space-y-2">
-                <p>To log in, follow these steps in your Firebase Console:</p>
-                <ol className="list-decimal ml-4 space-y-1">
-                    <li>Navigate to <strong>Authentication</strong> {'&gt;'} <strong>Sign-in method</strong> and enable <strong>Email/Password</strong>.</li>
-                    <li>In the <strong>Users</strong> tab, click <strong>Add user</strong>.</li>
-                    <li>Create an account with email <code>j4mes0690@googlemail.com</code> and password <code>password</code>.</li>
+        <Alert className="border-primary/20 bg-primary/5">
+            <Info className="h-4 w-4 text-primary" />
+            <AlertTitle className="text-primary">Required Action: Add User</AlertTitle>
+            <AlertDescription className="text-xs space-y-3 pt-2">
+                <p className="font-semibold">The app is connected to project "site-command-7b7e1". To log in, you must add your account to that project:</p>
+                <ol className="list-decimal ml-4 space-y-2">
+                    <li>Open the <a href="https://console.firebase.google.com/project/site-command-7b7e1/authentication/users" target="_blank" className="underline font-bold">Firebase Console Users Tab</a>.</li>
+                    <li>Ensure <strong>Email/Password</strong> is enabled in "Sign-in method".</li>
+                    <li>Click the <strong>Add user</strong> button.</li>
+                    <li>Use Email: <code>j4mes0690@googlemail.com</code></li>
+                    <li>Use Password: <code>password</code></li>
                 </ol>
+                <p className="italic text-muted-foreground">Note: The "Account Not Found" error will persist until the user is added in the console.</p>
             </AlertDescription>
         </Alert>
     </div>
