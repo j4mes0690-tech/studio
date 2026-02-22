@@ -46,6 +46,17 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 const SnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -479,9 +490,28 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                                             >
                                                 <Camera className="h-4 w-4" />
                                             </Button>
-                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            
+                                            <AlertDialog>
+                                              <AlertDialogTrigger asChild>
+                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                              </AlertDialogTrigger>
+                                              <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                  <AlertDialogTitle>Remove Item?</AlertDialogTitle>
+                                                  <AlertDialogDescription>
+                                                    Are you sure you want to remove "{item.description}" from this list?
+                                                  </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                  <AlertDialogAction onClick={() => handleRemoveItem(idx)} className="bg-destructive hover:bg-destructive/90">
+                                                    Remove
+                                                  </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                              </AlertDialogContent>
+                                            </AlertDialog>
                                         </div>
                                     </div>
 
