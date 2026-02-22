@@ -49,15 +49,7 @@ export default function LoginPage() {
 
       const result = await loginAction(formData);
 
-      if (result.success) {
-        toast({
-            title: 'Success',
-            description: result.message,
-        });
-        // Use window.location.href for a full page refresh redirect
-        // This ensures the browser has the cookie before navigating.
-        window.location.href = '/';
-      } else {
+      if (result && !result.success) {
         toast({
           title: 'Error',
           description: result.message,
