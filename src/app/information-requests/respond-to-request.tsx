@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import { addChatMessageAction } from './actions';
 import { MessageSquareReply } from 'lucide-react';
 import type { InformationRequest, DistributionUser } from '@/lib/types';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const AddChatMessageSchema = z.object({
   id: z.string().min(1),
@@ -100,12 +101,21 @@ export function RespondToRequest({ item, distributionUsers }: RespondToRequestPr
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-            <MessageSquareReply className="h-4 w-4" />
-            <span className="sr-only">Reply to Request</span>
-        </Button>
-      </DialogTrigger>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon">
+                  <MessageSquareReply className="h-4 w-4" />
+                  <span className="sr-only">Reply to Request</span>
+              </Button>
+            </DialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Reply to Request</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Reply to Request</DialogTitle>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
@@ -38,6 +37,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+  } from '@/components/ui/tooltip';
 import { closeInformationRequestAction, reopenInformationRequestAction, deleteInformationRequestAction } from './actions';
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
@@ -69,12 +74,21 @@ function CloseRequestButton({ requestId }: { requestId: string }) {
 
     return (
         <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <XCircle className="h-4 w-4" />
-                    <span className="sr-only">Close Request</span>
-                </Button>
-            </AlertDialogTrigger>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <XCircle className="h-4 w-4" />
+                                <span className="sr-only">Close Request</span>
+                            </Button>
+                        </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Close Request</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -117,12 +131,21 @@ function ReopenRequestButton({ requestId }: { requestId: string }) {
 
     return (
         <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <RefreshCw className="h-4 w-4" />
-                    <span className="sr-only">Reopen Request</span>
-                </Button>
-            </AlertDialogTrigger>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <RefreshCw className="h-4 w-4" />
+                                <span className="sr-only">Reopen Request</span>
+                            </Button>
+                        </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Reopen Request</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -165,12 +188,21 @@ function DeleteRequestButton({ requestId }: { requestId: string }) {
 
     return (
         <AlertDialog>
-            <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                    <span className="sr-only">Delete Request</span>
-                </Button>
-            </AlertDialogTrigger>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <span className="sr-only">Delete Request</span>
+                            </Button>
+                        </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Delete Request</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
