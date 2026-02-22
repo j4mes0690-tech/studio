@@ -3,7 +3,6 @@
 
 import { z } from 'zod';
 import { getDistributionUsers } from '@/lib/data';
-import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 
 const LoginSchema = z.object({
@@ -56,6 +55,5 @@ export async function loginAction(
     path: '/',
   });
   
-  // On successful login, redirect the user to the homepage.
-  redirect('/');
+  return { success: true, message: 'Login successful.' };
 }

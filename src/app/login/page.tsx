@@ -50,8 +50,14 @@ export default function LoginPage() {
 
       const result = await loginAction(formData);
 
-      // The success case redirects on the server, so we only need to handle the error case here.
-      if (result && !result.success) {
+      if (result.success) {
+        toast({
+          title: 'Success',
+          description: result.message,
+        });
+        // Force a full page reload to ensure the cookie is picked up.
+        window.location.href = '/';
+      } else {
         toast({
           title: 'Error',
           description: result.message,

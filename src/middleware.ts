@@ -2,8 +2,22 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
  
-// Middleware is temporarily disabled for debugging session persistence.
 export function middleware(request: NextRequest) {
+  const userId = request.cookies.get('userId')?.value;
+  const { pathname } = request.nextUrl;
+
+  // If the user is trying to access the login page but is already logged in,
+  // redirect them to the dashboard.
+  if (userId && pathname === '/login') {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+
+  // If the user is not logged in and is trying to access a protected route,
+  // redirect them to the login page.
+  if (!userId && pathname !== '/login') {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
   return NextResponse.next();
 }
  
