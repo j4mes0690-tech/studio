@@ -43,13 +43,17 @@ export function LoginForm() {
 
       if (err.code === 'auth/api-key-not-valid') {
         title = 'Invalid Firebase API Key';
-        message = 'The API key in src/firebase/config.ts is invalid. Please replace it with the valid key from your Firebase Console settings.';
+        message = 'The API key in src/firebase/config.ts is invalid. Please replace it with the valid key from your Firebase Console settings (Project Settings > General).';
         isConfig = true;
       } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        message = 'Invalid email or password. Please ensure you have created this user in the Firebase Console.';
+        message = 'Invalid email or password. Please ensure you have created this user in the Firebase Console (Authentication > Users).';
       } else if (err.code === 'auth/operation-not-allowed') {
         title = 'Auth Provider Disabled';
         message = 'Email/Password sign-in is not enabled. Go to Authentication > Sign-in method in the Firebase Console to enable it.';
+        isConfig = true;
+      } else if (err.message?.includes('API key')) {
+        title = 'Firebase Config Error';
+        message = 'There is an issue with your Firebase API Key. Ensure it matches the one in your Firebase Console.';
         isConfig = true;
       }
 

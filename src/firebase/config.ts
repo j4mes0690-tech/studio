@@ -1,4 +1,7 @@
 
+// This configuration is specific to your Firebase project.
+// You can find these values in the Firebase Console: 
+// Project Settings > General > Your apps > SDK setup and configuration
 export const firebaseConfig = {
   apiKey: "AIzaSyAs-Example-Key-Please-Replace-With-Real-Key",
   authDomain: "site-command-7b7e1.firebaseapp.com",
