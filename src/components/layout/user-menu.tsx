@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTransition } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +27,13 @@ function getInitials(name?: string) {
 
 export function UserMenu({ user }: { user: DistributionUser }) {
     const initials = getInitials(user?.name);
+    const [isPending, startTransition] = useTransition();
+
+    const handleLogout = () => {
+        startTransition(() => {
+            logoutAction();
+        });
+    };
     
     return (
         <DropdownMenu>
@@ -47,12 +55,15 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="p-0">
-                    <form action={logoutAction} className="w-full">
-                        <button type="submit" className="w-full h-full text-left px-2 py-1.5 text-sm cursor-pointer">
-                            Log Out
-                        </button>
-                    </form>
+                <DropdownMenuItem
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    handleLogout();
+                  }}
+                  disabled={isPending}
+                  className="cursor-pointer"
+                >
+                    Log Out
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
