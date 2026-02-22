@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -32,11 +33,12 @@ export async function loginAction(
   }
 
   const { email, password } = validatedFields.data;
+  const formattedEmail = email.trim().toLowerCase();
 
   // In a real app, you would have proper authentication logic.
   // Here, we'll just check if the user exists and the password matches the (unhashed) one in our mock data.
   const users = await getDistributionUsers();
-  const user = users.find(u => u.email === email);
+  const user = users.find(u => u.email.toLowerCase() === formattedEmail);
 
   if (!user) {
     return { success: false, message: 'No user found with that email.' };
