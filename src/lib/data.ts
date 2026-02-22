@@ -169,6 +169,31 @@ export async function getProjects(): Promise<Project[]> {
   });
 }
 
+export async function addProject(projectData: Omit<Project, 'id'>): Promise<Project> {
+    noStore();
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            const newProject: Project = {
+                ...projectData,
+                id: `proj-${Date.now()}`,
+            };
+            g.projects.push(newProject);
+            resolve(newProject);
+        }, 100);
+    });
+}
+
+export async function removeProject(projectId: string): Promise<{ success: boolean }> {
+    noStore();
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            const initialLength = g.projects.length;
+            g.projects = g.projects.filter((project) => project.id !== projectId);
+            resolve({ success: g.projects.length < initialLength });
+        }, 100);
+    });
+}
+
 export async function getInstructions({
   projectId,
 }: {

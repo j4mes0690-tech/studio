@@ -3,7 +3,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { addDistributionUser, removeDistributionUser, addSubContractor, removeSubContractor, updateDistributionUser, updateSubContractor } from '@/lib/data';
+import { addDistributionUser, removeDistributionUser, addSubContractor, removeSubContractor, updateDistributionUser, updateSubContractor, addProject, removeProject } from '@/lib/data';
 import type { DistributionUser, SubContractor } from '@/lib/types';
 
 
@@ -14,6 +14,10 @@ const UserSchema = z.object({
 
 const UpdateUserSchema = UserSchema.extend({
     id: z.string().min(1, 'User ID is required.'),
+});
+
+const ProjectSchema = z.object({
+    name: z.string().min(1, 'Project name is required.'),
 });
 
 
@@ -159,3 +163,40 @@ export async function updateSubContractorAction(
       return { success: false, message: 'Failed to update sub-contractor.' };
     }
   }
+
+export async function addProjectAction(
+    formData: FormData
+    ): Promise<FormState> {
+    const validatedFields = ProjectSchema.safeParse({
+        name: formData.get('name'),
+    });
+
+    if (!validatedFields.success) {
+        const errors = validatedFields.error.flatten().fieldErrors;
+        return {
+        success: false,
+        message: errors.name?.[0] || 'Invalid data.',
+        };
+    }
+
+    try {
+        await addProject(validatedFields.data);
+        revalidatePath('/settings');
+        revalidatePath('/projects');
+        revalidatePath('/', 'layout');
+        return { success: true, message: 'Project added successfully.' };
+    } catch (error) {
+        return { success: false, message: 'Failed to add project.' };
+    }
+}
+
+export async function removeProjectAction(projectId: string) {
+    try {
+        await removeProject(projectId);
+        revalidatePath('/settings');
+        revalidatePath('/projects');
+        revalidatePath('/', 'layout');
+    } catch (error) {
+        console.error('Failed to remove project:', error);
+    }
+}
