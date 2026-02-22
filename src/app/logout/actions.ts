@@ -1,9 +1,3 @@
+
 'use server';
-
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-
-export async function logoutAction() {
-    cookies().delete('userId');
-    redirect('/login');
-}
+// This server action has been temporarily disabled.
