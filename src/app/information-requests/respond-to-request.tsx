@@ -79,9 +79,7 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
 
       const docRef = doc(db, 'information-requests', item.id);
       const updates = { 
-          // Use arrayUnion to safely add to the messages array in Firestore
           messages: arrayUnion(newMessage),
-          // Reset dismissed status for everyone so they see the new reply
           dismissedBy: []
       };
 
@@ -101,7 +99,6 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
     });
   };
 
-  // Sort messages directly during render to ensure real-time reactivity
   const sortedMessages = [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (

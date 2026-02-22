@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { InformationRequest, Project, DistributionUser, ChatMessage } from '@/lib/types';
@@ -69,13 +68,12 @@ function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: 
                 dismissedBy: [] // Reset notification dismissal on status change
             };
 
-            // Automatically add a status update message to the conversation
             if (newStatus === 'closed') {
                 const closingMessage: ChatMessage = {
                     id: `msg-system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     sender: 'System',
                     senderEmail: 'system@sitecommand.internal',
-                    message: `Request closed by ${currentUser.name}`,
+                    message: `Request closed by ${currentUser.name}. Thank you all for your input.`,
                     createdAt: new Date().toISOString(),
                 };
                 updates.messages = arrayUnion(closingMessage);
@@ -267,7 +265,6 @@ export function InformationRequestCard({
         : item.assignedTo ? [item.assignedTo] : [];
   }, [item.assignedTo]);
     
-  // Sort messages by date directly during render to ensure reactivity with real-time snapshots
   const sortedMessages = [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
