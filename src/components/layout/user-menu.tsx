@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -13,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
 import { useRef } from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -27,7 +29,19 @@ function getInitials(name?: string) {
 export function UserMenu({ user }: { user: DistributionUser }) {
     const initials = getInitials(user?.name);
     const logoutFormRef = useRef<HTMLFormElement>(null);
+    const { toast } = useToast();
     
+    const handleLogout = () => {
+        toast({
+            title: 'Diagnostic',
+            description: 'DIAGNOSTIC: Cookie will be cleared.',
+        });
+        // Delay submission to allow toast to appear
+        setTimeout(() => {
+            logoutFormRef.current?.requestSubmit();
+        }, 500);
+    };
+
     return (
         <>
             <DropdownMenu>
@@ -49,7 +63,7 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                         <Link href="/settings">Settings</Link>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => logoutFormRef.current?.requestSubmit()} className="cursor-pointer">
+                    <DropdownMenuItem onSelect={handleLogout} className="cursor-pointer">
                         Log Out
                     </DropdownMenuItem>
                 </DropdownMenuContent>

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -52,5 +53,5 @@ export async function loginAction(
     path: '/',
   });
   
-  redirect('/');
+  return { success: true, message: 'DIAGNOSTIC: Login cookie has been set.' };
 }
