@@ -2,8 +2,9 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { useActionState } from 'react';
-import { logoutAction } from './actions';
+import { useActionState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { logoutAction, type LogoutState } from './actions';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
@@ -17,7 +18,15 @@ function LogoutButton() {
 }
 
 export function LogoutForm() {
-  const [state, formAction] = useActionState(logoutAction, undefined);
+  const [state, formAction] = useActionState<LogoutState | undefined, void>(logoutAction, undefined);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state?.success) {
+      router.push('/login');
+      router.refresh();
+    }
+  }, [state, router]);
 
   return (
     <form action={formAction} className="space-y-4">

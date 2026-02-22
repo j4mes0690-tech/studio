@@ -2,8 +2,9 @@
 'use client';
 
 import { useFormStatus } from 'react-dom';
-import { useActionState } from 'react';
-import { loginAction } from './actions';
+import { useActionState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { loginAction, type LoginState } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,7 +29,16 @@ function LoginButton() {
 }
 
 export function LoginForm() {
-  const [state, formAction] = useActionState(loginAction, undefined);
+  const [state, formAction] = useActionState<LoginState | undefined, FormData>(loginAction, undefined);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state?.success) {
+      router.push('/');
+      router.refresh();
+    }
+  }, [state, router]);
+
 
   return (
     <form action={formAction}>
