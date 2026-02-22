@@ -46,7 +46,7 @@ export async function createChecklistAction(formData: FormData): Promise<FormSta
 
     const newItems: Omit<ChecklistItem, 'id'>[] = itemTexts.map((text) => ({
         text,
-        isCompleted: false,
+        status: 'pending',
     }));
 
     const newChecklistData: Omit<QualityChecklist, 'id' | 'createdAt'> = {

@@ -69,10 +69,13 @@ export type SubContractor = {
   email: string;
 };
 
+export type ChecklistItemStatus = 'pending' | 'yes' | 'no' | 'na';
+
 export type ChecklistItem = {
   id: string;
   text: string;
-  isCompleted: boolean;
+  status: ChecklistItemStatus;
+  comment?: string;
 };
 
 export type QualityChecklist = {

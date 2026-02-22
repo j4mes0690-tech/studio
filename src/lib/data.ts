@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist } from './types';
+import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist, ChecklistItem } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 
 // Widen the global type to include our in-memory data
@@ -169,10 +169,10 @@ if (!g.qualityChecklists) {
             trade: 'Concrete',
             createdAt: new Date('2023-11-01T09:00:00Z').toISOString(),
             items: [
-                { id: 'qc1-1', text: 'Formwork is clean and properly oiled.', isCompleted: true },
-                { id: 'qc1-2', text: 'Reinforcement is correctly placed and secured.', isCompleted: true },
-                { id: 'qc1-3', text: 'Embedded items (conduits, pipes) are installed.', isCompleted: false },
-                { id: 'qc1-4', text: 'Waterstops are correctly positioned.', isCompleted: false },
+                { id: 'qc1-1', text: 'Formwork is clean and properly oiled.', status: 'yes' },
+                { id: 'qc1-2', text: 'Reinforcement is correctly placed and secured.', status: 'yes' },
+                { id: 'qc1-3', text: 'Embedded items (conduits, pipes) are installed.', status: 'pending' },
+                { id: 'qc1-4', text: 'Waterstops are correctly positioned.', status: 'pending' },
             ]
         }
     ];
