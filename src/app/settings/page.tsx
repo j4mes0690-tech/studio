@@ -90,11 +90,11 @@ export default async function SettingsPage() {
                 <CardHeader>
                     <CardTitle>Manage Checklists</CardTitle>
                     <CardDescription>
-                        Create new quality control checklists for your projects.
+                        Create new quality control checklist templates.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <NewChecklist projects={projects} />
+                    <NewChecklist />
                 </CardContent>
             </Card>
         </div>

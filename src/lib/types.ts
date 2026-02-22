@@ -85,7 +85,7 @@ export type ChecklistItem = {
 
 export type QualityChecklist = {
   id: string;
-  projectId: string;
+  projectId?: string;
   title: string;
   trade: string;
   createdAt: string;

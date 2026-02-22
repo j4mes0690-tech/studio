@@ -7,11 +7,9 @@ import { createQualityChecklist, getQualityChecklists, updateQualityChecklist } 
 import type { QualityChecklist, ChecklistItem } from '@/lib/types';
 
 const NewChecklistSchema = z.object({
-  projectId: z.string().min(1, 'Project is required.'),
   title: z.string().min(1, 'Title is required.'),
   trade: z.string().min(1, 'Trade is required.'),
   items: z.string().min(3, 'Checklist must have at least one item.'), // JSON string of string[]
-  areaId: z.string().optional(),
 });
 
 const UpdateChecklistItemsSchema = z.object({
@@ -27,16 +25,14 @@ export type FormState = {
 
 export async function createChecklistAction(formData: FormData): Promise<FormState> {
   const validatedFields = NewChecklistSchema.safeParse({
-    projectId: formData.get('projectId'),
     title: formData.get('title'),
     trade: formData.get('trade'),
     items: formData.get('items'),
-    areaId: formData.get('areaId'),
   });
 
   if (!validatedFields.success) {
     const fieldErrors = validatedFields.error.flatten().fieldErrors;
-    const message = fieldErrors.title?.[0] || fieldErrors.projectId?.[0] || fieldErrors.trade?.[0] || fieldErrors.items?.[0] || 'Invalid data provided.';
+    const message = fieldErrors.title?.[0] || fieldErrors.trade?.[0] || fieldErrors.items?.[0] || 'Invalid data provided.';
     return { success: false, message };
   }
 
@@ -52,11 +48,9 @@ export async function createChecklistAction(formData: FormData): Promise<FormSta
     }));
 
     const newChecklistData: Omit<QualityChecklist, 'id' | 'createdAt'> = {
-      projectId: validatedFields.data.projectId,
       title: validatedFields.data.title,
       trade: validatedFields.data.trade,
       items: newItems.map((item, index) => ({ ...item, id: `item-${Date.now()}-${index}`})),
-      areaId: validatedFields.data.areaId || undefined,
     };
     
     await createQualityChecklist(newChecklistData);

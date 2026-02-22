@@ -34,57 +34,34 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createChecklistAction } from './actions';
 import { PlusCircle, X } from 'lucide-react';
-import type { Project, Area } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const trades = ['Plumbing', 'Electrical', 'HVAC', 'Drywall', 'Painting', 'Concrete', 'General'];
 
 const NewChecklistSchema = z.object({
-  projectId: z.string().min(1, 'Project is required.'),
   title: z.string().min(1, 'Title is required.'),
   trade: z.string().min(1, 'Trade is required.'),
   items: z.string().min(3, 'Checklist must have at least one item.'),
-  areaId: z.string().optional(),
 });
 
 type NewChecklistFormValues = z.infer<typeof NewChecklistSchema>;
 
-type NewChecklistProps = {
-  projects: Project[];
-};
-
-export function NewChecklist({ projects }: NewChecklistProps) {
+export function NewChecklist() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const [items, setItems] = useState<string[]>([]);
   const [currentItem, setCurrentItem] = useState('');
-  const [projectAreas, setProjectAreas] = useState<Area[]>([]);
 
   const form = useForm<NewChecklistFormValues>({
     resolver: zodResolver(NewChecklistSchema),
     defaultValues: {
-      projectId: '',
       title: '',
       trade: '',
       items: '',
-      areaId: '',
     },
   });
-
-  const selectedProjectId = form.watch('projectId');
-
-  useEffect(() => {
-    if (selectedProjectId) {
-        const selectedProject = projects.find(p => p.id === selectedProjectId);
-        setProjectAreas(selectedProject?.areas || []);
-        form.setValue('areaId', '');
-    } else {
-        setProjectAreas([]);
-    }
-  }, [selectedProjectId, projects, form]);
-
 
   useEffect(() => {
     form.setValue('items', JSON.stringify(items));
@@ -109,13 +86,9 @@ export function NewChecklist({ projects }: NewChecklistProps) {
     
     startTransition(async () => {
       const formData = new FormData();
-      formData.append('projectId', values.projectId);
       formData.append('title', values.title);
       formData.append('trade', values.trade);
       formData.append('items', values.items);
-      if (values.areaId) {
-        formData.append('areaId', values.areaId);
-      }
 
       const result = await createChecklistAction(formData);
 
@@ -133,7 +106,6 @@ export function NewChecklist({ projects }: NewChecklistProps) {
       form.reset();
       setItems([]);
       setCurrentItem('');
-      setProjectAreas([]);
     }
   }, [open, form]);
 
@@ -142,65 +114,19 @@ export function NewChecklist({ projects }: NewChecklistProps) {
       <DialogTrigger asChild>
         <Button>
           <PlusCircle className="mr-2 h-4 w-4" />
-          New Checklist
+          New Checklist Template
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Create New Quality Checklist</DialogTitle>
           <DialogDescription>
-            Define a new checklist for a specific trade to ensure quality standards.
+            Define a new checklist template for a specific trade to ensure quality standards.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex-1 flex flex-col min-h-0">
             <div className="space-y-4 overflow-y-auto pr-2">
-                <FormField
-                control={form.control}
-                name="projectId"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Project</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {projects.map((project) => (
-                            <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
-                        ))}
-                        </SelectContent>
-                    </Select>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-
-                <FormField
-                    control={form.control}
-                    name="areaId"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Area (Optional)</FormLabel>
-                        <Select 
-                            onValueChange={field.onChange} 
-                            value={field.value}
-                            disabled={!selectedProjectId || projectAreas.length === 0}
-                        >
-                            <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select an area" /></SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {projectAreas.map((area) => (
-                                <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-
                 <FormField
                 control={form.control}
                 name="title"
