@@ -48,12 +48,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { ClientDate } from '../../components/client-date';
 import { useFirestore } from '@/firebase';
-import { doc, updateDoc, deleteDoc, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 
-function UpdateStatusButton({ requestId, newStatus }: { requestId: string, newStatus: 'open' | 'closed' }) {
+function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: string, newStatus: 'open' | 'closed', currentUser: DistributionUser }) {
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const db = useFirestore();
@@ -61,7 +61,21 @@ function UpdateStatusButton({ requestId, newStatus }: { requestId: string, newSt
     const handleUpdate = () => {
         startTransition(async () => {
             const docRef = doc(db, 'information-requests', requestId);
-            const updates = { status: newStatus };
+            
+            const updates: any = { status: newStatus };
+
+            // Automatically add a closing message to the conversation
+            if (newStatus === 'closed') {
+                const closingMessage: ChatMessage = {
+                    id: `msg-system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    sender: 'System (SiteCommand)',
+                    senderEmail: 'system@sitecommand.internal',
+                    message: `Request closed by ${currentUser.name}. Thank you all for your input.`,
+                    createdAt: new Date().toISOString(),
+                };
+                updates.messages = arrayUnion(closingMessage);
+            }
+
             updateDoc(docRef, updates)
               .then(() => toast({ title: 'Success', description: `Request ${newStatus}.` }))
               .catch((serverError) => {
@@ -98,7 +112,7 @@ function UpdateStatusButton({ requestId, newStatus }: { requestId: string, newSt
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will {isClosing ? 'close' : 'reopen'} the information request.
+                        This will {isClosing ? 'close' : 'reopen'} the information request. {isClosing && 'A closing note will be added to the conversation.'}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -265,10 +279,10 @@ export function InformationRequestCard({
             {item.status === 'open' ? (
                 <>
                     <RespondToRequest item={item} distributionUsers={distributionUsers} currentUser={currentUser} />
-                    <UpdateStatusButton requestId={item.id} newStatus="closed" />
+                    <UpdateStatusButton requestId={item.id} newStatus="closed" currentUser={currentUser} />
                 </>
             ) : (
-              <UpdateStatusButton requestId={item.id} newStatus="open" />
+              <UpdateStatusButton requestId={item.id} newStatus="open" currentUser={currentUser} />
             )}
             <EditInformationRequest item={item} projects={projects} distributionUsers={distributionUsers} />
             <DeleteRequestButton requestId={item.id} />
