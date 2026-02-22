@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
 import { format } from 'date-fns';
@@ -58,6 +58,7 @@ export function DatePicker({ field, label }: DatePickerProps) {
               setCalendarOpen(false);
             }}
             initialFocus
+            hideHead
           />
         </DialogContent>
       </Dialog>
