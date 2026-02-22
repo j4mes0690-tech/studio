@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -13,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
-import { logoutAction } from '@/app/login/actions';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -48,11 +46,9 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <form action={logoutAction} className="w-full">
-                    <DropdownMenuItem asChild className="cursor-pointer">
-                        <button type="submit" className="w-full text-left">Logout</button>
-                    </DropdownMenuItem>
-                </form>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <a href="/logout">Logout</a>
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );

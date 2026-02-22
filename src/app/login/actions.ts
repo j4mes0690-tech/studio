@@ -60,8 +60,3 @@ export async function loginAction(
   // This part is not reachable due to the redirect, but necessary for type-safety.
   return { success: true, message: 'Login successful.' };
 }
-
-export async function logoutAction() {
-    cookies().delete('userId');
-    redirect('/login');
-}
