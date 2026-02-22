@@ -20,15 +20,22 @@ export default function InformationRequestsPage() {
   const projectId = searchParams.get('project') || undefined;
 
   // Fetch distribution users from Firestore
-  const usersQuery = useMemo(() => collection(db, 'users'), [db]);
+  const usersQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
   // Fetch Projects from Firestore
-  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const projectsQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'projects');
+  }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
   // Fetch Information Requests from Firestore (Real-time)
   const itemsQuery = useMemo(() => {
+    if (!db) return null;
     const base = collection(db, 'information-requests');
     if (projectId) {
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
@@ -38,9 +45,23 @@ export default function InformationRequestsPage() {
 
   const { data: items, isLoading: itemsLoading } = useCollection<InformationRequest>(itemsQuery);
 
+  // Client-side sorting: Open requests first, then closed
+  const sortedItems = useMemo(() => {
+    if (!items) return [];
+    return [...items].sort((a, b) => {
+      // 1. Sort by status: 'open' items come before 'closed'
+      if (a.status !== b.status) {
+        return a.status === 'open' ? -1 : 1;
+      }
+      // 2. Secondary sort: Within the same status, sort by createdAt descending
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [items]);
+
   const currentUser = useMemo(() => {
     if (!firebaseUser?.email || !distributionUsers) return null;
-    return distributionUsers.find(u => u.email.toLowerCase() === firebaseUser.email?.toLowerCase()) || null;
+    const email = firebaseUser.email.toLowerCase().trim();
+    return distributionUsers.find(u => u.email.toLowerCase().trim() === email) || null;
   }, [firebaseUser, distributionUsers]);
 
   const loading = usersLoading || projectsLoading || itemsLoading;
@@ -85,8 +106,8 @@ export default function InformationRequestsPage() {
         </div>
         <InformationRequestFilters projects={allProjects || []} />
         <div className="grid gap-4 md:gap-6">
-          {items && items.length > 0 ? (
-            items.map((item) => (
+          {sortedItems && sortedItems.length > 0 ? (
+            sortedItems.map((item) => (
               <InformationRequestCard
                 key={item.id}
                 item={item}
