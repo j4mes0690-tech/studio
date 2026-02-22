@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState, useTransition } from 'react';
+import { Suspense, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,35 +21,37 @@ function LoginPageContent() {
     const searchParams = useSearchParams();
     const initialError = searchParams.get('error');
     const [error, setError] = useState<string | null>(initialError);
-    const [isPending, startTransition] = useTransition();
+    const [isPending, setIsPending] = useState(false);
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         setError(null);
-        startTransition(async () => {
-            const formData = new FormData(event.currentTarget);
-            const email = formData.get('email') as string;
-            const password = formData.get('password') as string;
+        setIsPending(true);
 
-            try {
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password }),
-                });
+        const formData = new FormData(event.currentTarget);
+        const email = formData.get('email') as string;
+        const password = formData.get('password') as string;
 
-                const result = await response.json();
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
 
-                if (result.success) {
-                    router.push('/');
-                    router.refresh();
-                } else {
-                    setError(result.error || 'Login failed.');
-                }
-            } catch (e) {
-                setError('An unexpected error occurred.');
+            const result = await response.json();
+
+            if (result.success) {
+                router.push('/');
+                router.refresh();
+            } else {
+                setError(result.error || 'Login failed.');
+                setIsPending(false);
             }
-        });
+        } catch (e) {
+            setError('An unexpected error occurred.');
+            setIsPending(false);
+        }
     };
 
     return (
