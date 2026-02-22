@@ -354,27 +354,29 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                         </PopoverTrigger>
                         <PopoverContent className="w-64 p-0" align="end">
                           <ScrollArea className="h-64">
-                            <div className="p-2 space-y-1">
-                              <div 
+                            <div className="p-1 space-y-1">
+                              <Button
+                                type="button"
+                                variant="ghost"
                                 className={cn(
-                                  "flex items-center px-3 py-2 rounded-md cursor-pointer text-sm transition-colors",
-                                  !pendingSubId ? "bg-secondary text-secondary-foreground font-semibold" : "hover:bg-accent"
-                                )} 
+                                  "w-full justify-start text-xs h-9 px-3",
+                                  !pendingSubId && "bg-accent"
+                                )}
                                 onClick={() => {
                                   setPendingSubId(undefined);
                                   setIsSubPopoverOpen(false);
                                 }}
                               >
                                 None
-                              </div>
+                              </Button>
                               {subContractors.map(sub => (
-                                <div 
+                                <Button 
                                   key={sub.id} 
+                                  type="button"
+                                  variant="ghost"
                                   className={cn(
-                                    "flex items-center justify-between px-3 py-2 rounded-md cursor-pointer text-xs transition-colors",
-                                    pendingSubId === sub.id 
-                                      ? "bg-primary text-primary-foreground font-semibold" 
-                                      : "hover:bg-accent"
+                                    "w-full justify-between text-xs h-9 px-3 text-left font-normal",
+                                    pendingSubId === sub.id && "bg-primary text-primary-foreground hover:bg-primary/90"
                                   )}
                                   onClick={() => {
                                     setPendingSubId(sub.id);
@@ -383,7 +385,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                                 >
                                   <span className="truncate">{sub.name}</span>
                                   {pendingSubId === sub.id && <Check className="h-3 w-3 ml-2 flex-shrink-0" />}
-                                </div>
+                                </Button>
                               ))}
                             </div>
                           </ScrollArea>
