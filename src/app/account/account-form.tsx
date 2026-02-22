@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTransition } from 'react';
+import { useTransition, useEffect } from 'react';
 import { updateAccountAction } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,12 +39,23 @@ export function AccountForm({ user }: AccountFormProps) {
   const form = useForm<UpdateAccountFormValues>({
     resolver: zodResolver(UpdateAccountSchema),
     defaultValues: {
-      id: user.id,
-      name: user.name,
-      email: user.email,
+      id: user?.id || '',
+      name: user?.name || '',
+      email: user?.email || '',
       password: '',
     },
   });
+
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        password: '',
+      });
+    }
+  }, [user, form]);
 
   const onSubmit = (values: UpdateAccountFormValues) => {
     startTransition(async () => {
