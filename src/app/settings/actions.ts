@@ -11,6 +11,10 @@ const UserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
+  canManageUsers: z.string().optional(),
+  canManageSubcontractors: z.string().optional(),
+  canManageProjects: z.string().optional(),
+  canManageChecklists: z.string().optional(),
 });
 
 const UpdateUserSchema = z.object({
@@ -18,6 +22,10 @@ const UpdateUserSchema = z.object({
     name: z.string().min(1, 'Name is required.'),
     email: z.string().email('Invalid email address.'),
     password: z.string().min(6, 'Password must be at least 6 characters.').optional(),
+    canManageUsers: z.string().optional(),
+    canManageSubcontractors: z.string().optional(),
+    canManageProjects: z.string().optional(),
+    canManageChecklists: z.string().optional(),
 });
 
 const ProjectSchema = z.object({
@@ -42,6 +50,10 @@ export async function addUserAction(
     name: formData.get('name'),
     email: formData.get('email'),
     password: formData.get('password'),
+    canManageUsers: formData.get('canManageUsers'),
+    canManageSubcontractors: formData.get('canManageSubcontractors'),
+    canManageProjects: formData.get('canManageProjects'),
+    canManageChecklists: formData.get('canManageChecklists'),
   });
 
   if (!validatedFields.success) {
@@ -53,7 +65,19 @@ export async function addUserAction(
   }
 
   try {
-    await addDistributionUser(validatedFields.data);
+    const { name, email, password, canManageUsers, canManageSubcontractors, canManageProjects, canManageChecklists } = validatedFields.data;
+    const userData = {
+        name,
+        email,
+        password,
+        permissions: {
+            canManageUsers: canManageUsers === 'on',
+            canManageSubcontractors: canManageSubcontractors === 'on',
+            canManageProjects: canManageProjects === 'on',
+            canManageChecklists: canManageChecklists === 'on',
+        }
+    };
+    await addDistributionUser(userData);
     revalidatePath('/settings');
     revalidatePath('/instructions');
     revalidatePath('/information-requests');
@@ -85,6 +109,10 @@ export async function updateUserAction(
       id: formData.get('id'),
       name: formData.get('name'),
       email: formData.get('email'),
+      canManageUsers: formData.get('canManageUsers'),
+      canManageSubcontractors: formData.get('canManageSubcontractors'),
+      canManageProjects: formData.get('canManageProjects'),
+      canManageChecklists: formData.get('canManageChecklists'),
     };
     if (password) {
       dataToValidate.password = password;
@@ -106,10 +134,24 @@ export async function updateUserAction(
         if (!existingUser) {
             return { success: false, message: 'User not found.' };
         }
+        
+        const { id, name, email, password: newPassword, canManageUsers, canManageSubcontractors, canManageProjects, canManageChecklists } = validatedFields.data;
+
         const updatedUser: DistributionUser = {
             ...existingUser,
-            ...validatedFields.data
+            name,
+            email,
+            permissions: {
+                canManageUsers: canManageUsers === 'on',
+                canManageSubcontractors: canManageSubcontractors === 'on',
+                canManageProjects: canManageProjects === 'on',
+                canManageChecklists: canManageChecklists === 'on',
+            }
         };
+        if (newPassword) {
+            updatedUser.password = newPassword;
+        }
+
       await updateDistributionUser(updatedUser);
       revalidatePath('/settings');
       revalidatePath('/instructions');

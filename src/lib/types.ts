@@ -62,11 +62,19 @@ export type InformationRequest = {
   messages: ChatMessage[];
 };
 
+export type UserPermissions = {
+  canManageUsers: boolean;
+  canManageSubcontractors: boolean;
+  canManageProjects: boolean;
+  canManageChecklists: boolean;
+};
+
 export type DistributionUser = {
   id: string;
   name: string;
   email: string;
   password?: string;
+  permissions?: UserPermissions;
 };
 
 export type SubContractor = {
