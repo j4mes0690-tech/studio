@@ -138,10 +138,11 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
             ) : (
                 <div className='space-y-3'>
                     {sortedMessages.map(msg => {
-                        const isSystem = msg.senderEmail === 'system@sitecommand.internal';
-                        const normalizedCurrentEmail = currentUser.email.toLowerCase().trim();
-                        const normalizedSenderEmail = msg.senderEmail.toLowerCase().trim();
-                        const isMe = normalizedSenderEmail === normalizedCurrentEmail;
+                        const senderEmail = msg.senderEmail || '';
+                        const isSystem = senderEmail === 'system@sitecommand.internal';
+                        const normalizedCurrentEmail = (currentUser.email || '').toLowerCase().trim();
+                        const normalizedSenderEmail = senderEmail.toLowerCase().trim();
+                        const isMe = !isSystem && normalizedSenderEmail === normalizedCurrentEmail;
 
                         if (isSystem) {
                             return (
