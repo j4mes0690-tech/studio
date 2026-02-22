@@ -13,7 +13,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
-import { LogOut } from 'lucide-react';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -46,13 +45,6 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/settings">Settings</Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link href="/logout">
-                        <LogOut className="mr-2 h-4 w-4" />
-                        <span>Log Out</span>
-                    </Link>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

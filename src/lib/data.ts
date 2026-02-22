@@ -601,7 +601,13 @@ export async function assignChecklistToProject(
 
 export async function getCurrentUser(): Promise<DistributionUser | null> {
     noStore();
-    return await getSession();
+    // Authentication is temporarily disabled. Always return a default user.
+    const defaultUser = g.distributionUsers.find(u => u.email === 'pm@example.com');
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            resolve(defaultUser || g.distributionUsers[0]);
+        }, 50);
+    });
 }
 
 export async function deleteQualityChecklist(id: string): Promise<{ success: boolean }> {
