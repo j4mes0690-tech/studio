@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -24,6 +23,7 @@ import { updateChecklistItemsAction } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 type ChecklistCardProps = {
   checklist: QualityChecklist;
@@ -91,9 +91,10 @@ export function ChecklistCard({
 
   const completedItems = items.filter((item) => item.status !== 'pending').length;
   const progress = items.length > 0 ? (completedItems / items.length) * 100 : 0;
+  const hasFailure = items.some((item) => item.status === 'no');
   
   return (
-    <Card>
+    <Card className={cn(hasFailure && 'border-destructive')}>
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
@@ -116,7 +117,7 @@ export function ChecklistCard({
               </span>
             </CardDescription>
           </div>
-          <Badge variant="secondary">{checklist.trade}</Badge>
+          <Badge variant={hasFailure ? 'destructive' : 'secondary'}>{checklist.trade}</Badge>
         </div>
       </CardHeader>
       <CardContent>
@@ -125,7 +126,7 @@ export function ChecklistCard({
                 <p className="text-muted-foreground">Progress</p>
                 <p className="font-medium">{completedItems} / {items.length} Completed</p>
             </div>
-          <Progress value={progress} />
+          <Progress value={progress} indicatorClassName={hasFailure ? 'bg-destructive' : ''} />
         </div>
         <Accordion type="single" collapsible className="w-full mt-4">
           <AccordionItem value="items">
@@ -135,7 +136,7 @@ export function ChecklistCard({
             <AccordionContent className="pt-2">
               <div className="space-y-6">
                 {items.map((item) => (
-                  <div key={item.id} className="space-y-3 p-2 rounded-md border border-transparent hover:border-border transition-colors">
+                  <div key={item.id} className={cn("space-y-3 p-2 rounded-md border transition-colors", item.status === 'no' ? 'border-destructive' : 'border-transparent hover:border-border')}>
                     <Label className="font-medium text-foreground">{item.text}</Label>
                     <RadioGroup
                         value={item.status}
