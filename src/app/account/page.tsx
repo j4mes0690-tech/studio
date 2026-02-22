@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -25,7 +24,8 @@ export default function AccountPage() {
     async function loadProfile() {
       if (user?.email) {
         const users = await getDistributionUsers();
-        const found = users.find(u => u.email === user.email);
+        // Use case-insensitive comparison for safer matching
+        const found = users.find(u => u.email.toLowerCase() === user.email?.toLowerCase());
         setProfile(found || null);
       }
       setLoading(false);

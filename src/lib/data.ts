@@ -1,4 +1,3 @@
-
 'use server';
 
 import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist, Area } from './types';
@@ -156,6 +155,22 @@ if (!g.distributionUsers) {
         { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
         { id: 'user-3', name: 'Lead Engineer', email: 'engineer@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
     ];
+}
+
+// Ensure the specific user always exists in the mock list
+if (g.distributionUsers && !g.distributionUsers.some(u => u.email.toLowerCase() === 'j4mes0690@googlemail.com')) {
+    g.distributionUsers.push({ 
+        id: 'user-james', 
+        name: 'James', 
+        email: 'j4mes0690@googlemail.com', 
+        password: 'password', 
+        permissions: { 
+            canManageUsers: true, 
+            canManageSubcontractors: true, 
+            canManageProjects: true, 
+            canManageChecklists: true 
+        } 
+    });
 }
 
 if (!g.subContractors) {
@@ -609,7 +624,7 @@ export async function getDistributionUserByEmail(email: string): Promise<Distrib
   noStore();
   return new Promise((resolve) => {
     setTimeout(() => {
-      const user = g.distributionUsers.find(u => u.email === email);
+      const user = g.distributionUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
       resolve(user || null);
     }, 100);
   });

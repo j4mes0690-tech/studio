@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -36,7 +35,8 @@ export default function InformationRequestsPage() {
       setDistributionUsers(users);
       
       if (firebaseUser?.email) {
-        const profile = users.find(u => u.email === firebaseUser.email);
+        // Use case-insensitive comparison for safer matching
+        const profile = users.find(u => u.email.toLowerCase() === firebaseUser.email?.toLowerCase());
         setCurrentUser(profile || null);
       }
       
