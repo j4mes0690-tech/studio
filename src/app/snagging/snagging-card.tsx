@@ -18,6 +18,7 @@ import {
 import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditSnaggingItem } from './edit-snagging-item';
+import { PdfReportButton } from './pdf-report-button';
 import {
   Carousel,
   CarouselContent,
@@ -129,6 +130,13 @@ export function SnaggingItemCard({
             <Badge variant={isComplete ? "secondary" : "outline"} className="capitalize">
                 {isComplete ? "Completed" : `${closedItems}/${totalItems} Done`}
             </Badge>
+            
+            <PdfReportButton 
+              item={item} 
+              project={project} 
+              subContractors={subContractors} 
+            />
+            
             <EditSnaggingItem item={item} projects={projects} subContractors={subContractors} />
             
             <AlertDialog>

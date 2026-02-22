@@ -72,8 +72,11 @@ export default function SnaggingPage() {
           )}
         </div>
         {items && items.length > 0 && (
-          <div className="flex justify-center mt-auto pt-6">
-            <ExportButton items={items} projects={projects || []} />
+          <div className="flex flex-col items-center gap-2 mt-auto pt-6">
+            <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Export Options</p>
+            <div className="flex items-center gap-4">
+              <ExportButton items={items} projects={projects || []} />
+            </div>
           </div>
         )}
       </main>
