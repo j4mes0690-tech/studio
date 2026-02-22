@@ -38,6 +38,7 @@ export type SnaggingListItem = {
   id: string;
   description: string;
   status: 'open' | 'closed';
+  photos?: Photo[];
 };
 
 export type SnaggingItem = {

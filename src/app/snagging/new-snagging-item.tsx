@@ -31,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, Trash2 } from 'lucide-react';
@@ -58,12 +57,14 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
   const { toast } = useToast();
   const db = useFirestore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const itemFileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [availableAreas, setAreas] = useState<Area[]>([]);
   
   const [items, setItems] = useState<Omit<SnaggingListItem, 'id'>[]>([]);
   const [newItemText, setNewItemText] = useState('');
+  const [itemPhotoTargetIdx, setItemPhotoTargetIdx] = useState<number | null>(null);
 
   const form = useForm<NewSnaggingListFormValues>({
     resolver: zodResolver(SnaggingListSchema),
@@ -84,13 +85,30 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
 
   const handleAddItem = () => {
     if (newItemText.trim()) {
-      setItems([...items, { description: newItemText.trim(), status: 'open' }]);
+      setItems([...items, { description: newItemText.trim(), status: 'open', photos: [] }]);
       setNewItemText('');
     }
   };
 
   const handleRemoveItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index));
+  };
+
+  const handleAddItemPhoto = (index: number) => {
+    setItemPhotoTargetIdx(index);
+    itemFileInputRef.current?.click();
+  };
+
+  const removeItemPhoto = (itemIdx: number, photoIdx: number) => {
+    setItems(prev => prev.map((item, i) => {
+      if (i === itemIdx) {
+        return {
+          ...item,
+          photos: (item.photos || []).filter((_, pIdx) => pIdx !== photoIdx)
+        };
+      }
+      return item;
+    }));
   };
 
   const onSubmit = (values: NewSnaggingListFormValues) => {
@@ -227,16 +245,35 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                     <Button type="button" onClick={handleAddItem}>Add Item</Button>
                 </div>
 
-                <div className="space-y-2 border rounded-md p-2 bg-muted/20">
+                <div className="space-y-3 border rounded-md p-3 bg-muted/20">
                     {items.length === 0 ? (
                         <p className="text-sm text-center text-muted-foreground py-4">No items added yet. Enter a description above.</p>
                     ) : (
                         items.map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between bg-background p-2 rounded-md border shadow-sm">
-                                <span className="text-sm">{item.description}</span>
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
+                            <div key={idx} className="space-y-2 bg-background p-3 rounded-md border shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium">{item.description}</span>
+                                    <div className="flex items-center gap-1">
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleAddItemPhoto(idx)}>
+                                            <Camera className="h-4 w-4" />
+                                        </Button>
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                                {item.photos && item.photos.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                        {item.photos.map((p, pIdx) => (
+                                            <div key={pIdx} className="relative w-12 h-12">
+                                                <Image src={p.url} alt="Item photo" fill className="rounded object-cover border" />
+                                                <button type="button" className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => removeItemPhoto(idx, pIdx)}>
+                                                    <X className="h-2 w-2" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         ))
                     )}
@@ -246,7 +283,7 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
             <Separator />
 
             <div className="space-y-2">
-              <FormLabel>Reference Photos</FormLabel>
+              <FormLabel>General Reference Photos (Overall Area)</FormLabel>
               <div className="flex flex-wrap gap-2">
                 {photos.map((p, i) => (
                   <div key={i} className="relative w-20 h-20">
@@ -268,6 +305,33 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
             </div>
           </form>
         </Form>
+
+        {/* Hidden file input for item photos */}
+        <input 
+            type="file" 
+            ref={itemPhotoTargetIdx !== null ? itemFileInputRef : null} 
+            className="hidden" 
+            accept="image/*" 
+            onChange={(e) => {
+                const files = e.target.files;
+                if (!files || itemPhotoTargetIdx === null) return;
+                
+                Array.from(files).forEach(f => {
+                    const reader = new FileReader();
+                    reader.onload = (re) => {
+                        const newPhoto = { url: re.target?.result as string, takenAt: new Date().toISOString() };
+                        setItems(prev => prev.map((item, i) => {
+                            if (i === itemPhotoTargetIdx) {
+                                return { ...item, photos: [...(item.photos || []), newPhoto] };
+                            }
+                            return item;
+                        }));
+                    };
+                    reader.readAsDataURL(f);
+                });
+                setItemPhotoTargetIdx(null);
+            }} 
+        />
 
         <DialogFooter className="mt-4 pt-4 border-t">
           <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>{isPending ? 'Saving...' : 'Save Snagging List'}</Button>

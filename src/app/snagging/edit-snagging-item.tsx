@@ -61,12 +61,14 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
   const { toast } = useToast();
   const db = useFirestore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const itemFileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [availableAreas, setAreas] = useState<Area[]>([]);
   
   const [items, setItems] = useState<SnaggingListItem[]>(item.items || []);
   const [newItemText, setNewItemText] = useState('');
+  const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
 
   const form = useForm<EditSnaggingListFormValues>({
     resolver: zodResolver(EditSnaggingListSchema),
@@ -104,7 +106,7 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
 
   const handleAddItem = () => {
     if (newItemText.trim()) {
-      setItems([...items, { id: `item-${Date.now()}`, description: newItemText.trim(), status: 'open' }]);
+      setItems([...items, { id: `item-${Date.now()}`, description: newItemText.trim(), status: 'open', photos: [] }]);
       setNewItemText('');
     }
   };
@@ -115,6 +117,23 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
 
   const toggleItemStatus = (id: string) => {
     setItems(items.map(i => i.id === id ? { ...i, status: i.status === 'open' ? 'closed' : 'open' } : i));
+  };
+
+  const handleAddItemPhoto = (itemId: string) => {
+    setItemPhotoTargetId(itemId);
+    itemFileInputRef.current?.click();
+  };
+
+  const removeItemPhoto = (itemId: string, photoIdx: number) => {
+    setItems(prev => prev.map(i => {
+      if (i.id === itemId) {
+        return {
+          ...i,
+          photos: (i.photos || []).filter((_, idx) => idx !== photoIdx)
+        };
+      }
+      return i;
+    }));
   };
 
   const onSubmit = (values: EditSnaggingListFormValues) => {
@@ -230,31 +249,50 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
                     <Button type="button" onClick={handleAddItem}>Add</Button>
                 </div>
 
-                <div className="space-y-2 border rounded-md p-2 bg-muted/20">
+                <div className="space-y-3 border rounded-md p-3 bg-muted/20">
                     {items.length === 0 ? (
                         <p className="text-sm text-center text-muted-foreground py-4">No items in the list.</p>
                     ) : (
                         items.map((item) => (
-                            <div key={item.id} className="flex items-center gap-2 bg-background p-2 rounded-md border shadow-sm group">
-                                <Button 
-                                    type="button" 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8 flex-shrink-0"
-                                    onClick={() => toggleItemStatus(item.id)}
-                                >
-                                    {item.status === 'closed' ? (
-                                        <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                    ) : (
-                                        <Circle className="h-5 w-5 text-muted-foreground" />
-                                    )}
-                                </Button>
-                                <span className={cn("text-sm flex-1", item.status === 'closed' && "line-through text-muted-foreground")}>
-                                    {item.description}
-                                </span>
-                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemoveItem(item.id)}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
+                            <div key={item.id} className="bg-background p-3 rounded-md border shadow-sm group">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Button 
+                                        type="button" 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-8 w-8 flex-shrink-0"
+                                        onClick={() => toggleItemStatus(item.id)}
+                                    >
+                                        {item.status === 'closed' ? (
+                                            <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                        ) : (
+                                            <Circle className="h-5 w-5 text-muted-foreground" />
+                                        )}
+                                    </Button>
+                                    <span className={cn("text-sm flex-1", item.status === 'closed' && "line-through text-muted-foreground")}>
+                                        {item.description}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleAddItemPhoto(item.id)}>
+                                            <Camera className="h-4 w-4" />
+                                        </Button>
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemoveItem(item.id)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                                {item.photos && item.photos.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 pl-10">
+                                        {item.photos.map((p, pIdx) => (
+                                            <div key={pIdx} className="relative w-12 h-12">
+                                                <Image src={p.url} alt="Item photo" fill className="rounded object-cover border" />
+                                                <button type="button" className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => removeItemPhoto(item.id, pIdx)}>
+                                                    <X className="h-2 w-2" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         ))
                     )}
@@ -264,7 +302,7 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
             <Separator />
 
             <div className="space-y-4">
-              <FormLabel>Photos</FormLabel>
+              <FormLabel>General Reference Photos</FormLabel>
               <div className="flex flex-wrap gap-2">
                 {photos.map((p, i) => (
                   <div key={i} className="relative w-20 h-20">
@@ -286,6 +324,33 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
             </div>
           </form>
         </Form>
+
+        {/* Hidden file input for item photos */}
+        <input 
+            type="file" 
+            ref={itemFileInputRef} 
+            className="hidden" 
+            accept="image/*" 
+            onChange={(e) => {
+                const files = e.target.files;
+                if (!files || !itemPhotoTargetId) return;
+                
+                Array.from(files).forEach(f => {
+                    const reader = new FileReader();
+                    reader.onload = (re) => {
+                        const newPhoto = { url: re.target?.result as string, takenAt: new Date().toISOString() };
+                        setItems(prev => prev.map(i => {
+                            if (i.id === itemPhotoTargetId) {
+                                return { ...i, photos: [...(i.photos || []), newPhoto] };
+                            }
+                            return i;
+                        }));
+                    };
+                    reader.readAsDataURL(f);
+                });
+                setItemPhotoTargetId(null);
+            }} 
+        />
 
         <DialogFooter className="mt-4 pt-4 border-t">
           <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>{isPending ? 'Saving...' : 'Save Changes'}</Button>

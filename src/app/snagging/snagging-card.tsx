@@ -157,27 +157,43 @@ export function SnaggingItemCard({
       <CardContent>
         {item.description && <p className="text-sm text-foreground mb-4">{item.description}</p>}
         
-        <div className="space-y-3 mb-6 bg-muted/20 p-4 rounded-lg border">
+        <div className="space-y-4 mb-6 bg-muted/20 p-4 rounded-lg border">
             <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground mb-2">
                 <ListChecks className="h-4 w-4" />
                 <span>Items to Address</span>
             </div>
             {item.items?.map((subItem) => (
-                <div key={subItem.id} className="flex items-start gap-2 group">
-                    <button 
-                        onClick={() => toggleItemStatus(subItem.id)}
-                        disabled={isPending}
-                        className="mt-0.5 flex-shrink-0 transition-colors"
-                    >
-                        {subItem.status === 'closed' ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
-                        ) : (
-                            <Circle className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                        )}
-                    </button>
-                    <span className={cn("text-sm", subItem.status === 'closed' && "line-through text-muted-foreground")}>
-                        {subItem.description}
-                    </span>
+                <div key={subItem.id} className="space-y-2 group">
+                    <div className="flex items-start gap-2">
+                        <button 
+                            onClick={() => toggleItemStatus(subItem.id)}
+                            disabled={isPending}
+                            className="mt-0.5 flex-shrink-0 transition-colors"
+                        >
+                            {subItem.status === 'closed' ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                                <Circle className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                            )}
+                        </button>
+                        <span className={cn("text-sm", subItem.status === 'closed' && "line-through text-muted-foreground")}>
+                            {subItem.description}
+                        </span>
+                    </div>
+                    {subItem.photos && subItem.photos.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pl-6">
+                            {subItem.photos.map((p, idx) => (
+                                <div key={idx} className="relative w-16 h-12">
+                                    <Image 
+                                        src={p.url} 
+                                        alt={`Item specific photo ${idx + 1}`} 
+                                        fill 
+                                        className="rounded object-cover border" 
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             ))}
         </div>
@@ -188,7 +204,7 @@ export function SnaggingItemCard({
               <AccordionTrigger className="text-sm font-semibold">
                 <div className="flex items-center gap-2">
                   <Camera className="h-4 w-4" />
-                  <span>Reference Photos ({item.photos.length})</span>
+                  <span>General Photos ({item.photos.length})</span>
                 </div>
               </AccordionTrigger>
               <AccordionContent>

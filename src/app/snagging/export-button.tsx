@@ -38,7 +38,8 @@ export function ExportButton({
       'Date',
       'Item Description',
       'Item Status',
-      'Overall Photos',
+      'Item Photos',
+      'Overall List Photos',
     ];
 
     // Flatten lists into individual items for the CSV
@@ -47,10 +48,11 @@ export function ExportButton({
     items.forEach((list) => {
       const project = projectMap.get(list.projectId);
       const area = project?.areas?.find(a => a.id === list.areaId);
-      const photoUrls = list.photos?.map(p => p.url).join('; ') || '';
+      const listPhotoUrls = list.photos?.map(p => p.url).join('; ') || '';
 
       if (list.items && list.items.length > 0) {
           list.items.forEach(item => {
+            const itemPhotoUrls = item.photos?.map(p => p.url).join('; ') || '';
             rows.push([
                 project?.name || 'N/A',
                 area?.name || 'N/A',
@@ -58,11 +60,12 @@ export function ExportButton({
                 new Date(list.createdAt).toLocaleString(),
                 item.description,
                 item.status,
-                photoUrls
+                itemPhotoUrls,
+                listPhotoUrls
             ]);
           });
       } else {
-          // Fallback if no items (shouldn't happen with new schema)
+          // Fallback if no items
           rows.push([
             project?.name || 'N/A',
             area?.name || 'N/A',
@@ -70,7 +73,8 @@ export function ExportButton({
             new Date(list.createdAt).toLocaleString(),
             'No items recorded',
             'N/A',
-            photoUrls
+            '',
+            listPhotoUrls
           ]);
       }
     });
