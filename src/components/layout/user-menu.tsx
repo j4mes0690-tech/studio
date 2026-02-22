@@ -1,6 +1,5 @@
 'use client';
 
-import { useRef } from 'react';
 import Link from 'next/link';
 import {
   DropdownMenu,
@@ -12,7 +11,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { logoutAction } from '@/app/login/actions';
 import type { DistributionUser } from '@/lib/types';
 
 function getInitials(name?: string) {
@@ -27,7 +25,6 @@ function getInitials(name?: string) {
 
 export function UserMenu({ user }: { user: DistributionUser }) {
     const initials = getInitials(user?.name);
-    const logoutFormRef = useRef<HTMLFormElement>(null);
     
     return (
         <DropdownMenu>
@@ -49,12 +46,9 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => {
-                    logoutFormRef.current?.requestSubmit();
-                }} className="cursor-pointer">
-                    Logout
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/logout">Logout</Link>
                 </DropdownMenuItem>
-                <form ref={logoutFormRef} action={logoutAction} className="hidden" />
             </DropdownMenuContent>
       </DropdownMenu>
     );
