@@ -33,11 +33,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -65,7 +60,7 @@ type NewInformationRequestProps = {
 
 export function NewInformationRequest({ projects, distributionUsers }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
     boolean | undefined
@@ -125,7 +120,7 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
       setIsCameraOpen(false);
       setPhotos([]);
       form.reset();
-      setCalendarOpen(false);
+      setShowCalendar(false);
     }
   }, [open, form]);
 
@@ -268,38 +263,32 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Required By (Optional)</FormLabel>
-                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            type="button"
-                            variant={'outline'}
-                            className={cn(
-                              'w-[240px] pl-3 text-left font-normal',
-                              !field.value && 'text-muted-foreground'
-                            )}
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), 'PPP')
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
+                    {!showCalendar && (
+                      <Button
+                        type="button"
+                        variant={'outline'}
+                        className={cn(
+                          'w-[240px] justify-start text-left font-normal',
+                          !field.value && 'text-muted-foreground'
+                        )}
+                        onClick={() => setShowCalendar(true)}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a date</span>}
+                      </Button>
+                    )}
+                    {showCalendar && (
                         <Calendar
                           mode="single"
                           selected={field.value ? new Date(field.value) : undefined}
                           onSelect={(date) => {
                             field.onChange(date ? date.toISOString() : undefined);
-                            setCalendarOpen(false);
+                            setShowCalendar(false);
                           }}
                           initialFocus
+                          className="rounded-md border"
                         />
-                      </PopoverContent>
-                    </Popover>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
