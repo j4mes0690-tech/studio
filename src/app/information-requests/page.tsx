@@ -1,10 +1,11 @@
 
 import { Header } from '@/components/layout/header';
-import { getProjects, getInformationRequests, getDistributionUsers } from '@/lib/data';
+import { getProjects, getInformationRequests, getDistributionUsers, getCurrentUser } from '@/lib/data';
 import { InformationRequestCard } from './information-request-card';
 import { NewInformationRequest } from './new-information-request';
 import { InformationRequestFilters } from './information-request-filters';
 import { ExportButton } from './export-button';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,11 +17,16 @@ export default async function InformationRequestsPage({
   const projectId =
     typeof searchParams.project === 'string' ? searchParams.project : undefined;
 
-  const [items, allProjects, distributionUsers] = await Promise.all([
+  const [items, allProjects, distributionUsers, currentUser] = await Promise.all([
     getInformationRequests({ projectId }),
     getProjects(),
     getDistributionUsers(),
+    getCurrentUser(),
   ]);
+
+  if (!currentUser) {
+    redirect('/login');
+  }
 
   return (
     <div className="flex flex-col w-full min-h-screen">
@@ -43,6 +49,7 @@ export default async function InformationRequestsPage({
                 item={item}
                 projects={allProjects}
                 distributionUsers={distributionUsers}
+                currentUser={currentUser}
               />
             ))
           ) : (

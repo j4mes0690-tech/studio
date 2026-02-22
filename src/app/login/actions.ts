@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import { getDistributionUsers } from '@/lib/data';
 import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 
 const LoginSchema = z.object({
   email: z.string().email('Invalid email address.'),
@@ -46,9 +47,21 @@ export async function loginAction(
     return { success: false, message: 'Invalid password.' };
   }
   
+  cookies().set('userId', user.id, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60 * 60 * 24 * 7, // 1 week
+    path: '/',
+  });
+  
   // If login is successful, redirect to the dashboard.
   redirect('/');
 
   // This part is not reachable due to the redirect, but necessary for type-safety.
   return { success: true, message: 'Login successful.' };
+}
+
+export async function logoutAction() {
+    cookies().delete('userId');
+    redirect('/login');
 }

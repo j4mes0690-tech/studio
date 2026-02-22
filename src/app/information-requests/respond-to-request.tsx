@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -49,9 +48,10 @@ type AddChatMessageFormValues = z.infer<typeof AddChatMessageSchema>;
 type RespondToRequestProps = {
   item: InformationRequest;
   distributionUsers: DistributionUser[];
+  currentUser: DistributionUser;
 };
 
-export function RespondToRequest({ item, distributionUsers }: RespondToRequestProps) {
+export function RespondToRequest({ item, distributionUsers, currentUser }: RespondToRequestProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -61,7 +61,7 @@ export function RespondToRequest({ item, distributionUsers }: RespondToRequestPr
     defaultValues: {
       id: item.id,
       message: '',
-      senderId: '',
+      senderId: currentUser.id,
     },
   });
 
@@ -70,10 +70,10 @@ export function RespondToRequest({ item, distributionUsers }: RespondToRequestPr
       form.reset({
         id: item.id,
         message: '',
-        senderId: '',
+        senderId: currentUser.id,
       });
     }
-  }, [open, item, form]);
+  }, [open, item, form, currentUser.id]);
 
   const onSubmit = (values: AddChatMessageFormValues) => {
     startTransition(async () => {
@@ -147,7 +147,7 @@ export function RespondToRequest({ item, distributionUsers }: RespondToRequestPr
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Replying As</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select user..." />

@@ -1,35 +1,18 @@
 import { SidebarTrigger } from '@/components/ui/sidebar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Home } from 'lucide-react';
 import Link from 'next/link';
-import { getDistributionUsers } from '@/lib/data';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-
-function getInitials(name?: string) {
-    if (!name) return "";
-    const nameParts = name.trim().split(' ').filter(Boolean);
-    if (nameParts.length === 0) return "";
-    if (nameParts.length === 1) {
-        return nameParts[0].charAt(0).toUpperCase();
-    }
-    return `${nameParts[0].charAt(0)}${nameParts[nameParts.length - 1].charAt(0)}`.toUpperCase();
-}
+import { getCurrentUser } from '@/lib/data';
+import { redirect } from 'next/navigation';
+import { UserMenu } from './user-menu';
 
 export async function Header({ title }: { title: string }) {
-  // In a real app, you'd get the currently logged-in user.
-  // For this prototype, we'll just take the first user from the list.
-  const users = await getDistributionUsers();
-  const currentUser = users[0];
+  const currentUser = await getCurrentUser();
 
-  const initials = getInitials(currentUser?.name);
+  if (!currentUser) {
+    // AppShell handles hiding this header on the login page, so this redirect is safe.
+    redirect('/login');
+  }
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
@@ -47,31 +30,7 @@ export async function Header({ title }: { title: string }) {
         </Button>
       )}
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="icon" className="rounded-full">
-            <Avatar>
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-            <span className="sr-only">Toggle user menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{currentUser?.name || 'My Account'}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/account">Account</Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/settings">Settings</Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem>Support</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild>
-            <Link href="/login">Logout</Link>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <UserMenu user={currentUser} />
     </header>
   );
 }

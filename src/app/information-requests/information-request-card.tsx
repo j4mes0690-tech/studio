@@ -226,12 +226,14 @@ type InformationRequestCardProps = {
   item: InformationRequest;
   projects: Project[];
   distributionUsers: DistributionUser[];
+  currentUser: DistributionUser;
 };
 
 export function InformationRequestCard({
   item,
   projects,
   distributionUsers,
+  currentUser,
 }: InformationRequestCardProps) {
   const project = projects.find((p) => p.id === item.projectId);
 
@@ -263,7 +265,7 @@ export function InformationRequestCard({
             <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className='capitalize'>{item.status}</Badge>
             {item.status === 'open' && (
                 <>
-                    <RespondToRequest item={item} distributionUsers={distributionUsers} />
+                    <RespondToRequest item={item} distributionUsers={distributionUsers} currentUser={currentUser} />
                     <CloseRequestButton requestId={item.id} />
                 </>
             )}

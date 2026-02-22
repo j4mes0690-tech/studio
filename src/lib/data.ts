@@ -3,6 +3,7 @@
 
 import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist, ChecklistItem, Area } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
+import { cookies } from 'next/headers';
 
 // Widen the global type to include our in-memory data
 declare global {
@@ -591,6 +592,17 @@ export async function assignChecklistToProject(
             resolve(newChecklistInstance);
         }, 500);
     });
+}
+
+export async function getCurrentUser(): Promise<DistributionUser | null> {
+    noStore();
+    const userId = cookies().get('userId')?.value;
+    if (!userId) {
+        return null;
+    }
+    const users = await getDistributionUsers();
+    const currentUser = users.find(u => u.id === userId);
+    return currentUser ?? null;
 }
 
 export async function deleteQualityChecklist(id: string): Promise<{ success: boolean }> {
