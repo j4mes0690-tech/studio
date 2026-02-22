@@ -1,16 +1,17 @@
 
 import { Header } from '@/components/layout/header';
-import { getProjects, getQualityChecklists } from '@/lib/data';
+import { getProjects, getQualityChecklists, getSubContractors } from '@/lib/data';
 import { ChecklistCard } from './checklist-card';
 import { AddChecklistToProject } from './add-checklist-to-project';
 
 export const dynamic = 'force-dynamic';
 
 export default async function QualityControlPage() {
-  const [projects, projectChecklists, checklistTemplates] = await Promise.all([
+  const [projects, projectChecklists, checklistTemplates, subContractors] = await Promise.all([
     getProjects(),
     getQualityChecklists({ template: false }),
     getQualityChecklists({ template: true }),
+    getSubContractors(),
   ]);
 
   return (
@@ -21,7 +22,7 @@ export default async function QualityControlPage() {
           <h2 className="text-2xl font-bold tracking-tight">
             Quality Control Checklists
           </h2>
-           <AddChecklistToProject projects={projects} checklistTemplates={checklistTemplates} />
+           <AddChecklistToProject projects={projects} checklistTemplates={checklistTemplates} subContractors={subContractors} />
         </div>
         
         <div className="grid gap-4 md:gap-6">
@@ -31,6 +32,7 @@ export default async function QualityControlPage() {
                 key={checklist.id}
                 checklist={checklist}
                 projects={projects}
+                subContractors={subContractors}
               />
             ))
           ) : (

@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createQualityChecklist, getQualityChecklists, updateQualityChecklist, assignChecklistToProject } from '@/lib/data';
+import { createQualityChecklist, getQualityChecklists, updateQualityChecklist, assignChecklistToProject, getSubContractors } from '@/lib/data';
 import type { QualityChecklist, ChecklistItem } from '@/lib/types';
 
 const NewChecklistSchema = z.object({
@@ -21,6 +21,7 @@ const AssignChecklistSchema = z.object({
     templateId: z.string().min(1, 'A checklist template is required.'),
     projectId: z.string().min(1, 'A project is required.'),
     areaId: z.string().min(1, 'A project area is required.'),
+    recipients: z.array(z.string()).optional(),
 });
 
 
@@ -113,6 +114,7 @@ export async function assignChecklistAction(formData: FormData): Promise<FormSta
     templateId: formData.get('templateId'),
     projectId: formData.get('projectId'),
     areaId: formData.get('areaId'),
+    recipients: formData.getAll('recipients'),
   });
 
   if (!validatedFields.success) {
@@ -122,8 +124,17 @@ export async function assignChecklistAction(formData: FormData): Promise<FormSta
   }
 
   try {
-    const { templateId, projectId, areaId } = validatedFields.data;
-    await assignChecklistToProject(templateId, projectId, areaId);
+    const { templateId, projectId, areaId, recipients: recipientIds } = validatedFields.data;
+    
+    let recipientEmails: string[] | undefined;
+    if (recipientIds && recipientIds.length > 0) {
+      const subContractors = await getSubContractors();
+      recipientEmails = subContractors
+        .filter(user => recipientIds.includes(user.id))
+        .map(user => user.email);
+    }
+    
+    await assignChecklistToProject(templateId, projectId, areaId, recipientEmails);
 
     revalidatePath('/quality-control');
     return { success: true, message: 'Checklist assigned to project successfully.' };

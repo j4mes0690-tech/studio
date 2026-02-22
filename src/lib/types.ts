@@ -91,4 +91,5 @@ export type QualityChecklist = {
   createdAt: string;
   items: ChecklistItem[];
   areaId?: string;
+  recipients?: string[];
 };

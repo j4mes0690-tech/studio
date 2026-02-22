@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
-import type { QualityChecklist, Project, ChecklistItem, ChecklistItemStatus } from '@/lib/types';
+import type { QualityChecklist, Project, ChecklistItem, ChecklistItemStatus, SubContractor } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -24,15 +25,18 @@ import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { Users } from 'lucide-react';
 
 type ChecklistCardProps = {
   checklist: QualityChecklist;
   projects: Project[];
+  subContractors: SubContractor[];
 };
 
 export function ChecklistCard({
   checklist,
   projects,
+  subContractors,
 }: ChecklistCardProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -170,6 +174,27 @@ export function ChecklistCard({
               </div>
             </AccordionContent>
           </AccordionItem>
+          {checklist.recipients && checklist.recipients.length > 0 && (
+             <AccordionItem value="recipients">
+             <AccordionTrigger className="text-sm font-semibold">
+               <div className="flex items-center gap-2">
+                 <Users className="h-4 w-4" />
+                 <span>
+                   Assigned To ({checklist.recipients.length})
+                 </span>
+               </div>
+             </AccordionTrigger>
+             <AccordionContent>
+              <div className="flex flex-wrap gap-1">
+                {checklist.recipients.map((email, index) => {
+                  const user = subContractors.find(u => u.email === email);
+                  const displayName = user ? `${user.name} (${user.email})` : email;
+                  return <Badge key={index} variant="outline">{displayName}</Badge>;
+                })}
+              </div>
+             </AccordionContent>
+           </AccordionItem>
+          )}
         </Accordion>
       </CardContent>
     </Card>

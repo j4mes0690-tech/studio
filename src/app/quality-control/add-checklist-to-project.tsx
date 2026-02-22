@@ -33,12 +33,16 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { assignChecklistAction } from './actions';
 import { PlusCircle } from 'lucide-react';
-import type { Project, QualityChecklist, Area } from '@/lib/types';
+import type { Project, QualityChecklist, Area, SubContractor } from '@/lib/types';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 
 const AssignChecklistSchema = z.object({
   templateId: z.string().min(1, 'A checklist template is required.'),
   projectId: z.string().min(1, 'A project is required.'),
   areaId: z.string().min(1, 'A project area is required.'),
+  recipients: z.array(z.string()).optional(),
 });
 
 type AssignChecklistFormValues = z.infer<typeof AssignChecklistSchema>;
@@ -46,9 +50,10 @@ type AssignChecklistFormValues = z.infer<typeof AssignChecklistSchema>;
 type AddChecklistToProjectProps = {
   projects: Project[];
   checklistTemplates: QualityChecklist[];
+  subContractors: SubContractor[];
 };
 
-export function AddChecklistToProject({ projects, checklistTemplates }: AddChecklistToProjectProps) {
+export function AddChecklistToProject({ projects, checklistTemplates, subContractors }: AddChecklistToProjectProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -60,6 +65,7 @@ export function AddChecklistToProject({ projects, checklistTemplates }: AddCheck
       templateId: '',
       projectId: '',
       areaId: '',
+      recipients: [],
     },
   });
 
@@ -81,6 +87,7 @@ export function AddChecklistToProject({ projects, checklistTemplates }: AddCheck
       formData.append('templateId', values.templateId);
       formData.append('projectId', values.projectId);
       formData.append('areaId', values.areaId);
+      values.recipients?.forEach(r => formData.append('recipients', r));
 
       const result = await assignChecklistAction(formData);
 
@@ -107,11 +114,11 @@ export function AddChecklistToProject({ projects, checklistTemplates }: AddCheck
           Add Checklist
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Assign Checklist to Project</DialogTitle>
           <DialogDescription>
-            Select a checklist template and assign it to a project and area.
+            Select a checklist template and assign it to a project, area and optionally a sub-contractor.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -176,6 +183,56 @@ export function AddChecklistToProject({ projects, checklistTemplates }: AddCheck
                 </FormItem>
               )}
             />
+
+            <Separator />
+            
+            <FormItem>
+              <div className="mb-4">
+                <FormLabel>Assign to Sub-Contractor (Optional)</FormLabel>
+                <p className="text-sm text-muted-foreground">
+                  Select which sub-contractors to assign this checklist to.
+                </p>
+              </div>
+              <ScrollArea className="h-40 rounded-md border">
+                <div className="p-4 space-y-2">
+                  {subContractors.map((user) => (
+                    <FormField
+                      key={user.id}
+                      control={form.control}
+                      name="recipients"
+                      render={({ field }) => {
+                        return (
+                          <FormItem
+                            key={user.id}
+                            className="flex flex-row items-center space-x-3 space-y-0"
+                          >
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(user.id)}
+                                onCheckedChange={(checked) => {
+                                  return checked
+                                    ? field.onChange([...(field.value || []), user.id])
+                                    : field.onChange(
+                                        (field.value || []).filter(
+                                          (value) => value !== user.id
+                                        )
+                                      );
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal">
+                              {user.name} <span className="text-muted-foreground">({user.email})</span>
+                            </FormLabel>
+                          </FormItem>
+                        );
+                      }}
+                    />
+                  ))}
+                </div>
+              </ScrollArea>
+              <FormMessage />
+            </FormItem>
+
             <DialogFooter>
               <Button type="submit" disabled={isPending}>
                 {isPending ? 'Assigning...' : 'Assign Checklist'}

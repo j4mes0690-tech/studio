@@ -174,7 +174,8 @@ if (!g.qualityChecklists) {
                 { id: 'qc1-2', text: 'Reinforcement is correctly placed and secured.', status: 'yes' },
                 { id: 'qc1-3', text: 'Embedded items (conduits, pipes) are installed.', status: 'pending' },
                 { id: 'qc1-4', text: 'Waterstops are correctly positioned.', status: 'pending' },
-            ]
+            ],
+            recipients: ['contact@generalcleaners.com'],
         }
     ];
 }
@@ -560,7 +561,8 @@ export async function updateQualityChecklist(itemData: QualityChecklist): Promis
 export async function assignChecklistToProject(
     templateId: string, 
     projectId: string, 
-    areaId: string
+    areaId: string,
+    recipients?: string[]
 ): Promise<QualityChecklist> {
     noStore();
     return new Promise((resolve, reject) => {
@@ -576,6 +578,7 @@ export async function assignChecklistToProject(
                 projectId,
                 areaId,
                 createdAt: new Date().toISOString(),
+                recipients: recipients,
                 // Reset item statuses and comments for the new instance
                 items: template.items.map(item => ({
                     ...item,
