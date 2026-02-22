@@ -14,7 +14,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { getSubContractors, getProjects, getQualityChecklists } from '@/lib/data';
 import { UsersList } from './users-list';
 import { AddUserForm } from './add-user-form';
 import { AddSubcontractorForm } from './add-subcontractor-form';
@@ -24,8 +23,8 @@ import { ProjectsList } from './projects-list';
 import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import { useMemo, useState, useEffect } from 'react';
+import { collection, doc, query, where } from 'firebase/firestore';
+import { useMemo } from 'react';
 import type { DistributionUser, SubContractor, Project, QualityChecklist } from '@/lib/types';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
@@ -41,31 +40,25 @@ export default function SettingsPage() {
 
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(currentUserRef);
 
-  // Fetch all users list (requires canManageUsers)
+  // Fetch all users list
   const usersQuery = useMemo(() => collection(db, 'users'), [db]);
   const { data: users, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  const [subContractors, setSubContractors] = useState<SubContractor[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [checklistTemplates, setChecklistTemplates] = useState<QualityChecklist[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Fetch Subcontractors
+  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
-  useEffect(() => {
-    async function loadData() {
-      const [subs, projs, templates] = await Promise.all([
-        getSubContractors(),
-        getProjects(),
-        getQualityChecklists({ template: true }),
-      ]);
-      setSubContractors(subs);
-      setProjects(projs);
-      setChecklistTemplates(templates);
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+  // Fetch Projects
+  const projsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projsQuery);
 
-  if (loading || usersLoading || profileLoading) {
+  // Fetch Checklist Templates
+  const templatesQuery = useMemo(() => query(collection(db, 'quality-checklists'), where('isTemplate', '==', true)), [db]);
+  const { data: checklistTemplates, isLoading: templatesLoading } = useCollection<QualityChecklist>(templatesQuery);
+
+  const isLoading = profileLoading || usersLoading || subsLoading || projectsLoading || templatesLoading;
+
+  if (isLoading) {
     return (
         <div className="flex flex-col w-full h-screen items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -95,7 +88,6 @@ export default function SettingsPage() {
                     </CardHeader>
                     <CardContent className="text-center">
                         <p className="text-muted-foreground">You do not have administrative permissions to manage system settings.</p>
-                        <p className="text-sm mt-4">Please contact a system administrator if you believe this is an error.</p>
                     </CardContent>
                 </Card>
             </main>
@@ -117,12 +109,10 @@ export default function SettingsPage() {
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Add New User</h3>
-                                <p className="text-sm text-muted-foreground">Create internal profiles and define login credentials.</p>
                                 <AddUserForm />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Users</h3>
-                                <p className="text-sm text-muted-foreground">Internal profiles and permissions.</p>
                                 <UsersList users={users || []} />
                             </div>
                         </div>
@@ -139,13 +129,11 @@ export default function SettingsPage() {
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Add New Sub-Contractor</h3>
-                                <p className="text-sm text-muted-foreground">Add sub-contractor companies to the system.</p>
                                 <AddSubcontractorForm />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Sub-Contractors</h3>
-                                <p className="text-sm text-muted-foreground invisible">Placeholder</p>
-                                <SubcontractorsList subContractors={subContractors} />
+                                <SubcontractorsList subContractors={subContractors || []} />
                             </div>
                         </div>
                     </AccordionContent>
@@ -161,13 +149,11 @@ export default function SettingsPage() {
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Add New Project</h3>
-                                <p className="text-sm text-muted-foreground">Add a new project to the system.</p>
                                 <AddProjectForm />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Projects</h3>
-                                <p className="text-sm text-muted-foreground">Edit project names and manage project areas.</p>
-                                <ProjectsList projects={projects} />
+                                <ProjectsList projects={projects || []} />
                             </div>
                         </div>
                     </AccordionContent>
@@ -183,13 +169,11 @@ export default function SettingsPage() {
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Add New Template</h3>
-                                <p className="text-sm text-muted-foreground">Create new quality control checklist templates.</p>
                                 <NewChecklist />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Templates</h3>
-                                <p className="text-sm text-muted-foreground">Edit or delete existing checklist templates.</p>
-                                <ChecklistTemplatesList checklistTemplates={checklistTemplates} />
+                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
                             </div>
                         </div>
                     </AccordionContent>

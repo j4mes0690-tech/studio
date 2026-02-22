@@ -2,44 +2,42 @@
 'use client';
 
 import { Header } from '@/components/layout/header';
-import { getProjects, getInstructions } from '@/lib/data';
 import { InstructionCard } from './instruction-card';
 import { NewInstruction } from './new-instruction';
 import { InstructionFilters } from './instruction-filters';
 import { ExportButton } from './export-button';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { Instruction, Project, DistributionUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 
 export default function InstructionsPage() {
   const searchParams = useSearchParams();
   const db = useFirestore();
   const projectId = searchParams.get('project') || undefined;
 
+  // Fetch data directly from Firestore
   const usersQuery = useMemo(() => collection(db, 'users'), [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  const [instructions, setInstructions] = useState<Instruction[]>([]);
-  const [allProjects, setAllProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  useEffect(() => {
-    async function loadData() {
-      const [inst, proj] = await Promise.all([
-        getInstructions({ projectId }),
-        getProjects(),
-      ]);
-      setInstructions(inst);
-      setAllProjects(proj);
-      setLoading(false);
+  const instructionsQuery = useMemo(() => {
+    const base = collection(db, 'instructions');
+    if (projectId) {
+      return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
-    loadData();
-  }, [projectId]);
+    return query(base, orderBy('createdAt', 'desc'));
+  }, [db, projectId]);
 
-  if (loading || usersLoading) {
+  const { data: instructions, isLoading: instructionsLoading } = useCollection<Instruction>(instructionsQuery);
+
+  const isLoading = usersLoading || projectsLoading || instructionsLoading;
+
+  if (isLoading) {
     return (
         <div className="flex flex-col w-full h-screen items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -56,17 +54,17 @@ export default function InstructionsPage() {
             Instruction Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewInstruction projects={allProjects} distributionUsers={distributionUsers || []} />
+            <NewInstruction projects={projects || []} distributionUsers={distributionUsers || []} />
           </div>
         </div>
-        <InstructionFilters projects={allProjects} />
+        <InstructionFilters projects={projects || []} />
         <div className="grid gap-4 md:gap-6">
-          {instructions.length > 0 ? (
+          {instructions && instructions.length > 0 ? (
             instructions.map((instruction) => (
               <InstructionCard
                 key={instruction.id}
                 instruction={instruction}
-                projects={allProjects}
+                projects={projects || []}
               />
             ))
           ) : (
@@ -76,9 +74,9 @@ export default function InstructionsPage() {
             </div>
           )}
         </div>
-        {instructions.length > 0 && (
+        {instructions && instructions.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton instructions={instructions} projects={allProjects} />
+            <ExportButton instructions={instructions} projects={projects || []} />
           </div>
         )}
       </main>

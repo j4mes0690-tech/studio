@@ -23,15 +23,161 @@
         "canManageProjects": { "type": "boolean" },
         "canManageChecklists": { "type": "boolean" }
       }
+    },
+    "Project": {
+      "title": "Project",
+      "description": "A construction project.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "areas": {
+          "type": "array",
+          "items": { "$ref": "#/entities/Area" }
+        }
+      },
+      "required": ["name"]
+    },
+    "Area": {
+      "title": "Area",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "Instruction": {
+      "title": "Instruction",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "originalText": { "type": "string" },
+        "summary": { "type": "string" },
+        "actionItems": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "recipients": { "type": "array", "items": { "type": "string" } },
+        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
+      }
+    },
+    "Photo": {
+      "title": "Photo",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "takenAt": { "type": "string" }
+      }
+    },
+    "SubContractor": {
+      "title": "SubContractor",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" }
+      }
+    },
+    "CleanUpNotice": {
+      "title": "CleanUpNotice",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "recipients": { "type": "array", "items": { "type": "string" } },
+        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
+      }
+    },
+    "SnaggingItem": {
+      "title": "SnaggingItem",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
+      }
+    },
+    "InformationRequest": {
+      "title": "InformationRequest",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "description": { "type": "string" },
+        "assignedTo": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "closed"] },
+        "requiredBy": { "type": "string" },
+        "messages": { "type": "array", "items": { "$ref": "#/entities/ChatMessage" } }
+      }
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sender": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "QualityChecklist": {
+      "title": "QualityChecklist",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "areaId": { "type": "string" },
+        "title": { "type": "string" },
+        "trade": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "items": { "type": "array", "items": { "$ref": "#/entities/ChecklistItem" } },
+        "recipients": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "ChecklistItem": {
+      "title": "ChecklistItem",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "yes", "no", "na"] },
+        "comment": { "type": "string" }
+      }
     }
   },
   "auth": {
     "providers": ["password"]
   },
   "firestore": {
-    "/users/{userEmail}": {
+    "/users/{userId}": {
       "schema": "DistributionUser",
-      "description": "User profiles and credentials, keyed by email for internal system access."
+      "description": "Internal user profiles."
+    },
+    "/projects/{id}": {
+      "schema": "Project",
+      "description": "Project records."
+    },
+    "/sub-contractors/{id}": {
+      "schema": "SubContractor",
+      "description": "Registered sub-contractors."
+    },
+    "/instructions/{id}": {
+      "schema": "Instruction",
+      "description": "On-site instructions."
+    },
+    "/cleanup-notices/{id}": {
+      "schema": "CleanUpNotice",
+      "description": "Cleanup requests."
+    },
+    "/snagging-items/{id}": {
+      "schema": "SnaggingItem",
+      "description": "Defect tracking items."
+    },
+    "/information-requests/{id}": {
+      "schema": "InformationRequest",
+      "description": "RFIs."
+    },
+    "/quality-checklists/{id}": {
+      "schema": "QualityChecklist",
+      "description": "Trade checklists and templates."
     }
   }
 }

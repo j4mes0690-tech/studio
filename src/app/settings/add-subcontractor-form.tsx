@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTransition } from 'react';
-import { addSubContractorAction } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -17,6 +16,10 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const AddUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
@@ -27,6 +30,7 @@ type AddUserFormValues = z.infer<typeof AddUserSchema>;
 
 export function AddSubcontractorForm() {
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<AddUserFormValues>({
@@ -36,40 +40,33 @@ export function AddSubcontractorForm() {
 
   const onSubmit = (values: AddUserFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('name', values.name);
-      formData.append('email', values.email);
-
-      const result = await addSubContractorAction(formData);
-
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        form.reset();
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message,
-          variant: 'destructive',
+      const colRef = collection(db, 'sub-contractors');
+      addDoc(colRef, values)
+        .then(() => {
+          toast({ title: 'Success', description: 'Sub-contractor added.' });
+          form.reset();
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: values,
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
-      }
     });
   };
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-4"
-      >
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Company Name</FormLabel>
-              <FormControl>
-                <Input placeholder="Cleaning Co." {...field} />
-              </FormControl>
+              <FormControl><Input placeholder="Cleaning Co." {...field} /></FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -80,16 +77,12 @@ export function AddSubcontractorForm() {
           render={({ field }) => (
             <FormItem>
               <FormLabel>Contact Email</FormLabel>
-              <FormControl>
-                <Input placeholder="contact@cleaning.com" {...field} />
-              </FormControl>
+              <FormControl><Input placeholder="contact@cleaning.com" {...field} /></FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={isPending}>
-          {isPending ? 'Adding...' : 'Add Sub-Contractor'}
-        </Button>
+        <Button type="submit" disabled={isPending}>Add Sub-Contractor</Button>
       </form>
     </Form>
   );
