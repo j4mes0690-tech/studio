@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Header } from '@/components/layout/header';
-import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle } from 'lucide-react';
+import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export default async function Dashboard() {
@@ -19,7 +19,7 @@ export default async function Dashboard() {
             <h1 className="text-3xl font-bold tracking-tight">Welcome to SiteCommand</h1>
             <p className="text-muted-foreground">Select an action to get started.</p>
         </div>
-        <div className="grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+        <div className="grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8">
           <Link href="/instructions">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
@@ -28,7 +28,7 @@ export default async function Dashboard() {
               </CardHeader>
               <CardContent className="p-0 mt-2">
                 <p className="text-muted-foreground">
-                  Record, summarize, and distribute client instructions to your team.
+                  Record, summarize, and distribute instructions to your team.
                 </p>
               </CardContent>
             </Card>
@@ -67,7 +67,20 @@ export default async function Dashboard() {
               </CardHeader>
               <CardContent className="p-0 mt-2">
                 <p className="text-muted-foreground">
-                  Log and track client requests for information.
+                  Log and track requests for information.
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/quality-control">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
+              <CardHeader className="p-0">
+                <ClipboardCheck className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">Quality Control</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 mt-2">
+                <p className="text-muted-foreground">
+                  Use checklists to check each trade's work and sign off.
                 </p>
               </CardContent>
             </Card>
