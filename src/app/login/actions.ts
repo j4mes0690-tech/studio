@@ -1,16 +1,8 @@
 
 'use server';
 
-import { z } from 'zod';
-import { getDistributionUsers } from '@/lib/data';
-import { setSession } from '@/lib/session';
-import { redirect } from 'next/navigation';
-import { revalidatePath } from 'next/cache';
-
-const LoginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
+// Stale login actions removed.
+// Authentication is handled via the Firebase Client SDK in the LoginForm component.
 
 export type LoginState = {
   error?: string;
@@ -21,38 +13,5 @@ export async function loginAction(
   prevState: LoginState | undefined,
   formData: FormData
 ): Promise<LoginState> {
-  const validatedFields = LoginSchema.safeParse(
-    Object.fromEntries(formData.entries())
-  );
-
-  if (!validatedFields.success) {
-    return { error: 'Invalid email or password.' };
-  }
-
-  const { email, password } = validatedFields.data;
-
-  try {
-    const users = await getDistributionUsers();
-    const user = users.find(
-      (u) => u.email === email && u.password === password
-    );
-
-    if (!user) {
-      return { error: 'Invalid email or password.' };
-    }
-
-    await setSession(user.id);
-    
-    // Revalidate the layout to ensure the new session is picked up everywhere.
-    revalidatePath('/', 'layout');
-    
-  } catch (error) {
-    if (error instanceof Error) {
-      return { error: error.message };
-    }
-    return { error: 'An unknown error occurred.' };
-  }
-
-  // Redirect to the dashboard on success.
-  redirect('/');
+  return { error: 'This action is deprecated. Please use the client-side login form.' };
 }
