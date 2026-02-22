@@ -60,7 +60,7 @@ type NewInformationRequestProps = {
 
 export function NewInformationRequest({ projects, distributionUsers }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
     boolean | undefined
@@ -120,7 +120,6 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
       setIsCameraOpen(false);
       setPhotos([]);
       form.reset();
-      setShowCalendar(false);
     }
   }, [open, form]);
 
@@ -258,12 +257,16 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
               )}
             />
             <FormField
-                control={form.control}
-                name="requiredBy"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Required By (Optional)</FormLabel>
-                    {!showCalendar && (
+              control={form.control}
+              name="requiredBy"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Required By (Optional)</FormLabel>
+                  <Dialog
+                    open={calendarOpen}
+                    onOpenChange={setCalendarOpen}
+                  >
+                    <DialogTrigger asChild>
                       <Button
                         type="button"
                         variant={'outline'}
@@ -271,28 +274,31 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
                           'w-[240px] justify-start text-left font-normal',
                           !field.value && 'text-muted-foreground'
                         )}
-                        onClick={() => setShowCalendar(true)}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? format(new Date(field.value), 'PPP') : <span>Pick a date</span>}
+                        {field.value ? (
+                          format(new Date(field.value), 'PPP')
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
                       </Button>
-                    )}
-                    {showCalendar && (
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value) : undefined}
-                          onSelect={(date) => {
-                            field.onChange(date ? date.toISOString() : undefined);
-                            setShowCalendar(false);
-                          }}
-                          initialFocus
-                          className="rounded-md border"
-                        />
-                    )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                    </DialogTrigger>
+                    <DialogContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={field.value ? new Date(field.value) : undefined}
+                        onSelect={(date) => {
+                          field.onChange(date ? date.toISOString() : undefined);
+                          setCalendarOpen(false);
+                        }}
+                        initialFocus
+                      />
+                    </DialogContent>
+                  </Dialog>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormItem>
               <div className="mb-4">
