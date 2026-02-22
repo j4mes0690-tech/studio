@@ -76,6 +76,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
   const [newItemText, setNewItemText] = useState('');
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
+  const [isSubPopoverOpen, setIsSubPopoverOpen] = useState(false);
   
   // Camera States
   const [isCameraOpen, setIsCameraOpen] = useState(false); // General photos
@@ -332,7 +333,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
                       />
                       
-                      <Popover>
+                      <Popover open={isSubPopoverOpen} onOpenChange={setIsSubPopoverOpen}>
                         <PopoverTrigger asChild>
                           <Button 
                             type="button" 
@@ -346,33 +347,35 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                         <PopoverContent className="w-64 p-0" align="end">
                           <ScrollArea className="h-64">
                             <div className="p-2 space-y-1">
-                              <Button 
-                                type="button"
-                                variant="ghost" 
+                              <div 
                                 className={cn(
-                                  "w-full justify-start font-normal transition-all px-3 py-2",
-                                  !pendingSubId ? "bg-primary/10 text-primary font-semibold" : "hover:bg-accent hover:text-accent-foreground"
+                                  "flex items-center px-3 py-2 rounded-md cursor-pointer text-sm transition-colors",
+                                  !pendingSubId ? "bg-secondary text-secondary-foreground font-semibold" : "hover:bg-accent"
                                 )} 
-                                onClick={() => setPendingSubId(undefined)}
+                                onClick={() => {
+                                  setPendingSubId(undefined);
+                                  setIsSubPopoverOpen(false);
+                                }}
                               >
                                 None
-                              </Button>
+                              </div>
                               {subContractors.map(sub => (
-                                <Button 
+                                <div 
                                   key={sub.id} 
-                                  type="button"
-                                  variant="ghost" 
                                   className={cn(
-                                    "w-full justify-between font-normal text-xs transition-all px-3 py-2",
+                                    "flex items-center justify-between px-3 py-2 rounded-md cursor-pointer text-xs transition-colors",
                                     pendingSubId === sub.id 
-                                      ? "bg-primary text-primary-foreground font-semibold hover:bg-primary/90" 
-                                      : "hover:bg-accent hover:text-accent-foreground"
+                                      ? "bg-primary text-primary-foreground font-semibold" 
+                                      : "hover:bg-accent"
                                   )}
-                                  onClick={() => setPendingSubId(sub.id)}
+                                  onClick={() => {
+                                    setPendingSubId(sub.id);
+                                    setIsSubPopoverOpen(false);
+                                  }}
                                 >
                                   <span className="truncate">{sub.name}</span>
                                   {pendingSubId === sub.id && <Check className="h-3 w-3 ml-2 flex-shrink-0" />}
-                                </Button>
+                                </div>
                               ))}
                             </div>
                           </ScrollArea>
