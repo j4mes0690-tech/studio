@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2 } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -58,12 +58,14 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
   const db = useFirestore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const itemFileInputRef = useRef<HTMLInputElement>(null);
+  const pendingItemFileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [availableAreas, setAreas] = useState<Area[]>([]);
   
   const [items, setItems] = useState<Omit<SnaggingListItem, 'id'>[]>([]);
   const [newItemText, setNewItemText] = useState('');
+  const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   const [itemPhotoTargetIdx, setItemPhotoTargetIdx] = useState<number | null>(null);
 
   const form = useForm<NewSnaggingListFormValues>({
@@ -84,9 +86,14 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
   }, [selectedProjectId, projects, form]);
 
   const handleAddItem = () => {
-    if (newItemText.trim()) {
-      setItems([...items, { description: newItemText.trim(), status: 'open', photos: [] }]);
+    if (newItemText.trim() || pendingItemPhotos.length > 0) {
+      setItems([...items, { 
+        description: newItemText.trim() || 'No description', 
+        status: 'open', 
+        photos: pendingItemPhotos 
+      }]);
       setNewItemText('');
+      setPendingItemPhotos([]);
     }
   };
 
@@ -150,6 +157,7 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
       setPhotos([]);
       setItems([]);
       setNewItemText('');
+      setPendingItemPhotos([]);
       form.reset();
     }
   }, [open, form]);
@@ -235,14 +243,39 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                     />
                 </div>
                 
-                <div className="flex gap-2">
-                    <Input 
-                        placeholder="Describe a defect..." 
-                        value={newItemText} 
-                        onChange={(e) => setNewItemText(e.target.value)} 
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
-                    />
-                    <Button type="button" onClick={handleAddItem}>Add Item</Button>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                      <Input 
+                          placeholder="Describe a defect..." 
+                          value={newItemText} 
+                          onChange={(e) => setNewItemText(e.target.value)} 
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
+                      />
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="icon" 
+                        onClick={() => pendingItemFileInputRef.current?.click()}
+                        title="Attach photo to this item"
+                      >
+                        <Camera className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" size="icon" onClick={handleAddItem} title="Add item to list">
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                  </div>
+                  {pendingItemPhotos.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-2 bg-muted/30 rounded-md border border-dashed">
+                      {pendingItemPhotos.map((p, pIdx) => (
+                        <div key={pIdx} className="relative w-12 h-12">
+                          <Image src={p.url} alt="Pending item photo" fill className="rounded object-cover border" />
+                          <button type="button" className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, idx) => idx !== pIdx))}>
+                            <X className="h-2 w-2" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-3 border rounded-md p-3 bg-muted/20">
@@ -306,10 +339,10 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
           </form>
         </Form>
 
-        {/* Hidden file input for item photos */}
+        {/* Hidden file input for existing item photos */}
         <input 
             type="file" 
-            ref={itemPhotoTargetIdx !== null ? itemFileInputRef : null} 
+            ref={itemFileInputRef} 
             className="hidden" 
             accept="image/*" 
             onChange={(e) => {
@@ -330,6 +363,28 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                     reader.readAsDataURL(f);
                 });
                 setItemPhotoTargetIdx(null);
+            }} 
+        />
+
+        {/* Hidden file input for new pending item photos */}
+        <input 
+            type="file" 
+            ref={pendingItemFileInputRef} 
+            className="hidden" 
+            accept="image/*" 
+            multiple 
+            onChange={(e) => {
+                const files = e.target.files;
+                if (!files) return;
+                
+                Array.from(files).forEach(f => {
+                    const reader = new FileReader();
+                    reader.onload = (re) => {
+                        const newPhoto = { url: re.target?.result as string, takenAt: new Date().toISOString() };
+                        setPendingItemPhotos(prev => [...prev, newPhoto]);
+                    };
+                    reader.readAsDataURL(f);
+                });
             }} 
         />
 
