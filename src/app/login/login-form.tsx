@@ -1,9 +1,7 @@
 
 'use client';
 
-import { useFormStatus } from 'react-dom';
-import { useActionState } from 'react';
-import { loginAction, type LoginState } from './actions';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,23 +14,36 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle } from 'lucide-react';
-import Image from 'next/image';
-
-function LoginButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? 'Logging in...' : 'Log In'}
-    </Button>
-  );
-}
+import { AlertTriangle, Loader2 } from 'lucide-react';
+import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export function LoginForm() {
-  const [state, formAction] = useActionState<LoginState | undefined, FormData>(loginAction, undefined);
+  const auth = useAuth();
+  const [email, setEmail] = useState('admin@example.com');
+  const [password, setPassword] = useState('password');
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!auth) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'Failed to log in. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <form action={formAction}>
+    <form onSubmit={handleLogin}>
         <Card>
             <CardHeader>
                 <CardTitle>Log In</CardTitle>
@@ -43,29 +54,42 @@ export function LoginForm() {
                     <Label htmlFor="email">Email</Label>
                     <Input
                         id="email"
-                        name="email"
                         type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         placeholder="admin@example.com"
                         required
-                        defaultValue="admin@example.com"
                     />
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="password">Password</Label>
-                    <Input id="password" name="password" type="password" required defaultValue="password" />
+                    <Input 
+                        id="password" 
+                        type="password" 
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required 
+                    />
                 </div>
 
-                {state?.error && (
+                {error && (
                     <Alert variant="destructive">
                         <AlertTriangle className="h-4 w-4" />
                         <AlertTitle>Login Failed</AlertTitle>
-                        <AlertDescription>{state.error}</AlertDescription>
+                        <AlertDescription>{error}</AlertDescription>
                     </Alert>
                 )}
 
             </CardContent>
             <CardFooter>
-                 <LoginButton />
+                 <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? (
+                        <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Logging in...
+                        </>
+                    ) : 'Log In'}
+                 </Button>
             </CardFooter>
         </Card>
     </form>

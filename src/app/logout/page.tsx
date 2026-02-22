@@ -1,19 +1,19 @@
 
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { LogoutForm } from './logout-form';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function LogoutPage() {
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6 text-center">
-        <h1 className="text-2xl font-bold">Logout Disabled</h1>
-        <p className="text-muted-foreground">
-          The authentication system is temporarily disabled for maintenance.
-        </p>
-        <Button asChild>
-            <Link href="/">Return to Dashboard</Link>
-        </Button>
-      </div>
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+            <CardTitle>Log Out</CardTitle>
+            <CardDescription>Are you sure you want to log out of SiteCommand?</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <LogoutForm />
+        </CardContent>
+      </Card>
     </div>
   );
 }

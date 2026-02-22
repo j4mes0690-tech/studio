@@ -3,7 +3,6 @@
 
 import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist, Area } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
-import { getSession } from './session';
 
 // Widen the global type to include our in-memory data
 declare global {
@@ -31,7 +30,6 @@ const g: {
 
 // NOTE: In a real application, this data would be in a database.
 // For this prototype, we're using a global object to simulate a database.
-// The `if` conditions prevent the data from being reset on every hot-reload in development.
 
 if (!g.projects) {
     g.projects = [
@@ -601,13 +599,9 @@ export async function assignChecklistToProject(
 
 export async function getCurrentUser(): Promise<DistributionUser | null> {
     noStore();
-    // Authentication is temporarily disabled. Always return a default user.
-    const defaultUser = g.distributionUsers.find(u => u.email === 'pm@example.com');
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            resolve(defaultUser || g.distributionUsers[0]);
-        }, 50);
-    });
+    // Return null since we are using Firebase client SDK for auth.
+    // The UI will handle the auth state.
+    return null;
 }
 
 export async function deleteQualityChecklist(id: string): Promise<{ success: boolean }> {

@@ -1,0 +1,37 @@
+
+{
+  "entities": {
+    "DistributionUser": {
+      "title": "DistributionUser",
+      "description": "A user who can receive and manage instructions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "permissions": { "$ref": "#/entities/UserPermissions" }
+      },
+      "required": ["id", "name", "email"]
+    },
+    "UserPermissions": {
+      "title": "UserPermissions",
+      "description": "Permissions for a distribution user.",
+      "type": "object",
+      "properties": {
+        "canManageUsers": { "type": "boolean" },
+        "canManageSubcontractors": { "type": "boolean" },
+        "canManageProjects": { "type": "boolean" },
+        "canManageChecklists": { "type": "boolean" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["password"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "DistributionUser",
+      "description": "User profiles and permissions."
+    }
+  }
+}

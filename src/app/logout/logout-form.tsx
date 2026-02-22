@@ -1,33 +1,53 @@
 
 'use client';
 
-import { useFormStatus } from 'react-dom';
-import { useActionState } from 'react';
-import { logoutAction, type LogoutState } from './actions';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-
-function LogoutButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending} variant="destructive">
-      {pending ? 'Logging out...' : 'Confirm Log Out'}
-    </Button>
-  );
-}
+import { useAuth } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { Loader2 } from 'lucide-react';
 
 export function LogoutForm() {
-  const [state, formAction] = useActionState<LogoutState | undefined, void>(logoutAction, undefined);
+  const auth = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogout = async () => {
+    if (!auth) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      await signOut(auth);
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to log out. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
-    <form action={formAction} className="space-y-4">
-      <LogoutButton />
+    <div className="space-y-4">
+      <Button 
+        onClick={handleLogout} 
+        className="w-full" 
+        disabled={isLoading} 
+        variant="destructive"
+      >
+        {isLoading ? (
+            <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Logging out...
+            </>
+        ) : 'Confirm Log Out'}
+      </Button>
        <Button variant="outline" asChild className="w-full">
         <Link href="/">Cancel</Link>
       </Button>
-      {state?.error && (
-        <p className="text-sm text-destructive">{state.error}</p>
+      {error && (
+        <p className="text-sm text-destructive text-center">{error}</p>
       )}
-    </form>
+    </div>
   );
 }

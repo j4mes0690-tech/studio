@@ -3,20 +3,19 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { AppShell } from '@/components/layout/app-shell';
-import { getCurrentUser } from '@/lib/data';
+import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { AuthBoundary } from '@/components/auth-boundary';
 
 export const metadata: Metadata = {
   title: 'SiteCommand',
   description: 'Record instructions on a construction site',
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const currentUser = await getCurrentUser();
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -28,7 +27,11 @@ export default async function RootLayout({
         />
       </head>
       <body className="font-body antialiased">
-        {currentUser ? <AppShell>{children}</AppShell> : <>{children}</>}
+        <FirebaseClientProvider>
+          <AuthBoundary>
+            <AppShell>{children}</AppShell>
+          </AuthBoundary>
+        </FirebaseClientProvider>
         <Toaster />
       </body>
     </html>

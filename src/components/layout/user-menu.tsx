@@ -12,20 +12,21 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import type { DistributionUser } from '@/lib/types';
+import type { User } from 'firebase/auth';
 
-function getInitials(name?: string) {
-    if (!name) return "";
-    const nameParts = name.trim().split(' ').filter(Boolean);
-    if (nameParts.length === 0) return "";
-    if (nameParts.length === 1) {
+function getInitials(user: User) {
+    if (user.displayName) {
+        const nameParts = user.displayName.trim().split(' ').filter(Boolean);
+        if (nameParts.length >= 2) {
+            return `${nameParts[0].charAt(0)}${nameParts[nameParts.length - 1].charAt(0)}`.toUpperCase();
+        }
         return nameParts[0].charAt(0).toUpperCase();
     }
-    return `${nameParts[0].charAt(0)}${nameParts[nameParts.length - 1].charAt(0)}`.toUpperCase();
+    return user.email?.charAt(0).toUpperCase() || 'U';
 }
 
-export function UserMenu({ user }: { user: DistributionUser }) {
-    const initials = getInitials(user?.name);
+export function UserMenu({ user }: { user: User }) {
+    const initials = getInitials(user);
     
     return (
         <DropdownMenu>
@@ -38,13 +39,14 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuLabel>{user?.name || 'My Account'}</DropdownMenuLabel>
+                <DropdownMenuLabel>{user.displayName || user.email || 'My Account'}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link href="/account">Account</Link>
+                    <Link href="/account">Account Settings</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link href="/settings">Settings</Link>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer text-destructive focus:text-destructive">
+                    <Link href="/logout">Log Out</Link>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>

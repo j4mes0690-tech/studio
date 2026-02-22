@@ -2,7 +2,8 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
  
-// Authentication has been temporarily disabled to resolve a critical bug.
+// Firebase authentication is handled client-side.
+// We allow all requests to proceed and handle redirection in AuthBoundary.
 export async function middleware(request: NextRequest) {
   return NextResponse.next();
 }

@@ -1,13 +1,32 @@
 
-export default function LoginPage() {
+import { LoginForm } from './login-form';
+import Image from 'next/image';
+
+export function LoginPage() {
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6 text-center">
-        <h1 className="text-2xl font-bold">Login Disabled</h1>
-        <p className="text-muted-foreground">
-          The authentication system is temporarily disabled for maintenance.
-        </p>
+    <div className="flex min-h-screen w-full flex-col lg:flex-row">
+      <div className="flex w-full items-center justify-center p-8 lg:w-1/2">
+        <div className="w-full max-w-md space-y-8">
+          <div className="flex flex-col items-center text-center">
+            <h1 className="text-4xl font-bold tracking-tight text-primary">SiteCommand</h1>
+            <p className="mt-2 text-muted-foreground">Log in to manage your construction site records.</p>
+          </div>
+          <LoginForm />
+        </div>
+      </div>
+      <div className="relative hidden w-1/2 lg:block">
+        <Image
+          src="https://images.unsplash.com/photo-1541888946425-d81bb19240f5?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxjb25zdHJ1Y3Rpb24lMjBzaXRlfGVufDB8fHx8MTczOTA4NjQyNXww&ixlib=rb-4.1.0&q=80&w=1080"
+          alt="Construction Site"
+          fill
+          className="object-cover"
+          priority
+          data-ai-hint="construction site"
+        />
+        <div className="absolute inset-0 bg-primary/20 backdrop-blur-[2px]" />
       </div>
     </div>
   );
 }
+
+export default LoginPage;
