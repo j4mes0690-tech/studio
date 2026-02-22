@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,9 +13,9 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle, Loader2, Info } from 'lucide-react';
+import { AlertTriangle, Loader2, Info, CheckCircle2 } from 'lucide-react';
 import { useFirestore } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 export function LoginForm() {
   const db = useFirestore();
@@ -23,6 +23,43 @@ export function LoginForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<{title: string, message: string} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [seedSuccess, setSeedSuccess] = useState(false);
+
+  // Auto-seed the admin account requested by the user
+  useEffect(() => {
+    const seedAdmin = async () => {
+      if (!db) return;
+      setIsSeeding(true);
+      try {
+        const adminEmail = 'admin@example.com';
+        const userRef = doc(db, 'users', adminEmail);
+        const userSnap = await getDoc(userRef);
+        
+        if (!userSnap.exists()) {
+          await setDoc(userRef, {
+            id: adminEmail,
+            email: adminEmail,
+            name: 'System Admin',
+            password: '123456',
+            permissions: {
+              canManageUsers: true,
+              canManageSubcontractors: true,
+              canManageProjects: true,
+              canManageChecklists: true,
+            }
+          });
+          setSeedSuccess(true);
+        }
+      } catch (err) {
+        console.error('Error seeding admin user:', err);
+      } finally {
+        setIsSeeding(false);
+      }
+    };
+
+    seedAdmin();
+  }, [db]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +67,6 @@ export function LoginForm() {
     setError(null);
 
     try {
-      // Internal Auth: Query the 'users' collection directly using the email as document ID
       const emailKey = email.toLowerCase().trim();
       if (!emailKey) {
           setError({ title: 'Input Required', message: 'Please enter your email address.' });
@@ -44,9 +80,7 @@ export function LoginForm() {
       if (userSnap.exists()) {
         const userData = userSnap.data();
         if (userData.password === password) {
-          // Store session locally
           localStorage.setItem('sitecommand_session_email', userData.email);
-          // Hard reload to update all contexts and bypass middleware
           window.location.href = '/';
         } else {
           setError({ title: 'Login Failed', message: 'Incorrect password for this account.' });
@@ -99,6 +133,16 @@ export function LoginForm() {
                         />
                     </div>
 
+                    {seedSuccess && (
+                        <Alert className="bg-green-50 border-green-200 text-green-800">
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                            <AlertTitle>Admin User Created</AlertTitle>
+                            <AlertDescription className="text-xs">
+                                The <strong>admin@example.com</strong> account has been successfully initialized in your database.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
                     {error && (
                         <Alert variant="destructive" className="bg-destructive/5">
                             <AlertTriangle className="h-4 w-4" />
@@ -111,14 +155,14 @@ export function LoginForm() {
 
                     <Alert className="bg-blue-50 border-blue-200">
                         <Info className="h-4 w-4 text-blue-600" />
-                        <AlertTitle className="text-blue-800">Initial Setup</AlertTitle>
+                        <AlertTitle className="text-blue-800">Credentials</AlertTitle>
                         <AlertDescription className="text-blue-700 text-xs">
-                            If you haven&apos;t created a user yet, go to your <strong>Firebase Console &gt; Firestore</strong>, create a collection named <code>users</code>, and add a document with ID <code>{email || 'your-email'}</code> containing fields <code>email</code>, <code>name</code>, and <code>password</code>.
+                            Use <code>admin@example.com</code> and <code>123456</code> to log in.
                         </AlertDescription>
                     </Alert>
                 </CardContent>
                 <CardFooter>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
+                    <Button type="submit" className="w-full" disabled={isLoading || isSeeding}>
                         {isLoading ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
