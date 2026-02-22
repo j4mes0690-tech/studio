@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTransition, useState, useEffect } from 'react';
-import { updateProjectAction } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -29,6 +28,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Pencil, X } from 'lucide-react';
 import type { Project, Area } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const EditProjectSchema = z.object({
   id: z.string().min(1),
@@ -45,6 +48,7 @@ type EditProjectFormProps = {
 export function EditProjectForm({ project }: EditProjectFormProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
   const [areas, setAreas] = useState<Area[]>(project.areas || []);
   const [currentArea, setCurrentArea] = useState('');
@@ -92,23 +96,25 @@ export function EditProjectForm({ project }: EditProjectFormProps) {
 
   const onSubmit = (values: EditProjectFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('id', values.id);
-      formData.append('name', values.name);
-      formData.append('areas', values.areas || '[]');
+      const docRef = doc(db, 'projects', values.id);
+      const updates = {
+        name: values.name,
+        areas: JSON.parse(values.areas || '[]'),
+      };
 
-      const result = await updateProjectAction(formData);
-
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        setOpen(false);
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message,
-          variant: 'destructive',
+      updateDoc(docRef, updates)
+        .then(() => {
+          toast({ title: 'Success', description: 'Project updated.' });
+          setOpen(false);
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
-      }
     });
   };
 

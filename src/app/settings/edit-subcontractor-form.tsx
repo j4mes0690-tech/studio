@@ -1,10 +1,10 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTransition, useState, useEffect } from 'react';
-import { updateSubContractorAction } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,6 +27,10 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Pencil } from 'lucide-react';
 import type { SubContractor } from '@/lib/types';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const EditSubcontractorSchema = z.object({
   id: z.string().min(1),
@@ -43,6 +47,7 @@ type EditSubcontractorFormProps = {
 export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<EditSubcontractorFormValues>({
@@ -66,23 +71,25 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
 
   const onSubmit = (values: EditSubcontractorFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('id', values.id);
-      formData.append('name', values.name);
-      formData.append('email', values.email);
+      const docRef = doc(db, 'sub-contractors', values.id);
+      const updates = {
+        name: values.name,
+        email: values.email,
+      };
 
-      const result = await updateSubContractorAction(formData);
-
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        setOpen(false);
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message,
-          variant: 'destructive',
+      updateDoc(docRef, updates)
+        .then(() => {
+          toast({ title: 'Success', description: 'Sub-contractor updated.' });
+          setOpen(false);
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
-      }
     });
   };
 

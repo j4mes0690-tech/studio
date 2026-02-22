@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTransition, useState, useEffect } from 'react';
-import { updateChecklistTemplateAction } from '../quality-control/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -36,6 +35,10 @@ import {
     SelectTrigger,
     SelectValue,
   } from '@/components/ui/select';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const trades = ['Plumbing', 'Electrical', 'HVAC', 'Drywall', 'Painting', 'Concrete', 'General'];
 
@@ -55,6 +58,7 @@ type EditChecklistTemplateFormProps = {
 export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFormProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
   const [items, setItems] = useState<string[]>(checklist.items.map(i => i.text));
@@ -109,24 +113,30 @@ export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFo
     }
 
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('id', values.id);
-      formData.append('title', values.title);
-      formData.append('trade', values.trade);
-      formData.append('items', values.items);
+      const docRef = doc(db, 'quality-checklists', values.id);
+      const updates = {
+        title: values.title,
+        trade: values.trade,
+        items: items.map((text, idx) => ({
+          id: `item-${Date.now()}-${idx}`,
+          text,
+          status: 'pending',
+        })),
+      };
 
-      const result = await updateChecklistTemplateAction(formData);
-
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        setOpen(false);
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message,
-          variant: 'destructive',
+      updateDoc(docRef, updates)
+        .then(() => {
+          toast({ title: 'Success', description: 'Template updated.' });
+          setOpen(false);
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
-      }
     });
   };
 

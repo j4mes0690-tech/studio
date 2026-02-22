@@ -3,7 +3,6 @@
 
 import type { QualityChecklist } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { deleteChecklistTemplateAction } from '../quality-control/actions';
 import { Trash2 } from 'lucide-react';
 import { useTransition } from 'react';
 import {
@@ -20,6 +19,10 @@ import {
 import { EditChecklistTemplateForm } from './edit-checklist-template-form';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useFirestore } from '@/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 type ChecklistTemplatesListProps = {
   checklistTemplates: QualityChecklist[];
@@ -28,17 +31,22 @@ type ChecklistTemplatesListProps = {
 export function ChecklistTemplatesList({ checklistTemplates }: ChecklistTemplatesListProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
+  const db = useFirestore();
 
   const handleRemove = (checklistId: string) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('id', checklistId);
-      const result = await deleteChecklistTemplateAction(formData);
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-      } else {
-        toast({ title: 'Error', description: result.message, variant: 'destructive' });
-      }
+      const docRef = doc(db, 'quality-checklists', checklistId);
+      deleteDoc(docRef)
+        .then(() => {
+          toast({ title: 'Success', description: 'Template removed.' });
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
     });
   };
   
