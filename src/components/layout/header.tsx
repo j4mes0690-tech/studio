@@ -1,4 +1,3 @@
-
 'use client';
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -7,6 +6,7 @@ import { Home, Loader2, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useDoc } from '@/firebase';
 import { UserMenu } from './user-menu';
+import { NotificationsMenu } from './notifications-menu';
 import { usePathname } from 'next/navigation';
 import { useMemo } from 'react';
 import { doc } from 'firebase/firestore';
@@ -59,6 +59,8 @@ export function Header({ title }: { title: string }) {
                 </Link>
               </Button>
             )}
+
+            <NotificationsMenu userEmail={sessionUser.email} />
 
             {hasAnyAdminPermission && (
               <Button asChild variant="ghost" size="icon">
