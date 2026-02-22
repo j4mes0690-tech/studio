@@ -15,7 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, ListChecks, CheckCircle2, Circle } from 'lucide-react';
+import { Camera, ListChecks, CheckCircle2, Circle, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditSnaggingItem } from './edit-snagging-item';
 import {
@@ -29,9 +29,22 @@ import { ClientDate } from '../../components/client-date';
 import { cn } from '@/lib/utils';
 import { useTransition } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 type SnaggingItemCardProps = {
   item: SnaggingItem;
@@ -45,6 +58,7 @@ export function SnaggingItemCard({
   const project = projects.find((p) => p.id === item.projectId);
   const area = project?.areas?.find((a) => a.id === item.areaId);
   const db = useFirestore();
+  const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
   const totalItems = item.items?.length || 0;
@@ -68,6 +82,21 @@ export function SnaggingItemCard({
             });
             errorEmitter.emit('permission-error', permissionError);
           });
+    });
+  };
+
+  const handleDeleteList = () => {
+    startTransition(async () => {
+      const docRef = doc(db, 'snagging-items', item.id);
+      deleteDoc(docRef)
+        .then(() => toast({ title: 'Success', description: 'Snagging list deleted.' }))
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
     });
   };
 
@@ -99,6 +128,29 @@ export function SnaggingItemCard({
                 {isComplete ? "Completed" : `${closedItems}/${totalItems} Done`}
             </Badge>
             <EditSnaggingItem item={item} projects={projects} />
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                  <span className="sr-only">Delete List</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Snagging List?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove this entire list and all its associated items. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteList} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                    {isPending ? 'Deleting...' : 'Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       </CardHeader>

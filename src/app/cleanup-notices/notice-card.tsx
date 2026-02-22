@@ -1,3 +1,5 @@
+'use client';
+
 import type { CleanUpNotice, Project } from '@/lib/types';
 import Image from 'next/image';
 import {
@@ -13,7 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users } from 'lucide-react';
+import { Camera, Users, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -23,6 +25,24 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import { ClientDate } from '../../components/client-date';
+import { useTransition } from 'react';
+import { useFirestore } from '@/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 type NoticeCardProps = {
   notice: CleanUpNotice;
@@ -34,6 +54,24 @@ export function NoticeCard({
   projects,
 }: NoticeCardProps) {
   const project = projects.find((p) => p.id === notice.projectId);
+  const db = useFirestore();
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
+
+  const handleDelete = () => {
+    startTransition(async () => {
+      const docRef = doc(db, 'cleanup-notices', notice.id);
+      deleteDoc(docRef)
+        .then(() => toast({ title: 'Success', description: 'Clean up notice deleted.' }))
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+    });
+  };
 
   return (
     <Card>
@@ -47,7 +85,32 @@ export function NoticeCard({
               </span>
             </CardDescription>
           </div>
-          <Badge variant="destructive">Clean Up Notice</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="destructive">Clean Up Notice</Badge>
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                  <span className="sr-only">Delete Notice</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Clean Up Notice?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove this clean up notice record. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                    {isPending ? 'Deleting...' : 'Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
