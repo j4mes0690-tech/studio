@@ -11,10 +11,10 @@ const UserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
-  canManageUsers: z.string().optional(),
-  canManageSubcontractors: z.string().optional(),
-  canManageProjects: z.string().optional(),
-  canManageChecklists: z.string().optional(),
+  canManageUsers: z.string().nullable().optional(),
+  canManageSubcontractors: z.string().nullable().optional(),
+  canManageProjects: z.string().nullable().optional(),
+  canManageChecklists: z.string().nullable().optional(),
 });
 
 const UpdateUserSchema = z.object({
@@ -22,10 +22,10 @@ const UpdateUserSchema = z.object({
     name: z.string().min(1, 'Name is required.'),
     email: z.string().email('Invalid email address.'),
     password: z.string().min(6, 'Password must be at least 6 characters.').optional(),
-    canManageUsers: z.string().optional(),
-    canManageSubcontractors: z.string().optional(),
-    canManageProjects: z.string().optional(),
-    canManageChecklists: z.string().optional(),
+    canManageUsers: z.string().nullable().optional(),
+    canManageSubcontractors: z.string().nullable().optional(),
+    canManageProjects: z.string().nullable().optional(),
+    canManageChecklists: z.string().nullable().optional(),
 });
 
 const ProjectSchema = z.object({
@@ -167,7 +167,7 @@ export async function updateUserAction(
 export async function addSubContractorAction(
   formData: FormData
 ): Promise<FormState> {
-  const validatedFields = UserSchema.omit({ password: true }).safeParse({
+  const validatedFields = UserSchema.omit({ password: true, canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true }).safeParse({
     name: formData.get('name'),
     email: formData.get('email'),
   });
@@ -206,7 +206,7 @@ export async function removeSubContractorAction(userId: string) {
 export async function updateSubContractorAction(
     formData: FormData
   ): Promise<FormState> {
-    const validatedFields = UpdateUserSchema.omit({password: true}).safeParse({
+    const validatedFields = UpdateUserSchema.omit({password: true, canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true}).safeParse({
       id: formData.get('id'),
       name: formData.get('name'),
       email: formData.get('email'),
