@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -14,7 +13,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Info } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
@@ -31,8 +30,14 @@ export function LoginForm() {
     setError(null);
 
     try {
-      // Internal Auth: Query the 'users' collection directly
+      // Internal Auth: Query the 'users' collection directly using the email as document ID
       const emailKey = email.toLowerCase().trim();
+      if (!emailKey) {
+          setError({ title: 'Input Required', message: 'Please enter your email address.' });
+          setIsLoading(false);
+          return;
+      }
+
       const userRef = doc(db, 'users', emailKey);
       const userSnap = await getDoc(userRef);
 
@@ -41,22 +46,22 @@ export function LoginForm() {
         if (userData.password === password) {
           // Store session locally
           localStorage.setItem('sitecommand_session_email', userData.email);
-          // Hard reload to update all contexts
-          window.location.reload();
+          // Hard reload to update all contexts and bypass middleware
+          window.location.href = '/';
         } else {
           setError({ title: 'Login Failed', message: 'Incorrect password for this account.' });
         }
       } else {
         setError({ 
           title: 'Account Not Found', 
-          message: 'This email is not registered in the system. Please contact your administrator.' 
+          message: `The account "${emailKey}" is not registered. Please ensure you have created this user in the Firestore "users" collection.` 
         });
       }
     } catch (err: any) {
       console.error('System Auth Error:', err);
       setError({ 
         title: 'Database Connection Error', 
-        message: 'Could not reach the user database. Please check your internet connection.' 
+        message: err.message || 'Could not reach the user database. Please check your Firestore setup and security rules.' 
       });
     } finally {
       setIsLoading(false);
@@ -103,6 +108,14 @@ export function LoginForm() {
                             </AlertDescription>
                         </Alert>
                     )}
+
+                    <Alert className="bg-blue-50 border-blue-200">
+                        <Info className="h-4 w-4 text-blue-600" />
+                        <AlertTitle className="text-blue-800">Initial Setup</AlertTitle>
+                        <AlertDescription className="text-blue-700 text-xs">
+                            If you haven&apos;t created a user yet, go to your <strong>Firebase Console &gt; Firestore</strong>, create a collection named <code>users</code>, and add a document with ID <code>{email || 'your-email'}</code> containing fields <code>email</code>, <code>name</code>, and <code>password</code>.
+                        </AlertDescription>
+                    </Alert>
                 </CardContent>
                 <CardFooter>
                     <Button type="submit" className="w-full" disabled={isLoading}>
