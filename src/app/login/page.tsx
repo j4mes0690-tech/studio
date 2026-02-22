@@ -1,5 +1,5 @@
 
-import Link from 'next/link';
+import { Suspense } from 'react';
 import {
   Card,
   CardContent,
@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Logo } from '@/components/logo';
-import { Button } from '@/components/ui/button';
+import { LoginForm } from './login-form';
 
 export default function LoginPage() {
     return (
@@ -18,13 +18,13 @@ export default function LoginPage() {
                 <div className="mb-4 flex justify-center">
                     <Logo />
                 </div>
-                <CardTitle>Authentication Disabled</CardTitle>
-                <CardDescription>The login system is temporarily disabled.</CardDescription>
+                <CardTitle>Welcome Back</CardTitle>
+                <CardDescription>Enter your credentials to access your account.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Button asChild className="w-full">
-                        <Link href="/">Go to Dashboard</Link>
-                    </Button>
+                    <Suspense>
+                        <LoginForm />
+                    </Suspense>
                 </CardContent>
             </Card>
         </main>

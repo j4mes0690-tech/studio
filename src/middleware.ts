@@ -3,7 +3,18 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
  
 export function middleware(request: NextRequest) {
-  // Authentication is temporarily disabled.
+  const userId = request.cookies.get('userId')?.value;
+
+  const isPublicPath = request.nextUrl.pathname === '/login';
+
+  if (!userId && !isPublicPath) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  if (userId && isPublicPath) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+ 
   return NextResponse.next();
 }
  
