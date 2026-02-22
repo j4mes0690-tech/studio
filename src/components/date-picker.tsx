@@ -1,8 +1,11 @@
+
 "use client";
 
 import { cn } from '@/lib/utils';
 import { FormLabel, FormMessage, FormItem, FormControl } from '@/components/ui/form';
 import type { ControllerRenderProps } from 'react-hook-form';
+import { Button } from '@/components/ui/button';
+import { addWeeks } from 'date-fns';
 
 type DatePickerProps = {
   field: ControllerRenderProps<any, any>;
@@ -26,23 +29,33 @@ export function DatePicker({ field, label }: DatePickerProps) {
       field.onChange(undefined);
     }
   };
+  
+  const setDateFromNow = (weeks: number) => {
+    const newDate = addWeeks(new Date(), weeks);
+    field.onChange(newDate.toISOString());
+  }
 
   return (
     <FormItem>
       <FormLabel>{label}</FormLabel>
-      <FormControl>
-        <input
-          type="date"
-          className={cn(
-            "flex h-10 w-[240px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          )}
-          value={value}
-          onChange={handleChange}
-          onBlur={field.onBlur}
-          name={field.name}
-          ref={field.ref}
-        />
-      </FormControl>
+      <div className="flex flex-wrap items-center gap-2">
+        <FormControl>
+            <input
+            type="date"
+            className={cn(
+                "flex h-10 w-auto rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            )}
+            value={value}
+            onChange={handleChange}
+            onBlur={field.onBlur}
+            name={field.name}
+            ref={field.ref}
+            />
+        </FormControl>
+        <Button type="button" variant="outline" size="sm" onClick={() => setDateFromNow(1)}>+1w</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setDateFromNow(2)}>+2w</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setDateFromNow(4)}>+4w</Button>
+      </div>
       <FormMessage />
     </FormItem>
   );
