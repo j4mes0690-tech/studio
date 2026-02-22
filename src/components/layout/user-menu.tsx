@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -43,6 +42,9 @@ export function UserMenu({ user }: { user: User }) {
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/account">Account Settings</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/settings">System Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="cursor-pointer text-destructive focus:text-destructive">
