@@ -90,6 +90,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
   });
 
   const selectedProjectId = form.watch('projectId');
+  const selectedAreaId = form.watch('areaId');
 
   useEffect(() => {
     if (selectedProjectId) {
@@ -100,6 +101,16 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
       setAreas([]);
     }
   }, [selectedProjectId, projects, form]);
+
+  // Default title to Area Name + Completion Snags
+  useEffect(() => {
+    if (selectedAreaId && selectedAreaId !== 'none') {
+      const area = availableAreas.find(a => a.id === selectedAreaId);
+      if (area) {
+        form.setValue('title', `${area.name} Completion Snags`);
+      }
+    }
+  }, [selectedAreaId, availableAreas, form]);
 
   // Handle Camera Stream
   useEffect(() => {

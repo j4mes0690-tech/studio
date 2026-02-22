@@ -100,6 +100,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   });
 
   const selectedProjectId = form.watch('projectId');
+  const selectedAreaId = form.watch('areaId');
 
   useEffect(() => {
     if (selectedProjectId) {
@@ -109,6 +110,16 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       setAreas([]);
     }
   }, [selectedProjectId, projects]);
+
+  // Default title to Area Name + Completion Snags when changed
+  useEffect(() => {
+    if (selectedAreaId && selectedAreaId !== 'none' && open) {
+      const area = availableAreas.find(a => a.id === selectedAreaId);
+      if (area && area.id !== item.areaId) { // Only update if changing from the original area
+        form.setValue('title', `${area.name} Completion Snags`);
+      }
+    }
+  }, [selectedAreaId, availableAreas, form, open, item.areaId]);
 
   useEffect(() => {
     if (open) {
@@ -584,7 +595,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
         <canvas ref={canvasRef} className="hidden" />
 
         <DialogFooter className="mt-4 pt-4 border-t">
-          <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>{isPending ? 'Saving...' : 'Save Changes'}</Button>
+          <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isPending}> {isPending ? 'Saving...' : 'Save Changes'} </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
