@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -35,6 +34,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
 import { ClientDate } from '../../components/client-date';
+import { Badge } from '@/components/ui/badge';
 
 const AddChatMessageSchema = z.object({
   message: z.string().min(1, 'Message cannot be empty.'),
