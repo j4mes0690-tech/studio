@@ -1,6 +1,6 @@
 'use server';
 /**
- * @fileOverview This file implements a Genkit flow for extracting action items from client instructions.
+ * @fileOverview This file implements a Genkit flow for extracting action items from instructions.
  *
  * - extractInstructionActionItems - A function that handles the extraction of action items.
  * - ExtractInstructionActionItemsInput - The input type for the extractInstructionActionItems function.
@@ -13,7 +13,7 @@ import { z } from 'genkit';
 const ExtractInstructionActionItemsInputSchema = z.object({
   instructionText: z
     .string()
-    .describe('The client instruction text from which to extract action items.'),
+    .describe('The instruction text from which to extract action items.'),
 });
 export type ExtractInstructionActionItemsInput = z.infer<
   typeof ExtractInstructionActionItemsInputSchema
@@ -38,10 +38,10 @@ const prompt = ai.definePrompt({
   name: 'extractInstructionActionItemsPrompt',
   input: { schema: ExtractInstructionActionItemsInputSchema },
   output: { schema: ExtractInstructionActionItemsOutputSchema },
-  prompt: `You are an AI assistant for a construction manager. Your task is to carefully read the client instructions provided and extract all distinct, actionable tasks from the text.
+  prompt: `You are an AI assistant for a construction manager. Your task is to carefully read the instructions provided and extract all distinct, actionable tasks from the text.
 Each extracted action item should be concise and clearly state a task that needs to be performed.
 
-Client Instructions:
+Instructions:
 ---
 {{{instructionText}}}
 ---

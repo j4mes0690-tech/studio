@@ -5,7 +5,7 @@ import { AppShell } from '@/components/layout/app-shell';
 
 export const metadata: Metadata = {
   title: 'SiteCommand',
-  description: 'Record client instructions on a construction site',
+  description: 'Record instructions on a construction site',
 };
 
 export default function RootLayout({

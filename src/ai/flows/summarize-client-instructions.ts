@@ -1,44 +1,44 @@
 'use server';
 /**
- * @fileOverview This file implements a Genkit flow for summarizing client instructions.
+ * @fileOverview This file implements a Genkit flow for summarizing instructions.
  *
- * - summarizeClientInstructions - A function that provides an AI-generated summary of client instructions.
- * - SummarizeClientInstructionsInput - The input type for the summarizeClientInstructions function.
- * - SummarizeClientInstructionsOutput - The return type for the summarizeClientInstructions function.
+ * - summarizeInstructions - A function that provides an AI-generated summary of instructions.
+ * - SummarizeInstructionsInput - The input type for the summarizeInstructions function.
+ * - SummarizeInstructionsOutput - The return type for the summarizeInstructions function.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const SummarizeClientInstructionsInputSchema = z
+const SummarizeInstructionsInputSchema = z
   .object({
-    instructions: z.string().describe('The client instructions to summarize.'),
+    instructions: z.string().describe('The instructions to summarize.'),
   })
-  .describe('Input for summarizing client instructions.');
-export type SummarizeClientInstructionsInput = z.infer<
-  typeof SummarizeClientInstructionsInputSchema
+  .describe('Input for summarizing instructions.');
+export type SummarizeInstructionsInput = z.infer<
+  typeof SummarizeInstructionsInputSchema
 >;
 
-const SummarizeClientInstructionsOutputSchema = z
+const SummarizeInstructionsOutputSchema = z
   .object({
     summary: z.string().describe('The AI-generated summary of the instructions.'),
   })
-  .describe('Output for summarizing client instructions.');
-export type SummarizeClientInstructionsOutput = z.infer<
-  typeof SummarizeClientInstructionsOutputSchema
+  .describe('Output for summarizing instructions.');
+export type SummarizeInstructionsOutput = z.infer<
+  typeof SummarizeInstructionsOutputSchema
 >;
 
-export async function summarizeClientInstructions(
-  input: SummarizeClientInstructionsInput
-): Promise<SummarizeClientInstructionsOutput> {
-  return summarizeClientInstructionsFlow(input);
+export async function summarizeInstructions(
+  input: SummarizeInstructionsInput
+): Promise<SummarizeInstructionsOutput> {
+  return summarizeInstructionsFlow(input);
 }
 
-const summarizeClientInstructionsPrompt = ai.definePrompt({
-  name: 'summarizeClientInstructionsPrompt',
-  input: {schema: SummarizeClientInstructionsInputSchema},
-  output: {schema: SummarizeClientInstructionsOutputSchema},
-  prompt: `You are an expert assistant for construction managers. Your task is to concisely summarize client instructions.
+const summarizeInstructionsPrompt = ai.definePrompt({
+  name: 'summarizeInstructionsPrompt',
+  input: {schema: SummarizeInstructionsInputSchema},
+  output: {schema: SummarizeInstructionsOutputSchema},
+  prompt: `You are an expert assistant for construction managers. Your task is to concisely summarize instructions.
 
 Instructions to summarize:
 
@@ -47,14 +47,14 @@ Instructions to summarize:
 Provide a summary that captures the main points and key directives from the instructions.`,
 });
 
-const summarizeClientInstructionsFlow = ai.defineFlow(
+const summarizeInstructionsFlow = ai.defineFlow(
   {
-    name: 'summarizeClientInstructionsFlow',
-    inputSchema: SummarizeClientInstructionsInputSchema,
-    outputSchema: SummarizeClientInstructionsOutputSchema,
+    name: 'summarizeInstructionsFlow',
+    inputSchema: SummarizeInstructionsInputSchema,
+    outputSchema: SummarizeInstructionsOutputSchema,
   },
   async (input) => {
-    const {output} = await summarizeClientInstructionsPrompt(input);
+    const {output} = await summarizeInstructionsPrompt(input);
     return output!;
   }
 );

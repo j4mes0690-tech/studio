@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
 import { createInstruction, getDistributionUsers } from '@/lib/data';
-import { summarizeClientInstructions } from '@/ai/flows/summarize-client-instructions';
+import { summarizeInstructions } from '@/ai/flows/summarize-client-instructions';
 import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
 import type { Instruction } from '@/lib/types';
 
@@ -42,7 +42,7 @@ export async function createInstructionAction(
 
   try {
     const [summaryResult, actionItemsResult, distributionUsers] = await Promise.all([
-      summarizeClientInstructions({ instructions: originalText }),
+      summarizeInstructions({ instructions: originalText }),
       extractInstructionActionItems({ instructionText: originalText }),
       getDistributionUsers(),
     ]);
