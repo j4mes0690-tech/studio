@@ -54,9 +54,6 @@ export async function loginAction(
     path: '/',
   });
   
-  // If login is successful, redirect to the dashboard.
-  redirect('/');
-
-  // This part is not reachable due to the redirect, but necessary for type-safety.
+  // Login is successful, return success state to the client.
   return { success: true, message: 'Login successful.' };
 }

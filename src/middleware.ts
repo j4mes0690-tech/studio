@@ -3,8 +3,20 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
  
 export function middleware(request: NextRequest) {
-  // Temporarily disable auth protection to diagnose the cookie issue.
-  return NextResponse.next()
+  const userId = request.cookies.get('userId')?.value;
+  const { pathname } = request.nextUrl;
+
+  // Allow access to the login page regardless of authentication status.
+  if (pathname === '/login') {
+    return NextResponse.next();
+  }
+
+  // If user is not logged in, redirect them to the login page.
+  if (!userId) {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  return NextResponse.next();
 }
  
 export const config = {
