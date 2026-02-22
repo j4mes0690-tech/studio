@@ -35,8 +35,17 @@ export function LoginForm() {
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Failed to log in. Please check your credentials.');
+      console.error('Firebase Auth Error:', err);
+      // Map common errors to user-friendly messages
+      let message = 'Failed to log in. Please check your credentials.';
+      if (err.code === 'auth/api-key-not-valid') {
+        message = 'Invalid Firebase API Key. Please check your Firebase configuration.';
+      } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+        message = 'Invalid email or password. Please ensure you have created this user in the Firebase Console.';
+      } else if (err.code === 'auth/operation-not-allowed') {
+        message = 'Email/Password sign-in is not enabled in your Firebase Console.';
+      }
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -47,7 +56,7 @@ export function LoginForm() {
         <Card>
             <CardHeader>
                 <CardTitle>Log In</CardTitle>
-                <CardDescription>Use 'admin@example.com' and 'password' to continue.</CardDescription>
+                <CardDescription>Enter your credentials to continue.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="space-y-2">
