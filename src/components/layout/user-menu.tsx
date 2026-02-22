@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
+import { logout } from '@/app/actions';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -46,8 +47,12 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <a href="/logout">Logout</a>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()} asChild className="p-0">
+                    <form action={logout} className="w-full">
+                        <button type="submit" className="w-full text-left px-2 py-1.5 text-sm cursor-pointer">
+                            Logout
+                        </button>
+                    </form>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
