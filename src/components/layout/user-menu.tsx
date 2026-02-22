@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
+import { logoutAction } from '@/app/login/actions';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -47,10 +48,11 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  {/* Use a standard <a> tag to force a full page refresh and prevent Next.js router issues */}
-                  <a href="/logout">Logout</a>
-                </DropdownMenuItem>
+                <form action={logoutAction} className="w-full">
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                        <button type="submit" className="w-full text-left">Logout</button>
+                    </DropdownMenuItem>
+                </form>
             </DropdownMenuContent>
         </DropdownMenu>
     );
