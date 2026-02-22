@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Bell, HelpCircle, Loader2, MessageSquareReply } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, where, or } from 'firebase/firestore';
+import { collection, query, where, or, and } from 'firebase/firestore';
 import type { InformationRequest } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -28,10 +28,12 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
     if (!db || !normalizedEmail) return null;
     return query(
       collection(db, 'information-requests'),
-      where('status', '==', 'open'),
-      or(
-        where('assignedTo', 'array-contains', normalizedEmail),
-        where('raisedBy', '==', normalizedEmail)
+      and(
+        where('status', '==', 'open'),
+        or(
+          where('assignedTo', 'array-contains', normalizedEmail),
+          where('raisedBy', '==', normalizedEmail)
+        )
       )
     );
   }, [db, normalizedEmail]);
