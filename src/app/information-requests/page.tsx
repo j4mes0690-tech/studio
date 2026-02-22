@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -6,18 +5,28 @@ import { InformationRequestCard } from './information-request-card';
 import { NewInformationRequest } from './new-information-request';
 import { InformationRequestFilters } from './information-request-filters';
 import { ExportButton } from './export-button';
+import { InformationRequestTable } from './information-request-table';
 import { useSearchParams } from 'next/navigation';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LayoutGrid, List } from 'lucide-react';
 import { useUser, useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export default function InformationRequestsPage() {
   const { user: firebaseUser } = useUser();
   const db = useFirestore();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('project') || undefined;
+  
+  const [isCompact, setIsCompact] = useState(false);
 
   // Fetch distribution users from Firestore
   const usersQuery = useMemo(() => {
@@ -97,6 +106,24 @@ export default function InformationRequestsPage() {
             Information Request Log
           </h2>
           <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setIsCompact(!isCompact)}
+                    className="hidden sm:flex"
+                  >
+                    {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Switch to {isCompact ? 'Card' : 'Compact'} View</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
             <NewInformationRequest 
               projects={allProjects || []} 
               distributionUsers={distributionUsers || []} 
@@ -104,25 +131,37 @@ export default function InformationRequestsPage() {
             />
           </div>
         </div>
+        
         <InformationRequestFilters projects={allProjects || []} />
-        <div className="grid gap-4 md:gap-6">
-          {sortedItems && sortedItems.length > 0 ? (
-            sortedItems.map((item) => (
-              <InformationRequestCard
-                key={item.id}
-                item={item}
-                projects={allProjects || []}
-                distributionUsers={distributionUsers || []}
-                currentUser={currentUser}
-              />
-            ))
+
+        {sortedItems && sortedItems.length > 0 ? (
+          isCompact ? (
+            <InformationRequestTable 
+              items={sortedItems}
+              projects={allProjects || []}
+              distributionUsers={distributionUsers || []}
+              currentUser={currentUser}
+            />
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>No information requests found.</p>
-              <p className="text-sm">Try adjusting your filters or adding a new item.</p>
+            <div className="grid gap-4 md:gap-6">
+              {sortedItems.map((item) => (
+                <InformationRequestCard
+                  key={item.id}
+                  item={item}
+                  projects={allProjects || []}
+                  distributionUsers={distributionUsers || []}
+                  currentUser={currentUser}
+                />
+              ))}
             </div>
-          )}
-        </div>
+          )
+        ) : (
+          <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+            <p>No information requests found.</p>
+            <p className="text-sm">Try adjusting your filters or adding a new item.</p>
+          </div>
+        )}
+
         {items && items.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
             <ExportButton items={items} projects={allProjects || []} distributionUsers={distributionUsers || []} />
