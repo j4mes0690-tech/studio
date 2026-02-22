@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useRef } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +28,7 @@ function getInitials(name?: string) {
 export function UserMenu({ user }: { user: DistributionUser }) {
     const router = useRouter();
     const initials = getInitials(user?.name);
+    const logoutFormRef = useRef<HTMLFormElement>(null);
     
     return (
         <DropdownMenu>
@@ -48,9 +50,12 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     Settings
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => logoutAction()} className="cursor-pointer">
+                <DropdownMenuItem onSelect={() => {
+                    logoutFormRef.current?.requestSubmit();
+                }} className="cursor-pointer">
                     Logout
                 </DropdownMenuItem>
+                <form ref={logoutFormRef} action={logoutAction} className="hidden" />
             </DropdownMenuContent>
       </DropdownMenu>
     );
