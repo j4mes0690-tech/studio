@@ -50,16 +50,7 @@ export default function LoginPage() {
 
       const result = await loginAction(formData);
 
-      if (result && result.success) {
-        toast({
-          title: 'Diagnostic',
-          description: result.message,
-        });
-        // Use a small delay to ensure toast is visible before redirect
-        setTimeout(() => {
-          window.location.href = '/';
-        }, 500);
-      } else if (result && !result.success) {
+      if (result && !result.success) {
         toast({
           title: 'Error',
           description: result.message,
