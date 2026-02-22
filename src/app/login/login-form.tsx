@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -14,7 +13,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle, Loader2, ExternalLink } from 'lucide-react';
+import { AlertTriangle, Loader2, ExternalLink, Info } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 
@@ -46,14 +45,11 @@ export function LoginForm() {
         message = 'The API key in src/firebase/config.ts is invalid. Please replace it with the valid key from your Firebase Console settings (Project Settings > General).';
         isConfig = true;
       } else if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        message = 'Invalid email or password. Please ensure you have created this user in the Firebase Console (Authentication > Users).';
+        title = 'Account Not Found';
+        message = 'The email or password you entered is incorrect. IMPORTANT: You must manually create this user account in the Firebase Console before you can log in.';
       } else if (err.code === 'auth/operation-not-allowed') {
         title = 'Auth Provider Disabled';
         message = 'Email/Password sign-in is not enabled. Go to Authentication > Sign-in method in the Firebase Console to enable it.';
-        isConfig = true;
-      } else if (err.message?.includes('API key')) {
-        title = 'Firebase Config Error';
-        message = 'There is an issue with your Firebase API Key. Ensure it matches the one in your Firebase Console.';
         isConfig = true;
       }
 
@@ -64,42 +60,42 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleLogin}>
-        <Card>
-            <CardHeader>
-                <CardTitle>Log In</CardTitle>
-                <CardDescription>Enter your credentials to continue.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                        id="email"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="admin@example.com"
-                        required
-                    />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <Input 
-                        id="password" 
-                        type="password" 
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        required 
-                    />
-                </div>
+    <div className="space-y-6">
+        <form onSubmit={handleLogin}>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Log In</CardTitle>
+                    <CardDescription>Enter your credentials to continue.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                            id="email"
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="admin@example.com"
+                            required
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input 
+                            id="password" 
+                            type="password" 
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            required 
+                        />
+                    </div>
 
-                {error && (
-                    <Alert variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>{error.title}</AlertTitle>
-                        <AlertDescription className="space-y-2">
-                            <p>{error.message}</p>
-                            {error.isConfig && (
+                    {error && (
+                        <Alert variant="destructive">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>{error.title}</AlertTitle>
+                            <AlertDescription className="space-y-2">
+                                <p>{error.message}</p>
                                 <Button 
                                     variant="outline" 
                                     size="sm" 
@@ -111,23 +107,36 @@ export function LoginForm() {
                                         Go to Firebase Console
                                     </a>
                                 </Button>
-                            )}
-                        </AlertDescription>
-                    </Alert>
-                )}
+                            </AlertDescription>
+                        </Alert>
+                    )}
 
-            </CardContent>
-            <CardFooter>
-                 <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                        <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Logging in...
-                        </>
-                    ) : 'Log In'}
-                 </Button>
-            </CardFooter>
-        </Card>
-    </form>
+                </CardContent>
+                <CardFooter>
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Logging in...
+                            </>
+                        ) : 'Log In'}
+                    </Button>
+                </CardFooter>
+            </Card>
+        </form>
+
+        <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>How to enable access</AlertTitle>
+            <AlertDescription className="text-xs space-y-2">
+                <p>To log in, follow these steps in your Firebase Console:</p>
+                <ol className="list-decimal ml-4 space-y-1">
+                    <li>Navigate to <strong>Authentication</strong> &gt; <strong>Sign-in method</strong> and enable <strong>Email/Password</strong>.</li>
+                    <li>In the <strong>Users</strong> tab, click <strong>Add user</strong>.</li>
+                    <li>Create an account with email <code>admin@example.com</code> and password <code>password</code>.</li>
+                </ol>
+            </AlertDescription>
+        </Alert>
+    </div>
   );
 }
