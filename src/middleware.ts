@@ -3,18 +3,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
  
 export function middleware(request: NextRequest) {
-  const userId = request.cookies.get('userId')?.value
- 
-  // If no user and not on the login page, redirect to login
-  if (!userId && request.nextUrl.pathname !== '/login') {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
-
-  // If user is logged in and tries to access login page, redirect to home
-  if (userId && request.nextUrl.pathname === '/login') {
-    return NextResponse.redirect(new URL('/', request.url))
-  }
-
+  // Temporarily disable auth protection to diagnose the cookie issue.
   return NextResponse.next()
 }
  

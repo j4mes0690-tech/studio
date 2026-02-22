@@ -4,23 +4,19 @@ import { Home } from 'lucide-react';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/data';
 import { UserMenu } from './user-menu';
-import { redirect } from 'next/navigation';
 
 export async function Header({ title }: { title: string }) {
   const currentUser = await getCurrentUser();
-
-  // Middleware now handles the redirect, but we need to pass the user to the menu.
-  // If currentUser is null here, it means the middleware is not configured correctly.
-  if (!currentUser) {
-    // This redirect is a safeguard.
-    return redirect('/login');
-  }
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
       <SidebarTrigger className="md:hidden" />
       <div className="w-full flex-1">
         <h1 className="text-lg font-semibold">{title}</h1>
+      </div>
+
+      <div className="text-sm text-muted-foreground">
+        {currentUser ? `Logged in as: ${currentUser.name}` : 'Not Logged In'}
       </div>
 
       {title !== 'Dashboard' && (
@@ -32,7 +28,7 @@ export async function Header({ title }: { title: string }) {
         </Button>
       )}
 
-      <UserMenu user={currentUser} />
+      {currentUser && <UserMenu user={currentUser} />}
     </header>
   );
 }
