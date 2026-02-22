@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus, AlertTriangle, UserPlus, User } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, AlertTriangle, UserPlus, User, Check } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -45,6 +45,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 const SnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -342,12 +343,15 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                             <UserPlus className="h-4 w-4" />
                           </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-64 p-0">
+                        <PopoverContent className="w-64 p-0" align="end">
                           <ScrollArea className="h-64">
                             <div className="p-2 space-y-1">
                               <Button 
                                 variant="ghost" 
-                                className="w-full justify-start font-normal" 
+                                className={cn(
+                                  "w-full justify-start font-normal transition-colors hover:bg-accent",
+                                  !pendingSubId && "bg-accent/50"
+                                )} 
                                 onClick={() => setPendingSubId(undefined)}
                               >
                                 None
@@ -356,10 +360,14 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                                 <Button 
                                   key={sub.id} 
                                   variant="ghost" 
-                                  className="w-full justify-start font-normal text-xs"
+                                  className={cn(
+                                    "w-full justify-between font-normal text-xs transition-colors hover:bg-primary/10 hover:text-primary",
+                                    pendingSubId === sub.id && "bg-primary/10 text-primary font-medium"
+                                  )}
                                   onClick={() => setPendingSubId(sub.id)}
                                 >
-                                  {sub.name}
+                                  <span className="truncate">{sub.name}</span>
+                                  {pendingSubId === sub.id && <Check className="h-3 w-3 ml-2 flex-shrink-0" />}
                                 </Button>
                               ))}
                             </div>
