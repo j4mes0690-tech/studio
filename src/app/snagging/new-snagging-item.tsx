@@ -39,6 +39,7 @@ import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { VoiceInput } from '@/components/voice-input';
 
 const SnaggingItemSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -162,7 +163,15 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Description</FormLabel>
+                    <VoiceInput 
+                      onResult={(text) => {
+                        const current = form.getValues('description');
+                        form.setValue('description', current ? `${current} ${text}` : text);
+                      }} 
+                    />
+                  </div>
                   <FormControl>
                     <Textarea placeholder="e.g., Scuff marks on the wall..." {...field} />
                   </FormControl>

@@ -43,6 +43,7 @@ import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { VoiceInput } from '@/components/voice-input';
 
 const NewNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -189,7 +190,15 @@ export function NewNotice({ projects, subContractors }: NewNoticeProps) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description of Issue</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Description of Issue</FormLabel>
+                    <VoiceInput 
+                      onResult={(text) => {
+                        const current = form.getValues('description');
+                        form.setValue('description', current ? `${current} ${text}` : text);
+                      }} 
+                    />
+                  </div>
                   <FormControl>
                     <Textarea placeholder="e.g., Debris from drywall installation..." className="min-h-[120px]" {...field} />
                   </FormControl>

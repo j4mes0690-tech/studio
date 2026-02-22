@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -46,6 +45,7 @@ import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { VoiceInput } from '@/components/voice-input';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -209,7 +209,15 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
               name="originalText"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Instruction Text</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Instruction Text</FormLabel>
+                    <VoiceInput 
+                      onResult={(text) => {
+                        const current = form.getValues('originalText');
+                        form.setValue('originalText', current ? `${current} ${text}` : text);
+                      }} 
+                    />
+                  </div>
                   <FormControl>
                     <Textarea placeholder="Enter instructions here..." className="min-h-[150px]" {...field} />
                   </FormControl>

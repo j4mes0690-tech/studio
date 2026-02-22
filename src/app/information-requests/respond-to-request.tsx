@@ -35,6 +35,7 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 import { cn } from '@/lib/utils';
 import { ClientDate } from '../../components/client-date';
 import { Badge } from '@/components/ui/badge';
+import { VoiceInput } from '@/components/voice-input';
 
 const AddChatMessageSchema = z.object({
   message: z.string().min(1, 'Message cannot be empty.'),
@@ -177,9 +178,17 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium mb-2">
-                <span>Replying as:</span>
-                <Badge variant="secondary" className="text-[10px] px-2 py-0 h-auto">{currentUser.name}</Badge>
+            <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+                    <span>Replying as:</span>
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0 h-auto">{currentUser.name}</Badge>
+                </div>
+                <VoiceInput 
+                  onResult={(text) => {
+                    const current = form.getValues('message');
+                    form.setValue('message', current ? `${current} ${text}` : text);
+                  }}
+                />
             </div>
 
             <FormField

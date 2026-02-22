@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -44,6 +43,7 @@ import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { VoiceInput } from '@/components/voice-input';
 
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -197,7 +197,15 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Information Requested</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Information Requested</FormLabel>
+                    <VoiceInput 
+                      onResult={(text) => {
+                        const current = form.getValues('description');
+                        form.setValue('description', current ? `${current} ${text}` : text);
+                      }} 
+                    />
+                  </div>
                   <FormControl>
                     <Textarea placeholder="e.g., Updated floor plans for level 3..." className="min-h-[120px]" {...field} />
                   </FormControl>
