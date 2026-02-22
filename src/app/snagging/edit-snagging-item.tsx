@@ -31,23 +31,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X } from 'lucide-react';
-import type { Project, SnaggingItem, Photo, Area } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Pencil, Camera, Upload, X, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import type { Project, SnaggingItem, Photo, Area, SnaggingListItem } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
-const EditSnaggingItemSchema = z.object({
+const EditSnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   areaId: z.string().optional(),
-  description: z.string().min(10, 'Description must be at least 10 characters.'),
+  title: z.string().min(3, 'List title is required.'),
+  description: z.string().optional(),
 });
 
-type EditSnaggingItemFormValues = z.infer<typeof EditSnaggingItemSchema>;
+type EditSnaggingListFormValues = z.infer<typeof EditSnaggingListSchema>;
 
 type EditSnaggingItemProps = {
   item: SnaggingItem;
@@ -62,13 +64,17 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [availableAreas, setAreas] = useState<Area[]>([]);
+  
+  const [items, setItems] = useState<SnaggingListItem[]>(item.items || []);
+  const [newItemText, setNewItemText] = useState('');
 
-  const form = useForm<EditSnaggingItemFormValues>({
-    resolver: zodResolver(EditSnaggingItemSchema),
+  const form = useForm<EditSnaggingListFormValues>({
+    resolver: zodResolver(EditSnaggingListSchema),
     defaultValues: {
       projectId: item.projectId,
       areaId: item.areaId || '',
-      description: item.description,
+      title: item.title || '',
+      description: item.description || '',
     },
   });
 
@@ -88,25 +94,41 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
       form.reset({
         projectId: item.projectId,
         areaId: item.areaId || '',
-        description: item.description,
+        title: item.title || '',
+        description: item.description || '',
       });
       setPhotos(item.photos || []);
+      setItems(item.items || []);
     }
   }, [open, item, form]);
 
-  const onSubmit = (values: EditSnaggingItemFormValues) => {
+  const handleAddItem = () => {
+    if (newItemText.trim()) {
+      setItems([...items, { id: `item-${Date.now()}`, description: newItemText.trim(), status: 'open' }]);
+      setNewItemText('');
+    }
+  };
+
+  const handleRemoveItem = (id: string) => {
+    setItems(items.filter(i => i.id !== id));
+  };
+
+  const toggleItemStatus = (id: string) => {
+    setItems(items.map(i => i.id === id ? { ...i, status: i.status === 'open' ? 'closed' : 'open' } : i));
+  };
+
+  const onSubmit = (values: EditSnaggingListFormValues) => {
     startTransition(async () => {
       const docRef = doc(db, 'snagging-items', item.id);
       const updates = {
-        projectId: values.projectId,
-        areaId: values.areaId || null,
-        description: values.description,
+        ...values,
+        items: items,
         photos: photos,
       };
       
       updateDoc(docRef, updates)
         .then(() => {
-          toast({ title: 'Success', description: 'Item updated.' });
+          toast({ title: 'Success', description: 'Snagging list updated.' });
           setOpen(false);
         })
         .catch((error) => {
@@ -125,71 +147,121 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon">
             <Pencil className="h-4 w-4" />
-            <span className="sr-only">Edit Item</span>
+            <span className="sr-only">Edit List</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Edit Snagging Item</DialogTitle>
+          <DialogTitle>Edit Snagging List</DialogTitle>
           <DialogDescription>
-            Update the details for this snagging item.
+            Update project details and manage items in this snagging list.
           </DialogDescription>
         </DialogHeader>
+        
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="projectId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Project</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex-1 overflow-y-auto pr-2 min-h-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="projectId"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Project</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+
+                <FormField
+                control={form.control}
+                name="areaId"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Area (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId || availableAreas.length === 0}>
+                        <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select an area" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {availableAreas.length > 0 ? availableAreas.map(a => (
+                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        )) : <SelectItem value="none" disabled>No areas defined</SelectItem>}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
 
             <FormField
               control={form.control}
-              name="areaId"
+              name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Area (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId || availableAreas.length === 0}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select an area" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {availableAreas.length > 0 ? availableAreas.map(a => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      )) : <SelectItem value="none" disabled>No areas defined</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>List Title</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Describe the issue..." className="min-h-[120px]" {...field} />
+                    <Input {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            <Separator />
+
+            <div className="space-y-4">
+                <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
+                <div className="flex gap-2">
+                    <Input 
+                        placeholder="Add another defect..." 
+                        value={newItemText} 
+                        onChange={(e) => setNewItemText(e.target.value)} 
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
+                    />
+                    <Button type="button" onClick={handleAddItem}>Add</Button>
+                </div>
+
+                <div className="space-y-2 border rounded-md p-2 bg-muted/20">
+                    {items.length === 0 ? (
+                        <p className="text-sm text-center text-muted-foreground py-4">No items in the list.</p>
+                    ) : (
+                        items.map((item) => (
+                            <div key={item.id} className="flex items-center gap-2 bg-background p-2 rounded-md border shadow-sm group">
+                                <Button 
+                                    type="button" 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="h-8 w-8 flex-shrink-0"
+                                    onClick={() => toggleItemStatus(item.id)}
+                                >
+                                    {item.status === 'closed' ? (
+                                        <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                    ) : (
+                                        <Circle className="h-5 w-5 text-muted-foreground" />
+                                    )}
+                                </Button>
+                                <span className={cn("text-sm flex-1", item.status === 'closed' && "line-through text-muted-foreground")}>
+                                    {item.description}
+                                </span>
+                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemoveItem(item.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
+            <Separator />
 
             <div className="space-y-4">
               <FormLabel>Photos</FormLabel>
@@ -212,12 +284,12 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
                 }} />
               </div>
             </div>
-            
-            <DialogFooter>
-              <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : 'Save Changes'}</Button>
-            </DialogFooter>
           </form>
         </Form>
+
+        <DialogFooter className="mt-4 pt-4 border-t">
+          <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>{isPending ? 'Saving...' : 'Save Changes'}</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

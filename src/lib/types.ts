@@ -34,13 +34,21 @@ export type CleanUpNotice = {
   recipients?: string[];
 };
 
+export type SnaggingListItem = {
+  id: string;
+  description: string;
+  status: 'open' | 'closed';
+};
+
 export type SnaggingItem = {
   id: string;
   projectId: string;
   areaId?: string;
-  description: string;
+  title: string;
+  description?: string;
   createdAt: string;
   photos?: Photo[];
+  items: SnaggingListItem[];
 };
 
 export type ChatMessage = {

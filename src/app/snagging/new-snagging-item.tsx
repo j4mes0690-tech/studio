@@ -32,22 +32,26 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X } from 'lucide-react';
-import type { Project, Photo, Area } from '@/lib/types';
+import { PlusCircle, Camera, Upload, X, Trash2 } from 'lucide-react';
+import type { Project, Photo, Area, SnaggingListItem } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
-const SnaggingItemSchema = z.object({
+const SnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   areaId: z.string().optional(),
-  description: z.string().min(10, 'Description must be at least 10 characters.'),
+  title: z.string().min(3, 'List title is required.'),
+  description: z.string().optional(),
 });
 
-type NewSnaggingItemFormValues = z.infer<typeof SnaggingItemSchema>;
+type NewSnaggingListFormValues = z.infer<typeof SnaggingListSchema>;
 
 export function NewSnaggingItem({ projects }: { projects: Project[] }) {
   const [open, setOpen] = useState(false);
@@ -57,10 +61,13 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [availableAreas, setAreas] = useState<Area[]>([]);
+  
+  const [items, setItems] = useState<Omit<SnaggingListItem, 'id'>[]>([]);
+  const [newItemText, setNewItemText] = useState('');
 
-  const form = useForm<NewSnaggingItemFormValues>({
-    resolver: zodResolver(SnaggingItemSchema),
-    defaultValues: { projectId: '', areaId: '', description: '' },
+  const form = useForm<NewSnaggingListFormValues>({
+    resolver: zodResolver(SnaggingListSchema),
+    defaultValues: { projectId: '', areaId: '', title: '', description: '' },
   });
 
   const selectedProjectId = form.watch('projectId');
@@ -69,23 +76,44 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
     if (selectedProjectId) {
       const selectedProject = projects.find(p => p.id === selectedProjectId);
       setAreas(selectedProject?.areas || []);
-      form.setValue('areaId', ''); // Reset area when project changes
+      form.setValue('areaId', '');
     } else {
       setAreas([]);
     }
   }, [selectedProjectId, projects, form]);
 
-  const onSubmit = (values: NewSnaggingItemFormValues) => {
+  const handleAddItem = () => {
+    if (newItemText.trim()) {
+      setItems([...items, { description: newItemText.trim(), status: 'open' }]);
+      setNewItemText('');
+    }
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setItems(items.filter((_, i) => i !== index));
+  };
+
+  const onSubmit = (values: NewSnaggingListFormValues) => {
+    if (items.length === 0) {
+      toast({ title: 'Item Required', description: 'Please add at least one snagging item to the list.', variant: 'destructive' });
+      return;
+    }
+
     startTransition(async () => {
       const data = {
         ...values,
         createdAt: new Date().toISOString(),
         photos: photos,
+        items: items.map((item, idx) => ({
+          ...item,
+          id: `item-${Date.now()}-${idx}`
+        })),
       };
+      
       const colRef = collection(db, 'snagging-items');
       addDoc(colRef, data)
         .then(() => {
-          toast({ title: 'Success', description: 'Snagging item recorded.' });
+          toast({ title: 'Success', description: 'Snagging list recorded.' });
           setOpen(false);
         })
         .catch((error) => {
@@ -102,6 +130,8 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
   useEffect(() => {
     if (!open) {
       setPhotos([]);
+      setItems([]);
+      setNewItemText('');
       form.reset();
     }
   }, [open, form]);
@@ -109,78 +139,114 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button><PlusCircle className="mr-2 h-4 w-4" />New Item</Button>
+        <Button><PlusCircle className="mr-2 h-4 w-4" />New List</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Record New Snagging Item</DialogTitle>
-          <DialogDescription>Capture a snagging issue to be addressed.</DialogDescription>
+          <DialogTitle>Record New Snagging List</DialogTitle>
+          <DialogDescription>Create a list of defects to be addressed in a specific project area.</DialogDescription>
         </DialogHeader>
+        
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="projectId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Project</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex-1 overflow-y-auto pr-2 min-h-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                control={form.control}
+                name="projectId"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Project</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+
+                <FormField
+                control={form.control}
+                name="areaId"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Area (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId || availableAreas.length === 0}>
+                        <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select an area" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                        {availableAreas.length > 0 ? availableAreas.map(a => (
+                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        )) : <SelectItem value="none" disabled>No areas defined</SelectItem>}
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </div>
 
             <FormField
               control={form.control}
-              name="areaId"
+              name="title"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Area (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId || availableAreas.length === 0}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select an area" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {availableAreas.length > 0 ? availableAreas.map(a => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      )) : <SelectItem value="none" disabled>No areas defined</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center justify-between">
-                    <FormLabel>Description</FormLabel>
-                    <VoiceInput 
-                      onResult={(text) => {
-                        const current = form.getValues('description');
-                        form.setValue('description', current ? `${current} ${text}` : text);
-                      }} 
-                    />
-                  </div>
+                  <FormLabel>List Title</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="e.g., Scuff marks on the wall..." {...field} />
+                    <Input placeholder="e.g., Level 3 West Wing Completion Snags" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
+            <Separator />
+
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
+                    <VoiceInput 
+                        onResult={(text) => {
+                            setNewItemText(prev => prev ? `${prev} ${text}` : text);
+                        }} 
+                    />
+                </div>
+                
+                <div className="flex gap-2">
+                    <Input 
+                        placeholder="Describe a defect..." 
+                        value={newItemText} 
+                        onChange={(e) => setNewItemText(e.target.value)} 
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
+                    />
+                    <Button type="button" onClick={handleAddItem}>Add Item</Button>
+                </div>
+
+                <div className="space-y-2 border rounded-md p-2 bg-muted/20">
+                    {items.length === 0 ? (
+                        <p className="text-sm text-center text-muted-foreground py-4">No items added yet. Enter a description above.</p>
+                    ) : (
+                        items.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between bg-background p-2 rounded-md border shadow-sm">
+                                <span className="text-sm">{item.description}</span>
+                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
+
+            <Separator />
+
             <div className="space-y-2">
-              <FormLabel>Photos</FormLabel>
+              <FormLabel>Reference Photos</FormLabel>
               <div className="flex flex-wrap gap-2">
                 {photos.map((p, i) => (
                   <div key={i} className="relative w-20 h-20">
@@ -200,11 +266,12 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                 }} />
               </div>
             </div>
-            <DialogFooter>
-              <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : 'Save Item'}</Button>
-            </DialogFooter>
           </form>
         </Form>
+
+        <DialogFooter className="mt-4 pt-4 border-t">
+          <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>{isPending ? 'Saving...' : 'Save Snagging List'}</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
