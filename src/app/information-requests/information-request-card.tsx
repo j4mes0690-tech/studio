@@ -43,7 +43,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
   } from '@/components/ui/tooltip';
-import { useTransition } from 'react';
+import { useTransition, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { ClientDate } from '../../components/client-date';
@@ -183,11 +183,16 @@ export function InformationRequestCard({
 }: InformationRequestCardProps) {
   const project = projects.find((p) => p.id === item.projectId);
 
-  const assignedToArray = Array.isArray(item.assignedTo)
-    ? item.assignedTo
-    : item.assignedTo ? [item.assignedTo] : [];
+  const assignedToArray = useMemo(() => {
+      return Array.isArray(item.assignedTo)
+        ? item.assignedTo
+        : item.assignedTo ? [item.assignedTo] : [];
+  }, [item.assignedTo]);
     
-  const messages = item.messages || [];
+  const messages = useMemo(() => {
+      const rawMessages = item.messages || [];
+      return [...rawMessages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [item.messages]);
 
   return (
     <Card>
@@ -257,15 +262,17 @@ export function InformationRequestCard({
               {messages.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground">No replies yet.</p>
               ) : (
-                  messages.map((msg) => (
-                        <div key={msg.id} className="rounded-md border bg-muted/50 p-3">
-                          <div className="flex items-center justify-between">
-                              <p className="font-semibold text-sm">{msg.sender}</p>
-                              <p className="text-xs text-muted-foreground"><ClientDate date={msg.createdAt} /></p>
-                          </div>
-                          <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{msg.message}</p>
-                      </div>
-                  ))
+                  <div className="space-y-4">
+                    {messages.map((msg) => (
+                          <div key={msg.id} className="rounded-md border bg-muted/50 p-3">
+                            <div className="flex items-center justify-between">
+                                <p className="font-semibold text-sm">{msg.sender}</p>
+                                <p className="text-xs text-muted-foreground"><ClientDate date={msg.createdAt} /></p>
+                            </div>
+                            <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{msg.message}</p>
+                        </div>
+                    ))}
+                  </div>
               )}
             </AccordionContent>
           </AccordionItem>

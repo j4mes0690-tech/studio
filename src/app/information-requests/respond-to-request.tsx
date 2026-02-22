@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -67,14 +67,17 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
   const onSubmit = (values: AddChatMessageFormValues) => {
     startTransition(async () => {
       const newMessage: ChatMessage = {
-        id: `msg-${Date.now()}`,
+        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         sender: currentUser.name,
         message: values.message,
         createdAt: new Date().toISOString(),
       };
 
       const docRef = doc(db, 'information-requests', item.id);
-      const updates = { messages: arrayUnion(newMessage) };
+      const updates = { 
+          // Use arrayUnion to safely add to the messages array in Firestore
+          messages: arrayUnion(newMessage) 
+      };
 
       updateDoc(docRef, updates)
         .then(() => {
@@ -82,6 +85,7 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
           setOpen(false);
         })
         .catch((error) => {
+          console.error("Error replying to request:", error);
           const permissionError = new FirestorePermissionError({
             path: docRef.path,
             operation: 'update',
@@ -92,7 +96,10 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
     });
   };
 
-  const messages = item.messages || [];
+  const messages = useMemo(() => {
+    const rawMessages = item.messages || [];
+    return [...rawMessages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [item.messages]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -122,12 +129,12 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className='p-4 border rounded-md bg-muted/50 max-h-48 overflow-y-auto space-y-4'>
                 <div>
-                    <p className='text-sm font-semibold'>Original Request:</p>
+                    <p className='text-sm font-semibold text-primary'>Original Request:</p>
                     <p className='text-sm text-muted-foreground mt-1'>{item.description}</p>
                 </div>
                 {messages.map(msg => (
-                    <div key={msg.id}>
-                        <p className='text-sm font-semibold'>{msg.sender}:</p>
+                    <div key={msg.id} className="pt-2 border-t first:border-t-0">
+                        <p className='text-xs font-semibold'>{msg.sender}:</p>
                         <p className='text-sm text-muted-foreground mt-1'>{msg.message}</p>
                     </div>
                 ))}
