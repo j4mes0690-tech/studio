@@ -41,7 +41,7 @@ export async function loginAction(
   const user = users.find(u => u.email.toLowerCase() === formattedEmail);
 
   if (!user) {
-    return { success: false, message: `No user found with that email. (Debug: Searched ${users.length} user accounts).` };
+    return { success: false, message: 'No user found with that email.' };
   }
 
   // This is NOT secure. For demonstration purposes only.

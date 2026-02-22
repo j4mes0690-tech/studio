@@ -29,18 +29,20 @@ const g: {
 } = global as any;
 
 
-if (!g.projects) {
-  g.projects = [
+// NOTE: In a real application, this data would be in a database.
+// For this prototype, we're using a global object to simulate a database.
+// The `if` conditions prevent the data from being reset on every hot-reload in development.
+// We are temporarily removing them to fix a corrupted state issue.
+
+g.projects = [
     { id: '101', name: 'Downtown Tower', areas: [{id: 'area-101-1', name: 'Externals'}, {id: 'area-101-2', name: 'Level 1'}, {id: 'area-101-3', name: 'Level 2'}] },
     { id: '102', name: 'Suburban Mall', areas: [] },
     { id: '201', name: 'Riverside Bridge', areas: [] },
     { id: '301', name: 'Hilltop Estates', areas: [{id: 'area-301-1', name: 'Plot 1'}, {id: 'area-301-2', name: 'Plot 2'}, {id: 'area-301-3', name: 'Plot 3'}] },
     { id: '302', name: 'Oceanview Villas', areas: [{id: 'area-302-1', name: 'Villa A'}, {id: 'area-302-2', name: 'Villa B'}] },
-  ];
-}
+];
 
-if (!g.instructions) {
-  g.instructions = [
+g.instructions = [
     {
       id: '1',
       projectId: '101',
@@ -92,95 +94,82 @@ if (!g.instructions) {
       createdAt: new Date('2023-10-20T11:00:00Z').toISOString(),
     },
   ];
-}
 
-if (!g.cleanUpNotices) {
-    g.cleanUpNotices = [
-        {
-            id: 'cl1',
-            projectId: '101',
-            description: 'Debris from drywall installation on floor 12 needs to be cleared by end of day. Please ensure all hallways are clear for inspection tomorrow morning.',
-            createdAt: new Date('2023-10-22T16:00:00Z').toISOString(),
-            recipients: ['cleanup-crew@example.com'],
-            photos: [{
-              url: 'https://picsum.photos/seed/cleanup1/600/400',
-              takenAt: new Date('2023-10-22T16:01:30Z').toISOString(),
-            }],
-        }
-    ];
-}
+g.cleanUpNotices = [
+    {
+        id: 'cl1',
+        projectId: '101',
+        description: 'Debris from drywall installation on floor 12 needs to be cleared by end of day. Please ensure all hallways are clear for inspection tomorrow morning.',
+        createdAt: new Date('2023-10-22T16:00:00Z').toISOString(),
+        recipients: ['cleanup-crew@example.com'],
+        photos: [{
+          url: 'https://picsum.photos/seed/cleanup1/600/400',
+          takenAt: new Date('2023-10-22T16:01:30Z').toISOString(),
+        }],
+    }
+];
 
-if (!g.snaggingLists) {
-    g.snaggingLists = [
-        {
-            id: 'snag1',
-            projectId: '101',
-            description: 'Paint on the west wall of apartment 1201 is chipped. Needs repainting.',
-            createdAt: new Date('2023-10-25T10:00:00Z').toISOString(),
-            photos: [{
-              url: 'https://picsum.photos/seed/snag1/600/400',
-              takenAt: new Date('2023-10-25T10:01:00Z').toISOString(),
-            }],
-        },
-        {
-            id: 'snag2',
-            projectId: '302',
-            description: 'Leaky faucet in the master bathroom of Villa #5.',
-            createdAt: new Date('2023-10-26T11:30:00Z').toISOString(),
-        }
-    ];
-}
+g.snaggingLists = [
+    {
+        id: 'snag1',
+        projectId: '101',
+        description: 'Paint on the west wall of apartment 1201 is chipped. Needs repainting.',
+        createdAt: new Date('2023-10-25T10:00:00Z').toISOString(),
+        photos: [{
+          url: 'https://picsum.photos/seed/snag1/600/400',
+          takenAt: new Date('2023-10-25T10:01:00Z').toISOString(),
+        }],
+    },
+    {
+        id: 'snag2',
+        projectId: '302',
+        description: 'Leaky faucet in the master bathroom of Villa #5.',
+        createdAt: new Date('2023-10-26T11:30:00Z').toISOString(),
+    }
+];
 
-if (!g.informationRequests) {
-    g.informationRequests = [
-        {
-            id: 'ir1',
-            projectId: '101',
-            description: 'Client needs floor plans for level 5.',
-            assignedTo: ['engineer@example.com'],
-            createdAt: new Date('2023-10-28T10:00:00Z').toISOString(),
-            requiredBy: new Date('2023-11-05T17:00:00Z').toISOString(),
-            status: 'open',
-            messages: [],
-        }
-    ];
-}
+g.informationRequests = [
+    {
+        id: 'ir1',
+        projectId: '101',
+        description: 'Client needs floor plans for level 5.',
+        assignedTo: ['engineer@example.com'],
+        createdAt: new Date('2023-10-28T10:00:00Z').toISOString(),
+        requiredBy: new Date('2023-11-05T17:00:00Z').toISOString(),
+        status: 'open',
+        messages: [],
+    }
+];
 
-if (!g.distributionUsers) {
-  g.distributionUsers = [
+g.distributionUsers = [
     { id: 'user-admin', name: 'Admin User', email: 'admin@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
     { id: 'user-1', name: 'Project Manager', email: 'pm@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
     { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
     { id: 'user-3', name: 'Lead Engineer', email: 'engineer@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
-  ];
-}
+];
 
-if (!g.subContractors) {
-  g.subContractors = [
+g.subContractors = [
       { id: 'sub-1', name: 'General Cleaners LLC', email: 'contact@generalcleaners.com' },
       { id: 'sub-2', name: 'Site-Ready Services', email: 'ops@siteready.com' },
-  ];
-}
+];
 
-if (!g.qualityChecklists) {
-    g.qualityChecklists = [
-        {
-            id: 'qc1',
-            projectId: '101',
-            title: 'Pre-Pour Concrete Inspection',
-            trade: 'Concrete',
-            areaId: 'area-101-2',
-            createdAt: new Date('2023-11-01T09:00:00Z').toISOString(),
-            items: [
-                { id: 'qc1-1', text: 'Formwork is clean and properly oiled.', status: 'yes' },
-                { id: 'qc1-2', text: 'Reinforcement is correctly placed and secured.', status: 'yes' },
-                { id: 'qc1-3', text: 'Embedded items (conduits, pipes) are installed.', status: 'pending' },
-                { id: 'qc1-4', text: 'Waterstops are correctly positioned.', status: 'pending' },
-            ],
-            recipients: ['contact@generalcleaners.com'],
-        }
-    ];
-}
+g.qualityChecklists = [
+    {
+        id: 'qc1',
+        projectId: '101',
+        title: 'Pre-Pour Concrete Inspection',
+        trade: 'Concrete',
+        areaId: 'area-101-2',
+        createdAt: new Date('2023-11-01T09:00:00Z').toISOString(),
+        items: [
+            { id: 'qc1-1', text: 'Formwork is clean and properly oiled.', status: 'yes' },
+            { id: 'qc1-2', text: 'Reinforcement is correctly placed and secured.', status: 'yes' },
+            { id: 'qc1-3', text: 'Embedded items (conduits, pipes) are installed.', status: 'pending' },
+            { id: 'qc1-4', text: 'Waterstops are correctly positioned.', status: 'pending' },
+        ],
+        recipients: ['contact@generalcleaners.com'],
+    }
+];
 
 
 // Simulate a database with async functions
