@@ -16,7 +16,6 @@ import {
   LayoutGrid,
   MessageSquare,
   FolderKanban,
-  Cog,
   Sparkles,
   ListChecks,
   HelpCircle,
@@ -37,7 +36,6 @@ const links = [
 
 const secondaryLinks = [
     { href: '/account', label: 'My Account', icon: CircleUser },
-    { href: '/settings', label: 'Settings', icon: Cog }
 ];
 
 export function AppSidebar() {

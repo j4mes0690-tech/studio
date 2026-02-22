@@ -5,7 +5,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Header } from '@/components/layout/header';
-import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck, Settings } from 'lucide-react';
+import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -82,19 +82,6 @@ export default async function Dashboard() {
               <CardContent className="p-0 mt-2">
                 <p className="text-muted-foreground">
                   Use checklists to check each trade's work and sign off.
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/settings">
-            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full border-primary/20 bg-primary/5">
-              <CardHeader className="p-0">
-                <Settings className="h-16 w-16 text-primary mb-4" />
-                <CardTitle className="text-2xl">Settings</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 mt-2">
-                <p className="text-muted-foreground">
-                  Manage users, sub-contractors, projects, and checklist templates.
                 </p>
               </CardContent>
             </Card>

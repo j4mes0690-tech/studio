@@ -2,7 +2,7 @@
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Home, Loader2 } from 'lucide-react';
+import { Home, Loader2, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useDoc } from '@/firebase';
 import { UserMenu } from './user-menu';
@@ -50,6 +50,13 @@ export function Header({ title }: { title: string }) {
                 </Link>
               </Button>
             )}
+
+            <Button asChild variant="ghost" size="icon">
+              <Link href="/settings">
+                <Settings className="h-5 w-5" />
+                <span className="sr-only">Settings</span>
+              </Link>
+            </Button>
 
             <UserMenu profile={profile} email={sessionUser.email} />
           </>
