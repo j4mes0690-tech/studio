@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo } from './types';
+import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 
 // Widen the global type to include our in-memory data
@@ -13,6 +13,7 @@ declare global {
   var informationRequests: InformationRequest[];
   var distributionUsers: DistributionUser[];
   var subContractors: SubContractor[];
+  var qualityChecklists: QualityChecklist[];
 }
 
 const g: {
@@ -23,6 +24,7 @@ const g: {
   informationRequests: InformationRequest[];
   distributionUsers: DistributionUser[];
   subContractors: SubContractor[];
+  qualityChecklists: QualityChecklist[];
 } = global as any;
 
 
@@ -158,6 +160,24 @@ if (!g.subContractors) {
   ];
 }
 
+if (!g.qualityChecklists) {
+    g.qualityChecklists = [
+        {
+            id: 'qc1',
+            projectId: '101',
+            title: 'Pre-Pour Concrete Inspection',
+            trade: 'Concrete',
+            createdAt: new Date('2023-11-01T09:00:00Z').toISOString(),
+            items: [
+                { id: 'qc1-1', text: 'Formwork is clean and properly oiled.', isCompleted: true },
+                { id: 'qc1-2', text: 'Reinforcement is correctly placed and secured.', isCompleted: true },
+                { id: 'qc1-3', text: 'Embedded items (conduits, pipes) are installed.', isCompleted: false },
+                { id: 'qc1-4', text: 'Waterstops are correctly positioned.', isCompleted: false },
+            ]
+        }
+    ];
+}
+
 
 // Simulate a database with async functions
 export async function getProjects(): Promise<Project[]> {
@@ -258,7 +278,7 @@ export async function removeDistributionUser(userId: string): Promise<{ success:
   });
 }
 
-export async function updateDistributionUser(userData: DistributionUser): Promise<DistributionUser> {
+export async function updateUserAction(userData: DistributionUser): Promise<DistributionUser> {
     noStore();
     return new Promise((resolve, reject) => {
       setTimeout(() => {
@@ -459,6 +479,55 @@ export async function deleteInformationRequest(id: string): Promise<{ success: b
             const initialLength = g.informationRequests.length;
             g.informationRequests = g.informationRequests.filter(item => item.id !== id);
             resolve({ success: g.informationRequests.length < initialLength });
+        }, 500);
+    });
+}
+
+export async function getQualityChecklists({
+    projectId,
+  }: {
+    projectId?: string;
+  }): Promise<QualityChecklist[]> {
+    noStore();
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        let filteredItems = [...g.qualityChecklists];
+        if (projectId) {
+          filteredItems = filteredItems.filter(
+            (i) => i.projectId === projectId
+          );
+        }
+        resolve(filteredItems.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      }, 100);
+    });
+  }
+
+  export async function createQualityChecklist(itemData: Omit<QualityChecklist, 'id' | 'createdAt'>): Promise<QualityChecklist> {
+    noStore();
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            const newItem: QualityChecklist = {
+                ...itemData,
+                id: `qc${g.qualityChecklists.length + 1}`,
+                createdAt: new Date().toISOString(),
+            };
+            g.qualityChecklists = [newItem, ...g.qualityChecklists];
+            resolve(newItem);
+        }, 500);
+    });
+}
+
+export async function updateQualityChecklist(itemData: QualityChecklist): Promise<QualityChecklist> {
+    noStore();
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const index = g.qualityChecklists.findIndex(item => item.id === itemData.id);
+            if (index !== -1) {
+                g.qualityChecklists[index] = itemData;
+                resolve(itemData);
+            } else {
+                reject(new Error('Quality checklist not found'));
+            }
         }, 500);
     });
 }

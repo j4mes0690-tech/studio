@@ -68,3 +68,18 @@ export type SubContractor = {
   name: string;
   email: string;
 };
+
+export type ChecklistItem = {
+  id: string;
+  text: string;
+  isCompleted: boolean;
+};
+
+export type QualityChecklist = {
+  id: string;
+  projectId: string;
+  title: string;
+  trade: string;
+  createdAt: string;
+  items: ChecklistItem[];
+};
