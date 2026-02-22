@@ -5,9 +5,7 @@ import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format } from 'date-fns';
 
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -33,15 +31,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { createInformationRequestAction } from './actions';
-import { PlusCircle, Camera, Upload, X, CalendarIcon } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X } from 'lucide-react';
 import type { Project, DistributionUser, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { DatePicker } from '@/components/date-picker';
 
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -60,7 +58,6 @@ type NewInformationRequestProps = {
 
 export function NewInformationRequest({ projects, distributionUsers }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
-  const [calendarOpen, setCalendarOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<
     boolean | undefined
@@ -260,46 +257,7 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
               control={form.control}
               name="requiredBy"
               render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel>Required By (Optional)</FormLabel>
-                  <Dialog
-                    open={calendarOpen}
-                    onOpenChange={setCalendarOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button
-                        type="button"
-                        variant={'outline'}
-                        className={cn(
-                          'w-[240px] justify-start text-left font-normal',
-                          !field.value && 'text-muted-foreground'
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? (
-                          format(new Date(field.value), 'PPP')
-                        ) : (
-                          <span>Pick a date</span>
-                        )}
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="w-auto p-0">
-                       <DialogHeader className="p-4 pb-0">
-                        <DialogTitle>Pick a date</DialogTitle>
-                      </DialogHeader>
-                      <Calendar
-                        mode="single"
-                        selected={field.value ? new Date(field.value) : undefined}
-                        onSelect={(date) => {
-                          field.onChange(date ? date.toISOString() : undefined);
-                          setCalendarOpen(false);
-                        }}
-                        initialFocus
-                      />
-                    </DialogContent>
-                  </Dialog>
-                  <FormMessage />
-                </FormItem>
+                <DatePicker field={field} label="Required By (Optional)" />
               )}
             />
 
