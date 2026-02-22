@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, AlertTriangle, UserPlus, User, Check } from 'lucide-react';
+import { Pencil, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, AlertTriangle, UserPlus, User } from 'lucide-react';
 import type { Project, SnaggingItem, Photo, Area, SnaggingListItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -42,9 +42,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -92,7 +90,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   const [newItemText, setNewItemText] = useState('');
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
-  const [isSubPopoverOpen, setIsSubPopoverOpen] = useState(false);
   
   // Camera States
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -355,81 +352,46 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                 <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
                 
                 <div className="space-y-2">
-                  <div className="flex gap-2">
-                      <Input 
-                          placeholder="Add another defect..." 
-                          value={newItemText} 
-                          onChange={(e) => setNewItemText(e.target.value)} 
-                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
-                      />
+                  <div className="flex gap-2 items-end">
+                      <div className="flex-1 space-y-1">
+                        <Input 
+                            placeholder="Add another defect..." 
+                            value={newItemText} 
+                            onChange={(e) => setNewItemText(e.target.value)} 
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
+                        />
+                      </div>
                       
-                      <Popover open={isSubPopoverOpen} onOpenChange={setIsSubPopoverOpen}>
-                        <PopoverTrigger asChild>
-                          <Button 
-                            type="button" 
-                            variant={pendingSubId ? "default" : "outline"} 
-                            size="icon"
-                            title="Assign subcontractor"
-                          >
+                      <div className="flex gap-1 flex-shrink-0">
+                        <Select value={pendingSubId || 'unassigned'} onValueChange={(val) => setPendingSubId(val === 'unassigned' ? undefined : val)}>
+                          <SelectTrigger className="w-10 px-0 flex justify-center" title="Assign subcontractor">
                             <UserPlus className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-64 p-0" align="end">
-                          <ScrollArea className="h-64">
-                            <div className="p-1 space-y-1">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                className={cn(
-                                  "w-full justify-start text-xs h-9 px-3",
-                                  !pendingSubId && "bg-accent"
-                                )}
-                                onClick={() => {
-                                  setPendingSubId(undefined);
-                                  setIsSubPopoverOpen(false);
-                                }}
-                              >
-                                None
-                              </Button>
-                              {subContractors.map(sub => (
-                                <Button 
-                                  key={sub.id} 
-                                  type="button"
-                                  variant="ghost"
-                                  className={cn(
-                                    "w-full justify-between text-xs h-9 px-3 text-left font-normal",
-                                    pendingSubId === sub.id && "bg-primary text-primary-foreground hover:bg-primary/90"
-                                  )}
-                                  onClick={() => {
-                                    setPendingSubId(sub.id);
-                                    setIsSubPopoverOpen(false);
-                                  }}
-                                >
-                                  <span className="truncate">{sub.name}</span>
-                                  {pendingSubId === sub.id && <Check className="h-3 w-3 ml-2 flex-shrink-0" />}
-                                </Button>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </PopoverContent>
-                      </Popover>
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {subContractors.map(sub => (
+                              <SelectItem key={sub.id} value={sub.id}>{sub.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
 
-                      <Button 
-                        type="button" 
-                        variant={isItemCameraOpen ? "secondary" : "outline"} 
-                        size="icon" 
-                        onClick={() => {
-                          setIsItemCameraOpen(!isItemCameraOpen);
-                          setIsCameraOpen(false);
-                          setItemPhotoTargetId(null);
-                        }}
-                        title="Take photo for this item"
-                      >
-                        <Camera className="h-4 w-4" />
-                      </Button>
-                      <Button type="button" size="icon" onClick={handleAddItem} title="Add item to list">
-                        <Plus className="h-4 w-4" />
-                      </Button>
+                        <Button 
+                          type="button" 
+                          variant={isItemCameraOpen ? "secondary" : "outline"} 
+                          size="icon" 
+                          onClick={() => {
+                            setIsItemCameraOpen(!isItemCameraOpen);
+                            setIsCameraOpen(false);
+                            setItemPhotoTargetId(null);
+                          }}
+                          title="Take photo for this item"
+                        >
+                          <Camera className="h-4 w-4" />
+                        </Button>
+                        <Button type="button" size="icon" onClick={handleAddItem} title="Add item to list">
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
                   </div>
 
                   {(isItemCameraOpen || itemPhotoTargetId) && (
