@@ -1,8 +1,13 @@
 
+export type Area = {
+  id: string;
+  name: string;
+};
 
 export type Project = {
   id: string;
   name:string;
+  areas?: Area[];
 };
 
 export type Photo = {
@@ -85,4 +90,5 @@ export type QualityChecklist = {
   trade: string;
   createdAt: string;
   items: ChecklistItem[];
+  areaId?: string;
 };

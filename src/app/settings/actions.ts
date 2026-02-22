@@ -3,8 +3,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { addDistributionUser, removeDistributionUser, addSubContractor, removeSubContractor, updateDistributionUser, updateSubContractor, addProject, removeProject } from '@/lib/data';
-import type { DistributionUser, SubContractor } from '@/lib/types';
+import { addDistributionUser, removeDistributionUser, addSubContractor, removeSubContractor, updateDistributionUser, updateSubContractor, addProject, removeProject, getProjects, updateProject } from '@/lib/data';
+import type { DistributionUser, SubContractor, Project } from '@/lib/types';
 
 
 const UserSchema = z.object({
@@ -18,6 +18,11 @@ const UpdateUserSchema = UserSchema.extend({
 
 const ProjectSchema = z.object({
     name: z.string().min(1, 'Project name is required.'),
+});
+
+const UpdateProjectSchema = ProjectSchema.extend({
+    id: z.string().min(1, 'Project ID is required.'),
+    areas: z.string().optional(), // JSON string of Area[]
 });
 
 
@@ -180,7 +185,7 @@ export async function addProjectAction(
     }
 
     try {
-        await addProject(validatedFields.data);
+        await addProject({ name: validatedFields.data.name, areas: [] });
         revalidatePath('/settings');
         revalidatePath('/projects');
         revalidatePath('/', 'layout');
@@ -198,5 +203,44 @@ export async function removeProjectAction(projectId: string) {
         revalidatePath('/', 'layout');
     } catch (error) {
         console.error('Failed to remove project:', error);
+    }
+}
+
+export async function updateProjectAction(formData: FormData): Promise<FormState> {
+    const validatedFields = UpdateProjectSchema.safeParse({
+        id: formData.get('id'),
+        name: formData.get('name'),
+        areas: formData.get('areas'),
+    });
+
+    if (!validatedFields.success) {
+        const errors = validatedFields.error.flatten().fieldErrors;
+        return { success: false, message: errors.name?.[0] || 'Invalid data.' };
+    }
+
+    try {
+        const existingProjects = await getProjects();
+        const projectToUpdate = existingProjects.find(p => p.id === validatedFields.data.id);
+
+        if (!projectToUpdate) {
+            return { success: false, message: 'Project not found.' };
+        }
+
+        const updatedProject: Project = {
+            ...projectToUpdate,
+            name: validatedFields.data.name,
+            areas: validatedFields.data.areas ? JSON.parse(validatedFields.data.areas) : projectToUpdate.areas,
+        };
+
+        await updateProject(updatedProject);
+        
+        revalidatePath('/settings');
+        revalidatePath('/projects');
+        revalidatePath('/quality-control');
+        revalidatePath('/', 'layout');
+        return { success: true, message: 'Project updated successfully.' };
+    } catch (error) {
+        console.error(error);
+        return { success: false, message: 'Failed to update project.' };
     }
 }

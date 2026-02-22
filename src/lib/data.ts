@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist, ChecklistItem } from './types';
+import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist, ChecklistItem, Area } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 
 // Widen the global type to include our in-memory data
@@ -30,11 +30,11 @@ const g: {
 
 if (!g.projects) {
   g.projects = [
-    { id: '101', name: 'Downtown Tower' },
-    { id: '102', name: 'Suburban Mall' },
-    { id: '201', name: 'Riverside Bridge' },
-    { id: '301', name: 'Hilltop Estates' },
-    { id: '302', name: 'Oceanview Villas' },
+    { id: '101', name: 'Downtown Tower', areas: [{id: 'area-101-1', name: 'Externals'}, {id: 'area-101-2', name: 'Level 1'}, {id: 'area-101-3', name: 'Level 2'}] },
+    { id: '102', name: 'Suburban Mall', areas: [] },
+    { id: '201', name: 'Riverside Bridge', areas: [] },
+    { id: '301', name: 'Hilltop Estates', areas: [{id: 'area-301-1', name: 'Plot 1'}, {id: 'area-301-2', name: 'Plot 2'}, {id: 'area-301-3', name: 'Plot 3'}] },
+    { id: '302', name: 'Oceanview Villas', areas: [{id: 'area-302-1', name: 'Villa A'}, {id: 'area-302-2', name: 'Villa B'}] },
   ];
 }
 
@@ -167,6 +167,7 @@ if (!g.qualityChecklists) {
             projectId: '101',
             title: 'Pre-Pour Concrete Inspection',
             trade: 'Concrete',
+            areaId: 'area-101-2',
             createdAt: new Date('2023-11-01T09:00:00Z').toISOString(),
             items: [
                 { id: 'qc1-1', text: 'Formwork is clean and properly oiled.', status: 'yes' },
@@ -210,6 +211,21 @@ export async function removeProject(projectId: string): Promise<{ success: boole
             const initialLength = g.projects.length;
             g.projects = g.projects.filter((project) => project.id !== projectId);
             resolve({ success: g.projects.length < initialLength });
+        }, 100);
+    });
+}
+
+export async function updateProject(projectData: Project): Promise<Project> {
+    noStore();
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const index = g.projects.findIndex(p => p.id === projectData.id);
+            if (index !== -1) {
+                g.projects[index] = projectData;
+                resolve(projectData);
+            } else {
+                reject(new Error('Project not found.'));
+            }
         }, 100);
     });
 }

@@ -4,7 +4,7 @@
 import type { Project } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { removeProjectAction } from './actions';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Pencil } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -17,6 +17,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { EditProjectForm } from './edit-project-form';
+import { Badge } from '@/components/ui/badge';
 
 type ProjectsListProps = {
   projects: Project[];
@@ -34,11 +36,17 @@ export function ProjectsList({ projects }: ProjectsListProps) {
   return (
     <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
       {projects.map((project) => (
-        <div key={project.id} className="flex items-center justify-between p-3 rounded-lg border">
+        <div key={project.id} className="flex items-start justify-between p-3 rounded-lg border">
           <div>
             <p className="font-medium">{project.name}</p>
+            <div className="flex flex-wrap gap-1 mt-2">
+                {(project.areas && project.areas.length > 0) ? project.areas.map(area => (
+                    <Badge key={area.id} variant="secondary">{area.name}</Badge>
+                )) : <p className="text-xs text-muted-foreground">No areas defined</p>}
+            </div>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center flex-shrink-0">
+            <EditProjectForm project={project} />
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="icon" disabled={isPending}>

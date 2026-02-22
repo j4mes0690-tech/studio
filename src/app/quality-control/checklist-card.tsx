@@ -87,6 +87,7 @@ export function ChecklistCard({
   }
 
   const project = projects.find((p) => p.id === checklist.projectId);
+  const area = project?.areas?.find(a => a.id === checklist.areaId);
 
   const completedItems = items.filter((item) => item.status !== 'pending').length;
   const progress = items.length > 0 ? (completedItems / items.length) * 100 : 0;
@@ -97,8 +98,10 @@ export function ChecklistCard({
         <div className="flex justify-between items-start">
           <div>
             <CardTitle>{checklist.title}</CardTitle>
-            <CardDescription className="flex items-center gap-2 pt-1">
+            <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
               <span>{project?.name || 'Unknown Project'}</span>
+              {area && <span className="text-muted-foreground">&gt;</span>}
+              {area && <span>{area.name}</span>}
               <span className="hidden sm:inline-block">-</span>
               <span className="text-xs text-muted-foreground/80">
                 <ClientDate date={checklist.createdAt} />

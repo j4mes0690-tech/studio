@@ -34,7 +34,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { createChecklistAction } from './actions';
 import { PlusCircle, X } from 'lucide-react';
-import type { Project } from '@/lib/types';
+import type { Project, Area } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const trades = ['Plumbing', 'Electrical', 'HVAC', 'Drywall', 'Painting', 'Concrete', 'General'];
@@ -44,6 +44,7 @@ const NewChecklistSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
   trade: z.string().min(1, 'Trade is required.'),
   items: z.string().min(3, 'Checklist must have at least one item.'),
+  areaId: z.string().optional(),
 });
 
 type NewChecklistFormValues = z.infer<typeof NewChecklistSchema>;
@@ -59,6 +60,7 @@ export function NewChecklist({ projects }: NewChecklistProps) {
 
   const [items, setItems] = useState<string[]>([]);
   const [currentItem, setCurrentItem] = useState('');
+  const [projectAreas, setProjectAreas] = useState<Area[]>([]);
 
   const form = useForm<NewChecklistFormValues>({
     resolver: zodResolver(NewChecklistSchema),
@@ -67,8 +69,22 @@ export function NewChecklist({ projects }: NewChecklistProps) {
       title: '',
       trade: '',
       items: '',
+      areaId: '',
     },
   });
+
+  const selectedProjectId = form.watch('projectId');
+
+  useEffect(() => {
+    if (selectedProjectId) {
+        const selectedProject = projects.find(p => p.id === selectedProjectId);
+        setProjectAreas(selectedProject?.areas || []);
+        form.setValue('areaId', '');
+    } else {
+        setProjectAreas([]);
+    }
+  }, [selectedProjectId, projects, form]);
+
 
   useEffect(() => {
     form.setValue('items', JSON.stringify(items));
@@ -97,6 +113,9 @@ export function NewChecklist({ projects }: NewChecklistProps) {
       formData.append('title', values.title);
       formData.append('trade', values.trade);
       formData.append('items', values.items);
+      if (values.areaId) {
+        formData.append('areaId', values.areaId);
+      }
 
       const result = await createChecklistAction(formData);
 
@@ -114,6 +133,7 @@ export function NewChecklist({ projects }: NewChecklistProps) {
       form.reset();
       setItems([]);
       setCurrentItem('');
+      setProjectAreas([]);
     }
   }, [open, form]);
 
@@ -155,6 +175,32 @@ export function NewChecklist({ projects }: NewChecklistProps) {
                     </FormItem>
                 )}
                 />
+
+                <FormField
+                    control={form.control}
+                    name="areaId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Area (Optional)</FormLabel>
+                        <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value}
+                            disabled={!selectedProjectId || projectAreas.length === 0}
+                        >
+                            <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Select an area" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {projectAreas.map((area) => (
+                                <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
                 <FormField
                 control={form.control}
                 name="title"

@@ -11,6 +11,7 @@ const NewChecklistSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
   trade: z.string().min(1, 'Trade is required.'),
   items: z.string().min(3, 'Checklist must have at least one item.'), // JSON string of string[]
+  areaId: z.string().optional(),
 });
 
 const UpdateChecklistItemsSchema = z.object({
@@ -30,6 +31,7 @@ export async function createChecklistAction(formData: FormData): Promise<FormSta
     title: formData.get('title'),
     trade: formData.get('trade'),
     items: formData.get('items'),
+    areaId: formData.get('areaId'),
   });
 
   if (!validatedFields.success) {
@@ -54,6 +56,7 @@ export async function createChecklistAction(formData: FormData): Promise<FormSta
       title: validatedFields.data.title,
       trade: validatedFields.data.trade,
       items: newItems.map((item, index) => ({ ...item, id: `item-${Date.now()}-${index}`})),
+      areaId: validatedFields.data.areaId || undefined,
     };
     
     await createQualityChecklist(newChecklistData);
