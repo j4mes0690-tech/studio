@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { useTransition } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +12,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
-import { logoutAction } from '@/app/logout/actions';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -27,7 +25,6 @@ function getInitials(name?: string) {
 
 export function UserMenu({ user }: { user: DistributionUser }) {
     const initials = getInitials(user?.name);
-    const [isPending, startTransition] = useTransition();
     
     return (
         <DropdownMenu>
@@ -49,12 +46,8 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                    onSelect={() => startTransition(() => logoutAction())} 
-                    disabled={isPending}
-                    className="cursor-pointer"
-                >
-                    Log Out
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <a href="/api/logout">Log Out</a>
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
