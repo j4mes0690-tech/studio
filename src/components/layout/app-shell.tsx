@@ -1,12 +1,12 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layout/sidebar';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  // We can add logic here to determine whether to show the sidebar or not
-  // e.g. for auth pages
-  const showSidebar = true;
+  const pathname = usePathname();
+  const showSidebar = pathname !== '/login';
 
   if (!showSidebar) {
     return <>{children}</>;

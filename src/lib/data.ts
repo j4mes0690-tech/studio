@@ -147,9 +147,9 @@ if (!g.informationRequests) {
 
 if (!g.distributionUsers) {
   g.distributionUsers = [
-    { id: 'user-1', name: 'Project Manager', email: 'pm@example.com', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
-    { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
-    { id: 'user-3', name: 'Lead Engineer', email: 'engineer@example.com', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
+    { id: 'user-1', name: 'Project Manager', email: 'pm@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
+    { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
+    { id: 'user-3', name: 'Lead Engineer', email: 'engineer@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
   ];
 }
 
