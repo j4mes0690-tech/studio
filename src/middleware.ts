@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
   const userId = request.cookies.get('userId')?.value;
   const { pathname } = request.nextUrl;
 
-  const publicPaths = ['/login', '/logout'];
+  const publicPaths = ['/login'];
 
   // If the user is logged in and is trying to access the login page,
   // redirect them to the dashboard.

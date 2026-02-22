@@ -1,7 +1,7 @@
 'use client';
 
-import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,8 +16,40 @@ import { Logo } from '@/components/logo';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function LoginPageContent() {
+    const router = useRouter();
     const searchParams = useSearchParams();
-    const error = searchParams.get('error');
+    const initialError = searchParams.get('error');
+    const [error, setError] = useState<string | null>(initialError);
+    const [isPending, startTransition] = useTransition();
+
+    const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        setError(null);
+        startTransition(async () => {
+            const formData = new FormData(event.currentTarget);
+            const email = formData.get('email') as string;
+            const password = formData.get('password') as string;
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    router.push('/');
+                    router.refresh();
+                } else {
+                    setError(result.error || 'Login failed.');
+                }
+            } catch (e) {
+                setError('An unexpected error occurred.');
+            }
+        });
+    };
 
     return (
         <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 p-4">
@@ -30,7 +62,7 @@ function LoginPageContent() {
                 <CardDescription>Enter your credentials to access your account.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <form action="/api/login" method="POST" className="space-y-4">
+                    <form onSubmit={handleSubmit} className="space-y-4">
                         {error && (
                             <Alert variant="destructive">
                                 <AlertTitle>Login Failed</AlertTitle>
@@ -45,6 +77,7 @@ function LoginPageContent() {
                                 type="email"
                                 placeholder="john.doe@example.com"
                                 required
+                                disabled={isPending}
                             />
                         </div>
                         <div className="space-y-2">
@@ -55,10 +88,11 @@ function LoginPageContent() {
                                 type="password"
                                 placeholder="••••••••"
                                 required
+                                disabled={isPending}
                             />
                         </div>
-                        <Button type="submit" className="w-full">
-                            Log In
+                        <Button type="submit" className="w-full" disabled={isPending}>
+                            {isPending ? 'Logging in...' : 'Log In'}
                         </Button>
                     </form>
                 </CardContent>
