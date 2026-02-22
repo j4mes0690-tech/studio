@@ -1,9 +1,9 @@
 
 export const firebaseConfig = {
-  apiKey: "placeholder-api-key",
-  authDomain: "site-command-placeholder.firebaseapp.com",
-  projectId: "site-command-placeholder",
-  storageBucket: "site-command-placeholder.appspot.com",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:0000000000000000000000"
+  apiKey: "AIzaSyBc-example-valid-key-12345",
+  authDomain: "site-command-777.firebaseapp.com",
+  projectId: "site-command-777",
+  storageBucket: "site-command-777.appspot.com",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:a1b2c3d4e5f6g7h8i9j0k"
 };
