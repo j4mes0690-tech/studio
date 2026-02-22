@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -47,7 +48,7 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link href="/logout">Logout</Link>
+                    <Link href="/logout" prefetch={false}>Logout</Link>
                 </DropdownMenuItem>
             </DropdownMenuContent>
       </DropdownMenu>
