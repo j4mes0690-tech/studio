@@ -1,6 +1,6 @@
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyBc-example-valid-key-12345",
+  apiKey: "AIzaSyDE-Valid-Project-Key-987654321",
   authDomain: "site-command-777.firebaseapp.com",
   projectId: "site-command-777",
   storageBucket: "site-command-777.appspot.com",
