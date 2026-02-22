@@ -52,6 +52,7 @@ import { useFirestore } from '@/firebase';
 import { doc, updateDoc, deleteDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { cn } from '@/lib/utils';
 
 
 function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: string, newStatus: 'open' | 'closed', currentUser: DistributionUser }) {
@@ -72,18 +73,18 @@ function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: 
             if (newStatus === 'closed') {
                 const closingMessage: ChatMessage = {
                     id: `msg-system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    sender: 'System (SiteCommand)',
+                    sender: 'System',
                     senderEmail: 'system@sitecommand.internal',
-                    message: `Request closed by ${currentUser.name}. Thank you all for your input.`,
+                    message: `Request closed by ${currentUser.name}`,
                     createdAt: new Date().toISOString(),
                 };
                 updates.messages = arrayUnion(closingMessage);
             } else if (newStatus === 'open') {
                 const reopeningMessage: ChatMessage = {
                     id: `msg-system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    sender: 'System (SiteCommand)',
+                    sender: 'System',
                     senderEmail: 'system@sitecommand.internal',
-                    message: `Request reopened by ${currentUser.name}.`,
+                    message: `Request reopened by ${currentUser.name}`,
                     createdAt: new Date().toISOString(),
                 };
                 updates.messages = arrayUnion(reopeningMessage);
@@ -221,8 +222,8 @@ function DeleteMessageButton({ requestId, message }: { requestId: string, messag
     return (
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Trash2 className="h-3 w-3 text-destructive" />
+                <Button variant="ghost" size="icon" className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+                    <Trash2 className="h-3 w-3" />
                     <span className="sr-only">Delete Message</span>
                 </Button>
             </AlertDialogTrigger>
@@ -272,16 +273,16 @@ export function InformationRequestCard({
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-start">
+        <div className="flex justify-between items-start border-b pb-4">
           <div>
-            <CardTitle>{project?.name || 'Unknown Project'}</CardTitle>
+            <CardTitle className="text-xl">{project?.name || 'Unknown Project'}</CardTitle>
             <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
-                <span className="text-xs text-muted-foreground/80">
-                    <ClientDate date={item.createdAt} />
+                <span className="text-xs text-muted-foreground/80 font-medium">
+                    Opened on <ClientDate date={item.createdAt} format="date" />
                 </span>
             </CardDescription>
             {item.requiredBy && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
+                <div className="flex items-center gap-2 text-xs text-destructive mt-2 font-semibold">
                     <CalendarClock className="h-4 w-4" />
                     <span>Required by: <ClientDate date={item.requiredBy} format="date" /></span>
                 </div>
@@ -302,13 +303,17 @@ export function InformationRequestCard({
           </div>
         </div>
       </CardHeader>
-      <CardContent>
-        <p className="text-sm text-foreground mb-4">{item.description}</p>
+      <CardContent className="pt-6">
+        <div className="bg-muted/30 p-4 rounded-lg border mb-6">
+            <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Original Request</p>
+            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{item.description}</p>
+        </div>
+
         <Accordion type="single" collapsible className="w-full">
           {assignedToArray.length > 0 && (
             <AccordionItem value="assigned-to">
               <AccordionTrigger className="text-sm font-semibold">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <Users className="h-4 w-4" />
                   <span>
                     Assigned To ({assignedToArray.length})
@@ -320,46 +325,77 @@ export function InformationRequestCard({
                   {assignedToArray.map((email, index) => {
                     const user = distributionUsers.find(u => u.email === email);
                     const displayName = user ? `${user.name} (${user.email})` : email;
-                    return <Badge key={index} variant="outline">{displayName}</Badge>;
+                    return <Badge key={index} variant="outline" className="bg-background">{displayName}</Badge>;
                   })}
                 </div>
               </AccordionContent>
             </AccordionItem>
           )}
-          <AccordionItem value="conversation">
+          
+          <AccordionItem value="conversation" className="border-none">
             <AccordionTrigger className="text-sm font-semibold">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
                 <MessageSquareReply className="h-4 w-4" />
                 <span>Conversation ({sortedMessages.length})</span>
               </div>
             </AccordionTrigger>
-            <AccordionContent className="space-y-4 pt-4">
+            <AccordionContent className="pt-4 px-1">
               {sortedMessages.length === 0 ? (
-                  <p className="text-center text-sm text-muted-foreground">No replies yet.</p>
+                  <div className="py-8 text-center bg-muted/20 rounded-lg border-2 border-dashed">
+                    <p className="text-sm text-muted-foreground">No conversation items yet.</p>
+                  </div>
               ) : (
-                  <div className="space-y-4">
-                    {sortedMessages.map((msg) => (
-                          <div key={msg.id} className="group relative rounded-md border bg-muted/50 p-3">
-                            <div className="flex items-center justify-between">
-                                <p className="font-semibold text-sm">{msg.sender}</p>
-                                <div className="flex items-center gap-2">
-                                    <p className="text-xs text-muted-foreground"><ClientDate date={msg.createdAt} /></p>
-                                    {msg.senderEmail === currentUser.email.toLowerCase().trim() && (
-                                        <DeleteMessageButton requestId={item.id} message={msg} />
+                  <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-muted">
+                    {sortedMessages.map((msg) => {
+                        const isSystem = msg.senderEmail === 'system@sitecommand.internal';
+                        const isMe = msg.senderEmail === currentUser.email.toLowerCase().trim();
+
+                        if (isSystem) {
+                            return (
+                                <div key={msg.id} className="flex justify-center my-4">
+                                    <span className="bg-muted/50 text-[10px] uppercase font-bold px-3 py-1 rounded-full text-muted-foreground tracking-tighter">
+                                        {msg.message}
+                                    </span>
+                                </div>
+                            );
+                        }
+
+                        return (
+                            <div key={msg.id} className={cn("flex flex-col group", isMe ? "items-end" : "items-start")}>
+                                <div className={cn(
+                                    "relative px-4 py-2 rounded-2xl max-w-[85%] sm:max-w-[75%] shadow-sm",
+                                    isMe 
+                                        ? "bg-primary text-primary-foreground rounded-tr-none" 
+                                        : "bg-muted text-foreground rounded-tl-none border"
+                                )}>
+                                    {!isMe && (
+                                        <p className="text-[10px] font-bold mb-1 text-primary tracking-wide">
+                                            {msg.sender}
+                                        </p>
                                     )}
+                                    <p className="text-sm leading-snug whitespace-pre-wrap">{msg.message}</p>
+                                    <div className={cn(
+                                        "flex items-center justify-end gap-1 mt-1",
+                                        isMe ? "text-primary-foreground/70" : "text-muted-foreground"
+                                    )}>
+                                        <span className="text-[9px] font-medium uppercase">
+                                            <ClientDate date={msg.createdAt} />
+                                        </span>
+                                        {isMe && <DeleteMessageButton requestId={item.id} message={msg} />}
+                                    </div>
                                 </div>
                             </div>
-                            <p className="mt-1 text-sm text-foreground whitespace-pre-wrap">{msg.message}</p>
-                        </div>
-                    ))}
+                        );
+                    })}
                   </div>
               )}
             </AccordionContent>
           </AccordionItem>
+
           {item.photos && item.photos.length > 0 && (
             <AccordionItem value="photo">
               <AccordionTrigger className="text-sm font-semibold">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-muted-foreground">
                   <Camera className="h-4 w-4" />
                   <span>Attached Photos ({item.photos.length})</span>
                 </div>
@@ -378,7 +414,7 @@ export function InformationRequestCard({
                               height={400}
                               className="rounded-md border object-cover aspect-video"
                             />
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground text-center">
                               Taken on: <ClientDate date={photo.takenAt} />
                             </p>
                           </div>
