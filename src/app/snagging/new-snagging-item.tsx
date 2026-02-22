@@ -212,7 +212,7 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                     <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
                     <VoiceInput 
                         onResult={(text) => {
-                            setNewItemText(prev => prev ? `${prev} ${text}` : text);
+                            setNewItemText(text);
                         }} 
                     />
                 </div>

@@ -213,8 +213,7 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
                     <FormLabel>Instruction Text</FormLabel>
                     <VoiceInput 
                       onResult={(text) => {
-                        const current = form.getValues('originalText');
-                        form.setValue('originalText', current ? `${current} ${text}` : text);
+                        form.setValue('originalText', text);
                       }} 
                     />
                   </div>

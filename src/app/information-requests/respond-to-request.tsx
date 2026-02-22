@@ -185,8 +185,7 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
                 </div>
                 <VoiceInput 
                   onResult={(text) => {
-                    const current = form.getValues('message');
-                    form.setValue('message', current ? `${current} ${text}` : text);
+                    form.setValue('message', text);
                   }}
                 />
             </div>

@@ -194,8 +194,7 @@ export function NewNotice({ projects, subContractors }: NewNoticeProps) {
                     <FormLabel>Description of Issue</FormLabel>
                     <VoiceInput 
                       onResult={(text) => {
-                        const current = form.getValues('description');
-                        form.setValue('description', current ? `${current} ${text}` : text);
+                        form.setValue('description', text);
                       }} 
                     />
                   </div>

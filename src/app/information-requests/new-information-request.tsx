@@ -201,8 +201,7 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
                     <FormLabel>Information Requested</FormLabel>
                     <VoiceInput 
                       onResult={(text) => {
-                        const current = form.getValues('description');
-                        form.setValue('description', current ? `${current} ${text}` : text);
+                        form.setValue('description', text);
                       }} 
                     />
                   </div>
