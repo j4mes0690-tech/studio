@@ -45,10 +45,6 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                 <DropdownMenuItem asChild className="cursor-pointer">
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <a href="/logout">Logout</a>
-                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );
