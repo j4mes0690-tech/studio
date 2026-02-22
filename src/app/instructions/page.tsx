@@ -1,26 +1,48 @@
 
+'use client';
+
 import { Header } from '@/components/layout/header';
 import { getProjects, getInstructions, getDistributionUsers } from '@/lib/data';
 import { InstructionCard } from './instruction-card';
 import { NewInstruction } from './new-instruction';
 import { InstructionFilters } from './instruction-filters';
 import { ExportButton } from './export-button';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import type { Instruction, Project, DistributionUser } from '@/lib/types';
+import { Loader2 } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+export default function InstructionsPage() {
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get('project') || undefined;
 
-export default async function InstructionsPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
-  const projectId =
-    typeof searchParams.project === 'string' ? searchParams.project : undefined;
+  const [instructions, setInstructions] = useState<Instruction[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [distributionUsers, setDistributionUsers] = useState<DistributionUser[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [instructions, allProjects, distributionUsers] = await Promise.all([
-    getInstructions({ projectId }),
-    getProjects(),
-    getDistributionUsers(),
-  ]);
+  useEffect(() => {
+    async function loadData() {
+      const [inst, proj, users] = await Promise.all([
+        getInstructions({ projectId }),
+        getProjects(),
+        getDistributionUsers(),
+      ]);
+      setInstructions(inst);
+      setAllProjects(proj);
+      setDistributionUsers(users);
+      setLoading(false);
+    }
+    loadData();
+  }, [projectId]);
+
+  if (loading) {
+    return (
+        <div className="flex flex-col w-full h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full min-h-screen">

@@ -1,3 +1,6 @@
+
+'use client';
+
 import { Header } from '@/components/layout/header';
 import { getProjects, getInstructions } from '@/lib/data';
 import {
@@ -16,13 +19,35 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { useEffect, useState } from 'react';
 import type { Project, Instruction } from '@/lib/types';
+import { Loader2 } from 'lucide-react';
 
-export default async function ProjectsPage() {
-  const [projects, instructions] = await Promise.all([
-    getProjects(),
-    getInstructions({}),
-  ]);
+export default function ProjectsPage() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [instructions, setInstructions] = useState<Instruction[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      const [proj, inst] = await Promise.all([
+        getProjects(),
+        getInstructions({}),
+      ]);
+      setProjects(proj);
+      setInstructions(inst);
+      setLoading(false);
+    }
+    loadData();
+  }, []);
+
+  if (loading) {
+    return (
+        <div className="flex flex-col w-full h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full">

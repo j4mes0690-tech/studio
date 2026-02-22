@@ -599,9 +599,19 @@ export async function assignChecklistToProject(
 
 export async function getCurrentUser(): Promise<DistributionUser | null> {
     noStore();
-    // Return null since we are using Firebase client SDK for auth.
-    // The UI will handle the auth state.
+    // In this non-cookie version, the client will pass the user email to other functions
+    // or we fetch the profile separately on the client.
     return null;
+}
+
+export async function getDistributionUserByEmail(email: string): Promise<DistributionUser | null> {
+  noStore();
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      const user = g.distributionUsers.find(u => u.email === email);
+      resolve(user || null);
+    }, 100);
+  });
 }
 
 export async function deleteQualityChecklist(id: string): Promise<{ success: boolean }> {

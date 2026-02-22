@@ -1,25 +1,45 @@
 
+'use client';
+
 import { Header } from '@/components/layout/header';
 import { getProjects, getSnaggingLists } from '@/lib/data';
 import { SnaggingItemCard } from './snagging-card';
 import { NewSnaggingItem } from './new-snagging-item';
 import { SnaggingFilters } from './snagging-filters';
 import { ExportButton } from './export-button';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import type { SnaggingItem, Project } from '@/lib/types';
+import { Loader2 } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+export default function SnaggingPage() {
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get('project') || undefined;
 
-export default async function SnaggingPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
-  const projectId =
-    typeof searchParams.project === 'string' ? searchParams.project : undefined;
+  const [items, setItems] = useState<SnaggingItem[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [items, allProjects] = await Promise.all([
-    getSnaggingLists({ projectId }),
-    getProjects(),
-  ]);
+  useEffect(() => {
+    async function loadData() {
+      const [snags, proj] = await Promise.all([
+        getSnaggingLists({ projectId }),
+        getProjects(),
+      ]);
+      setItems(snags);
+      setAllProjects(proj);
+      setLoading(false);
+    }
+    loadData();
+  }, [projectId]);
+
+  if (loading) {
+    return (
+        <div className="flex flex-col w-full h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full min-h-screen">

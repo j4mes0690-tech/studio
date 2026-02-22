@@ -1,26 +1,48 @@
 
+'use client';
+
 import { Header } from '@/components/layout/header';
 import { getProjects, getCleanUpNotices, getSubContractors } from '@/lib/data';
 import { NoticeCard } from './notice-card';
 import { NewNotice } from './new-notice';
 import { NoticeFilters } from './notice-filters';
 import { ExportButton } from './export-button';
+import { useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import type { CleanUpNotice, Project, SubContractor } from '@/lib/types';
+import { Loader2 } from 'lucide-react';
 
-export const dynamic = 'force-dynamic';
+export default function CleanUpNoticesPage() {
+  const searchParams = useSearchParams();
+  const projectId = searchParams.get('project') || undefined;
 
-export default async function CleanUpNoticesPage({
-  searchParams,
-}: {
-  searchParams: { [key: string]: string | string[] | undefined };
-}) {
-  const projectId =
-    typeof searchParams.project === 'string' ? searchParams.project : undefined;
+  const [notices, setNotices] = useState<CleanUpNotice[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [subContractors, setSubContractors] = useState<SubContractor[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [notices, allProjects, subContractors] = await Promise.all([
-    getCleanUpNotices({ projectId }),
-    getProjects(),
-    getSubContractors(),
-  ]);
+  useEffect(() => {
+    async function loadData() {
+      const [nots, proj, subs] = await Promise.all([
+        getCleanUpNotices({ projectId }),
+        getProjects(),
+        getSubContractors(),
+      ]);
+      setNotices(nots);
+      setAllProjects(proj);
+      setSubContractors(subs);
+      setLoading(false);
+    }
+    loadData();
+  }, [projectId]);
+
+  if (loading) {
+    return (
+        <div className="flex flex-col w-full h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col w-full min-h-screen">
