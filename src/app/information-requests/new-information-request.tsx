@@ -284,6 +284,9 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="w-auto p-0">
+                       <DialogHeader className="p-4 pb-0">
+                        <DialogTitle>Pick a date</DialogTitle>
+                      </DialogHeader>
                       <Calendar
                         mode="single"
                         selected={field.value ? new Date(field.value) : undefined}
