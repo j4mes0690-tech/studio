@@ -9,7 +9,7 @@ export function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           <div className="flex flex-col items-center text-center">
             <h1 className="text-4xl font-bold tracking-tight text-primary">SiteCommand</h1>
-            <p className="mt-2 text-muted-foreground">Log in to manage your construction site records.</p>
+            <p className="mt-2 text-muted-foreground">Manage your construction site records internally.</p>
           </div>
           <LoginForm />
         </div>

@@ -3,14 +3,15 @@
   "entities": {
     "DistributionUser": {
       "title": "DistributionUser",
-      "description": "A user profile with system permissions. The document ID should be the user's email or UID.",
+      "description": "A user profile with system permissions and internal credentials.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
+        "password": { "type": "string", "description": "Internal system password for the user." },
         "permissions": { "$ref": "#/entities/UserPermissions" }
       },
-      "required": ["name", "email"]
+      "required": ["name", "email", "password"]
     },
     "UserPermissions": {
       "title": "UserPermissions",
@@ -30,7 +31,7 @@
   "firestore": {
     "/users/{userEmail}": {
       "schema": "DistributionUser",
-      "description": "User profiles and permissions, keyed by email for easy lookup in distribution lists."
+      "description": "User profiles and credentials, keyed by email for internal system access."
     }
   }
 }

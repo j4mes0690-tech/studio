@@ -39,6 +39,7 @@ const EditUserSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
+  password: z.string().min(6, 'Password must be at least 6 characters.'),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -63,6 +64,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
       id: user.id,
       name: user.name,
       email: user.email,
+      password: user.password || '',
       canManageUsers: user.permissions?.canManageUsers || false,
       canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
       canManageProjects: user.permissions?.canManageProjects || false,
@@ -76,6 +78,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
         id: user.id,
         name: user.name,
         email: user.email,
+        password: user.password || '',
         canManageUsers: user.permissions?.canManageUsers || false,
         canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
         canManageProjects: user.permissions?.canManageProjects || false,
@@ -86,11 +89,11 @@ export function EditUserForm({ user }: EditUserFormProps) {
 
   const onSubmit = (values: EditUserFormValues) => {
     startTransition(async () => {
-      const docId = user.id || user.email; // Fallback to email if id is missing
+      const docId = user.id || user.email;
       const docRef = doc(db, 'users', docId);
       const updates = {
         name: values.name,
-        email: values.email.toLowerCase().trim(),
+        password: values.password,
         permissions: {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,
@@ -101,7 +104,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
 
       updateDoc(docRef, updates)
         .then(() => {
-          toast({ title: 'Success', description: 'User profile updated successfully.' });
+          toast({ title: 'Success', description: 'User profile and password updated.' });
           setOpen(false);
         })
         .catch(async (error) => {
@@ -127,7 +130,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
         <DialogHeader>
           <DialogTitle>Edit User Profile</DialogTitle>
           <DialogDescription>
-            Update permissions for {user.name}.
+            Update credentials and permissions for {user.name}.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -158,7 +161,20 @@ export function EditUserForm({ user }: EditUserFormProps) {
                   <FormControl>
                     <Input {...field} readOnly />
                   </FormControl>
-                  <FormDescription>Email cannot be changed after creation.</FormDescription>
+                  <FormDescription>Internal login identity.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Password</FormLabel>
+                  <FormControl>
+                    <Input type="password" {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -175,7 +191,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
                         <div className="space-y-0.5">
                             <FormLabel>Manage Users</FormLabel>
                             <FormDescription>
-                                Can add, edit, and remove users.
+                                Can add, edit, and remove users and credentials.
                             </FormDescription>
                         </div>
                         <FormControl>

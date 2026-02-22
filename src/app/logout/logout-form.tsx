@@ -4,24 +4,20 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useAuth } from '@/firebase';
-import { signOut } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
 export function LogoutForm() {
-  const auth = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleLogout = async () => {
-    if (!auth) return;
     setIsLoading(true);
-    setError(null);
     try {
-      await signOut(auth);
+      // Clear the custom system session
+      localStorage.removeItem('sitecommand_session_email');
+      // Redirect to login page
+      window.location.href = '/login';
     } catch (err: any) {
-      console.error(err);
-      setError('Failed to log out. Please try again.');
+      console.error('Logout Error:', err);
     } finally {
       setIsLoading(false);
     }
@@ -45,9 +41,6 @@ export function LogoutForm() {
        <Button variant="outline" asChild className="w-full">
         <Link href="/">Cancel</Link>
       </Button>
-      {error && (
-        <p className="text-sm text-destructive text-center">{error}</p>
-      )}
     </div>
   );
 }

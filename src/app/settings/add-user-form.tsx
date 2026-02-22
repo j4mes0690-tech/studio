@@ -27,6 +27,7 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 const AddUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
+  password: z.string().min(6, 'Password must be at least 6 characters.'),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -45,6 +46,7 @@ export function AddUserForm() {
     defaultValues: {
       name: '',
       email: '',
+      password: '',
       canManageUsers: false,
       canManageSubcontractors: false,
       canManageProjects: false,
@@ -56,9 +58,10 @@ export function AddUserForm() {
     startTransition(async () => {
       const email = values.email.toLowerCase().trim();
       const profile = {
-        id: email, // Use email as ID for simple lookup
+        id: email,
         name: values.name,
         email: email,
+        password: values.password,
         permissions: {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,
@@ -71,7 +74,7 @@ export function AddUserForm() {
       
       setDoc(docRef, profile)
         .then(() => {
-          toast({ title: 'Success', description: 'User profile created. Remember to add their login in the Firebase Console.' });
+          toast({ title: 'Success', description: 'User profile and credentials created.' });
           form.reset();
         })
         .catch(async (error) => {
@@ -117,6 +120,19 @@ export function AddUserForm() {
             </FormItem>
           )}
         />
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="System password" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <Separator />
         <div className="space-y-4">
           <FormLabel>Admin Permissions</FormLabel>
@@ -128,7 +144,7 @@ export function AddUserForm() {
                     <div className="space-y-0.5">
                         <FormLabel>Manage Users</FormLabel>
                         <FormDescription>
-                            Can add, edit, and remove users.
+                            Can add, edit, and remove users and credentials.
                         </FormDescription>
                     </div>
                     <FormControl>
