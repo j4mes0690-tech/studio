@@ -26,7 +26,7 @@ const g: {
   distributionUsers: DistributionUser[];
   subContractors: SubContractor[];
   qualityChecklists: QualityChecklist[];
-} = global as any;
+} = globalThis as any;
 
 
 // NOTE: In a real application, this data would be in a database.

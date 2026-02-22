@@ -18,7 +18,8 @@ export async function setSession(userId: string) {
 }
 
 export async function getSession(): Promise<DistributionUser | null> {
-    const userId = cookies().get(SESSION_COOKIE_NAME)?.value;
+    const session = cookies();
+    const userId = session.get(SESSION_COOKIE_NAME)?.value;
 
     if (!userId) {
         return null;
@@ -27,9 +28,18 @@ export async function getSession(): Promise<DistributionUser | null> {
     try {
         const users = await getDistributionUsers();
         const user = users.find(u => u.id === userId);
-        return user || null;
+        
+        if (!user) {
+            // The user ID in the cookie is invalid (e.g., user was deleted).
+            // Clear the invalid cookie and treat the user as logged out.
+            session.delete(SESSION_COOKIE_NAME);
+            return null;
+        }
+
+        return user;
     } catch (error) {
         console.error('Failed to get users for session validation:', error);
+        // On error, assume session is invalid.
         return null;
     }
 }
