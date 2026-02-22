@@ -33,7 +33,6 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { updateInformationRequestAction } from './actions';
 import { Pencil, Camera, Upload, X } from 'lucide-react';
 import type { Project, InformationRequest, DistributionUser, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -41,13 +40,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DatePicker } from '@/components/date-picker';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const EditInformationRequestSchema = z.object({
   id: z.string().min(1),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
-  photos: z.string().optional(),
   requiredBy: z.string().optional(),
 });
 
@@ -66,6 +68,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
     boolean | undefined
   >();
   const { toast } = useToast();
+  const db = useFirestore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -85,42 +88,42 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
       projectId: item.projectId,
       description: item.description,
       assignedTo: assignedUserIds,
-      photos: JSON.stringify(item.photos || []),
       requiredBy: item.requiredBy,
     },
   });
 
-  useEffect(() => {
-    form.setValue('photos', JSON.stringify(photos));
-  }, [photos, form]);
-
   const onSubmit = (values: EditInformationRequestFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('id', values.id);
-      formData.append('projectId', values.projectId);
-      formData.append('description', values.description);
-      values.assignedTo.forEach(id => formData.append('assignedTo', id));
-      formData.append('photos', values.photos || '[]');
-      if (values.requiredBy) {
-        formData.append('requiredBy', values.requiredBy);
-      }
-      
-      const result = await updateInformationRequestAction(formData);
+      const assignedEmails = distributionUsers
+        .filter(u => values.assignedTo.includes(u.id))
+        .map(u => u.email);
 
-      if (result.success) {
-        toast({
-          title: 'Success',
-          description: result.message,
+      const updates = {
+        projectId: values.projectId,
+        description: values.description,
+        assignedTo: assignedEmails,
+        photos: photos,
+        requiredBy: values.requiredBy || null,
+      };
+
+      const docRef = doc(db, 'information-requests', values.id);
+      
+      updateDoc(docRef, updates)
+        .then(() => {
+          toast({
+            title: 'Success',
+            description: 'Information request updated.',
+          });
+          setOpen(false);
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
-        setOpen(false);
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message,
-          variant: 'destructive',
-        });
-      }
     });
   };
 
@@ -136,7 +139,6 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
         projectId: item.projectId,
         description: item.description,
         assignedTo: assignedUserIdsOnReset,
-        photos: JSON.stringify(item.photos || []),
         requiredBy: item.requiredBy,
       });
       setPhotos(item.photos || []);
@@ -155,14 +157,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
           videoRef.current.srcObject = stream;
         }
       } catch (error) {
-        console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description:
-            'Please enable camera permissions in your browser settings to use this feature.',
-        });
       }
     };
 
@@ -173,7 +168,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
     return () => {
       stream?.getTracks().forEach((track) => track.stop());
     };
-  }, [isCameraOpen, toast]);
+  }, [isCameraOpen]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -242,7 +237,6 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
             className="space-y-4"
           >
             <input type="hidden" {...form.register('id')} />
-            <input type="hidden" {...form.register('photos')} />
             
             <FormField
               control={form.control}
