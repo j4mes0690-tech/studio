@@ -15,7 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User, Upload, X, AlertTriangle } from 'lucide-react';
+import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User, Upload, X, AlertTriangle, Maximize2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditSnaggingItem } from '@/app/snagging/edit-snagging-item';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
@@ -73,6 +73,9 @@ export function SnaggingItemCard({
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+
+  // Lightbox State
+  const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
   // Completion Dialog State
   const [completingItem, setCompletingItem] = useState<SnaggingListItem | null>(null);
@@ -294,8 +297,11 @@ export function SnaggingItemCard({
                             {subItem.photos && subItem.photos.length > 0 && (
                               <div className="flex flex-wrap gap-2">
                                 {subItem.photos.map((p, idx) => (
-                                  <div key={idx} className="relative w-16 h-12">
+                                  <div key={idx} className="relative w-16 h-12 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setViewingPhoto(p)}>
                                     <Image src={p.url} alt="Defect" fill className="rounded object-cover border" />
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity rounded">
+                                        <Maximize2 className="h-4 w-4 text-white" />
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -305,8 +311,11 @@ export function SnaggingItemCard({
                                 <p className="text-[9px] font-bold text-green-600 uppercase tracking-tighter">Completion Visual</p>
                                 <div className="flex flex-wrap gap-2">
                                   {subItem.completionPhotos.map((p, idx) => (
-                                    <div key={idx} className="relative w-16 h-12">
+                                    <div key={idx} className="relative w-16 h-12 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setViewingPhoto(p)}>
                                       <Image src={p.url} alt="Fixed" fill className="rounded object-cover border border-green-200" />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100 transition-opacity rounded">
+                                        <Maximize2 className="h-4 w-4 text-white" />
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
@@ -335,14 +344,19 @@ export function SnaggingItemCard({
                       <CarouselItem key={index}>
                         <div className="p-1">
                            <div className="space-y-2">
-                            <Image
-                              src={photo.url}
-                              alt={`Snagging item photo ${index + 1}`}
-                              width={600}
-                              height={400}
-                              className="rounded-md border object-cover aspect-video"
-                              data-ai-hint="construction defect"
-                            />
+                            <div className="relative cursor-pointer hover:opacity-95 transition-opacity" onClick={() => setViewingPhoto(photo)}>
+                                <Image
+                                src={photo.url}
+                                alt={`Snagging item photo ${index + 1}`}
+                                width={600}
+                                height={400}
+                                className="rounded-md border object-cover aspect-video"
+                                data-ai-hint="construction defect"
+                                />
+                                <div className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full text-white">
+                                    <Maximize2 className="h-4 w-4" />
+                                </div>
+                            </div>
                             <p className="text-xs text-muted-foreground text-center">
                               Taken on: <ClientDate date={photo.takenAt} />
                             </p>
@@ -363,6 +377,41 @@ export function SnaggingItemCard({
           )}
         </Accordion>
       </CardContent>
+
+      {/* Lightbox Dialog */}
+      <Dialog open={!!viewingPhoto} onOpenChange={(open) => !open && setViewingPhoto(null)}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-black/95 border-none">
+            <DialogHeader className="sr-only">
+                <DialogTitle>View Photo</DialogTitle>
+            </DialogHeader>
+            {viewingPhoto && (
+                <div className="relative w-full aspect-video md:aspect-[16/10] flex items-center justify-center">
+                    <Image 
+                        src={viewingPhoto.url} 
+                        alt="Site Photo Full" 
+                        fill 
+                        className="object-contain"
+                        priority
+                    />
+                    <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center text-white/80 text-xs bg-black/40 backdrop-blur-sm p-3 rounded-lg border border-white/10">
+                        <span className="font-medium">Site Documentation</span>
+                        <div className="flex items-center gap-2">
+                            <span>Captured:</span>
+                            <ClientDate date={viewingPhoto.takenAt} />
+                        </div>
+                    </div>
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="absolute top-4 right-4 text-white hover:bg-white/20" 
+                        onClick={() => setViewingPhoto(null)}
+                    >
+                        <X className="h-6 w-6" />
+                    </Button>
+                </div>
+            )}
+        </DialogContent>
+      </Dialog>
 
       {/* Completion Dialog */}
       <Dialog open={!!completingItem} onOpenChange={() => setCompletingItem(null)}>
