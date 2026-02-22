@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useTransition } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +27,7 @@ function getInitials(name?: string) {
 
 export function UserMenu({ user }: { user: DistributionUser }) {
     const initials = getInitials(user?.name);
+    const [isPending, startTransition] = useTransition();
     
     return (
         <DropdownMenu>
@@ -47,11 +49,13 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <form action={logoutAction} className="w-full">
-                    <button type="submit" className="relative flex w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent focus:bg-accent hover:text-accent-foreground focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
-                        Log Out
-                    </button>
-                </form>
+                <DropdownMenuItem 
+                    onSelect={() => startTransition(() => logoutAction())} 
+                    disabled={isPending}
+                    className="cursor-pointer"
+                >
+                    Log Out
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );
