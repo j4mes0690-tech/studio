@@ -19,6 +19,7 @@ import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User } from 'lucide-r
 import { Badge } from '@/components/ui/badge';
 import { EditSnaggingItem } from '@/app/snagging/edit-snagging-item';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
+import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
 import {
   Carousel,
   CarouselContent,
@@ -135,6 +136,12 @@ export function SnaggingItemCard({
               item={item} 
               project={project} 
               subContractors={subContractors} 
+            />
+
+            <DistributeReportsButton
+              item={item}
+              project={project}
+              subContractors={subContractors}
             />
             
             <EditSnaggingItem item={item} projects={projects} subContractors={subContractors} />
