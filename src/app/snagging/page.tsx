@@ -4,7 +4,6 @@ import { Header } from '@/components/layout/header';
 import { SnaggingItemCard } from './snagging-card';
 import { NewSnaggingItem } from './new-snagging-item';
 import { SnaggingFilters } from './snagging-filters';
-import { ExportButton } from './export-button';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
@@ -69,14 +68,6 @@ function SnaggingContent() {
             </div>
           )}
         </div>
-        {items && items.length > 0 && (
-          <div className="flex flex-col items-center gap-2 mt-auto pt-6">
-            <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Export Options</p>
-            <div className="flex items-center gap-4">
-              <ExportButton items={items} projects={projects || []} />
-            </div>
-          </div>
-        )}
       </main>
   );
 }
