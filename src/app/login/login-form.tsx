@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
 import { loginAction } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +28,7 @@ function LoginButton() {
 }
 
 export function LoginForm() {
-  const [state, formAction] = useFormState(loginAction, undefined);
+  const [state, formAction] = useActionState(loginAction, undefined);
 
   return (
     <form action={formAction}>

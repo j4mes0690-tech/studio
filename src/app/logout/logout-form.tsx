@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useFormState, useFormStatus } from 'react-dom';
+import { useFormStatus } from 'react-dom';
+import { useActionState } from 'react';
 import { logoutAction } from './actions';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
@@ -16,7 +17,7 @@ function LogoutButton() {
 }
 
 export function LogoutForm() {
-  const [state, formAction] = useFormState(logoutAction, undefined);
+  const [state, formAction] = useActionState(logoutAction, undefined);
 
   return (
     <form action={formAction} className="space-y-4">
