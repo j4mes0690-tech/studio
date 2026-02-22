@@ -39,6 +39,7 @@ export type SnaggingListItem = {
   description: string;
   status: 'open' | 'closed';
   photos?: Photo[];
+  subContractorId?: string;
 };
 
 export type SnaggingItem = {

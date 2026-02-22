@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -8,7 +7,7 @@ import { SnaggingFilters } from './snagging-filters';
 import { ExportButton } from './export-button';
 import { useSearchParams } from 'next/navigation';
 import { useMemo } from 'react';
-import type { SnaggingItem, Project } from '@/lib/types';
+import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
@@ -21,6 +20,9 @@ export default function SnaggingPage() {
   const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
   const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
+  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
+
   const snaggingQuery = useMemo(() => {
     const base = collection(db, 'snagging-items');
     if (projectId) {
@@ -31,7 +33,7 @@ export default function SnaggingPage() {
 
   const { data: items, isLoading: snaggingLoading } = useCollection<SnaggingItem>(snaggingQuery);
 
-  const isLoading = projectsLoading || snaggingLoading;
+  const isLoading = projectsLoading || snaggingLoading || subsLoading;
 
   if (isLoading) {
     return (
@@ -48,7 +50,7 @@ export default function SnaggingPage() {
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight">Snagging Log</h2>
           <div className="flex items-center gap-2">
-            <NewSnaggingItem projects={projects || []} />
+            <NewSnaggingItem projects={projects || []} subContractors={subContractors || []} />
           </div>
         </div>
         <SnaggingFilters projects={projects || []} />
@@ -59,6 +61,7 @@ export default function SnaggingPage() {
                 key={item.id}
                 item={item}
                 projects={projects || []}
+                subContractors={subContractors || []}
               />
             ))
           ) : (

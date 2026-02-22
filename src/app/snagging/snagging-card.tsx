@@ -1,6 +1,6 @@
 'use client';
 
-import type { SnaggingItem, Project } from '@/lib/types';
+import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -15,7 +15,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, ListChecks, CheckCircle2, Circle, Trash2 } from 'lucide-react';
+import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditSnaggingItem } from './edit-snagging-item';
 import {
@@ -49,11 +49,13 @@ import { Button } from '@/components/ui/button';
 type SnaggingItemCardProps = {
   item: SnaggingItem;
   projects: Project[];
+  subContractors: SubContractor[];
 };
 
 export function SnaggingItemCard({
   item,
   projects,
+  subContractors,
 }: SnaggingItemCardProps) {
   const project = projects.find((p) => p.id === item.projectId);
   const area = project?.areas?.find((a) => a.id === item.areaId);
@@ -127,7 +129,7 @@ export function SnaggingItemCard({
             <Badge variant={isComplete ? "secondary" : "outline"} className="capitalize">
                 {isComplete ? "Completed" : `${closedItems}/${totalItems} Done`}
             </Badge>
-            <EditSnaggingItem item={item} projects={projects} />
+            <EditSnaggingItem item={item} projects={projects} subContractors={subContractors} />
             
             <AlertDialog>
               <AlertDialogTrigger asChild>
@@ -162,40 +164,53 @@ export function SnaggingItemCard({
                 <ListChecks className="h-4 w-4" />
                 <span>Items to Address</span>
             </div>
-            {item.items?.map((subItem) => (
-                <div key={subItem.id} className="space-y-2 group">
-                    <div className="flex items-start gap-2">
-                        <button 
-                            onClick={() => toggleItemStatus(subItem.id)}
-                            disabled={isPending}
-                            className="mt-0.5 flex-shrink-0 transition-colors"
-                        >
-                            {subItem.status === 'closed' ? (
-                                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            ) : (
-                                <Circle className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                            )}
-                        </button>
-                        <span className={cn("text-sm", subItem.status === 'closed' && "line-through text-muted-foreground")}>
-                            {subItem.description}
-                        </span>
-                    </div>
-                    {subItem.photos && subItem.photos.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pl-6">
-                            {subItem.photos.map((p, idx) => (
-                                <div key={idx} className="relative w-16 h-12">
-                                    <Image 
-                                        src={p.url} 
-                                        alt={`Item specific photo ${idx + 1}`} 
-                                        fill 
-                                        className="rounded object-cover border" 
-                                    />
-                                </div>
-                            ))}
+            {item.items?.map((subItem) => {
+                const sub = subContractors.find(s => s.id === subItem.subContractorId);
+                return (
+                    <div key={subItem.id} className="space-y-2 group">
+                        <div className="flex items-start gap-2">
+                            <button 
+                                onClick={() => toggleItemStatus(subItem.id)}
+                                disabled={isPending}
+                                className="mt-0.5 flex-shrink-0 transition-colors"
+                            >
+                                {subItem.status === 'closed' ? (
+                                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                ) : (
+                                    <Circle className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                                )}
+                            </button>
+                            <div className="flex flex-col">
+                                <span className={cn("text-sm", subItem.status === 'closed' && "line-through text-muted-foreground")}>
+                                    {subItem.description}
+                                </span>
+                                {sub && (
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-auto font-normal gap-1">
+                                            <User className="h-2 w-2" />
+                                            {sub.name}
+                                        </Badge>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    )}
-                </div>
-            ))}
+                        {subItem.photos && subItem.photos.length > 0 && (
+                            <div className="flex flex-wrap gap-2 pl-6">
+                                {subItem.photos.map((p, idx) => (
+                                    <div key={idx} className="relative w-16 h-12">
+                                        <Image 
+                                            src={p.url} 
+                                            alt={`Item specific photo ${idx + 1}`} 
+                                            fill 
+                                            className="rounded object-cover border" 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
         </div>
 
         <Accordion type="single" collapsible className="w-full">

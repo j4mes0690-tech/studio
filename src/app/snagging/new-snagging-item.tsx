@@ -33,8 +33,8 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus, AlertTriangle } from 'lucide-react';
-import type { Project, Photo, Area, SnaggingListItem } from '@/lib/types';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, AlertTriangle, UserPlus, User } from 'lucide-react';
+import type { Project, Photo, Area, SnaggingListItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -43,6 +43,8 @@ import { VoiceInput } from '@/components/voice-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 
 const SnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -53,17 +55,16 @@ const SnaggingListSchema = z.object({
 
 type NewSnaggingListFormValues = z.infer<typeof SnaggingListSchema>;
 
-export function NewSnaggingItem({ projects }: { projects: Project[] }) {
+export function NewSnaggingItem({ projects, subContractors }: { projects: Project[], subContractors: SubContractor[] }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
   
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const itemFileInputRef = useRef<HTMLInputElement>(null);
-  const pendingItemFileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pendingItemFileInputRef = useRef<HTMLInputElement>(null);
 
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -73,6 +74,7 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
   const [items, setItems] = useState<Omit<SnaggingListItem, 'id'>[]>([]);
   const [newItemText, setNewItemText] = useState('');
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
+  const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   
   // Camera States
   const [isCameraOpen, setIsCameraOpen] = useState(false); // General photos
@@ -146,7 +148,6 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
     const photo = capturePhoto();
     if (photo) {
       if (itemPhotoTargetIdx !== null) {
-        // Adding photo to existing item in list
         setItems(prev => prev.map((item, i) => {
           if (i === itemPhotoTargetIdx) {
             return { ...item, photos: [...(item.photos || []), photo] };
@@ -155,7 +156,6 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
         }));
         setItemPhotoTargetIdx(null);
       } else {
-        // Adding photo to pending new item
         setPendingItemPhotos(prev => [...prev, photo]);
         setIsItemCameraOpen(false);
       }
@@ -167,10 +167,12 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
       setItems([...items, { 
         description: newItemText.trim() || 'No description', 
         status: 'open', 
-        photos: pendingItemPhotos 
+        photos: pendingItemPhotos,
+        subContractorId: pendingSubId
       }]);
       setNewItemText('');
       setPendingItemPhotos([]);
+      setPendingSubId(undefined);
       setIsItemCameraOpen(false);
     }
   };
@@ -231,14 +233,13 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
       setItems([]);
       setNewItemText('');
       setPendingItemPhotos([]);
+      setPendingSubId(undefined);
       setIsCameraOpen(false);
       setIsItemCameraOpen(false);
       setItemPhotoTargetIdx(null);
       form.reset();
     }
   }, [open, form]);
-
-  const isAnyCameraActive = isCameraOpen || isItemCameraOpen || itemPhotoTargetIdx !== null;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -329,6 +330,43 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                           onChange={(e) => setNewItemText(e.target.value)} 
                           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
                       />
+                      
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button 
+                            type="button" 
+                            variant={pendingSubId ? "default" : "outline"} 
+                            size="icon"
+                            title="Assign subcontractor"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-0">
+                          <ScrollArea className="h-64">
+                            <div className="p-2 space-y-1">
+                              <Button 
+                                variant="ghost" 
+                                className="w-full justify-start font-normal" 
+                                onClick={() => setPendingSubId(undefined)}
+                              >
+                                None
+                              </Button>
+                              {subContractors.map(sub => (
+                                <Button 
+                                  key={sub.id} 
+                                  variant="ghost" 
+                                  className="w-full justify-start font-normal text-xs"
+                                  onClick={() => setPendingSubId(sub.id)}
+                                >
+                                  {sub.name}
+                                </Button>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </PopoverContent>
+                      </Popover>
+
                       <Button 
                         type="button" 
                         variant={isItemCameraOpen ? "secondary" : "outline"}
@@ -347,7 +385,7 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                       </Button>
                   </div>
 
-                  {isItemCameraOpen && (
+                  {(isItemCameraOpen || itemPhotoTargetIdx !== null) && (
                     <div className="space-y-2 border rounded-md p-2 bg-muted/30">
                       {hasCameraPermission === false && (
                         <Alert variant="destructive">
@@ -359,12 +397,17 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                       <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
                       <div className="flex gap-2">
                         <Button type="button" size="sm" onClick={takeItemPhoto}>Capture Photo</Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => setIsItemCameraOpen(false)}>Cancel</Button>
-                        <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => pendingItemFileInputRef.current?.click()}>
-                          <Upload className="mr-2 h-3 w-3" /> Upload
-                        </Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { setIsItemCameraOpen(false); setItemPhotoTargetIdx(null); }}>Cancel</Button>
                       </div>
                     </div>
+                  )}
+
+                  {pendingSubId && (
+                    <Badge variant="secondary" className="gap-1">
+                      <User className="h-3 w-3" />
+                      Assigned: {subContractors.find(s => s.id === pendingSubId)?.name}
+                      <X className="h-3 w-3 cursor-pointer" onClick={() => setPendingSubId(undefined)} />
+                    </Badge>
                   )}
 
                   {pendingItemPhotos.length > 0 && (
@@ -385,54 +428,50 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                     {items.length === 0 ? (
                         <p className="text-sm text-center text-muted-foreground py-4">No items added yet. Enter a description above.</p>
                     ) : (
-                        items.map((item, idx) => (
-                            <div key={idx} className="space-y-2 bg-background p-3 rounded-md border shadow-sm">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">{item.description}</span>
-                                    <div className="flex items-center gap-1">
-                                        <Button 
-                                          type="button" 
-                                          variant="ghost" 
-                                          size="icon" 
-                                          className="h-8 w-8 text-primary" 
-                                          onClick={() => {
-                                            setItemPhotoTargetIdx(idx);
-                                            setIsCameraOpen(false);
-                                            setIsItemCameraOpen(false);
-                                          }}
-                                        >
-                                            <Camera className="h-4 w-4" />
-                                        </Button>
-                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}>
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
+                        items.map((item, idx) => {
+                            const sub = subContractors.find(s => s.id === item.subContractorId);
+                            return (
+                                <div key={idx} className="space-y-2 bg-background p-3 rounded-md border shadow-sm">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-sm font-medium">{item.description}</span>
+                                            {sub && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><User className="h-2.5 w-2.5" /> {sub.name}</span>}
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Button 
+                                              type="button" 
+                                              variant="ghost" 
+                                              size="icon" 
+                                              className="h-8 w-8 text-primary" 
+                                              onClick={() => {
+                                                setItemPhotoTargetIdx(idx);
+                                                setIsCameraOpen(false);
+                                                setIsItemCameraOpen(false);
+                                              }}
+                                            >
+                                                <Camera className="h-4 w-4" />
+                                            </Button>
+                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
+
+                                    {item.photos && item.photos.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 pt-1">
+                                            {item.photos.map((p, pIdx) => (
+                                                <div key={pIdx} className="relative w-12 h-12">
+                                                    <Image src={p.url} alt="Item photo" fill className="rounded object-cover border" />
+                                                    <button type="button" className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => removeItemPhoto(idx, pIdx)}>
+                                                        <X className="h-2 w-2" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-
-                                {itemPhotoTargetIdx === idx && (
-                                  <div className="space-y-2 border rounded-md p-2 bg-muted/10">
-                                    <video ref={videoRef} className="w-full h-32 bg-black rounded-md object-cover" autoPlay muted playsInline />
-                                    <div className="flex gap-2">
-                                      <Button type="button" size="xs" onClick={takeItemPhoto}>Capture</Button>
-                                      <Button type="button" variant="ghost" size="xs" onClick={() => setItemPhotoTargetIdx(null)}>Cancel</Button>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {item.photos && item.photos.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 pt-1">
-                                        {item.photos.map((p, pIdx) => (
-                                            <div key={pIdx} className="relative w-12 h-12">
-                                                <Image src={p.url} alt="Item photo" fill className="rounded object-cover border" />
-                                                <button type="button" className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => removeItemPhoto(idx, pIdx)}>
-                                                    <X className="h-2 w-2" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </div>
@@ -492,7 +531,10 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
               if (!files) return;
               Array.from(files).forEach(f => {
                 const reader = new FileReader();
-                reader.onload = (re) => setPendingItemPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                reader.onload = (re) => {
+                    const newPhoto = { url: re.target?.result as string, takenAt: new Date().toISOString() };
+                    setPendingItemPhotos(prev => [...prev, newPhoto]);
+                };
                 reader.readAsDataURL(f);
               });
             }} />
