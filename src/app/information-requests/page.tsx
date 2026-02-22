@@ -2,17 +2,16 @@
 'use client';
 
 import { Header } from '@/components/layout/header';
-import { getProjects, getInformationRequests } from '@/lib/data';
 import { InformationRequestCard } from './information-request-card';
 import { NewInformationRequest } from './new-information-request';
 import { InformationRequestFilters } from './information-request-filters';
 import { ExportButton } from './export-button';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useUser, useFirestore, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 
 export default function InformationRequestsPage() {
   const { user: firebaseUser } = useUser();
@@ -24,29 +23,29 @@ export default function InformationRequestsPage() {
   const usersQuery = useMemo(() => collection(db, 'users'), [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  const [items, setItems] = useState<InformationRequest[]>([]);
-  const [allProjects, setAllProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Fetch Projects from Firestore
+  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  useEffect(() => {
-    async function loadData() {
-      const [reqs, proj] = await Promise.all([
-        getInformationRequests({ projectId }),
-        getProjects(),
-      ]);
-      setItems(reqs);
-      setAllProjects(proj);
-      setLoading(false);
+  // Fetch Information Requests from Firestore (Real-time)
+  const itemsQuery = useMemo(() => {
+    const base = collection(db, 'information-requests');
+    if (projectId) {
+      return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
-    loadData();
-  }, [projectId]);
+    return query(base, orderBy('createdAt', 'desc'));
+  }, [db, projectId]);
+
+  const { data: items, isLoading: itemsLoading } = useCollection<InformationRequest>(itemsQuery);
 
   const currentUser = useMemo(() => {
     if (!firebaseUser?.email || !distributionUsers) return null;
     return distributionUsers.find(u => u.email.toLowerCase() === firebaseUser.email?.toLowerCase()) || null;
   }, [firebaseUser, distributionUsers]);
 
-  if (loading || usersLoading) {
+  const loading = usersLoading || projectsLoading || itemsLoading;
+
+  if (loading) {
     return (
         <div className="flex flex-col w-full h-screen items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -77,17 +76,17 @@ export default function InformationRequestsPage() {
             Information Request Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewInformationRequest projects={allProjects} distributionUsers={distributionUsers || []} />
+            <NewInformationRequest projects={allProjects || []} distributionUsers={distributionUsers || []} />
           </div>
         </div>
-        <InformationRequestFilters projects={allProjects} />
+        <InformationRequestFilters projects={allProjects || []} />
         <div className="grid gap-4 md:gap-6">
-          {items.length > 0 ? (
+          {items && items.length > 0 ? (
             items.map((item) => (
               <InformationRequestCard
                 key={item.id}
                 item={item}
-                projects={allProjects}
+                projects={allProjects || []}
                 distributionUsers={distributionUsers || []}
                 currentUser={currentUser}
               />
@@ -99,9 +98,9 @@ export default function InformationRequestsPage() {
             </div>
           )}
         </div>
-        {items.length > 0 && (
+        {items && items.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton items={items} projects={allProjects} distributionUsers={distributionUsers || []} />
+            <ExportButton items={items} projects={allProjects || []} distributionUsers={distributionUsers || []} />
           </div>
         )}
       </main>

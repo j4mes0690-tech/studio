@@ -2,7 +2,6 @@
 'use client';
 
 import { Header } from '@/components/layout/header';
-import { getProjects, getInstructions } from '@/lib/data';
 import {
   Card,
   CardContent,
@@ -19,27 +18,22 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import type { Project, Instruction } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { useFirestore, useCollection } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [instructions, setInstructions] = useState<Instruction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const db = useFirestore();
 
-  useEffect(() => {
-    async function loadData() {
-      const [proj, inst] = await Promise.all([
-        getProjects(),
-        getInstructions({}),
-      ]);
-      setProjects(proj);
-      setInstructions(inst);
-      setLoading(false);
-    }
-    loadData();
-  }, []);
+  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
+
+  const instructionsQuery = useMemo(() => collection(db, 'instructions'), [db]);
+  const { data: instructions, isLoading: instructionsLoading } = useCollection<Instruction>(instructionsQuery);
+
+  const loading = projectsLoading || instructionsLoading;
 
   if (loading) {
     return (
@@ -57,7 +51,7 @@ export default function ProjectsPage() {
           <CardHeader>
             <CardTitle>Project Directory</CardTitle>
             <CardDescription>
-              A list of all projects.
+              A list of all projects and the volume of instructions recorded.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -69,8 +63,8 @@ export default function ProjectsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {projects.map((project) => {
-                  const projectInstructions = instructions.filter(
+                {projects && projects.length > 0 ? projects.map((project) => {
+                  const projectInstructions = (instructions || []).filter(
                     (i) => i.projectId === project.id
                   );
                   return (
@@ -88,7 +82,13 @@ export default function ProjectsPage() {
                       </TableCell>
                     </TableRow>
                   );
-                })}
+                }) : (
+                    <TableRow>
+                        <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
+                            No projects found. Add some in System Settings.
+                        </TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
