@@ -278,7 +278,7 @@ export async function removeDistributionUser(userId: string): Promise<{ success:
   });
 }
 
-export async function updateUserAction(userData: DistributionUser): Promise<DistributionUser> {
+export async function updateDistributionUser(userData: DistributionUser): Promise<DistributionUser> {
     noStore();
     return new Promise((resolve, reject) => {
       setTimeout(() => {
