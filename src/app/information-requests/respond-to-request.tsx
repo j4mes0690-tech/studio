@@ -101,9 +101,9 @@ export function RespondToRequest({ item, distributionUsers }: RespondToRequestPr
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-            <MessageSquareReply className="mr-2 h-4 w-4" />
-            Reply
+        <Button variant="ghost" size="icon">
+            <MessageSquareReply className="h-4 w-4" />
+            <span className="sr-only">Reply to Request</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">

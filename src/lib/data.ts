@@ -426,3 +426,14 @@ export async function getInformationRequests({
         }, 500);
     });
 }
+
+export async function deleteInformationRequest(id: string): Promise<{ success: boolean }> {
+    noStore();
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            const initialLength = g.informationRequests.length;
+            g.informationRequests = g.informationRequests.filter(item => item.id !== id);
+            resolve({ success: g.informationRequests.length < initialLength });
+        }, 500);
+    });
+}

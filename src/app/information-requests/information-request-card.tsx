@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
@@ -15,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw } from 'lucide-react';
+import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditInformationRequest } from './edit-information-request';
 import {
@@ -37,7 +38,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { closeInformationRequestAction, reopenInformationRequestAction } from './actions';
+import { closeInformationRequestAction, reopenInformationRequestAction, deleteInformationRequestAction } from './actions';
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -69,16 +70,16 @@ function CloseRequestButton({ requestId }: { requestId: string }) {
     return (
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button variant="outline">
-                    <XCircle className="mr-2 h-4 w-4" />
-                    Close Request
+                <Button variant="ghost" size="icon">
+                    <XCircle className="h-4 w-4" />
+                    <span className="sr-only">Close Request</span>
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will close the information request and no more replies can be added. This action cannot be undone.
+                        This will close the information request and no more replies can be added.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -140,6 +141,55 @@ function ReopenRequestButton({ requestId }: { requestId: string }) {
     );
 }
 
+function DeleteRequestButton({ requestId }: { requestId: string }) {
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+
+    const handleDelete = () => {
+        startTransition(async () => {
+            const formData = new FormData();
+            formData.append('id', requestId);
+            const result = await deleteInformationRequestAction(formData);
+
+            if (result.success) {
+                toast({ title: 'Success', description: result.message });
+            } else {
+                toast({
+                    title: 'Error',
+                    description: result.message,
+                    variant: 'destructive',
+                });
+            }
+        });
+    };
+
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <span className="sr-only">Delete Request</span>
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will permanently delete this information request and all of its messages. This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} disabled={isPending} className="bg-destructive hover:bg-destructive/90">
+                        {isPending ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
+
+
 type InformationRequestCardProps = {
   item: InformationRequest;
   projects: Project[];
@@ -183,12 +233,13 @@ export function InformationRequestCard({
                 <>
                     <RespondToRequest item={item} distributionUsers={distributionUsers} />
                     <CloseRequestButton requestId={item.id} />
-                    <EditInformationRequest item={item} projects={projects} distributionUsers={distributionUsers} />
                 </>
             )}
             {item.status === 'closed' && (
               <ReopenRequestButton requestId={item.id} />
             )}
+            <EditInformationRequest item={item} projects={projects} distributionUsers={distributionUsers} />
+            <DeleteRequestButton requestId={item.id} />
           </div>
         </div>
       </CardHeader>

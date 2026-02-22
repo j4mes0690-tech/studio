@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createInformationRequest, getDistributionUsers, getInformationRequests, updateInformationRequest } from '@/lib/data';
+import { createInformationRequest, getDistributionUsers, getInformationRequests, updateInformationRequest, deleteInformationRequest } from '@/lib/data';
 import type { InformationRequest, ChatMessage } from '@/lib/types';
 
 const NewInformationRequestSchema = z.object({
@@ -29,6 +29,10 @@ const CloseRequestSchema = z.object({
 });
 
 const ReopenRequestSchema = z.object({
+    id: z.string().min(1, 'Item ID is required.'),
+});
+
+const DeleteRequestSchema = z.object({
     id: z.string().min(1, 'Item ID is required.'),
 });
 
@@ -294,5 +298,26 @@ export async function reopenInformationRequestAction(formData: FormData): Promis
     } catch (error) {
         console.error('Failed to reopen request:', error);
         return { success: false, message: 'Failed to reopen request.' };
+    }
+}
+
+export async function deleteInformationRequestAction(formData: FormData): Promise<FormState> {
+    const validatedFields = DeleteRequestSchema.safeParse({
+        id: formData.get('id'),
+    });
+
+    if (!validatedFields.success) {
+        return { success: false, message: 'Invalid Request ID.' };
+    }
+
+    const { id } = validatedFields.data;
+
+    try {
+        await deleteInformationRequest(id);
+        revalidatePath('/information-requests');
+        return { success: true, message: 'Request has been deleted.' };
+    } catch (error) {
+        console.error('Failed to delete request:', error);
+        return { success: false, message: 'Failed to delete request.' };
     }
 }
