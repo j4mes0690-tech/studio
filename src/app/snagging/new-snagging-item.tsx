@@ -347,6 +347,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                           <ScrollArea className="h-64">
                             <div className="p-2 space-y-1">
                               <Button 
+                                type="button"
                                 variant="ghost" 
                                 className={cn(
                                   "w-full justify-start font-normal transition-all px-3 py-2",
@@ -359,6 +360,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                               {subContractors.map(sub => (
                                 <Button 
                                   key={sub.id} 
+                                  type="button"
                                   variant="ghost" 
                                   className={cn(
                                     "w-full justify-between font-normal text-xs transition-all px-3 py-2",
