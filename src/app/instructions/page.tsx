@@ -2,41 +2,44 @@
 'use client';
 
 import { Header } from '@/components/layout/header';
-import { getProjects, getInstructions, getDistributionUsers } from '@/lib/data';
+import { getProjects, getInstructions } from '@/lib/data';
 import { InstructionCard } from './instruction-card';
 import { NewInstruction } from './new-instruction';
 import { InstructionFilters } from './instruction-filters';
 import { ExportButton } from './export-button';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import type { Instruction, Project, DistributionUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { useFirestore, useCollection } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 export default function InstructionsPage() {
   const searchParams = useSearchParams();
+  const db = useFirestore();
   const projectId = searchParams.get('project') || undefined;
+
+  const usersQuery = useMemo(() => collection(db, 'users'), [db]);
+  const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
   const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
-  const [distributionUsers, setDistributionUsers] = useState<DistributionUser[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const [inst, proj, users] = await Promise.all([
+      const [inst, proj] = await Promise.all([
         getInstructions({ projectId }),
         getProjects(),
-        getDistributionUsers(),
       ]);
       setInstructions(inst);
       setAllProjects(proj);
-      setDistributionUsers(users);
       setLoading(false);
     }
     loadData();
   }, [projectId]);
 
-  if (loading) {
+  if (loading || usersLoading) {
     return (
         <div className="flex flex-col w-full h-screen items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -53,7 +56,7 @@ export default function InstructionsPage() {
             Instruction Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewInstruction projects={allProjects} distributionUsers={distributionUsers} />
+            <NewInstruction projects={allProjects} distributionUsers={distributionUsers || []} />
           </div>
         </div>
         <InstructionFilters projects={allProjects} />

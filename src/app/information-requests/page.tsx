@@ -1,51 +1,52 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
-import { getProjects, getInformationRequests, getDistributionUsers } from '@/lib/data';
+import { getProjects, getInformationRequests } from '@/lib/data';
 import { InformationRequestCard } from './information-request-card';
 import { NewInformationRequest } from './new-information-request';
 import { InformationRequestFilters } from './information-request-filters';
 import { ExportButton } from './export-button';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, useCollection } from '@/firebase';
+import { collection } from 'firebase/firestore';
 
 export default function InformationRequestsPage() {
   const { user: firebaseUser } = useUser();
+  const db = useFirestore();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('project') || undefined;
 
+  // Fetch distribution users from Firestore
+  const usersQuery = useMemo(() => collection(db, 'users'), [db]);
+  const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
+
   const [items, setItems] = useState<InformationRequest[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
-  const [distributionUsers, setDistributionUsers] = useState<DistributionUser[]>([]);
-  const [currentUser, setCurrentUser] = useState<DistributionUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
-      const [reqs, proj, users] = await Promise.all([
+      const [reqs, proj] = await Promise.all([
         getInformationRequests({ projectId }),
         getProjects(),
-        getDistributionUsers(),
       ]);
       setItems(reqs);
       setAllProjects(proj);
-      setDistributionUsers(users);
-      
-      if (firebaseUser?.email) {
-        // Use case-insensitive comparison for safer matching
-        const profile = users.find(u => u.email.toLowerCase() === firebaseUser.email?.toLowerCase());
-        setCurrentUser(profile || null);
-      }
-      
       setLoading(false);
     }
     loadData();
-  }, [projectId, firebaseUser]);
+  }, [projectId]);
 
-  if (loading) {
+  const currentUser = useMemo(() => {
+    if (!firebaseUser?.email || !distributionUsers) return null;
+    return distributionUsers.find(u => u.email.toLowerCase() === firebaseUser.email?.toLowerCase()) || null;
+  }, [firebaseUser, distributionUsers]);
+
+  if (loading || usersLoading) {
     return (
         <div className="flex flex-col w-full h-screen items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -53,7 +54,6 @@ export default function InformationRequestsPage() {
     );
   }
 
-  // If we can't find a matching profile for the logged in user, show a warning
   if (!currentUser) {
     return (
         <div className="flex flex-col w-full">
@@ -77,7 +77,7 @@ export default function InformationRequestsPage() {
             Information Request Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewInformationRequest projects={allProjects} distributionUsers={distributionUsers} />
+            <NewInformationRequest projects={allProjects} distributionUsers={distributionUsers || []} />
           </div>
         </div>
         <InformationRequestFilters projects={allProjects} />
@@ -88,7 +88,7 @@ export default function InformationRequestsPage() {
                 key={item.id}
                 item={item}
                 projects={allProjects}
-                distributionUsers={distributionUsers}
+                distributionUsers={distributionUsers || []}
                 currentUser={currentUser}
               />
             ))
@@ -101,7 +101,7 @@ export default function InformationRequestsPage() {
         </div>
         {items.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton items={items} projects={allProjects} distributionUsers={distributionUsers} />
+            <ExportButton items={items} projects={allProjects} distributionUsers={distributionUsers || []} />
           </div>
         )}
       </main>

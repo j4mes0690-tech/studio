@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTransition, useState, useEffect } from 'react';
-import { updateUserAction } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -31,12 +30,15 @@ import { Pencil } from 'lucide-react';
 import type { DistributionUser } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const EditUserSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
-  password: z.string().optional(),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -52,6 +54,7 @@ type EditUserFormProps = {
 export function EditUserForm({ user }: EditUserFormProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<EditUserFormValues>({
@@ -60,7 +63,6 @@ export function EditUserForm({ user }: EditUserFormProps) {
       id: user.id,
       name: user.name,
       email: user.email,
-      password: '',
       canManageUsers: user.permissions?.canManageUsers || false,
       canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
       canManageProjects: user.permissions?.canManageProjects || false,
@@ -74,7 +76,6 @@ export function EditUserForm({ user }: EditUserFormProps) {
         id: user.id,
         name: user.name,
         email: user.email,
-        password: '',
         canManageUsers: user.permissions?.canManageUsers || false,
         canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
         canManageProjects: user.permissions?.canManageProjects || false,
@@ -85,30 +86,32 @@ export function EditUserForm({ user }: EditUserFormProps) {
 
   const onSubmit = (values: EditUserFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('id', values.id);
-      formData.append('name', values.name);
-      formData.append('email', values.email);
-      if (values.password) {
-        formData.append('password', values.password);
-      }
-      if (values.canManageUsers) formData.append('canManageUsers', 'on');
-      if (values.canManageSubcontractors) formData.append('canManageSubcontractors', 'on');
-      if (values.canManageProjects) formData.append('canManageProjects', 'on');
-      if (values.canManageChecklists) formData.append('canManageChecklists', 'on');
+      const docId = user.id || user.email; // Fallback to email if id is missing
+      const docRef = doc(db, 'users', docId);
+      const updates = {
+        name: values.name,
+        email: values.email.toLowerCase().trim(),
+        permissions: {
+          canManageUsers: values.canManageUsers,
+          canManageSubcontractors: values.canManageSubcontractors,
+          canManageProjects: values.canManageProjects,
+          canManageChecklists: values.canManageChecklists,
+        }
+      };
 
-      const result = await updateUserAction(formData);
-
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        setOpen(false);
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message,
-          variant: 'destructive',
+      updateDoc(docRef, updates)
+        .then(() => {
+          toast({ title: 'Success', description: 'User profile updated successfully.' });
+          setOpen(false);
+        })
+        .catch(async (error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
         });
-      }
     });
   };
 
@@ -122,9 +125,9 @@ export function EditUserForm({ user }: EditUserFormProps) {
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit User</DialogTitle>
+          <DialogTitle>Edit User Profile</DialogTitle>
           <DialogDescription>
-            Update the user's name, email address, password, and permissions.
+            Update permissions for {user.name}.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -153,21 +156,9 @@ export function EditUserForm({ user }: EditUserFormProps) {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} readOnly />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>New Password</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="Leave blank to keep current password" {...field} />
-                  </FormControl>
+                  <FormDescription>Email cannot be changed after creation.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

@@ -3,8 +3,7 @@
 
 import type { DistributionUser } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { removeUserAction } from './actions';
-import { Trash2, Pencil } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -19,6 +18,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { EditUserForm } from './edit-user-form';
 import { Badge } from '@/components/ui/badge';
+import { useFirestore } from '@/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { useToast } from '@/hooks/use-toast';
 
 type UsersListProps = {
   users: DistributionUser[];
@@ -26,10 +30,25 @@ type UsersListProps = {
 
 export function UsersList({ users }: UsersListProps) {
   const [isPending, startTransition] = useTransition();
+  const db = useFirestore();
+  const { toast } = useToast();
 
-  const handleRemove = (userId: string) => {
+  const handleRemove = (user: DistributionUser) => {
     startTransition(async () => {
-      await removeUserAction(userId);
+      const docId = user.id || user.email;
+      const docRef = doc(db, 'users', docId);
+      
+      deleteDoc(docRef)
+        .then(() => {
+          toast({ title: 'Success', description: 'User profile removed.' });
+        })
+        .catch(async (error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete',
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
+        });
     });
   };
   
@@ -38,7 +57,7 @@ export function UsersList({ users }: UsersListProps) {
       {users.map((user) => {
         const isAdmin = user.permissions && Object.values(user.permissions).some(p => p === true);
         return (
-          <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border">
+          <div key={user.id || user.email} className="flex items-center justify-between p-3 rounded-lg border">
             <div>
               <p className="font-medium">{user.name}</p>
               <p className="text-sm text-muted-foreground">{user.email}</p>
@@ -58,13 +77,13 @@ export function UsersList({ users }: UsersListProps) {
                       <AlertDialogHeader>
                       <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                       <AlertDialogDescription>
-                          This will permanently remove {user.name} from the distribution list.
+                          This will remove {user.name}'s profile and permissions. Their login account will still exist in Firebase Authentication unless removed from the console.
                       </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleRemove(user.id)} className="bg-destructive hover:bg-destructive/90">
-                          {isPending ? 'Deleting...' : 'Delete'}
+                      <AlertDialogAction onClick={() => handleRemove(user)} className="bg-destructive hover:bg-destructive/90">
+                          {isPending ? 'Deleting...' : 'Delete Profile'}
                       </AlertDialogAction>
                       </AlertDialogFooter>
                   </AlertDialogContent>
@@ -74,7 +93,7 @@ export function UsersList({ users }: UsersListProps) {
         )
       })}
       {users.length === 0 && (
-          <p className="text-muted-foreground text-center py-4">No users in the distribution list.</p>
+          <p className="text-muted-foreground text-center py-4">No users in the list.</p>
       )}
     </div>
   );

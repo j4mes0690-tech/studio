@@ -1,16 +1,18 @@
+
 'use server';
 
-import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist, Area } from './types';
+import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, QualityChecklist, Area } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 
-// Widen the global type to include our in-memory data
+// NOTE: User management has been migrated to Firestore.
+// The functions below now handle the remaining mock data for Projects, Instructions, etc.
+
 declare global {
   var projects: Project[];
   var instructions: Instruction[];
   var cleanUpNotices: CleanUpNotice[];
   var snaggingLists: SnaggingItem[];
   var informationRequests: InformationRequest[];
-  var distributionUsers: DistributionUser[];
   var subContractors: SubContractor[];
   var qualityChecklists: QualityChecklist[];
 }
@@ -21,14 +23,9 @@ const g: {
   cleanUpNotices: CleanUpNotice[];
   snaggingLists: SnaggingItem[];
   informationRequests: InformationRequest[];
-  distributionUsers: DistributionUser[];
   subContractors: SubContractor[];
   qualityChecklists: QualityChecklist[];
 } = globalThis as any;
-
-
-// NOTE: In a real application, this data would be in a database.
-// For this prototype, we're using a global object to simulate a database.
 
 if (!g.projects) {
     g.projects = [
@@ -62,36 +59,6 @@ if (!g.instructions) {
             takenAt: new Date('2023-10-15T09:02:15Z').toISOString(),
         }],
         },
-        {
-        id: '2',
-        projectId: '201',
-        originalText:
-            'The structural steel for the Riverside Bridge needs to be inspected for any signs of corrosion. This needs to be done before the concrete pouring next week. Also, arrange for the delivery of the pre-cast concrete slabs for the pedestrian walkway.',
-        summary:
-            'Before next week\'s concrete pour, inspect the Riverside Bridge\'s structural steel for corrosion. Additionally, schedule the delivery of pre-cast concrete slabs for the pedestrian walkway.',
-        actionItems: [
-            'Inspect structural steel of the Riverside Bridge for corrosion.',
-            'Complete inspection before the concrete pouring next week.',
-            'Arrange delivery of pre-cast concrete slabs for the pedestrian walkway.',
-        ],
-        createdAt: new Date('2023-10-18T14:30:00Z').toISOString(),
-        recipients: ['engineer@example.com'],
-        },
-        {
-        id: '3',
-        projectId: '301',
-        originalText:
-            'For Hilltop Estates, we need to finalize the landscaping plan for lots 10 through 15. The client wants more native plants included. Please submit a revised plan by Monday. Also, confirm the plumbing inspection schedule for Phase 2.',
-        summary:
-            'Revise the landscaping plan for lots 10-15 at Hilltop Estates to include more native plants, submitting the new plan by Monday. Also, confirm the Phase 2 plumbing inspection schedule.',
-        actionItems: [
-            'Finalize the landscaping plan for lots 10 through 15.',
-            'Include more native plants in the revised plan.',
-            'Submit the revised landscaping plan by Monday.',
-            'Confirm the plumbing inspection schedule for Phase 2.',
-        ],
-        createdAt: new Date('2023-10-20T11:00:00Z').toISOString(),
-        },
     ];
 }
 
@@ -100,77 +67,11 @@ if (!g.cleanUpNotices) {
         {
             id: 'cl1',
             projectId: '101',
-            description: 'Debris from drywall installation on floor 12 needs to be cleared by end of day. Please ensure all hallways are clear for inspection tomorrow morning.',
+            description: 'Debris from drywall installation on floor 12 needs to be cleared by end of day.',
             createdAt: new Date('2023-10-22T16:00:00Z').toISOString(),
             recipients: ['cleanup-crew@example.com'],
-            photos: [{
-            url: 'https://picsum.photos/seed/cleanup1/600/400',
-            takenAt: new Date('2023-10-22T16:01:30Z').toISOString(),
-            }],
         }
     ];
-}
-
-if (!g.snaggingLists) {
-    g.snaggingLists = [
-        {
-            id: 'snag1',
-            projectId: '101',
-            description: 'Paint on the west wall of apartment 1201 is chipped. Needs repainting.',
-            createdAt: new Date('2023-10-25T10:00:00Z').toISOString(),
-            photos: [{
-            url: 'https://picsum.photos/seed/snag1/600/400',
-            takenAt: new Date('2023-10-25T10:01:00Z').toISOString(),
-            }],
-        },
-        {
-            id: 'snag2',
-            projectId: '302',
-            description: 'Leaky faucet in the master bathroom of Villa #5.',
-            createdAt: new Date('2023-10-26T11:30:00Z').toISOString(),
-        }
-    ];
-}
-
-if (!g.informationRequests) {
-    g.informationRequests = [
-        {
-            id: 'ir1',
-            projectId: '101',
-            description: 'Client needs floor plans for level 5.',
-            assignedTo: ['engineer@example.com'],
-            createdAt: new Date('2023-10-28T10:00:00Z').toISOString(),
-            requiredBy: new Date('2023-11-05T17:00:00Z').toISOString(),
-            status: 'open',
-            messages: [],
-        }
-    ];
-}
-
-if (!g.distributionUsers) {
-    g.distributionUsers = [
-        { id: 'user-james', name: 'James', email: 'j4mes0690@googlemail.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
-        { id: 'user-admin', name: 'Admin User', email: 'admin@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
-        { id: 'user-1', name: 'Project Manager', email: 'pm@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
-        { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
-        { id: 'user-3', name: 'Lead Engineer', email: 'engineer@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
-    ];
-}
-
-// Ensure the specific user always exists in the mock list
-if (g.distributionUsers && !g.distributionUsers.some(u => u.email.toLowerCase() === 'j4mes0690@googlemail.com')) {
-    g.distributionUsers.push({ 
-        id: 'user-james', 
-        name: 'James', 
-        email: 'j4mes0690@googlemail.com', 
-        password: 'password', 
-        permissions: { 
-            canManageUsers: true, 
-            canManageSubcontractors: true, 
-            canManageProjects: true, 
-            canManageChecklists: true 
-        } 
-    });
 }
 
 if (!g.subContractors) {
@@ -192,451 +93,163 @@ if (!g.qualityChecklists) {
             items: [
                 { id: 'qc1-1', text: 'Formwork is clean and properly oiled.', status: 'yes' },
                 { id: 'qc1-2', text: 'Reinforcement is correctly placed and secured.', status: 'yes' },
-                { id: 'qc1-3', text: 'Embedded items (conduits, pipes) are installed.', status: 'pending' },
-                { id: 'qc1-4', text: 'Waterstops are correctly positioned.', status: 'pending' },
             ],
-            recipients: ['contact@generalcleaners.com'],
         }
     ];
 }
 
-
-// Simulate a database with async functions
 export async function getProjects(): Promise<Project[]> {
   noStore();
-  return new Promise((resolve) => {
-    setTimeout(() => {
-        resolve(g.projects);
-    }, 100);
-  });
+  return g.projects;
 }
 
 export async function addProject(projectData: Omit<Project, 'id'>): Promise<Project> {
-    noStore();
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const newProject: Project = {
-                ...projectData,
-                id: `proj-${Date.now()}`,
-            };
-            g.projects.push(newProject);
-            resolve(newProject);
-        }, 100);
-    });
+    const newProject: Project = { ...projectData, id: `proj-${Date.now()}` };
+    g.projects.push(newProject);
+    return newProject;
 }
 
 export async function removeProject(projectId: string): Promise<{ success: boolean }> {
-    noStore();
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const initialLength = g.projects.length;
-            g.projects = g.projects.filter((project) => project.id !== projectId);
-            resolve({ success: g.projects.length < initialLength });
-        }, 100);
-    });
+    const initialLength = g.projects.length;
+    g.projects = g.projects.filter((project) => project.id !== projectId);
+    return { success: g.projects.length < initialLength };
 }
 
 export async function updateProject(projectData: Project): Promise<Project> {
-    noStore();
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const index = g.projects.findIndex(p => p.id === projectData.id);
-            if (index !== -1) {
-                g.projects[index] = projectData;
-                resolve(projectData);
-            } else {
-                reject(new Error('Project not found.'));
-            }
-        }, 100);
-    });
+    const index = g.projects.findIndex(p => p.id === projectData.id);
+    if (index !== -1) {
+        g.projects[index] = projectData;
+        return projectData;
+    }
+    throw new Error('Project not found.');
 }
 
-export async function getInstructions({
-  projectId,
-}: {
-  projectId?: string;
-}): Promise<Instruction[]> {
-  noStore();
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      let filteredInstructions = [...g.instructions];
-      if (projectId) {
-        filteredInstructions = filteredInstructions.filter(
-          (i) => i.projectId === projectId
-        );
-      }
-      resolve(filteredInstructions.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    }, 100);
-  });
+export async function getInstructions({ projectId }: { projectId?: string }): Promise<Instruction[]> {
+  let filtered = [...g.instructions];
+  if (projectId) filtered = filtered.filter(i => i.projectId === projectId);
+  return filtered.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.getTime).getTime());
 }
 
 export async function createInstruction(instructionData: Omit<Instruction, 'id' | 'createdAt'>): Promise<Instruction> {
-    noStore();
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const newInstruction: Instruction = {
-                ...instructionData,
-                id: (g.instructions.length + 1).toString(),
-                createdAt: new Date().toISOString(),
-            };
-            g.instructions = [newInstruction, ...g.instructions];
-            resolve(newInstruction);
-        }, 500);
-    });
-}
-
-export async function getDistributionUsers(): Promise<DistributionUser[]> {
-  noStore();
-  return new Promise((resolve) => setTimeout(() => resolve(g.distributionUsers), 100));
-}
-
-export async function addDistributionUser(userData: Omit<DistributionUser, 'id'>): Promise<DistributionUser> {
-  noStore();
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const newUser: DistributionUser = {
-        ...userData,
-        id: `user-${Date.now()}`,
-      };
-      g.distributionUsers.push(newUser);
-      resolve(newUser);
-    }, 100);
-  });
-}
-
-export async function removeDistributionUser(userId: string): Promise<{ success: boolean }> {
-  noStore();
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const initialLength = g.distributionUsers.length;
-      g.distributionUsers = g.distributionUsers.filter((user) => user.id !== userId);
-      resolve({ success: g.distributionUsers.length < initialLength });
-    }, 100);
-  });
-}
-
-export async function updateDistributionUser(userData: DistributionUser): Promise<DistributionUser> {
-    noStore();
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const index = g.distributionUsers.findIndex(u => u.id === userData.id);
-        if (index !== -1) {
-          g.distributionUsers[index] = userData;
-          resolve(userData);
-        } else {
-          reject(new Error('User not found.'));
-        }
-      }, 100);
-    });
-  }
-
-
-export async function getCleanUpNotices({
-  projectId,
-}: {
-  projectId?: string;
-}): Promise<CleanUpNotice[]> {
-  noStore();
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      let filteredNotices = [...g.cleanUpNotices];
-      if (projectId) {
-        filteredNotices = filteredNotices.filter(
-          (i) => i.projectId === projectId
-        );
-      }
-      resolve(filteredNotices.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    }, 100);
-  });
-}
-
-export async function createCleanUpNotice(noticeData: Omit<CleanUpNotice, 'id' | 'createdAt'>): Promise<CleanUpNotice> {
-    noStore();
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const newNotice: CleanUpNotice = {
-                ...noticeData,
-                id: `cl${g.cleanUpNotices.length + 1}`,
-                createdAt: new Date().toISOString(),
-            };
-            g.cleanUpNotices = [newNotice, ...g.cleanUpNotices];
-            resolve(newNotice);
-        }, 500);
-    });
+    const newInstruction: Instruction = { ...instructionData, id: Date.now().toString(), createdAt: new Date().toISOString() };
+    g.instructions = [newInstruction, ...g.instructions];
+    return newInstruction;
 }
 
 export async function getSubContractors(): Promise<SubContractor[]> {
-  noStore();
-  return new Promise((resolve) => setTimeout(() => resolve(g.subContractors), 100));
+  return g.subContractors;
 }
 
 export async function addSubContractor(userData: Omit<SubContractor, 'id'>): Promise<SubContractor> {
-  noStore();
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const newUser: SubContractor = {
-        ...userData,
-        id: `sub-${Date.now()}`,
-      };
-      g.subContractors.push(newUser);
-      resolve(newUser);
-    }, 100);
-  });
+    const newUser: SubContractor = { ...userData, id: `sub-${Date.now()}` };
+    g.subContractors.push(newUser);
+    return newUser;
 }
 
 export async function removeSubContractor(userId: string): Promise<{ success: boolean }> {
-  noStore();
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const initialLength = g.subContractors.length;
-      g.subContractors = g.subContractors.filter((user) => user.id !== userId);
-      resolve({ success: g.subContractors.length < initialLength });
-    }, 100);
-  });
+    const initialLength = g.subContractors.length;
+    g.subContractors = g.subContractors.filter((user) => user.id !== userId);
+    return { success: g.subContractors.length < initialLength };
 }
 
 export async function updateSubContractor(subContractorData: SubContractor): Promise<SubContractor> {
-    noStore();
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const index = g.subContractors.findIndex(sc => sc.id === subContractorData.id);
-        if (index !== -1) {
-          g.subContractors[index] = subContractorData;
-          resolve(subContractorData);
-        } else {
-          reject(new Error('Sub-contractor not found.'));
-        }
-      }, 100);
-    });
-  }
+    const index = g.subContractors.findIndex(sc => sc.id === subContractorData.id);
+    if (index !== -1) {
+        g.subContractors[index] = subContractorData;
+        return subContractorData;
+    }
+    throw new Error('Sub-contractor not found.');
+}
 
-export async function getSnaggingLists({
-  projectId,
-}: {
-  projectId?: string;
-}): Promise<SnaggingItem[]> {
-  noStore();
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      let filteredItems = [...g.snaggingLists];
-      if (projectId) {
-        filteredItems = filteredItems.filter(
-          (i) => i.projectId === projectId
-        );
-      }
-      resolve(filteredItems.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    }, 100);
-  });
+export async function getSnaggingLists({ projectId }: { projectId?: string }): Promise<SnaggingItem[]> {
+    let filtered = [...(g.snaggingLists || [])];
+    if (projectId) filtered = filtered.filter(i => i.projectId === projectId);
+    return filtered;
 }
 
 export async function createSnaggingItem(itemData: Omit<SnaggingItem, 'id' | 'createdAt'>): Promise<SnaggingItem> {
-    noStore();
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const newItem: SnaggingItem = {
-                ...itemData,
-                id: `snag${g.snaggingLists.length + 1}`,
-                createdAt: new Date().toISOString(),
-            };
-            g.snaggingLists = [newItem, ...g.snaggingLists];
-            resolve(newItem);
-        }, 500);
-    });
+    const newItem: SnaggingItem = { ...itemData, id: `snag-${Date.now()}`, createdAt: new Date().toISOString() };
+    g.snaggingLists = [newItem, ...(g.snaggingLists || [])];
+    return newItem;
 }
 
 export async function updateSnaggingItem(itemData: SnaggingItem): Promise<SnaggingItem> {
-    noStore();
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const index = g.snaggingLists.findIndex(item => item.id === itemData.id);
-            if (index !== -1) {
-                g.snaggingLists[index] = itemData;
-                resolve(itemData);
-            } else {
-                reject(new Error('Snagging item not found'));
-            }
-        }, 500);
-    });
+    const index = g.snaggingLists.findIndex(item => item.id === itemData.id);
+    if (index !== -1) {
+        g.snaggingLists[index] = itemData;
+        return itemData;
+    }
+    throw new Error('Snagging item not found');
 }
 
+export async function getInformationRequests({ projectId }: { projectId?: string }): Promise<InformationRequest[]> {
+    let filtered = [...(g.informationRequests || [])];
+    if (projectId) filtered = filtered.filter(i => i.projectId === projectId);
+    return filtered;
+}
 
-export async function getInformationRequests({
-    projectId,
-  }: {
-    projectId?: string;
-  }): Promise<InformationRequest[]> {
-    noStore();
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        let filteredItems = [...g.informationRequests];
-        if (projectId) {
-          filteredItems = filteredItems.filter(
-            (i) => i.projectId === projectId
-          );
-        }
-        resolve(filteredItems.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-      }, 100);
-    });
-  }
-  
-  export async function createInformationRequest(itemData: Omit<InformationRequest, 'id' | 'createdAt'>): Promise<InformationRequest> {
-      noStore();
-      return new Promise((resolve) => {
-          setTimeout(() => {
-              const newItem: InformationRequest = {
-                  ...itemData,
-                  id: `ir${g.informationRequests.length + 1}`,
-                  createdAt: new Date().toISOString(),
-              };
-              g.informationRequests = [newItem, ...g.informationRequests];
-              resolve(newItem);
-          }, 500);
-      });
-  }
+export async function createInformationRequest(itemData: Omit<InformationRequest, 'id' | 'createdAt'>): Promise<InformationRequest> {
+    const newItem: InformationRequest = { ...itemData, id: `ir-${Date.now()}`, createdAt: new Date().toISOString() };
+    g.informationRequests = [newItem, ...(g.informationRequests || [])];
+    return newItem;
+}
 
-  export async function updateInformationRequest(itemData: InformationRequest): Promise<InformationRequest> {
-    noStore();
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const index = g.informationRequests.findIndex(item => item.id === itemData.id);
-            if (index !== -1) {
-                g.informationRequests[index] = itemData;
-                resolve(itemData);
-            } else {
-                reject(new Error('Information request not found'));
-            }
-        }, 500);
-    });
+export async function updateInformationRequest(itemData: InformationRequest): Promise<InformationRequest> {
+    const index = g.informationRequests.findIndex(item => item.id === itemData.id);
+    if (index !== -1) {
+        g.informationRequests[index] = itemData;
+        return itemData;
+    }
+    throw new Error('Information request not found');
 }
 
 export async function deleteInformationRequest(id: string): Promise<{ success: boolean }> {
-    noStore();
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const initialLength = g.informationRequests.length;
-            g.informationRequests = g.informationRequests.filter(item => item.id !== id);
-            resolve({ success: g.informationRequests.length < initialLength });
-        }, 500);
-    });
+    const initialLength = g.informationRequests.length;
+    g.informationRequests = g.informationRequests.filter(item => item.id !== id);
+    return { success: g.informationRequests.length < initialLength };
 }
 
-export async function getQualityChecklists({
-    projectId,
-    template,
-  }: {
-    projectId?: string;
-    template?: boolean;
-  }): Promise<QualityChecklist[]> {
-    noStore();
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        let filteredItems = [...g.qualityChecklists];
+export async function getQualityChecklists({ projectId, template }: { projectId?: string, template?: boolean }): Promise<QualityChecklist[]> {
+    let filtered = [...(g.qualityChecklists || [])];
+    if (template === true) filtered = filtered.filter(c => !c.projectId);
+    else if (template === false) filtered = filtered.filter(c => !!c.projectId);
+    if (projectId) filtered = filtered.filter(i => i.projectId === projectId);
+    return filtered;
+}
 
-        if (template === true) {
-            filteredItems = filteredItems.filter(c => !c.projectId);
-        } else if (template === false) {
-            filteredItems = filteredItems.filter(c => !!c.projectId);
-        }
-        
-        if (projectId) {
-          filteredItems = filteredItems.filter(
-            (i) => i.projectId === projectId
-          );
-        }
-        resolve(filteredItems.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-      }, 100);
-    });
-  }
-
-  export async function createQualityChecklist(itemData: Omit<QualityChecklist, 'id' | 'createdAt'>): Promise<QualityChecklist> {
-    noStore();
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const newItem: QualityChecklist = {
-                ...itemData,
-                id: `qc${g.qualityChecklists.length + 1}`,
-                createdAt: new Date().toISOString(),
-            };
-            g.qualityChecklists = [newItem, ...g.qualityChecklists];
-            resolve(newItem);
-        }, 500);
-    });
+export async function createQualityChecklist(itemData: Omit<QualityChecklist, 'id' | 'createdAt'>): Promise<QualityChecklist> {
+    const newItem: QualityChecklist = { ...itemData, id: `qc-${Date.now()}`, createdAt: new Date().toISOString() };
+    g.qualityChecklists = [newItem, ...(g.qualityChecklists || [])];
+    return newItem;
 }
 
 export async function updateQualityChecklist(itemData: QualityChecklist): Promise<QualityChecklist> {
-    noStore();
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const index = g.qualityChecklists.findIndex(item => item.id === itemData.id);
-            if (index !== -1) {
-                g.qualityChecklists[index] = itemData;
-                resolve(itemData);
-            } else {
-                reject(new Error('Quality checklist not found'));
-            }
-        }, 500);
-    });
+    const index = g.qualityChecklists.findIndex(item => item.id === itemData.id);
+    if (index !== -1) {
+        g.qualityChecklists[index] = itemData;
+        return itemData;
+    }
+    throw new Error('Quality checklist not found');
 }
 
-export async function assignChecklistToProject(
-    templateId: string, 
-    projectId: string, 
-    areaId: string,
-    recipients?: string[]
-): Promise<QualityChecklist> {
-    noStore();
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const template = g.qualityChecklists.find(c => c.id === templateId && !c.projectId);
-            if (!template) {
-                return reject(new Error('Checklist template not found.'));
-            }
-
-            const newChecklistInstance: QualityChecklist = {
-                ...template,
-                id: `qc-instance-${Date.now()}`,
-                projectId,
-                areaId,
-                createdAt: new Date().toISOString(),
-                recipients: recipients,
-                // Reset item statuses and comments for the new instance
-                items: template.items.map(item => ({
-                    ...item,
-                    status: 'pending',
-                    comment: undefined,
-                })),
-            };
-
-            g.qualityChecklists.push(newChecklistInstance);
-            resolve(newChecklistInstance);
-        }, 500);
-    });
-}
-
-export async function getCurrentUser(): Promise<DistributionUser | null> {
-    noStore();
-    // In this non-cookie version, the client will pass the user email to other functions
-    // or we fetch the profile separately on the client.
-    return null;
-}
-
-export async function getDistributionUserByEmail(email: string): Promise<DistributionUser | null> {
-  noStore();
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const user = g.distributionUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
-      resolve(user || null);
-    }, 100);
-  });
+export async function assignChecklistToProject(templateId: string, projectId: string, areaId: string, recipients?: string[]): Promise<QualityChecklist> {
+    const template = g.qualityChecklists.find(c => c.id === templateId && !c.projectId);
+    if (!template) throw new Error('Checklist template not found.');
+    const newInstance: QualityChecklist = {
+        ...template,
+        id: `qc-instance-${Date.now()}`,
+        projectId,
+        areaId,
+        createdAt: new Date().toISOString(),
+        recipients: recipients,
+        items: template.items.map(item => ({ ...item, status: 'pending', comment: undefined })),
+    };
+    g.qualityChecklists.push(newInstance);
+    return newInstance;
 }
 
 export async function deleteQualityChecklist(id: string): Promise<{ success: boolean }> {
-    noStore();
-    return new Promise((resolve) => {
-        setTimeout(() => {
-            const initialLength = g.qualityChecklists.length;
-            g.qualityChecklists = g.qualityChecklists.filter(item => item.id !== id);
-            resolve({ success: g.qualityChecklists.length < initialLength });
-        }, 100);
-    });
+    const initialLength = g.qualityChecklists.length;
+    g.qualityChecklists = g.qualityChecklists.filter(item => item.id !== id);
+    return { success: g.qualityChecklists.length < initialLength };
 }

@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTransition } from 'react';
-import { addUserAction } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -20,11 +19,14 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { useFirestore } from '@/firebase';
+import { doc, setDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const AddUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
-  password: z.string().min(6, 'Password must be at least 6 characters long.'),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -35,6 +37,7 @@ type AddUserFormValues = z.infer<typeof AddUserSchema>;
 
 export function AddUserForm() {
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<AddUserFormValues>({
@@ -42,7 +45,6 @@ export function AddUserForm() {
     defaultValues: {
       name: '',
       email: '',
-      password: '',
       canManageUsers: false,
       canManageSubcontractors: false,
       canManageProjects: false,
@@ -52,27 +54,34 @@ export function AddUserForm() {
 
   const onSubmit = (values: AddUserFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('name', values.name);
-      formData.append('email', values.email);
-      formData.append('password', values.password);
-      if (values.canManageUsers) formData.append('canManageUsers', 'on');
-      if (values.canManageSubcontractors) formData.append('canManageSubcontractors', 'on');
-      if (values.canManageProjects) formData.append('canManageProjects', 'on');
-      if (values.canManageChecklists) formData.append('canManageChecklists', 'on');
+      const email = values.email.toLowerCase().trim();
+      const profile = {
+        id: email, // Use email as ID for simple lookup
+        name: values.name,
+        email: email,
+        permissions: {
+          canManageUsers: values.canManageUsers,
+          canManageSubcontractors: values.canManageSubcontractors,
+          canManageProjects: values.canManageProjects,
+          canManageChecklists: values.canManageChecklists,
+        }
+      };
 
-      const result = await addUserAction(formData);
-
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        form.reset();
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message,
-          variant: 'destructive',
+      const docRef = doc(db, 'users', email);
+      
+      setDoc(docRef, profile)
+        .then(() => {
+          toast({ title: 'Success', description: 'User profile created. Remember to add their login in the Firebase Console.' });
+          form.reset();
+        })
+        .catch(async (error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'create',
+            requestResourceData: profile,
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
         });
-      }
     });
   };
 
@@ -103,19 +112,6 @@ export function AddUserForm() {
               <FormLabel>Email</FormLabel>
               <FormControl>
                 <Input placeholder="john.doe@example.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input type="password" placeholder="••••••••" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -206,7 +202,7 @@ export function AddUserForm() {
             />
         </div>
         <Button type="submit" disabled={isPending}>
-          {isPending ? 'Adding...' : 'Add User'}
+          {isPending ? 'Adding...' : 'Add User Profile'}
         </Button>
       </form>
     </Form>

@@ -5,7 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useTransition, useEffect } from 'react';
-import { updateAccountAction } from './actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,16 +14,19 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import type { DistributionUser } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const UpdateAccountSchema = z.object({
-  id: z.string().min(1),
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
-  password: z.string().optional(),
 });
 
 type UpdateAccountFormValues = z.infer<typeof UpdateAccountSchema>;
@@ -35,25 +37,22 @@ type AccountFormProps = {
 
 export function AccountForm({ user }: AccountFormProps) {
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<UpdateAccountFormValues>({
     resolver: zodResolver(UpdateAccountSchema),
     defaultValues: {
-      id: '',
-      name: '',
-      email: '',
-      password: '',
+      name: user?.name || '',
+      email: user?.email || '',
     },
   });
 
   useEffect(() => {
     if (user) {
       form.reset({
-        id: user.id,
         name: user.name,
         email: user.email,
-        password: '',
       });
     }
   }, [user, form.reset]);
@@ -61,26 +60,24 @@ export function AccountForm({ user }: AccountFormProps) {
 
   const onSubmit = (values: UpdateAccountFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('id', values.id);
-      formData.append('name', values.name);
-      formData.append('email', values.email);
-      if (values.password) {
-        formData.append('password', values.password);
-      }
+      const docId = user.id || user.email;
+      const docRef = doc(db, 'users', docId);
+      const updates = {
+        name: values.name,
+      };
 
-      const result = await updateAccountAction(formData);
-
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        form.setValue('password', '');
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message,
-          variant: 'destructive',
+      updateDoc(docRef, updates)
+        .then(() => {
+          toast({ title: 'Success', description: 'Your profile has been updated.' });
+        })
+        .catch(async (error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
         });
-      }
     });
   };
 
@@ -90,13 +87,12 @@ export function AccountForm({ user }: AccountFormProps) {
         onSubmit={form.handleSubmit(onSubmit)}
         className="space-y-6"
       >
-        <input type="hidden" {...form.register('id')} />
         <FormField
           control={form.control}
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Name</FormLabel>
+              <FormLabel>Full Name</FormLabel>
               <FormControl>
                 <Input {...field} />
               </FormControl>
@@ -109,24 +105,11 @@ export function AccountForm({ user }: AccountFormProps) {
           name="email"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Email</FormLabel>
+              <FormLabel>Email Address</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input {...field} readOnly />
               </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Separator />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>New Password</FormLabel>
-              <FormControl>
-                <Input type="password" placeholder="Leave blank to keep current password" {...field} />
-              </FormControl>
+              <FormDescription>Your email is used as your system identity and cannot be changed here.</FormDescription>
               <FormMessage />
             </FormItem>
           )}

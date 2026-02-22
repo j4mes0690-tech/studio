@@ -3,19 +3,18 @@
   "entities": {
     "DistributionUser": {
       "title": "DistributionUser",
-      "description": "A user who can receive and manage instructions.",
+      "description": "A user profile with system permissions. The document ID should be the user's email or UID.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "permissions": { "$ref": "#/entities/UserPermissions" }
       },
-      "required": ["id", "name", "email"]
+      "required": ["name", "email"]
     },
     "UserPermissions": {
       "title": "UserPermissions",
-      "description": "Permissions for a distribution user.",
+      "description": "Access control flags for various system modules.",
       "type": "object",
       "properties": {
         "canManageUsers": { "type": "boolean" },
@@ -29,9 +28,9 @@
     "providers": ["password"]
   },
   "firestore": {
-    "/users/{userId}": {
+    "/users/{userEmail}": {
       "schema": "DistributionUser",
-      "description": "User profiles and permissions."
+      "description": "User profiles and permissions, keyed by email for easy lookup in distribution lists."
     }
   }
 }
