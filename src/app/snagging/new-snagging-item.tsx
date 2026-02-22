@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -35,7 +34,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X } from 'lucide-react';
-import type { Project, Photo } from '@/lib/types';
+import type { Project, Photo, Area } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -43,6 +42,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 const SnaggingItemSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
+  areaId: z.string().optional(),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
 });
 
@@ -50,19 +50,29 @@ type NewSnaggingItemFormValues = z.infer<typeof SnaggingItemSchema>;
 
 export function NewSnaggingItem({ projects }: { projects: Project[] }) {
   const [open, setOpen] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [availableAreas, setAreas] = useState<Area[]>([]);
 
   const form = useForm<NewSnaggingItemFormValues>({
     resolver: zodResolver(SnaggingItemSchema),
-    defaultValues: { projectId: '', description: '' },
+    defaultValues: { projectId: '', areaId: '', description: '' },
   });
+
+  const selectedProjectId = form.watch('projectId');
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      const selectedProject = projects.find(p => p.id === selectedProjectId);
+      setAreas(selectedProject?.areas || []);
+      form.setValue('areaId', ''); // Reset area when project changes
+    } else {
+      setAreas([]);
+    }
+  }, [selectedProjectId, projects, form]);
 
   const onSubmit = (values: NewSnaggingItemFormValues) => {
     startTransition(async () => {
@@ -100,7 +110,7 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
       <DialogTrigger asChild>
         <Button><PlusCircle className="mr-2 h-4 w-4" />New Item</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record New Snagging Item</DialogTitle>
           <DialogDescription>Capture a snagging issue to be addressed.</DialogDescription>
@@ -125,6 +135,28 @@ export function NewSnaggingItem({ projects }: { projects: Project[] }) {
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="areaId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Area (Optional)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId || availableAreas.length === 0}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Select an area" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableAreas.length > 0 ? availableAreas.map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                      )) : <SelectItem value="none" disabled>No areas defined</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="description"

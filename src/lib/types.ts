@@ -1,4 +1,3 @@
-
 export type Area = {
   id: string;
   name: string;
@@ -38,6 +37,7 @@ export type CleanUpNotice = {
 export type SnaggingItem = {
   id: string;
   projectId: string;
+  areaId?: string;
   description: string;
   createdAt: string;
   photos?: Photo[];
@@ -62,6 +62,7 @@ export type InformationRequest = {
   requiredBy?: string;
   status: 'open' | 'closed';
   messages: ChatMessage[];
+  dismissedBy?: string[];
 };
 
 export type UserPermissions = {
@@ -103,4 +104,5 @@ export type QualityChecklist = {
   items: ChecklistItem[];
   areaId?: string;
   recipients?: string[];
+  isTemplate?: boolean;
 };

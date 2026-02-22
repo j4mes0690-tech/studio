@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -33,6 +32,7 @@ export function ExportButton({
   const handleExport = () => {
     const headers = [
       'Project',
+      'Area',
       'Date',
       'Description',
       'Photo URLs',
@@ -41,11 +41,13 @@ export function ExportButton({
 
     const rows = items.map((item) => {
       const project = projectMap.get(item.projectId);
+      const area = project?.areas?.find(a => a.id === item.areaId);
       const photoUrls = item.photos?.map(p => p.url).join('; ') || '';
       const photoTimestamps = item.photos?.map(p => new Date(p.takenAt).toLocaleString()).join('; ') || '';
 
       return [
         project?.name || 'N/A',
+        area?.name || 'N/A',
         new Date(item.createdAt).toLocaleString(),
         item.description,
         photoUrls,

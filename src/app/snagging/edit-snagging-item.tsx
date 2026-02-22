@@ -34,7 +34,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, Camera, Upload, X } from 'lucide-react';
-import type { Project, SnaggingItem, Photo } from '@/lib/types';
+import type { Project, SnaggingItem, Photo, Area } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -43,6 +43,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 const EditSnaggingItemSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
+  areaId: z.string().optional(),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
 });
 
@@ -55,29 +56,38 @@ type EditSnaggingItemProps = {
 
 export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
   const [open, setOpen] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
   const db = useFirestore();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
+  const [availableAreas, setAreas] = useState<Area[]>([]);
 
   const form = useForm<EditSnaggingItemFormValues>({
     resolver: zodResolver(EditSnaggingItemSchema),
     defaultValues: {
       projectId: item.projectId,
+      areaId: item.areaId || '',
       description: item.description,
     },
   });
+
+  const selectedProjectId = form.watch('projectId');
+
+  useEffect(() => {
+    if (selectedProjectId) {
+      const selectedProject = projects.find(p => p.id === selectedProjectId);
+      setAreas(selectedProject?.areas || []);
+    } else {
+      setAreas([]);
+    }
+  }, [selectedProjectId, projects]);
 
   useEffect(() => {
     if (open) {
       form.reset({
         projectId: item.projectId,
+        areaId: item.areaId || '',
         description: item.description,
       });
       setPhotos(item.photos || []);
@@ -89,6 +99,7 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
       const docRef = doc(db, 'snagging-items', item.id);
       const updates = {
         projectId: values.projectId,
+        areaId: values.areaId || null,
         description: values.description,
         photos: photos,
       };
@@ -107,36 +118,6 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
           errorEmitter.emit('permission-error', permissionError);
         });
     });
-  };
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setHasCameraPermission(true);
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (error) {
-        setHasCameraPermission(false);
-      }
-    };
-    if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
-  }, [isCameraOpen]);
-
-  const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 600;
-      canvas.height = 600 / aspectRatio;
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
-      setIsCameraOpen(false);
-    }
   };
 
   return (
@@ -174,6 +155,28 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="areaId"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Area (Optional)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId || availableAreas.length === 0}>
+                    <FormControl>
+                      <SelectTrigger><SelectValue placeholder="Select an area" /></SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableAreas.length > 0 ? availableAreas.map(a => (
+                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                      )) : <SelectItem value="none" disabled>No areas defined</SelectItem>}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField
               control={form.control}
               name="description"
@@ -190,44 +193,26 @@ export function EditSnaggingItem({ item, projects }: EditSnaggingItemProps) {
 
             <div className="space-y-4">
               <FormLabel>Photos</FormLabel>
-              {photos.length > 0 && (
-                <div className="grid grid-cols-3 gap-4">
-                  {photos.map((p, i) => (
-                    <div key={i} className="relative group">
-                      <Image src={p.url} alt="Defect" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                      <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {isCameraOpen ? (
-                <div className="space-y-2">
-                  <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
-                  <div className="flex gap-2">
-                    <Button type="button" onClick={takePhoto}>Take Photo</Button>
-                    <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+              <div className="flex flex-wrap gap-2">
+                {photos.map((p, i) => (
+                  <div key={i} className="relative w-20 h-20">
+                    <Image src={p.url} alt="Defect" fill className="rounded-md object-cover" />
+                    <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
                   </div>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
-                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                    const files = e.target.files;
-                    if (!files) return;
-                    Array.from(files).forEach(f => {
-                      const reader = new FileReader();
-                      reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                      reader.readAsDataURL(f);
-                    });
-                  }} />
-                </div>
-              )}
+                ))}
+                <Button type="button" variant="outline" size="icon" className="w-20 h-20" onClick={() => fileInputRef.current?.click()}><Camera className="h-6 w-6" /></Button>
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                  const files = e.target.files;
+                  if (!files) return;
+                  Array.from(files).forEach(f => {
+                    const reader = new FileReader();
+                    reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                    reader.readAsDataURL(f);
+                  });
+                }} />
+              </div>
             </div>
             
-            <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
               <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : 'Save Changes'}</Button>
             </DialogFooter>

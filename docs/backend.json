@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "DistributionUser": {
@@ -91,6 +90,7 @@
       "type": "object",
       "properties": {
         "projectId": { "type": "string" },
+        "areaId": { "type": "string" },
         "description": { "type": "string" },
         "createdAt": { "type": "string" },
         "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }

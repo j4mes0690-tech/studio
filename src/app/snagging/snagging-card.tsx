@@ -35,16 +35,24 @@ export function SnaggingItemCard({
   projects,
 }: SnaggingItemCardProps) {
   const project = projects.find((p) => p.id === item.projectId);
+  const area = project?.areas?.find((a) => a.id === item.areaId);
 
   return (
     <Card>
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle>{project?.name || 'Unknown Project'}</CardTitle>
+            <CardTitle>
+              {project?.name || 'Unknown Project'}
+              {area && (
+                <span className="text-muted-foreground font-normal ml-2">
+                  &gt; {area.name}
+                </span>
+              )}
+            </CardTitle>
             <CardDescription className="flex items-center gap-2 pt-1">
               <span className="text-xs text-muted-foreground/80">
-                - <ClientDate date={item.createdAt} />
+                Logged on: <ClientDate date={item.createdAt} />
               </span>
             </CardDescription>
           </div>
@@ -80,7 +88,7 @@ export function SnaggingItemCard({
                               className="rounded-md border object-cover aspect-video"
                               data-ai-hint="construction defect"
                             />
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground text-center">
                               Taken on:{' '}
                               <ClientDate date={photo.takenAt} />
                             </p>
