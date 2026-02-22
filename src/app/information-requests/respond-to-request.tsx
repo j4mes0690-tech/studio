@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -32,7 +31,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 const AddChatMessageSchema = z.object({
   message: z.string().min(1, 'Message cannot be empty.'),
@@ -86,22 +85,19 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
           toast({ title: 'Success', description: 'Message sent.' });
           setOpen(false);
         })
-        .catch((error) => {
-          console.error("Error replying to request:", error);
+        .catch((serverError) => {
           const permissionError = new FirestorePermissionError({
             path: docRef.path,
             operation: 'update',
             requestResourceData: updates,
-          });
+          } satisfies SecurityRuleContext);
           errorEmitter.emit('permission-error', permissionError);
         });
     });
   };
 
-  const messages = useMemo(() => {
-    const rawMessages = item.messages || [];
-    return [...rawMessages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [item.messages]);
+  // Sort messages directly during render to ensure real-time reactivity
+  const sortedMessages = [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -134,7 +130,7 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
                     <p className='text-sm font-semibold text-primary'>Original Request:</p>
                     <p className='text-sm text-muted-foreground mt-1'>{item.description}</p>
                 </div>
-                {messages.map(msg => (
+                {sortedMessages.map(msg => (
                     <div key={msg.id} className="pt-2 border-t first:border-t-0">
                         <p className='text-xs font-semibold'>{msg.sender}:</p>
                         <p className='text-sm text-muted-foreground mt-1'>{msg.message}</p>

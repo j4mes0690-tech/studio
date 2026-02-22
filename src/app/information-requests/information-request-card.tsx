@@ -50,7 +50,7 @@ import { ClientDate } from '../../components/client-date';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc, deleteDoc, arrayRemove } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 
 function UpdateStatusButton({ requestId, newStatus }: { requestId: string, newStatus: 'open' | 'closed' }) {
@@ -64,7 +64,7 @@ function UpdateStatusButton({ requestId, newStatus }: { requestId: string, newSt
             const updates = { status: newStatus };
             updateDoc(docRef, updates)
               .then(() => toast({ title: 'Success', description: `Request ${newStatus}.` }))
-              .catch((error) => {
+              .catch((serverError) => {
                 const permissionError = new FirestorePermissionError({
                   path: docRef.path,
                   operation: 'update',
@@ -122,7 +122,7 @@ function DeleteRequestButton({ requestId }: { requestId: string }) {
             const docRef = doc(db, 'information-requests', requestId);
             deleteDoc(docRef)
               .then(() => toast({ title: 'Success', description: 'Request deleted.' }))
-              .catch((error) => {
+              .catch((serverError) => {
                 const permissionError = new FirestorePermissionError({
                   path: docRef.path,
                   operation: 'delete',
@@ -180,7 +180,7 @@ function DeleteMessageButton({ requestId, message }: { requestId: string, messag
             };
             updateDoc(docRef, updates)
               .then(() => toast({ title: 'Success', description: 'Message deleted.' }))
-              .catch((error) => {
+              .catch((serverError) => {
                 const permissionError = new FirestorePermissionError({
                   path: docRef.path,
                   operation: 'update',
@@ -239,10 +239,8 @@ export function InformationRequestCard({
         : item.assignedTo ? [item.assignedTo] : [];
   }, [item.assignedTo]);
     
-  const messages = useMemo(() => {
-      const rawMessages = item.messages || [];
-      return [...rawMessages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [item.messages]);
+  // Sort messages by date directly during render to ensure reactivity with real-time snapshots
+  const sortedMessages = [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
     <Card>
@@ -305,15 +303,15 @@ export function InformationRequestCard({
             <AccordionTrigger className="text-sm font-semibold">
               <div className="flex items-center gap-2">
                 <MessageSquareReply className="h-4 w-4" />
-                <span>Conversation ({messages.length})</span>
+                <span>Conversation ({sortedMessages.length})</span>
               </div>
             </AccordionTrigger>
             <AccordionContent className="space-y-4 pt-4">
-              {messages.length === 0 ? (
+              {sortedMessages.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground">No replies yet.</p>
               ) : (
                   <div className="space-y-4">
-                    {messages.map((msg) => (
+                    {sortedMessages.map((msg) => (
                           <div key={msg.id} className="group relative rounded-md border bg-muted/50 p-3">
                             <div className="flex items-center justify-between">
                                 <p className="font-semibold text-sm">{msg.sender}</p>
