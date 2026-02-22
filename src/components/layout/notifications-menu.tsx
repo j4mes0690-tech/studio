@@ -15,9 +15,11 @@ import { Button } from '@/components/ui/button';
 import { Bell, HelpCircle, Loader2, MessageSquareReply } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, where, or, and } from 'firebase/firestore';
+import { collection, query, where, or, and, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import type { InformationRequest } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export function NotificationsMenu({ userEmail }: { userEmail: string }) {
   const db = useFirestore();
@@ -44,6 +46,9 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
     if (!rawRequests) return [];
 
     return rawRequests.map(request => {
+      // 0. Skip if user has dismissed this specific notification
+      if (request.dismissedBy?.includes(normalizedEmail)) return null;
+
       // 1. Check if assigned to user
       const isAssignedToMe = request.assignedTo.includes(normalizedEmail);
       
@@ -62,6 +67,20 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
       return null;
     }).filter(Boolean);
   }, [rawRequests, normalizedEmail]);
+
+  const handleDismiss = (requestId: string) => {
+    const docRef = doc(db, 'information-requests', requestId);
+    updateDoc(docRef, {
+      dismissedBy: arrayUnion(normalizedEmail)
+    }).catch(error => {
+      const permissionError = new FirestorePermissionError({
+        path: docRef.path,
+        operation: 'update',
+        requestResourceData: { dismissedBy: normalizedEmail }
+      });
+      errorEmitter.emit('permission-error', permissionError);
+    });
+  };
 
   const pendingCount = notifications.length;
 
@@ -105,7 +124,12 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
           <ScrollArea className="h-72">
             <div className="p-1 space-y-1">
               {notifications.map((notif: any) => (
-                <DropdownMenuItem key={notif.id} asChild className="cursor-pointer p-3">
+                <DropdownMenuItem 
+                  key={notif.id} 
+                  asChild 
+                  className="cursor-pointer p-3"
+                  onClick={() => handleDismiss(notif.id)}
+                >
                   <Link href={`/information-requests?project=${notif.projectId}`}>
                     <div className="flex gap-3 items-start">
                       <div className={`mt-1 p-2 rounded-full ${notif.notifType === 'assignment' ? 'bg-primary/10' : 'bg-accent/10'}`}>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { InformationRequest, Project, DistributionUser, ChatMessage } from '@/lib/types';
@@ -62,7 +63,10 @@ function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: 
         startTransition(async () => {
             const docRef = doc(db, 'information-requests', requestId);
             
-            const updates: any = { status: newStatus };
+            const updates: any = { 
+                status: newStatus,
+                dismissedBy: [] // Reset notification dismissal on status change
+            };
 
             // Automatically add a status update message to the conversation
             if (newStatus === 'closed') {

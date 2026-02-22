@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -77,7 +78,9 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
       const docRef = doc(db, 'information-requests', item.id);
       const updates = { 
           // Use arrayUnion to safely add to the messages array in Firestore
-          messages: arrayUnion(newMessage) 
+          messages: arrayUnion(newMessage),
+          // Reset dismissed status for everyone so they see the new reply
+          dismissedBy: []
       };
 
       updateDoc(docRef, updates)
