@@ -76,7 +76,11 @@ export default function InformationRequestsPage() {
             Information Request Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewInformationRequest projects={allProjects || []} distributionUsers={distributionUsers || []} />
+            <NewInformationRequest 
+              projects={allProjects || []} 
+              distributionUsers={distributionUsers || []} 
+              currentUser={currentUser}
+            />
           </div>
         </div>
         <InformationRequestFilters projects={allProjects || []} />

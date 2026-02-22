@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -56,9 +57,10 @@ type NewInformationRequestFormValues = z.infer<typeof NewInformationRequestSchem
 type NewInformationRequestProps = {
   projects: Project[];
   distributionUsers: DistributionUser[];
+  currentUser: DistributionUser;
 };
 
-export function NewInformationRequest({ projects, distributionUsers }: NewInformationRequestProps) {
+export function NewInformationRequest({ projects, distributionUsers, currentUser }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
@@ -86,12 +88,13 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
       // IDs are emails in the system
       const assignedEmails = distributionUsers
         .filter(u => values.assignedTo.includes(u.id))
-        .map(u => u.email);
+        .map(u => u.email.toLowerCase().trim());
 
       const requestData = {
         projectId: values.projectId,
         description: values.description,
         assignedTo: assignedEmails,
+        raisedBy: currentUser.email.toLowerCase().trim(),
         photos: photos,
         requiredBy: values.requiredBy || null,
         status: 'open',

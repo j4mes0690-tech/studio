@@ -98,11 +98,13 @@
     },
     "InformationRequest": {
       "title": "InformationRequest",
+      "description": "RFIs.",
       "type": "object",
       "properties": {
         "projectId": { "type": "string" },
         "description": { "type": "string" },
         "assignedTo": { "type": "array", "items": { "type": "string" } },
+        "raisedBy": { "type": "string" },
         "createdAt": { "type": "string" },
         "status": { "type": "string", "enum": ["open", "closed"] },
         "requiredBy": { "type": "string" },
@@ -115,6 +117,7 @@
       "properties": {
         "id": { "type": "string" },
         "sender": { "type": "string" },
+        "senderEmail": { "type": "string" },
         "message": { "type": "string" },
         "createdAt": { "type": "string" }
       }

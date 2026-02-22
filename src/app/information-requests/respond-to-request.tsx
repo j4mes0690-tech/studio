@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
@@ -69,6 +70,7 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
       const newMessage: ChatMessage = {
         id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         sender: currentUser.name,
+        senderEmail: currentUser.email.toLowerCase().trim(),
         message: values.message,
         createdAt: new Date().toISOString(),
       };

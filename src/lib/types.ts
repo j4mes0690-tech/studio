@@ -46,6 +46,7 @@ export type SnaggingItem = {
 export type ChatMessage = {
   id: string;
   sender: string;
+  senderEmail: string;
   message: string;
   createdAt: string;
 };
@@ -55,6 +56,7 @@ export type InformationRequest = {
   projectId: string;
   description: string;
   assignedTo: string[];
+  raisedBy: string;
   createdAt: string;
   photos?: Photo[];
   requiredBy?: string;

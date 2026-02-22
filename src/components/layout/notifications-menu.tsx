@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -11,29 +12,56 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Bell, HelpCircle, Loader2 } from 'lucide-react';
+import { Bell, HelpCircle, Loader2, MessageSquareReply } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, or } from 'firebase/firestore';
 import type { InformationRequest } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 export function NotificationsMenu({ userEmail }: { userEmail: string }) {
   const db = useFirestore();
+  const normalizedEmail = userEmail.toLowerCase().trim();
 
-  // Query for open requests assigned to the current user
+  // Query for open requests that involve the current user
   const notificationsQuery = useMemo(() => {
-    if (!db || !userEmail) return null;
+    if (!db || !normalizedEmail) return null;
     return query(
       collection(db, 'information-requests'),
       where('status', '==', 'open'),
-      where('assignedTo', 'array-contains', userEmail.toLowerCase().trim())
+      or(
+        where('assignedTo', 'array-contains', normalizedEmail),
+        where('raisedBy', '==', normalizedEmail)
+      )
     );
-  }, [db, userEmail]);
+  }, [db, normalizedEmail]);
 
-  const { data: requests, isLoading } = useCollection<InformationRequest>(notificationsQuery);
+  const { data: rawRequests, isLoading } = useCollection<InformationRequest>(notificationsQuery);
 
-  const pendingCount = requests?.length || 0;
+  const notifications = useMemo(() => {
+    if (!rawRequests) return [];
+
+    return rawRequests.map(request => {
+      // 1. Check if assigned to user
+      const isAssignedToMe = request.assignedTo.includes(normalizedEmail);
+      
+      // 2. Check if raised by user and has response from someone else
+      const messages = request.messages || [];
+      const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+      const isMyRaisedWithResponse = request.raisedBy === normalizedEmail && lastMessage && lastMessage.senderEmail !== normalizedEmail;
+
+      if (isAssignedToMe || isMyRaisedWithResponse) {
+          return {
+              ...request,
+              notifType: isAssignedToMe ? 'assignment' : 'response',
+              label: isAssignedToMe ? 'Assigned to you' : 'New response received'
+          };
+      }
+      return null;
+    }).filter(Boolean);
+  }, [rawRequests, normalizedEmail]);
+
+  const pendingCount = notifications.length;
 
   return (
     <DropdownMenu>
@@ -56,7 +84,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
           <span>Pending Actions</span>
           {pendingCount > 0 && (
             <Badge variant="secondary" className="text-[10px]">
-              {pendingCount} Required
+              {pendingCount} Updates
             </Badge>
           )}
         </DropdownMenuLabel>
@@ -74,19 +102,26 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
         ) : (
           <ScrollArea className="h-72">
             <div className="p-1 space-y-1">
-              {requests?.map((request) => (
-                <DropdownMenuItem key={request.id} asChild className="cursor-pointer p-3">
-                  <Link href={`/information-requests?project=${request.projectId}`}>
+              {notifications.map((notif: any) => (
+                <DropdownMenuItem key={notif.id} asChild className="cursor-pointer p-3">
+                  <Link href={`/information-requests?project=${notif.projectId}`}>
                     <div className="flex gap-3 items-start">
-                      <div className="mt-1 bg-primary/10 p-2 rounded-full">
-                        <HelpCircle className="h-4 w-4 text-primary" />
+                      <div className={`mt-1 p-2 rounded-full ${notif.notifType === 'assignment' ? 'bg-primary/10' : 'bg-accent/10'}`}>
+                        {notif.notifType === 'assignment' ? (
+                            <HelpCircle className="h-4 w-4 text-primary" />
+                        ) : (
+                            <MessageSquareReply className="h-4 w-4 text-accent" />
+                        )}
                       </div>
                       <div className="flex-1 space-y-1 overflow-hidden">
-                        <p className="text-sm font-medium leading-none truncate">
-                          {request.description}
+                        <div className="flex justify-between items-center gap-2">
+                             <p className="text-xs font-semibold text-muted-foreground uppercase">{notif.label}</p>
+                        </div>
+                        <p className="text-sm font-medium leading-tight line-clamp-2">
+                          {notif.description}
                         </p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {request.requiredBy ? `Required by ${new Date(request.requiredBy).toLocaleDateString()}` : 'No deadline set'}
+                        <p className="text-[10px] text-muted-foreground">
+                          {notif.requiredBy ? `Due ${new Date(notif.requiredBy).toLocaleDateString()}` : 'No deadline'}
                         </p>
                       </div>
                     </div>
