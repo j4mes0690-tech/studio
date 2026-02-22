@@ -10,25 +10,25 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-
-type PdfReportButtonProps = {
-  item: SnaggingItem;
-  project?: Project;
-  subContractors: SubContractor[];
-};
 
 export function PdfReportButton({
   item,
   project,
   subContractors,
-}: PdfReportButtonProps) {
+}: {
+  item: SnaggingItem;
+  project?: Project;
+  subContractors: SubContractor[];
+}) {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generatePdf = async () => {
     setIsGenerating(true);
     try {
+      // Dynamic imports to prevent SSR issues in NextJS 15
+      const { jsPDF } = await import('jspdf');
+      const html2canvas = (await import('html2canvas')).default;
+
       // Create a temporary element for the report layout
       const reportElement = document.createElement('div');
       reportElement.style.padding = '40px';
@@ -48,7 +48,7 @@ export function PdfReportButton({
           <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">SiteCommand Internal Documentation</p>
         </div>
 
-        <div style="display: grid; grid-template-cols: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
           <div>
             <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project</p>
             <p style="margin: 2px 0 0 0; font-size: 16px;">${project?.name || 'Unknown Project'}</p>
@@ -125,7 +125,7 @@ export function PdfReportButton({
       
       // Use html2canvas to render the content
       const canvas = await html2canvas(reportElement, {
-        scale: 2, // Higher scale for better quality
+        scale: 2,
         useCORS: true,
         logging: false,
       });

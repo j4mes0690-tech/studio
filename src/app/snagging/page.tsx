@@ -6,13 +6,13 @@ import { NewSnaggingItem } from './new-snagging-item';
 import { SnaggingFilters } from './snagging-filters';
 import { ExportButton } from './export-button';
 import { useSearchParams } from 'next/navigation';
-import { useMemo } from 'react';
+import { useMemo, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 
-export default function SnaggingPage() {
+function SnaggingContent() {
   const searchParams = useSearchParams();
   const db = useFirestore();
   const projectId = searchParams.get('project') || undefined;
@@ -37,16 +37,14 @@ export default function SnaggingPage() {
 
   if (isLoading) {
     return (
-        <div className="flex flex-col w-full h-screen items-center justify-center">
+        <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
     );
   }
 
   return (
-    <div className="flex flex-col w-full min-h-screen">
-      <Header title="Snagging Lists" />
-      <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
+    <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight">Snagging Log</h2>
           <div className="flex items-center gap-2">
@@ -80,6 +78,20 @@ export default function SnaggingPage() {
           </div>
         )}
       </main>
+  );
+}
+
+export default function SnaggingPage() {
+  return (
+    <div className="flex flex-col w-full min-h-screen">
+      <Header title="Snagging Lists" />
+      <Suspense fallback={
+        <div className="flex flex-col w-full h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }>
+        <SnaggingContent />
+      </Suspense>
     </div>
   );
 }

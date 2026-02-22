@@ -17,8 +17,8 @@ import {
 } from '@/components/ui/accordion';
 import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { EditSnaggingItem } from './edit-snagging-item';
-import { PdfReportButton } from './pdf-report-button';
+import { EditSnaggingItem } from '@/app/snagging/edit-snagging-item';
+import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import {
   Carousel,
   CarouselContent,
@@ -26,7 +26,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
-import { ClientDate } from '../../components/client-date';
+import { ClientDate } from '@/components/client-date';
 import { cn } from '@/lib/utils';
 import { useTransition } from 'react';
 import { useFirestore } from '@/firebase';
