@@ -1,7 +1,7 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useRef } from 'react';
+import Link from 'next/link';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,7 +26,6 @@ function getInitials(name?: string) {
 }
 
 export function UserMenu({ user }: { user: DistributionUser }) {
-    const router = useRouter();
     const initials = getInitials(user?.name);
     const logoutFormRef = useRef<HTMLFormElement>(null);
     
@@ -43,11 +42,11 @@ export function UserMenu({ user }: { user: DistributionUser }) {
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>{user?.name || 'My Account'}</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => router.push('/account')} className="cursor-pointer">
-                    Account
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/account">Account</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => router.push('/settings')} className="cursor-pointer">
-                    Settings
+                <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => {
