@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
+import { logoutAction } from '@/app/login/actions';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -24,7 +26,13 @@ function getInitials(name?: string) {
 }
 
 export function UserMenu({ user }: { user: DistributionUser }) {
+    const router = useRouter();
     const initials = getInitials(user?.name);
+    
+    const handleLogout = async () => {
+        await logoutAction();
+        router.push('/login');
+    };
     
     return (
         <DropdownMenu>
@@ -46,8 +54,8 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                    <a href="/logout">Logout</a>
+                <DropdownMenuItem onSelect={handleLogout} className="cursor-pointer">
+                    Logout
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
