@@ -1,3 +1,9 @@
-
 'use server';
-// This server action has been temporarily disabled.
+
+import { redirect } from 'next/navigation';
+import { clearSession } from '@/lib/session';
+
+export async function logoutAction() {
+    await clearSession();
+    redirect('/login');
+}

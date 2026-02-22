@@ -9,6 +9,8 @@ import { Header } from '@/components/layout/header';
 import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck } from 'lucide-react';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Dashboard() {
   return (
     <div className="flex flex-col w-full">
