@@ -127,13 +127,25 @@ export async function updateProject(projectData: Project): Promise<Project> {
 export async function getInstructions({ projectId }: { projectId?: string }): Promise<Instruction[]> {
   let filtered = [...g.instructions];
   if (projectId) filtered = filtered.filter(i => i.projectId === projectId);
-  return filtered.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.getTime).getTime());
+  return filtered.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function createInstruction(instructionData: Omit<Instruction, 'id' | 'createdAt'>): Promise<Instruction> {
     const newInstruction: Instruction = { ...instructionData, id: Date.now().toString(), createdAt: new Date().toISOString() };
     g.instructions = [newInstruction, ...g.instructions];
     return newInstruction;
+}
+
+export async function getCleanUpNotices({ projectId }: { projectId?: string }): Promise<CleanUpNotice[]> {
+    let filtered = [...(g.cleanUpNotices || [])];
+    if (projectId) filtered = filtered.filter(i => i.projectId === projectId);
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function createCleanUpNotice(noticeData: Omit<CleanUpNotice, 'id' | 'createdAt'>): Promise<CleanUpNotice> {
+    const newNotice: CleanUpNotice = { ...noticeData, id: `cl-${Date.now()}`, createdAt: new Date().toISOString() };
+    g.cleanUpNotices = [newNotice, ...(g.cleanUpNotices || [])];
+    return newNotice;
 }
 
 export async function getSubContractors(): Promise<SubContractor[]> {
@@ -164,7 +176,7 @@ export async function updateSubContractor(subContractorData: SubContractor): Pro
 export async function getSnaggingLists({ projectId }: { projectId?: string }): Promise<SnaggingItem[]> {
     let filtered = [...(g.snaggingLists || [])];
     if (projectId) filtered = filtered.filter(i => i.projectId === projectId);
-    return filtered;
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function createSnaggingItem(itemData: Omit<SnaggingItem, 'id' | 'createdAt'>): Promise<SnaggingItem> {
@@ -185,7 +197,7 @@ export async function updateSnaggingItem(itemData: SnaggingItem): Promise<Snaggi
 export async function getInformationRequests({ projectId }: { projectId?: string }): Promise<InformationRequest[]> {
     let filtered = [...(g.informationRequests || [])];
     if (projectId) filtered = filtered.filter(i => i.projectId === projectId);
-    return filtered;
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function createInformationRequest(itemData: Omit<InformationRequest, 'id' | 'createdAt'>): Promise<InformationRequest> {
@@ -214,7 +226,7 @@ export async function getQualityChecklists({ projectId, template }: { projectId?
     if (template === true) filtered = filtered.filter(c => !c.projectId);
     else if (template === false) filtered = filtered.filter(c => !!c.projectId);
     if (projectId) filtered = filtered.filter(i => i.projectId === projectId);
-    return filtered;
+    return filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function createQualityChecklist(itemData: Omit<QualityChecklist, 'id' | 'createdAt'>): Promise<QualityChecklist> {
