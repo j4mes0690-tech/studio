@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -24,7 +25,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { loginAction } from './actions';
 import { Logo } from '@/components/logo';
-import { useRouter } from 'next/navigation';
 
 const LoginSchema = z.object({
   email: z.string().email('Invalid email address.'),
@@ -36,7 +36,6 @@ type LoginFormValues = z.infer<typeof LoginSchema>;
 export default function LoginPage() {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(LoginSchema),
@@ -53,8 +52,8 @@ export default function LoginPage() {
 
       if (result.success) {
         toast({ title: 'Success', description: 'Logged in successfully.' });
-        router.push('/');
-        router.refresh();
+        // Force a full page reload to ensure the new session is recognized by the server.
+        window.location.href = '/';
       } else {
         toast({
           title: 'Error',
