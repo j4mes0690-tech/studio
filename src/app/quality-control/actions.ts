@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { revalidatePath } from 'next/cache';
-import { createQualityChecklist, getQualityChecklists, updateQualityChecklist, assignChecklistToProject, getSubContractors } from '@/lib/data';
+import { createQualityChecklist, getQualityChecklists, updateQualityChecklist, assignChecklistToProject, getSubContractors, deleteQualityChecklist } from '@/lib/data';
 import type { QualityChecklist, ChecklistItem } from '@/lib/types';
 
 const NewChecklistSchema = z.object({
@@ -22,6 +22,17 @@ const AssignChecklistSchema = z.object({
     projectId: z.string().min(1, 'A project is required.'),
     areaId: z.string().min(1, 'A project area is required.'),
     recipients: z.array(z.string()).optional(),
+});
+
+const UpdateChecklistTemplateSchema = z.object({
+  id: z.string().min(1, 'Checklist ID is required.'),
+  title: z.string().min(1, 'Title is required.'),
+  trade: z.string().min(1, 'Trade is required.'),
+  items: z.string().min(3, 'Checklist must have at least one item.'), // JSON string of string[]
+});
+
+const DeleteChecklistTemplateSchema = z.object({
+  id: z.string().min(1, 'Checklist ID is required.'),
 });
 
 
@@ -62,7 +73,7 @@ export async function createChecklistAction(formData: FormData): Promise<FormSta
     
     await createQualityChecklist(newChecklistData);
 
-    revalidatePath('/quality-control');
+    revalidatePath('/settings');
     return { success: true, message: 'Checklist created successfully.' };
 
   } catch (error) {
@@ -143,4 +154,82 @@ export async function assignChecklistAction(formData: FormData): Promise<FormSta
     console.error('Failed to assign checklist:', error);
     return { success: false, message: error.message || 'Failed to assign checklist.' };
   }
+}
+
+export async function updateChecklistTemplateAction(formData: FormData): Promise<FormState> {
+  const validatedFields = UpdateChecklistTemplateSchema.safeParse({
+    id: formData.get('id'),
+    title: formData.get('title'),
+    trade: formData.get('trade'),
+    items: formData.get('items'),
+  });
+
+  if (!validatedFields.success) {
+    const fieldErrors = validatedFields.error.flatten().fieldErrors;
+    const message = fieldErrors.title?.[0] || fieldErrors.trade?.[0] || fieldErrors.items?.[0] || 'Invalid data provided.';
+    return { success: false, message };
+  }
+
+  try {
+    const { id, title, trade, items: itemsJson } = validatedFields.data;
+
+    const allChecklists = await getQualityChecklists({});
+    const existingTemplate = allChecklists.find(c => c.id === id && !c.projectId);
+
+    if (!existingTemplate) {
+        return { success: false, message: 'Checklist template not found.' };
+    }
+
+    const itemTexts: string[] = JSON.parse(itemsJson);
+    if (!Array.isArray(itemTexts) || itemTexts.length === 0) {
+        return { success: false, message: 'Checklist must have at least one item.' };
+    }
+
+    // Keep existing IDs for items that still exist, create new IDs for new ones.
+    const updatedItems: ChecklistItem[] = itemTexts.map((text) => {
+        const existingItem = existingTemplate.items.find(i => i.text === text);
+        return {
+            id: existingItem ? existingItem.id : `item-${Date.now()}-${Math.random()}`,
+            text,
+            status: 'pending',
+        };
+    });
+
+    const updatedChecklist: QualityChecklist = {
+      ...existingTemplate,
+      title,
+      trade,
+      items: updatedItems,
+    };
+    
+    await updateQualityChecklist(updatedChecklist);
+
+    revalidatePath('/settings');
+    revalidatePath('/quality-control');
+    return { success: true, message: 'Checklist template updated successfully.' };
+
+  } catch (error) {
+    console.error('Failed to update checklist template:', error);
+    return { success: false, message: 'Failed to update checklist template.' };
+  }
+}
+
+export async function deleteChecklistTemplateAction(formData: FormData): Promise<FormState> {
+    const validatedFields = DeleteChecklistTemplateSchema.safeParse({
+        id: formData.get('id'),
+    });
+
+    if (!validatedFields.success) {
+        return { success: false, message: 'Invalid Checklist ID.' };
+    }
+
+    try {
+        await deleteQualityChecklist(validatedFields.data.id);
+        revalidatePath('/settings');
+        revalidatePath('/quality-control');
+        return { success: true, message: 'Checklist template has been deleted.' };
+    } catch (error) {
+        console.error('Failed to delete checklist template:', error);
+        return { success: false, message: 'Failed to delete checklist template.' };
+    }
 }

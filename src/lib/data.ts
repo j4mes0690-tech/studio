@@ -592,3 +592,14 @@ export async function assignChecklistToProject(
         }, 500);
     });
 }
+
+export async function deleteQualityChecklist(id: string): Promise<{ success: boolean }> {
+    noStore();
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            const initialLength = g.qualityChecklists.length;
+            g.qualityChecklists = g.qualityChecklists.filter(item => item.id !== id);
+            resolve({ success: g.qualityChecklists.length < initialLength });
+        }, 100);
+    });
+}
