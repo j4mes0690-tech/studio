@@ -1,56 +1,31 @@
-'use client';
-
-import { useSearchParams } from 'next/navigation';
-import { useFormStatus } from 'react-dom';
+import Link from 'next/link';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { loginAction } from './actions';
 
-function LoginButton() {
-    const { pending } = useFormStatus();
-
+export default function LoginPage() {
     return (
-        <Button type="submit" className="w-full" disabled={pending}>
-            {pending ? 'Logging in...' : 'Log In'}
-        </Button>
-    );
-}
-
-export function LoginForm() {
-    const searchParams = useSearchParams();
-    const urlError = searchParams.get('error');
-    
-    return (
-        <form action={loginAction} className="space-y-4">
-            {urlError && (
-                <Alert variant="destructive">
-                    <AlertTitle>Login Failed</AlertTitle>
-                    <AlertDescription>{urlError}</AlertDescription>
-                </Alert>
-            )}
-            <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    placeholder="john.doe@example.com"
-                    required
-                />
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                    id="password"
-                    name="password"
-                    type="password"
-                    placeholder="••••••••"
-                    required
-                />
-            </div>
-            <LoginButton />
-        </form>
+        <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 p-4">
+            <Card className="w-full max-w-sm">
+                <CardHeader className="text-center">
+                <div className="mb-4 flex justify-center">
+                    <Logo />
+                </div>
+                <CardTitle>Authentication Disabled</CardTitle>
+                <CardDescription>The login system is temporarily disabled.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button asChild className="w-full">
+                        <Link href="/">Go to Dashboard</Link>
+                    </Button>
+                </CardContent>
+            </Card>
+        </main>
     );
 }
