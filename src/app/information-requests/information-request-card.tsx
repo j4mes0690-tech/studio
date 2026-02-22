@@ -64,7 +64,7 @@ function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: 
             
             const updates: any = { status: newStatus };
 
-            // Automatically add a closing message to the conversation
+            // Automatically add a status update message to the conversation
             if (newStatus === 'closed') {
                 const closingMessage: ChatMessage = {
                     id: `msg-system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -74,6 +74,15 @@ function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: 
                     createdAt: new Date().toISOString(),
                 };
                 updates.messages = arrayUnion(closingMessage);
+            } else if (newStatus === 'open') {
+                const reopeningMessage: ChatMessage = {
+                    id: `msg-system-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    sender: 'System (SiteCommand)',
+                    senderEmail: 'system@sitecommand.internal',
+                    message: `Request reopened by ${currentUser.name}.`,
+                    createdAt: new Date().toISOString(),
+                };
+                updates.messages = arrayUnion(reopeningMessage);
             }
 
             updateDoc(docRef, updates)
@@ -112,7 +121,7 @@ function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: 
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will {isClosing ? 'close' : 'reopen'} the information request. {isClosing && 'A closing note will be added to the conversation.'}
+                        This will {isClosing ? 'close' : 'reopen'} the information request. A status update will be added to the conversation.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
