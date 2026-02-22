@@ -50,11 +50,8 @@ export default function LoginPage() {
 
       const result = await loginAction(formData);
 
-      if (result.success) {
-        toast({ title: 'Success', description: 'Logged in successfully.' });
-        // Force a full page reload to ensure the new session is recognized by the server.
-        window.location.href = '/';
-      } else {
+      // The success case redirects on the server, so we only need to handle the error case here.
+      if (result && !result.success) {
         toast({
           title: 'Error',
           description: result.message,

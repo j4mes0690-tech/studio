@@ -54,6 +54,6 @@ export async function loginAction(
     path: '/',
   });
   
-  // Login is successful, return success state to the client.
-  return { success: true, message: 'Login successful.' };
+  // On successful login, redirect the user to the homepage.
+  redirect('/');
 }
