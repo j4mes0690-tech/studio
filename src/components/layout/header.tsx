@@ -1,7 +1,7 @@
 
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Home, LogOut } from 'lucide-react';
+import { Home } from 'lucide-react';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/data';
 import { UserMenu } from './user-menu';
@@ -32,20 +32,6 @@ export async function Header({ title }: { title: string }) {
           )}
 
           <UserMenu user={currentUser} />
-
-          <Button asChild variant="outline" className="hidden md:flex">
-            <Link href="/logout">
-                <LogOut className="mr-2 h-4 w-4" />
-                Log Out
-            </Link>
-          </Button>
-
-          <Button asChild variant="ghost" size="icon" className="md:hidden">
-            <Link href="/logout">
-                <LogOut className="h-5 w-5" />
-                <span className="sr-only">Log Out</span>
-            </Link>
-          </Button>
 
         </div>
       ) : (
