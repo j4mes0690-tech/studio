@@ -265,6 +265,7 @@ export function InformationRequestCard({
         : item.assignedTo ? [item.assignedTo] : [];
   }, [item.assignedTo]);
     
+  // Sort messages directly during render to ensure reactivity
   const sortedMessages = [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
@@ -345,12 +346,14 @@ export function InformationRequestCard({
                   <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-muted">
                     {sortedMessages.map((msg) => {
                         const isSystem = msg.senderEmail === 'system@sitecommand.internal';
-                        const isMe = msg.senderEmail === currentUser.email.toLowerCase().trim();
+                        const normalizedCurrentEmail = currentUser.email.toLowerCase().trim();
+                        const normalizedSenderEmail = msg.senderEmail.toLowerCase().trim();
+                        const isMe = normalizedSenderEmail === normalizedCurrentEmail;
 
                         if (isSystem) {
                             return (
                                 <div key={msg.id} className="flex justify-center my-4">
-                                    <span className="bg-muted/50 text-[10px] uppercase font-bold px-3 py-1 rounded-full text-muted-foreground tracking-tighter">
+                                    <span className="bg-muted/50 text-[10px] uppercase font-bold px-3 py-1 rounded-full text-muted-foreground tracking-tighter border">
                                         {msg.message}
                                     </span>
                                 </div>

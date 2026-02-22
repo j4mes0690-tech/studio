@@ -99,6 +99,7 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
     });
   };
 
+  // Sort messages directly during render to ensure reactivity from parent state
   const sortedMessages = [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
@@ -138,12 +139,14 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
                 <div className='space-y-3'>
                     {sortedMessages.map(msg => {
                         const isSystem = msg.senderEmail === 'system@sitecommand.internal';
-                        const isMe = msg.senderEmail === currentUser.email.toLowerCase().trim();
+                        const normalizedCurrentEmail = currentUser.email.toLowerCase().trim();
+                        const normalizedSenderEmail = msg.senderEmail.toLowerCase().trim();
+                        const isMe = normalizedSenderEmail === normalizedCurrentEmail;
 
                         if (isSystem) {
                             return (
                                 <div key={msg.id} className="flex justify-center my-2">
-                                    <span className="bg-muted/50 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full text-muted-foreground">
+                                    <span className="bg-muted/50 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full text-muted-foreground border">
                                         {msg.message}
                                     </span>
                                 </div>
@@ -154,7 +157,9 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
                             <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
                                 <div className={cn(
                                     "px-3 py-1.5 rounded-2xl max-w-[90%] shadow-sm",
-                                    isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none border"
+                                    isMe 
+                                        ? "bg-primary text-primary-foreground rounded-tr-none" 
+                                        : "bg-muted text-foreground rounded-tl-none border"
                                 )}>
                                     {!isMe && <p className="text-[9px] font-bold mb-0.5 text-primary">{msg.sender}</p>}
                                     <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
