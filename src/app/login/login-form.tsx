@@ -13,7 +13,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { AlertTriangle, Loader2, Info, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -24,9 +24,8 @@ export function LoginForm() {
   const [error, setError] = useState<{title: string, message: string} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
-  const [seedSuccess, setSeedSuccess] = useState(false);
 
-  // Auto-seed the admin account requested by the user
+  // Auto-seed the admin account in the background if it doesn't exist
   useEffect(() => {
     const seedAdmin = async () => {
       if (!db) return;
@@ -49,7 +48,6 @@ export function LoginForm() {
               canManageChecklists: true,
             }
           });
-          setSeedSuccess(true);
         }
       } catch (err) {
         console.error('Error seeding admin user:', err);
@@ -88,14 +86,14 @@ export function LoginForm() {
       } else {
         setError({ 
           title: 'Account Not Found', 
-          message: `The account "${emailKey}" is not registered. Please ensure you have created this user in the Firestore "users" collection.` 
+          message: `The account "${emailKey}" is not registered in the system.` 
         });
       }
     } catch (err: any) {
       console.error('System Auth Error:', err);
       setError({ 
         title: 'Database Connection Error', 
-        message: err.message || 'Could not reach the user database. Please check your Firestore setup and security rules.' 
+        message: 'Could not reach the user database. Please try again later.' 
       });
     } finally {
       setIsLoading(false);
@@ -133,16 +131,6 @@ export function LoginForm() {
                         />
                     </div>
 
-                    {seedSuccess && (
-                        <Alert className="bg-green-50 border-green-200 text-green-800">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            <AlertTitle>Admin User Created</AlertTitle>
-                            <AlertDescription className="text-xs">
-                                The <strong>admin@example.com</strong> account has been successfully initialized in your database.
-                            </AlertDescription>
-                        </Alert>
-                    )}
-
                     {error && (
                         <Alert variant="destructive" className="bg-destructive/5">
                             <AlertTriangle className="h-4 w-4" />
@@ -152,14 +140,6 @@ export function LoginForm() {
                             </AlertDescription>
                         </Alert>
                     )}
-
-                    <Alert className="bg-blue-50 border-blue-200">
-                        <Info className="h-4 w-4 text-blue-600" />
-                        <AlertTitle className="text-blue-800">Credentials</AlertTitle>
-                        <AlertDescription className="text-blue-700 text-xs">
-                            Use <code>admin@example.com</code> and <code>123456</code> to log in.
-                        </AlertDescription>
-                    </Alert>
                 </CardContent>
                 <CardFooter>
                     <Button type="submit" className="w-full" disabled={isLoading || isSeeding}>
