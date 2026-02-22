@@ -150,6 +150,7 @@ if (!g.informationRequests) {
 
 if (!g.distributionUsers) {
     g.distributionUsers = [
+        { id: 'user-james', name: 'James', email: 'j4mes0690@googlemail.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
         { id: 'user-admin', name: 'Admin User', email: 'admin@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
         { id: 'user-1', name: 'Project Manager', email: 'pm@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
         { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },

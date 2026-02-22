@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -19,7 +20,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export function LoginForm() {
   const auth = useAuth();
-  const [email, setEmail] = useState('admin@example.com');
+  const [email, setEmail] = useState('j4mes0690@googlemail.com');
   const [password, setPassword] = useState('password');
   const [error, setError] = useState<{title: string, message: string, isConfig: boolean} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -75,7 +76,7 @@ export function LoginForm() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="admin@example.com"
+                            placeholder="j4mes0690@googlemail.com"
                             required
                         />
                     </div>
@@ -131,9 +132,9 @@ export function LoginForm() {
             <AlertDescription className="text-xs space-y-2">
                 <p>To log in, follow these steps in your Firebase Console:</p>
                 <ol className="list-decimal ml-4 space-y-1">
-                    <li>Navigate to <strong>Authentication</strong> &gt; <strong>Sign-in method</strong> and enable <strong>Email/Password</strong>.</li>
+                    <li>Navigate to <strong>Authentication</strong> {'&gt;'} <strong>Sign-in method</strong> and enable <strong>Email/Password</strong>.</li>
                     <li>In the <strong>Users</strong> tab, click <strong>Add user</strong>.</li>
-                    <li>Create an account with email <code>admin@example.com</code> and password <code>password</code>.</li>
+                    <li>Create an account with email <code>j4mes0690@googlemail.com</code> and password <code>password</code>.</li>
                 </ol>
             </AlertDescription>
         </Alert>
