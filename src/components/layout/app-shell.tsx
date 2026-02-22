@@ -6,7 +6,7 @@ import { AppSidebar } from '@/components/layout/sidebar';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const showSidebar = pathname !== '/login';
+  const showSidebar = pathname !== '/login' && pathname !== '/logout';
 
   if (!showSidebar) {
     return <>{children}</>;

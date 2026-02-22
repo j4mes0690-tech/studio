@@ -3,18 +3,15 @@
 import { Button } from '@/components/ui/button';
 import {
   Card,
-  CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { logoutAction } from '@/app/login/actions';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
 export default function LogoutConfirmationPage() {
-  const router = useRouter();
 
   return (
     <main className="flex min-h-screen w-full items-center justify-center bg-muted/40 p-4">

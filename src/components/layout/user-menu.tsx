@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import type { DistributionUser } from '@/lib/types';
+import { useState } from 'react';
 
 function getInitials(name?: string) {
     if (!name) return "";
@@ -25,9 +26,10 @@ function getInitials(name?: string) {
 
 export function UserMenu({ user }: { user: DistributionUser }) {
     const initials = getInitials(user?.name);
+    const [open, setOpen] = useState(false);
     
     return (
-        <DropdownMenu>
+        <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger asChild>
                 <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar>
@@ -46,9 +48,12 @@ export function UserMenu({ user }: { user: DistributionUser }) {
                     <Link href="/settings">Settings</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                    <Link href="/logout">Logout</Link>
-                </DropdownMenuItem>
+                {/* Conditionally render to prevent pre-fetching */}
+                {open && (
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                        <Link href="/logout">Logout</Link>
+                    </DropdownMenuItem>
+                )}
             </DropdownMenuContent>
         </DropdownMenu>
     );

@@ -63,4 +63,5 @@ export async function loginAction(
 
 export async function logoutAction() {
   cookies().delete('userId');
+  redirect('/login');
 }
