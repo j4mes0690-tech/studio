@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist, ChecklistItem, Area } from './types';
+import type { Project, Instruction, DistributionUser, CleanUpNotice, SubContractor, SnaggingItem, InformationRequest, Photo, QualityChecklist, Area } from './types';
 import { unstable_noStore as noStore } from 'next/cache';
 import { cookies } from 'next/headers';
 
@@ -32,144 +32,159 @@ const g: {
 // NOTE: In a real application, this data would be in a database.
 // For this prototype, we're using a global object to simulate a database.
 // The `if` conditions prevent the data from being reset on every hot-reload in development.
-// We are temporarily removing them to fix a corrupted state issue.
 
-g.projects = [
-    { id: '101', name: 'Downtown Tower', areas: [{id: 'area-101-1', name: 'Externals'}, {id: 'area-101-2', name: 'Level 1'}, {id: 'area-101-3', name: 'Level 2'}] },
-    { id: '102', name: 'Suburban Mall', areas: [] },
-    { id: '201', name: 'Riverside Bridge', areas: [] },
-    { id: '301', name: 'Hilltop Estates', areas: [{id: 'area-301-1', name: 'Plot 1'}, {id: 'area-301-2', name: 'Plot 2'}, {id: 'area-301-3', name: 'Plot 3'}] },
-    { id: '302', name: 'Oceanview Villas', areas: [{id: 'area-302-1', name: 'Villa A'}, {id: 'area-302-2', name: 'Villa B'}] },
-];
+if (!g.projects) {
+    g.projects = [
+        { id: '101', name: 'Downtown Tower', areas: [{id: 'area-101-1', name: 'Externals'}, {id: 'area-101-2', name: 'Level 1'}, {id: 'area-101-3', name: 'Level 2'}] },
+        { id: '102', name: 'Suburban Mall', areas: [] },
+        { id: '201', name: 'Riverside Bridge', areas: [] },
+        { id: '301', name: 'Hilltop Estates', areas: [{id: 'area-301-1', name: 'Plot 1'}, {id: 'area-301-2', name: 'Plot 2'}, {id: 'area-301-3', name: 'Plot 3'}] },
+        { id: '302', name: 'Oceanview Villas', areas: [{id: 'area-302-1', name: 'Villa A'}, {id: 'area-302-2', name: 'Villa B'}] },
+    ];
+}
 
-g.instructions = [
-    {
-      id: '1',
-      projectId: '101',
-      originalText:
-        'Please ensure that all exterior windows on the south side of the Downtown Tower are fitted with the new energy-efficient glass by the end of the month. Also, check the HVAC system on the top three floors and report any issues by Friday.',
-      summary:
-        'Install energy-efficient glass on all south-facing exterior windows of the Downtown Tower by month-end. Inspect the HVAC system on the top three floors and report any problems by this Friday.',
-      actionItems: [
-        'Fit all exterior windows on the south side of the Downtown Tower with new energy-efficient glass.',
-        'Complete the window installation by the end of the month.',
-        'Check the HVAC system on the top three floors.',
-        'Report any HVAC issues by Friday.',
-      ],
-      createdAt: new Date('2023-10-15T09:00:00Z').toISOString(),
-      recipients: ['pm@example.com', 'supervisor@example.com'],
-      photos: [{
-        url: 'https://picsum.photos/seed/instruction1/600/400',
-        takenAt: new Date('2023-10-15T09:02:15Z').toISOString(),
-      }],
-    },
-    {
-      id: '2',
-      projectId: '201',
-      originalText:
-        'The structural steel for the Riverside Bridge needs to be inspected for any signs of corrosion. This needs to be done before the concrete pouring next week. Also, arrange for the delivery of the pre-cast concrete slabs for the pedestrian walkway.',
-      summary:
-        'Before next week\'s concrete pour, inspect the Riverside Bridge\'s structural steel for corrosion. Additionally, schedule the delivery of pre-cast concrete slabs for the pedestrian walkway.',
-      actionItems: [
-        'Inspect structural steel of the Riverside Bridge for corrosion.',
-        'Complete inspection before the concrete pouring next week.',
-        'Arrange delivery of pre-cast concrete slabs for the pedestrian walkway.',
-      ],
-      createdAt: new Date('2023-10-18T14:30:00Z').toISOString(),
-      recipients: ['engineer@example.com'],
-    },
-    {
-      id: '3',
-      projectId: '301',
-      originalText:
-        'For Hilltop Estates, we need to finalize the landscaping plan for lots 10 through 15. The client wants more native plants included. Please submit a revised plan by Monday. Also, confirm the plumbing inspection schedule for Phase 2.',
-      summary:
-        'Revise the landscaping plan for lots 10-15 at Hilltop Estates to include more native plants, submitting the new plan by Monday. Also, confirm the Phase 2 plumbing inspection schedule.',
-      actionItems: [
-        'Finalize the landscaping plan for lots 10 through 15.',
-        'Include more native plants in the revised plan.',
-        'Submit the revised landscaping plan by Monday.',
-        'Confirm the plumbing inspection schedule for Phase 2.',
-      ],
-      createdAt: new Date('2023-10-20T11:00:00Z').toISOString(),
-    },
-  ];
-
-g.cleanUpNotices = [
-    {
-        id: 'cl1',
+if (!g.instructions) {
+    g.instructions = [
+        {
+        id: '1',
         projectId: '101',
-        description: 'Debris from drywall installation on floor 12 needs to be cleared by end of day. Please ensure all hallways are clear for inspection tomorrow morning.',
-        createdAt: new Date('2023-10-22T16:00:00Z').toISOString(),
-        recipients: ['cleanup-crew@example.com'],
-        photos: [{
-          url: 'https://picsum.photos/seed/cleanup1/600/400',
-          takenAt: new Date('2023-10-22T16:01:30Z').toISOString(),
-        }],
-    }
-];
-
-g.snaggingLists = [
-    {
-        id: 'snag1',
-        projectId: '101',
-        description: 'Paint on the west wall of apartment 1201 is chipped. Needs repainting.',
-        createdAt: new Date('2023-10-25T10:00:00Z').toISOString(),
-        photos: [{
-          url: 'https://picsum.photos/seed/snag1/600/400',
-          takenAt: new Date('2023-10-25T10:01:00Z').toISOString(),
-        }],
-    },
-    {
-        id: 'snag2',
-        projectId: '302',
-        description: 'Leaky faucet in the master bathroom of Villa #5.',
-        createdAt: new Date('2023-10-26T11:30:00Z').toISOString(),
-    }
-];
-
-g.informationRequests = [
-    {
-        id: 'ir1',
-        projectId: '101',
-        description: 'Client needs floor plans for level 5.',
-        assignedTo: ['engineer@example.com'],
-        createdAt: new Date('2023-10-28T10:00:00Z').toISOString(),
-        requiredBy: new Date('2023-11-05T17:00:00Z').toISOString(),
-        status: 'open',
-        messages: [],
-    }
-];
-
-g.distributionUsers = [
-    { id: 'user-admin', name: 'Admin User', email: 'admin@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
-    { id: 'user-1', name: 'Project Manager', email: 'pm@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
-    { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
-    { id: 'user-3', name: 'Lead Engineer', email: 'engineer@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
-];
-
-g.subContractors = [
-      { id: 'sub-1', name: 'General Cleaners LLC', email: 'contact@generalcleaners.com' },
-      { id: 'sub-2', name: 'Site-Ready Services', email: 'ops@siteready.com' },
-];
-
-g.qualityChecklists = [
-    {
-        id: 'qc1',
-        projectId: '101',
-        title: 'Pre-Pour Concrete Inspection',
-        trade: 'Concrete',
-        areaId: 'area-101-2',
-        createdAt: new Date('2023-11-01T09:00:00Z').toISOString(),
-        items: [
-            { id: 'qc1-1', text: 'Formwork is clean and properly oiled.', status: 'yes' },
-            { id: 'qc1-2', text: 'Reinforcement is correctly placed and secured.', status: 'yes' },
-            { id: 'qc1-3', text: 'Embedded items (conduits, pipes) are installed.', status: 'pending' },
-            { id: 'qc1-4', text: 'Waterstops are correctly positioned.', status: 'pending' },
+        originalText:
+            'Please ensure that all exterior windows on the south side of the Downtown Tower are fitted with the new energy-efficient glass by the end of the month. Also, check the HVAC system on the top three floors and report any issues by Friday.',
+        summary:
+            'Install energy-efficient glass on all south-facing exterior windows of the Downtown Tower by month-end. Inspect the HVAC system on the top three floors and report any problems by this Friday.',
+        actionItems: [
+            'Fit all exterior windows on the south side of the Downtown Tower with new energy-efficient glass.',
+            'Complete the window installation by the end of the month.',
+            'Check the HVAC system on the top three floors.',
+            'Report any HVAC issues by Friday.',
         ],
-        recipients: ['contact@generalcleaners.com'],
-    }
-];
+        createdAt: new Date('2023-10-15T09:00:00Z').toISOString(),
+        recipients: ['pm@example.com', 'supervisor@example.com'],
+        photos: [{
+            url: 'https://picsum.photos/seed/instruction1/600/400',
+            takenAt: new Date('2023-10-15T09:02:15Z').toISOString(),
+        }],
+        },
+        {
+        id: '2',
+        projectId: '201',
+        originalText:
+            'The structural steel for the Riverside Bridge needs to be inspected for any signs of corrosion. This needs to be done before the concrete pouring next week. Also, arrange for the delivery of the pre-cast concrete slabs for the pedestrian walkway.',
+        summary:
+            'Before next week\'s concrete pour, inspect the Riverside Bridge\'s structural steel for corrosion. Additionally, schedule the delivery of pre-cast concrete slabs for the pedestrian walkway.',
+        actionItems: [
+            'Inspect structural steel of the Riverside Bridge for corrosion.',
+            'Complete inspection before the concrete pouring next week.',
+            'Arrange delivery of pre-cast concrete slabs for the pedestrian walkway.',
+        ],
+        createdAt: new Date('2023-10-18T14:30:00Z').toISOString(),
+        recipients: ['engineer@example.com'],
+        },
+        {
+        id: '3',
+        projectId: '301',
+        originalText:
+            'For Hilltop Estates, we need to finalize the landscaping plan for lots 10 through 15. The client wants more native plants included. Please submit a revised plan by Monday. Also, confirm the plumbing inspection schedule for Phase 2.',
+        summary:
+            'Revise the landscaping plan for lots 10-15 at Hilltop Estates to include more native plants, submitting the new plan by Monday. Also, confirm the Phase 2 plumbing inspection schedule.',
+        actionItems: [
+            'Finalize the landscaping plan for lots 10 through 15.',
+            'Include more native plants in the revised plan.',
+            'Submit the revised landscaping plan by Monday.',
+            'Confirm the plumbing inspection schedule for Phase 2.',
+        ],
+        createdAt: new Date('2023-10-20T11:00:00Z').toISOString(),
+        },
+    ];
+}
+
+if (!g.cleanUpNotices) {
+    g.cleanUpNotices = [
+        {
+            id: 'cl1',
+            projectId: '101',
+            description: 'Debris from drywall installation on floor 12 needs to be cleared by end of day. Please ensure all hallways are clear for inspection tomorrow morning.',
+            createdAt: new Date('2023-10-22T16:00:00Z').toISOString(),
+            recipients: ['cleanup-crew@example.com'],
+            photos: [{
+            url: 'https://picsum.photos/seed/cleanup1/600/400',
+            takenAt: new Date('2023-10-22T16:01:30Z').toISOString(),
+            }],
+        }
+    ];
+}
+
+if (!g.snaggingLists) {
+    g.snaggingLists = [
+        {
+            id: 'snag1',
+            projectId: '101',
+            description: 'Paint on the west wall of apartment 1201 is chipped. Needs repainting.',
+            createdAt: new Date('2023-10-25T10:00:00Z').toISOString(),
+            photos: [{
+            url: 'https://picsum.photos/seed/snag1/600/400',
+            takenAt: new Date('2023-10-25T10:01:00Z').toISOString(),
+            }],
+        },
+        {
+            id: 'snag2',
+            projectId: '302',
+            description: 'Leaky faucet in the master bathroom of Villa #5.',
+            createdAt: new Date('2023-10-26T11:30:00Z').toISOString(),
+        }
+    ];
+}
+
+if (!g.informationRequests) {
+    g.informationRequests = [
+        {
+            id: 'ir1',
+            projectId: '101',
+            description: 'Client needs floor plans for level 5.',
+            assignedTo: ['engineer@example.com'],
+            createdAt: new Date('2023-10-28T10:00:00Z').toISOString(),
+            requiredBy: new Date('2023-11-05T17:00:00Z').toISOString(),
+            status: 'open',
+            messages: [],
+        }
+    ];
+}
+
+if (!g.distributionUsers) {
+    g.distributionUsers = [
+        { id: 'user-admin', name: 'Admin User', email: 'admin@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
+        { id: 'user-1', name: 'Project Manager', email: 'pm@example.com', password: 'password', permissions: { canManageUsers: true, canManageSubcontractors: true, canManageProjects: true, canManageChecklists: true } },
+        { id: 'user-2', name: 'Site Supervisor', email: 'supervisor@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
+        { id: 'user-3', name: 'Lead Engineer', email: 'engineer@example.com', password: 'password', permissions: { canManageUsers: false, canManageSubcontractors: false, canManageProjects: false, canManageChecklists: false } },
+    ];
+}
+
+if (!g.subContractors) {
+    g.subContractors = [
+        { id: 'sub-1', name: 'General Cleaners LLC', email: 'contact@generalcleaners.com' },
+        { id: 'sub-2', name: 'Site-Ready Services', email: 'ops@siteready.com' },
+    ];
+}
+
+if (!g.qualityChecklists) {
+    g.qualityChecklists = [
+        {
+            id: 'qc1',
+            projectId: '101',
+            title: 'Pre-Pour Concrete Inspection',
+            trade: 'Concrete',
+            areaId: 'area-101-2',
+            createdAt: new Date('2023-11-01T09:00:00Z').toISOString(),
+            items: [
+                { id: 'qc1-1', text: 'Formwork is clean and properly oiled.', status: 'yes' },
+                { id: 'qc1-2', text: 'Reinforcement is correctly placed and secured.', status: 'yes' },
+                { id: 'qc1-3', text: 'Embedded items (conduits, pipes) are installed.', status: 'pending' },
+                { id: 'qc1-4', text: 'Waterstops are correctly positioned.', status: 'pending' },
+            ],
+            recipients: ['contact@generalcleaners.com'],
+        }
+    ];
+}
 
 
 // Simulate a database with async functions

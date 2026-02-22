@@ -1,10 +1,8 @@
-
 'use server';
 
 import { z } from 'zod';
 import { getDistributionUsers } from '@/lib/data';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
 
 const LoginSchema = z.object({
   email: z.string().email('Invalid email address.'),
@@ -35,8 +33,6 @@ export async function loginAction(
   const { email, password } = validatedFields.data;
   const formattedEmail = email.trim().toLowerCase();
 
-  // In a real app, you would have proper authentication logic.
-  // Here, we'll just check if the user exists and the password matches the (unhashed) one in our mock data.
   const users = await getDistributionUsers();
   const user = users.find(u => u.email.toLowerCase() === formattedEmail);
 
@@ -44,7 +40,6 @@ export async function loginAction(
     return { success: false, message: 'No user found with that email.' };
   }
 
-  // This is NOT secure. For demonstration purposes only.
   if (user.password !== password) {
     return { success: false, message: 'Invalid password.' };
   }
@@ -56,6 +51,5 @@ export async function loginAction(
     path: '/',
   });
   
-  redirect('/');
+  return { success: true, message: 'Logged in successfully.' };
 }
-

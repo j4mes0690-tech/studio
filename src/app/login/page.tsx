@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -50,7 +49,15 @@ export default function LoginPage() {
 
       const result = await loginAction(formData);
 
-      if (result && !result.success) {
+      if (result.success) {
+        toast({
+            title: 'Success',
+            description: result.message,
+        });
+        // Use window.location.href for a full page refresh redirect
+        // This ensures the browser has the cookie before navigating.
+        window.location.href = '/';
+      } else {
         toast({
           title: 'Error',
           description: result.message,
