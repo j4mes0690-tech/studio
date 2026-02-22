@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -24,24 +23,18 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { addChatMessageAction } from './actions';
 import { MessageSquareReply } from 'lucide-react';
-import type { InformationRequest, DistributionUser } from '@/lib/types';
+import type { InformationRequest, DistributionUser, ChatMessage } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const AddChatMessageSchema = z.object({
-  id: z.string().min(1),
   message: z.string().min(1, 'Message cannot be empty.'),
-  senderId: z.string().min(1, 'You must select who is sending the message.'),
 });
 
 type AddChatMessageFormValues = z.infer<typeof AddChatMessageSchema>;
@@ -55,46 +48,47 @@ type RespondToRequestProps = {
 export function RespondToRequest({ item, distributionUsers, currentUser }: RespondToRequestProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<AddChatMessageFormValues>({
     resolver: zodResolver(AddChatMessageSchema),
     defaultValues: {
-      id: item.id,
       message: '',
-      senderId: currentUser.name, // Simplified: Pass the name as the "ID" for display in the mock DB
     },
   });
 
   useEffect(() => {
     if (open) {
-      form.reset({
-        id: item.id,
-        message: '',
-        senderId: currentUser.name,
-      });
+      form.reset({ message: '' });
     }
-  }, [open, item, form, currentUser.name]);
+  }, [open, form]);
 
   const onSubmit = (values: AddChatMessageFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('id', values.id);
-      formData.append('message', values.message);
-      formData.append('senderId', values.senderId);
+      const newMessage: ChatMessage = {
+        id: `msg-${Date.now()}`,
+        sender: currentUser.name,
+        message: values.message,
+        createdAt: new Date().toISOString(),
+      };
 
-      const result = await addChatMessageAction(formData);
+      const docRef = doc(db, 'information-requests', item.id);
+      const updates = { messages: arrayUnion(newMessage) };
 
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        setOpen(false);
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message,
-          variant: 'destructive',
+      updateDoc(docRef, updates)
+        .then(() => {
+          toast({ title: 'Success', description: 'Message sent.' });
+          setOpen(false);
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
-      }
     });
   };
 
@@ -121,15 +115,11 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
         <DialogHeader>
           <DialogTitle>Reply to Request</DialogTitle>
           <DialogDescription>
-            Add a message to the conversation thread for this request.
+            Add a message to the conversation thread.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4"
-          >
-            <input type="hidden" {...form.register('id')} />
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className='p-4 border rounded-md bg-muted/50 max-h-48 overflow-y-auto space-y-4'>
                 <div>
                     <p className='text-sm font-semibold'>Original Request:</p>
@@ -142,30 +132,9 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
                     </div>
                 ))}
             </div>
-            <FormField
-              control={form.control}
-              name="senderId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Replying As</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select user..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {distributionUsers.map((user) => (
-                        <SelectItem key={user.id} value={user.name}>
-                          {user.name} ({user.email})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            
+            <div className="text-sm font-medium">Replying As: {currentUser.name}</div>
+
             <FormField
               control={form.control}
               name="message"
@@ -173,11 +142,7 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
                 <FormItem>
                   <FormLabel>Your Message</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Type your message here..."
-                      className="min-h-[150px]"
-                      {...field}
-                    />
+                    <Textarea placeholder="Type your message here..." className="min-h-[120px]" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

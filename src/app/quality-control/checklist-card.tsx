@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -20,12 +19,15 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Label } from '@/components/ui/label';
 import { ClientDate } from '../../components/client-date';
-import { updateChecklistItemsAction } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { Users } from 'lucide-react';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 type ChecklistCardProps = {
   checklist: QualityChecklist;
@@ -39,6 +41,7 @@ export function ChecklistCard({
   subContractors,
 }: ChecklistCardProps) {
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
   const [items, setItems] = useState<ChecklistItem[]>(checklist.items);
 
@@ -48,21 +51,19 @@ export function ChecklistCard({
 
   const updateItemsOnServer = (newItems: ChecklistItem[]) => {
     startTransition(async () => {
-        const formData = new FormData();
-        formData.append('checklistId', checklist.id);
-        formData.append('items', JSON.stringify(newItems));
+        const docRef = doc(db, 'quality-checklists', checklist.id);
+        const updates = { items: newItems };
         
-        const result = await updateChecklistItemsAction(formData);
-
-        if (!result.success) {
-            toast({
-                title: 'Error',
-                description: result.message,
-                variant: 'destructive',
+        updateDoc(docRef, updates)
+          .catch((error) => {
+            const permissionError = new FirestorePermissionError({
+              path: docRef.path,
+              operation: 'update',
+              requestResourceData: updates,
             });
-            // Revert state on failure
-            setItems(items);
-        }
+            errorEmitter.emit('permission-error', permissionError);
+            setItems(checklist.items); // Revert UI
+          });
     });
   }
 
@@ -90,7 +91,7 @@ export function ChecklistCard({
     }
   }
 
-  const project = checklist.projectId ? projects.find((p) => p.id === checklist.projectId) : undefined;
+  const project = projects.find((p) => p.id === checklist.projectId);
   const area = project?.areas?.find(a => a.id === checklist.areaId);
 
   const completedItems = items.filter((item) => item.status !== 'pending').length;
@@ -162,7 +163,7 @@ export function ChecklistCard({
                         </div>
                     </RadioGroup>
                     <Input 
-                        placeholder="Add a comment (optional)..."
+                        placeholder="Add a comment..."
                         value={item.comment || ''}
                         onChange={(e) => handleCommentChange(item.id, e.target.value)}
                         onBlur={() => handleCommentBlur(item.id)}
@@ -180,17 +181,15 @@ export function ChecklistCard({
                <div className="flex items-center gap-2">
                  <Users className="h-4 w-4" />
                  <span>
-                   Assigned To ({checklist.recipients.length})
+                   Distribution List ({checklist.recipients.length})
                  </span>
                </div>
              </AccordionTrigger>
              <AccordionContent>
               <div className="flex flex-wrap gap-1">
-                {checklist.recipients.map((email, index) => {
-                  const user = subContractors.find(u => u.email === email);
-                  const displayName = user ? `${user.name} (${user.email})` : email;
-                  return <Badge key={index} variant="outline">{displayName}</Badge>;
-                })}
+                {checklist.recipients.map((email, index) => (
+                  <Badge key={index} variant="outline">{email}</Badge>
+                ))}
               </div>
              </AccordionContent>
            </AccordionItem>

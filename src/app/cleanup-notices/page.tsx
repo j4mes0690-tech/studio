@@ -1,42 +1,42 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
-import { getProjects, getCleanUpNotices, getSubContractors } from '@/lib/data';
 import { NoticeCard } from './notice-card';
 import { NewNotice } from './new-notice';
 import { NoticeFilters } from './notice-filters';
 import { ExportButton } from './export-button';
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import type { CleanUpNotice, Project, SubContractor } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
+import { useFirestore, useCollection } from '@/firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 
 export default function CleanUpNoticesPage() {
   const searchParams = useSearchParams();
+  const db = useFirestore();
   const projectId = searchParams.get('project') || undefined;
 
-  const [notices, setNotices] = useState<CleanUpNotice[]>([]);
-  const [allProjects, setAllProjects] = useState<Project[]>([]);
-  const [subContractors, setSubContractors] = useState<SubContractor[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Real-time data from Firestore
+  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  useEffect(() => {
-    async function loadData() {
-      const [nots, proj, subs] = await Promise.all([
-        getCleanUpNotices({ projectId }),
-        getProjects(),
-        getSubContractors(),
-      ]);
-      setNotices(nots);
-      setAllProjects(proj);
-      setSubContractors(subs);
-      setLoading(false);
+  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
+
+  const noticesQuery = useMemo(() => {
+    const base = collection(db, 'cleanup-notices');
+    if (projectId) {
+      return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
-    loadData();
-  }, [projectId]);
+    return query(base, orderBy('createdAt', 'desc'));
+  }, [db, projectId]);
 
-  if (loading) {
+  const { data: notices, isLoading: noticesLoading } = useCollection<CleanUpNotice>(noticesQuery);
+
+  const isLoading = projectsLoading || subsLoading || noticesLoading;
+
+  if (isLoading) {
     return (
         <div className="flex flex-col w-full h-screen items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -53,29 +53,29 @@ export default function CleanUpNoticesPage() {
             Notice Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewNotice projects={allProjects} subContractors={subContractors} />
+            <NewNotice projects={projects || []} subContractors={subContractors || []} />
           </div>
         </div>
-        <NoticeFilters projects={allProjects} />
+        <NoticeFilters projects={projects || []} />
         <div className="grid gap-4 md:gap-6">
-          {notices.length > 0 ? (
+          {notices && notices.length > 0 ? (
             notices.map((notice) => (
               <NoticeCard
                 key={notice.id}
                 notice={notice}
-                projects={allProjects}
+                projects={projects || []}
               />
             ))
           ) : (
-            <div className="text-center py-12 text-muted-foreground">
+            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
               <p>No clean up notices found.</p>
-              <p className="text-sm">Try adjusting your filters or adding a new notice.</p>
+              <p className="text-sm">Record issues that require cleaning on site.</p>
             </div>
           )}
         </div>
-        {notices.length > 0 && (
+        {notices && notices.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton notices={notices} projects={allProjects} />
+            <ExportButton notices={notices} projects={projects || []} />
           </div>
         )}
       </main>

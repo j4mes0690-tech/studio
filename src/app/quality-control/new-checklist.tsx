@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -32,16 +31,18 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { createChecklistAction } from './actions';
 import { PlusCircle, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const trades = ['Plumbing', 'Electrical', 'HVAC', 'Drywall', 'Painting', 'Concrete', 'General'];
 
 const NewChecklistSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
   trade: z.string().min(1, 'Trade is required.'),
-  items: z.string().min(3, 'Checklist must have at least one item.'),
 });
 
 type NewChecklistFormValues = z.infer<typeof NewChecklistSchema>;
@@ -49,6 +50,7 @@ type NewChecklistFormValues = z.infer<typeof NewChecklistSchema>;
 export function NewChecklist() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
   const [items, setItems] = useState<string[]>([]);
@@ -59,13 +61,8 @@ export function NewChecklist() {
     defaultValues: {
       title: '',
       trade: '',
-      items: '',
     },
   });
-
-  useEffect(() => {
-    form.setValue('items', JSON.stringify(items));
-  }, [items, form]);
 
   const handleAddItem = () => {
     if (currentItem.trim()) {
@@ -80,24 +77,37 @@ export function NewChecklist() {
 
   const onSubmit = (values: NewChecklistFormValues) => {
     if (items.length === 0) {
-      form.setError('items', { message: 'Checklist must have at least one item.' });
+      toast({ title: 'Error', description: 'Checklist must have at least one item.', variant: 'destructive' });
       return;
     }
     
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('title', values.title);
-      formData.append('trade', values.trade);
-      formData.append('items', values.items);
+      const templateData = {
+        title: values.title,
+        trade: values.trade,
+        isTemplate: true,
+        createdAt: new Date().toISOString(),
+        items: items.map((text, idx) => ({
+          id: `item-${Date.now()}-${idx}`,
+          text,
+          status: 'pending',
+        })),
+      };
 
-      const result = await createChecklistAction(formData);
-
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        setOpen(false);
-      } else {
-        toast({ title: 'Error', description: result.message, variant: 'destructive' });
-      }
+      const colRef = collection(db, 'quality-checklists');
+      addDoc(colRef, templateData)
+        .then(() => {
+          toast({ title: 'Success', description: 'Checklist template created.' });
+          setOpen(false);
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: templateData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
     });
   };
 
@@ -121,7 +131,7 @@ export function NewChecklist() {
         <DialogHeader>
           <DialogTitle>Create New Quality Checklist</DialogTitle>
           <DialogDescription>
-            Define a new checklist template for a specific trade to ensure quality standards.
+            Define a new checklist template for a specific trade.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -186,13 +196,6 @@ export function NewChecklist() {
                             {items.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">No items added yet.</p>}
                         </div>
                     </ScrollArea>
-                    <FormField
-                        control={form.control}
-                        name="items"
-                        render={() => (
-                           <FormMessage />
-                        )}
-                    />
                 </FormItem>
             </div>
 

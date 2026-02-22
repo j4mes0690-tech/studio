@@ -43,34 +43,39 @@ import {
     TooltipProvider,
     TooltipTrigger,
   } from '@/components/ui/tooltip';
-import { closeInformationRequestAction, reopenInformationRequestAction, deleteInformationRequestAction } from './actions';
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { ClientDate } from '../../components/client-date';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
-function CloseRequestButton({ requestId }: { requestId: string }) {
+function UpdateStatusButton({ requestId, newStatus }: { requestId: string, newStatus: 'open' | 'closed' }) {
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
+    const db = useFirestore();
 
-    const handleClose = () => {
+    const handleUpdate = () => {
         startTransition(async () => {
-            const formData = new FormData();
-            formData.append('id', requestId);
-            const result = await closeInformationRequestAction(formData);
-
-            if (result.success) {
-                toast({ title: 'Success', description: result.message });
-            } else {
-                toast({
-                    title: 'Error',
-                    description: result.message,
-                    variant: 'destructive',
+            const docRef = doc(db, 'information-requests', requestId);
+            const updates = { status: newStatus };
+            updateDoc(docRef, updates)
+              .then(() => toast({ title: 'Success', description: `Request ${newStatus}.` }))
+              .catch((error) => {
+                const permissionError = new FirestorePermissionError({
+                  path: docRef.path,
+                  operation: 'update',
+                  requestResourceData: updates,
                 });
-            }
+                errorEmitter.emit('permission-error', permissionError);
+              });
         });
     };
+
+    const isClosing = newStatus === 'closed';
 
     return (
         <AlertDialog>
@@ -79,13 +84,13 @@ function CloseRequestButton({ requestId }: { requestId: string }) {
                     <TooltipTrigger asChild>
                         <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="icon">
-                                <XCircle className="h-4 w-4" />
-                                <span className="sr-only">Close Request</span>
+                                {isClosing ? <XCircle className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+                                <span className="sr-only">{isClosing ? 'Close' : 'Reopen'} Request</span>
                             </Button>
                         </AlertDialogTrigger>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>Close Request</p>
+                        <p>{isClosing ? 'Close' : 'Reopen'} Request</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
@@ -93,70 +98,13 @@ function CloseRequestButton({ requestId }: { requestId: string }) {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will close the information request and no more replies can be added.
+                        This will {isClosing ? 'close' : 'reopen'} the information request.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleClose} disabled={isPending}>
-                        {isPending ? 'Closing...' : 'Confirm'}
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-    );
-}
-
-function ReopenRequestButton({ requestId }: { requestId: string }) {
-    const [isPending, startTransition] = useTransition();
-    const { toast } = useToast();
-
-    const handleReopen = () => {
-        startTransition(async () => {
-            const formData = new FormData();
-            formData.append('id', requestId);
-            const result = await reopenInformationRequestAction(formData);
-
-            if (result.success) {
-                toast({ title: 'Success', description: result.message });
-            } else {
-                toast({
-                    title: 'Error',
-                    description: result.message,
-                    variant: 'destructive',
-                });
-            }
-        });
-    };
-
-    return (
-        <AlertDialog>
-            <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                                <RefreshCw className="h-4 w-4" />
-                                <span className="sr-only">Reopen Request</span>
-                            </Button>
-                        </AlertDialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                        <p>Reopen Request</p>
-                    </TooltipContent>
-                </Tooltip>
-            </TooltipProvider>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        This will reopen the information request, allowing replies to be added again.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleReopen} disabled={isPending}>
-                        {isPending ? 'Reopening...' : 'Confirm'}
+                    <AlertDialogAction onClick={handleUpdate} disabled={isPending}>
+                        {isPending ? 'Updating...' : 'Confirm'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -167,22 +115,20 @@ function ReopenRequestButton({ requestId }: { requestId: string }) {
 function DeleteRequestButton({ requestId }: { requestId: string }) {
     const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
+    const db = useFirestore();
 
     const handleDelete = () => {
         startTransition(async () => {
-            const formData = new FormData();
-            formData.append('id', requestId);
-            const result = await deleteInformationRequestAction(formData);
-
-            if (result.success) {
-                toast({ title: 'Success', description: result.message });
-            } else {
-                toast({
-                    title: 'Error',
-                    description: result.message,
-                    variant: 'destructive',
+            const docRef = doc(db, 'information-requests', requestId);
+            deleteDoc(docRef)
+              .then(() => toast({ title: 'Success', description: 'Request deleted.' }))
+              .catch((error) => {
+                const permissionError = new FirestorePermissionError({
+                  path: docRef.path,
+                  operation: 'delete',
                 });
-            }
+                errorEmitter.emit('permission-error', permissionError);
+              });
         });
     };
 
@@ -207,7 +153,7 @@ function DeleteRequestButton({ requestId }: { requestId: string }) {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will permanently delete this information request and all of its messages. This action cannot be undone.
+                        This will permanently delete this information request. This action cannot be undone.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -263,14 +209,13 @@ export function InformationRequestCard({
           </div>
           <div className="flex items-center gap-2">
             <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className='capitalize'>{item.status}</Badge>
-            {item.status === 'open' && (
+            {item.status === 'open' ? (
                 <>
                     <RespondToRequest item={item} distributionUsers={distributionUsers} currentUser={currentUser} />
-                    <CloseRequestButton requestId={item.id} />
+                    <UpdateStatusButton requestId={item.id} newStatus="closed" />
                 </>
-            )}
-            {item.status === 'closed' && (
-              <ReopenRequestButton requestId={item.id} />
+            ) : (
+              <UpdateStatusButton requestId={item.id} newStatus="open" />
             )}
             <EditInformationRequest item={item} projects={projects} distributionUsers={distributionUsers} />
             <DeleteRequestButton requestId={item.id} />
@@ -341,15 +286,13 @@ export function InformationRequestCard({
                           <div className="space-y-2">
                             <Image
                               src={photo.url}
-                              alt={`Information request photo ${index + 1}`}
+                              alt="Context"
                               width={600}
                               height={400}
                               className="rounded-md border object-cover aspect-video"
-                              data-ai-hint="document blueprint"
                             />
                             <p className="text-xs text-muted-foreground">
-                              Taken on:{' '}
-                              <ClientDate date={photo.takenAt} />
+                              Taken on: <ClientDate date={photo.takenAt} />
                             </p>
                           </div>
                         </div>

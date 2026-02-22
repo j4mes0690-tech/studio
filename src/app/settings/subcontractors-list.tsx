@@ -1,10 +1,8 @@
-
 'use client';
 
 import type { SubContractor } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { removeSubContractorAction } from './actions';
-import { Trash2, Pencil } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -18,6 +16,11 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { EditSubcontractorForm } from './edit-subcontractor-form';
+import { useFirestore } from '@/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { useToast } from '@/hooks/use-toast';
 
 type SubcontractorsListProps = {
   subContractors: SubContractor[];
@@ -25,10 +28,21 @@ type SubcontractorsListProps = {
 
 export function SubcontractorsList({ subContractors }: SubcontractorsListProps) {
   const [isPending, startTransition] = useTransition();
+  const db = useFirestore();
+  const { toast } = useToast();
 
-  const handleRemove = (userId: string) => {
+  const handleRemove = (id: string) => {
     startTransition(async () => {
-      await removeSubContractorAction(userId);
+      const docRef = doc(db, 'sub-contractors', id);
+      deleteDoc(docRef)
+        .then(() => toast({ title: 'Success', description: 'Sub-contractor removed.' }))
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
     });
   };
   
@@ -52,7 +66,7 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
                     <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will permanently remove {user.name} from the sub-contractor list.
+                        This will remove {user.name} from the system.
                     </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -67,7 +81,7 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
         </div>
       ))}
       {subContractors.length === 0 && (
-          <p className="text-muted-foreground text-center py-4">No sub-contractors in the list.</p>
+          <p className="text-muted-foreground text-center py-4">No sub-contractors listed.</p>
       )}
     </div>
   );

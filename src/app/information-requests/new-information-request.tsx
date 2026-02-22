@@ -33,19 +33,21 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { createInformationRequestAction } from './actions';
 import { PlusCircle, Camera, Upload, X } from 'lucide-react';
 import type { Project, DistributionUser, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/date-picker';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
-  photos: z.string().optional(),
   requiredBy: z.string().optional(),
 });
 
@@ -59,10 +61,9 @@ type NewInformationRequestProps = {
 export function NewInformationRequest({ projects, distributionUsers }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [hasCameraPermission, setHasCameraPermission] = useState<
-    boolean | undefined
-  >();
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
+  const db = useFirestore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,39 +77,42 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
       projectId: '',
       description: '',
       assignedTo: [],
-      photos: '',
       requiredBy: undefined,
     },
   });
 
-  useEffect(() => {
-    form.setValue('photos', JSON.stringify(photos));
-  }, [photos, form]);
-
   const onSubmit = (values: NewInformationRequestFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('projectId', values.projectId);
-      formData.append('description', values.description);
-      values.assignedTo.forEach(id => formData.append('assignedTo', id));
-      if (values.photos) formData.append('photos', values.photos);
-      if (values.requiredBy) formData.append('requiredBy', values.requiredBy);
+      // IDs are emails in the system
+      const assignedEmails = distributionUsers
+        .filter(u => values.assignedTo.includes(u.id))
+        .map(u => u.email);
 
-      const result = await createInformationRequestAction(formData);
+      const requestData = {
+        projectId: values.projectId,
+        description: values.description,
+        assignedTo: assignedEmails,
+        photos: photos,
+        requiredBy: values.requiredBy || null,
+        status: 'open',
+        messages: [],
+        createdAt: new Date().toISOString(),
+      };
 
-      if (result.success) {
-        toast({
-          title: 'Success',
-          description: result.message,
+      const colRef = collection(db, 'information-requests');
+      addDoc(colRef, requestData)
+        .then(() => {
+          toast({ title: 'Success', description: 'Information request logged.' });
+          setOpen(false);
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: requestData,
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
-        setOpen(false);
-      } else {
-        toast({
-          title: 'Error',
-          description: result.message,
-          variant: 'destructive',
-        });
-      }
     });
   };
 
@@ -126,64 +130,27 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setHasCameraPermission(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
+        if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
-        console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description:
-            'Please enable camera permissions in your browser settings to use this feature.',
-        });
       }
     };
-
-    if (isCameraOpen) {
-      getCameraPermission();
-    }
-
-    return () => {
-      stream?.getTracks().forEach((track) => track.stop());
-    };
-  }, [isCameraOpen, toast]);
+    if (isCameraOpen) getCameraPermission();
+    return () => stream?.getTracks().forEach((track) => track.stop());
+  }, [isCameraOpen]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
       const canvas = canvasRef.current;
+      const video = videoRef.current;
       const context = canvas.getContext('2d');
-      
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 600;
       canvas.height = 600 / aspectRatio;
-
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
-    }
-  };
-
-  const removePhoto = (index: number) => {
-    setPhotos(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files) return;
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -203,33 +170,19 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4"
-          >
-            <input type="hidden" {...form.register('photos')} />
-            
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="projectId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Project</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a project" />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
+                      {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -243,11 +196,7 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
                 <FormItem>
                   <FormLabel>Information Requested</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="e.g., Updated floor plans for level 3..."
-                      className="min-h-[150px]"
-                      {...field}
-                    />
+                    <Textarea placeholder="e.g., Updated floor plans for level 3..." className="min-h-[120px]" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -262,159 +211,74 @@ export function NewInformationRequest({ projects, distributionUsers }: NewInform
             />
 
             <FormItem>
-              <div className="mb-4">
-                <FormLabel>Assign To</FormLabel>
-                <p className="text-sm text-muted-foreground">
-                  Select who to assign this request to.
-                </p>
-              </div>
-              <ScrollArea className="h-40 rounded-md border">
-                <div className="p-4 space-y-2">
-                  {distributionUsers.map((user) => (
-                    <FormField
-                      key={user.id}
-                      control={form.control}
-                      name="assignedTo"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
-                            key={user.id}
-                            className="flex flex-row items-center space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(user.id)}
-                                onCheckedChange={(checked) => {
-                                  return checked
-                                    ? field.onChange([...(field.value || []), user.id])
-                                    : field.onChange(
-                                        (field.value || []).filter(
-                                          (value) => value !== user.id
-                                        )
-                                      );
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              {user.name} <span className="text-muted-foreground">({user.email})</span>
-                            </FormLabel>
-                          </FormItem>
-                        );
-                      }}
-                    />
+              <FormLabel>Assign To</FormLabel>
+              <ScrollArea className="h-40 rounded-md border p-4">
+                {distributionUsers.map((u) => (
+                  <FormField
+                    key={u.id}
+                    control={form.control}
+                    name="assignedTo"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value?.includes(u.id)}
+                            onCheckedChange={(c) => {
+                              const curr = field.value || [];
+                              field.onChange(c ? [...curr, u.id] : curr.filter(v => v !== u.id));
+                            }}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">{u.name}</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                ))}
+              </ScrollArea>
+            </FormItem>
+
+            <div className="space-y-4">
+              <FormLabel>Photos</FormLabel>
+              {photos.length > 0 && (
+                <div className="grid grid-cols-3 gap-4">
+                  {photos.map((p, i) => (
+                    <div key={i} className="relative group">
+                      <Image src={p.url} alt="Reference" width={200} height={150} className="rounded-md border object-cover aspect-video" />
+                      <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   ))}
                 </div>
-              </ScrollArea>
-              <FormMessage />
-            </FormItem>
-
-            <FormItem>
-              <FormLabel>Photos</FormLabel>
-              <div className="space-y-4">
-                {photos.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {photos.map((photo, index) => (
-                      <div key={index} className="relative group">
-                        <Image
-                          src={photo.url}
-                          alt={`Photo ${index + 1}`}
-                          width={200}
-                          height={150}
-                          className="rounded-md border object-cover aspect-video"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
-                          onClick={() => removePhoto(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              
-                {isCameraOpen ? (
-                  <div className="space-y-2">
-                    {hasCameraPermission === false ? (
-                      <Alert variant="destructive">
-                        <AlertTitle>Camera Access Required</AlertTitle>
-                        <AlertDescription>
-                          Please allow camera access to use this feature.
-                        </AlertDescription>
-                      </Alert>
-                    ) : (
-                      <>
-                        <div className="relative w-full aspect-video bg-muted rounded-md overflow-hidden">
-                          <video
-                            ref={videoRef}
-                            className="w-full h-full object-cover"
-                            autoPlay
-                            muted
-                            playsInline
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            onClick={takePhoto}
-                            disabled={hasCameraPermission === undefined}
-                          >
-                            <Camera className="mr-2 h-4 w-4" />
-                            Take Photo
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setIsCameraOpen(false)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ) : (
+              )}
+              {isCameraOpen ? (
+                <div className="space-y-2">
+                  <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsCameraOpen(true)}
-                    >
-                      <Camera className="mr-2 h-4 w-4" />
-                      Take Photo
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload
-                    </Button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      className="hidden"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileSelect}
-                    />
+                    <Button type="button" onClick={takePhoto}>Take Photo</Button>
+                    <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                   </div>
-                )}
-              </div>
-            </FormItem>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                    const files = e.target.files;
+                    if (!files) return;
+                    Array.from(files).forEach(f => {
+                      const reader = new FileReader();
+                      reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                      reader.readAsDataURL(f);
+                    });
+                  }} />
+                </div>
+              )}
+            </div>
             
             <canvas ref={canvasRef} className="hidden" />
-
             <DialogFooter>
-              <Button type="submit" disabled={isPending}>
-                {isPending
-                  ? 'Saving...'
-                  : 'Save Request'}
-              </Button>
+              <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : 'Save Request'}</Button>
             </DialogFooter>
           </form>
         </Form>

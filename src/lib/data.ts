@@ -1,4 +1,3 @@
-
 'use server';
 
 // NOTE: All core data management has been migrated to client-side Firestore usage.

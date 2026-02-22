@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -31,12 +30,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { assignChecklistAction } from './actions';
 import { PlusCircle } from 'lucide-react';
 import type { Project, QualityChecklist, Area, SubContractor } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const AssignChecklistSchema = z.object({
   templateId: z.string().min(1, 'A checklist template is required.'),
@@ -56,6 +58,7 @@ type AddChecklistToProjectProps = {
 export function AddChecklistToProject({ projects, checklistTemplates, subContractors }: AddChecklistToProjectProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
+  const db = useFirestore();
   const [isPending, startTransition] = useTransition();
   const [areas, setAreas] = useState<Area[]>([]);
 
@@ -83,20 +86,38 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
 
   const onSubmit = (values: AssignChecklistFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('templateId', values.templateId);
-      formData.append('projectId', values.projectId);
-      formData.append('areaId', values.areaId);
-      values.recipients?.forEach(r => formData.append('recipients', r));
+      const template = checklistTemplates.find(t => t.id === values.templateId);
+      if (!template) return;
 
-      const result = await assignChecklistAction(formData);
+      const recipientEmails = subContractors
+        .filter(sub => values.recipients?.includes(sub.id))
+        .map(sub => sub.email);
 
-      if (result.success) {
-        toast({ title: 'Success', description: result.message });
-        setOpen(false);
-      } else {
-        toast({ title: 'Error', description: result.message, variant: 'destructive' });
-      }
+      const newChecklist = {
+        projectId: values.projectId,
+        areaId: values.areaId,
+        title: template.title,
+        trade: template.trade,
+        items: template.items.map(item => ({ ...item, status: 'pending', comment: '' })),
+        recipients: recipientEmails,
+        isTemplate: false,
+        createdAt: new Date().toISOString(),
+      };
+
+      const colRef = collection(db, 'quality-checklists');
+      addDoc(colRef, newChecklist)
+        .then(() => {
+          toast({ title: 'Success', description: 'Checklist assigned to project.' });
+          setOpen(false);
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: newChecklist,
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
     });
   };
 
@@ -118,7 +139,7 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
         <DialogHeader>
           <DialogTitle>Assign Checklist to Project</DialogTitle>
           <DialogDescription>
-            Select a checklist template and assign it to a project, area and optionally a sub-contractor.
+            Select a checklist template and assign it to a project and area.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -134,8 +155,8 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
                       <SelectTrigger><SelectValue placeholder="Select a template" /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {checklistTemplates.map((template) => (
-                        <SelectItem key={template.id} value={template.id}>{template.title} ({template.trade})</SelectItem>
+                      {checklistTemplates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>{t.title} ({t.trade})</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -154,9 +175,7 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
                       <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
-                      ))}
+                      {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -174,9 +193,9 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
                       <SelectTrigger><SelectValue placeholder="Select an area" /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                        {areas.length > 0 ? areas.map((area) => (
-                            <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
-                        )) : <SelectItem value="-" disabled>No areas for this project</SelectItem>}
+                        {areas.length > 0 ? areas.map((a) => (
+                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                        )) : <SelectItem value="-" disabled>No areas defined for this project</SelectItem>}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -187,50 +206,30 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
             <Separator />
             
             <FormItem>
-              <div className="mb-4">
-                <FormLabel>Assign to Sub-Contractor (Optional)</FormLabel>
-                <p className="text-sm text-muted-foreground">
-                  Select which sub-contractors to assign this checklist to.
-                </p>
-              </div>
-              <ScrollArea className="h-40 rounded-md border">
-                <div className="p-4 space-y-2">
-                  {subContractors.map((user) => (
-                    <FormField
-                      key={user.id}
-                      control={form.control}
-                      name="recipients"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
-                            key={user.id}
-                            className="flex flex-row items-center space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(user.id)}
-                                onCheckedChange={(checked) => {
-                                  return checked
-                                    ? field.onChange([...(field.value || []), user.id])
-                                    : field.onChange(
-                                        (field.value || []).filter(
-                                          (value) => value !== user.id
-                                        )
-                                      );
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              {user.name} <span className="text-muted-foreground">({user.email})</span>
-                            </FormLabel>
-                          </FormItem>
-                        );
-                      }}
-                    />
-                  ))}
-                </div>
+              <FormLabel>Assign to Sub-Contractor (Optional)</FormLabel>
+              <ScrollArea className="h-40 rounded-md border p-4">
+                {subContractors.map((sub) => (
+                  <FormField
+                    key={sub.id}
+                    control={form.control}
+                    name="recipients"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value?.includes(sub.id)}
+                            onCheckedChange={(c) => {
+                              const curr = field.value || [];
+                              field.onChange(c ? [...curr, sub.id] : curr.filter(v => v !== sub.id));
+                            }}
+                          />
+                        </FormControl>
+                        <FormLabel className="font-normal">{sub.name}</FormLabel>
+                      </FormItem>
+                    )}
+                  />
+                ))}
               </ScrollArea>
-              <FormMessage />
             </FormItem>
 
             <DialogFooter>

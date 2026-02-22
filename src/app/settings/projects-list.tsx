@@ -1,10 +1,8 @@
-
 'use client';
 
 import type { Project } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { removeProjectAction } from './actions';
-import { Trash2, Pencil } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -19,6 +17,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { EditProjectForm } from './edit-project-form';
 import { Badge } from '@/components/ui/badge';
+import { useFirestore } from '@/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { useToast } from '@/hooks/use-toast';
 
 type ProjectsListProps = {
   projects: Project[];
@@ -26,10 +29,21 @@ type ProjectsListProps = {
 
 export function ProjectsList({ projects }: ProjectsListProps) {
   const [isPending, startTransition] = useTransition();
+  const db = useFirestore();
+  const { toast } = useToast();
 
   const handleRemove = (projectId: string) => {
     startTransition(async () => {
-      await removeProjectAction(projectId);
+      const docRef = doc(db, 'projects', projectId);
+      deleteDoc(docRef)
+        .then(() => toast({ title: 'Success', description: 'Project removed.' }))
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
     });
   };
   
@@ -57,7 +71,7 @@ export function ProjectsList({ projects }: ProjectsListProps) {
                     <AlertDialogHeader>
                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will permanently remove the project "{project.name}". This action cannot be undone.
+                        This will permanently remove the project "{project.name}".
                     </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
