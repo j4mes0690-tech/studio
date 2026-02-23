@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -11,7 +12,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
-import { EditSnaggingItem } from './edit-snagging-item';
 import { PdfReportButton } from './pdf-report-button';
 import { DistributeReportsButton } from './distribute-reports-button';
 import { useTransition } from 'react';
@@ -80,7 +80,8 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
   const closedItems = item.items?.filter(i => i.status === 'closed').length || 0;
   const isComplete = totalItems > 0 && totalItems === closedItems;
 
-  const handleDelete = () => {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent row click
     startTransition(async () => {
       const docRef = doc(db, 'snagging-items', item.id);
       deleteDoc(docRef)
@@ -96,11 +97,14 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
   };
 
   return (
-    <TableRow className={cn(isComplete && "opacity-60")}>
+    <TableRow 
+      className={cn("group cursor-pointer", isComplete && "opacity-60")}
+      href={`/snagging/${item.id}`}
+    >
       <TableCell className="font-medium">{project?.name || 'Unknown'}</TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">{item.title}</span>
+            <span className="text-sm font-medium group-hover:text-primary transition-colors">{item.title}</span>
             {isComplete && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
         </div>
       </TableCell>
@@ -115,10 +119,9 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
         </Badge>
       </TableCell>
       <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <PdfReportButton item={item} project={project} subContractors={subContractors} />
           <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
-          <EditSnaggingItem item={item} projects={projects} subContractors={subContractors} />
           
           <AlertDialog>
             <TooltipProvider>

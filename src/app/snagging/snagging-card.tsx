@@ -1,7 +1,9 @@
+
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo } from '@/lib/types';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -15,9 +17,8 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User, Upload, X, AlertTriangle, Maximize2 } from 'lucide-react';
+import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User, Upload, X, AlertTriangle, Maximize2, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { EditSnaggingItem } from '@/app/snagging/edit-snagging-item';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
 import {
@@ -117,7 +118,6 @@ export function SnaggingItemCard({
       canvas.height = 800 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      // Timestamp Overlay
       const now = new Date();
       const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
       context.font = 'bold 24px sans-serif';
@@ -186,13 +186,14 @@ export function SnaggingItemCard({
   };
 
   return (
-    <Card className={cn(isComplete && "bg-muted/30")}>
+    <Card className={cn("transition-colors hover:border-primary/50", isComplete && "bg-muted/30")}>
       <CardHeader>
         <div className="flex justify-between items-start">
-          <div className="space-y-1">
-            <CardTitle className="flex items-center gap-2">
+          <Link href={`/snagging/${item.id}`} className="space-y-1 flex-1 group">
+            <CardTitle className="flex items-center gap-2 group-hover:text-primary transition-colors">
               {item.title}
               {isComplete && <CheckCircle2 className="h-5 w-5 text-green-500" />}
+              <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
             </CardTitle>
             <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
               <span className="font-semibold text-foreground">{project?.name || 'Unknown Project'}</span>
@@ -207,7 +208,7 @@ export function SnaggingItemCard({
                 Logged <ClientDate date={item.createdAt} />
               </span>
             </CardDescription>
-          </div>
+          </Link>
           <div className="flex items-center gap-2">
             <Badge variant={isComplete ? "secondary" : "outline"} className="capitalize">
                 {isComplete ? "Completed" : `${closedItems}/${totalItems} Done`}
@@ -224,8 +225,6 @@ export function SnaggingItemCard({
               project={project}
               subContractors={subContractors}
             />
-            
-            <EditSnaggingItem item={item} projects={projects} subContractors={subContractors} />
             
             <AlertDialog>
               <AlertDialogTrigger asChild>
