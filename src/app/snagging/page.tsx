@@ -81,7 +81,7 @@ function SnaggingContent() {
             <NewSnaggingItem projects={allowedProjects} subContractors={subContractors || []} />
           </div>
         </div>
-        <NoticeFilters projects={allowedProjects} />
+        <SnaggingFilters projects={allowedProjects} />
         <div className="grid gap-4 md:gap-6">
           {filteredItems.length > 0 ? (
             filteredItems.map((item) => (
