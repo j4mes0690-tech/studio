@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -41,8 +42,12 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
   const allowedProjectIds = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.canManageProjects) return allProjects.map(p => p.id);
+    
     return allProjects
-      .filter(p => p.assignedUsers?.includes(normalizedEmail))
+      .filter(p => {
+          const assignments = p.assignedUsers || [];
+          return assignments.some(email => email.toLowerCase().trim() === normalizedEmail);
+      })
       .map(p => p.id);
   }, [allProjects, profile, normalizedEmail]);
 
@@ -67,19 +72,19 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
     if (!rawRequests || !profile) return [];
 
     return rawRequests.map(request => {
-      // 0. Verify Project Assignment
+      // 0. Verify Project Assignment (Primary Security Gate)
       if (!allowedProjectIds.includes(request.projectId)) return null;
 
       // 1. Skip if user has dismissed this specific notification
       if (request.dismissedBy?.includes(normalizedEmail)) return null;
 
       // 2. Check if assigned to user
-      const isAssignedToMe = request.assignedTo.includes(normalizedEmail);
+      const isAssignedToMe = request.assignedTo.some(email => email.toLowerCase().trim() === normalizedEmail);
       
       // 3. Check if raised by user and has response from someone else
       const messages = request.messages || [];
       const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
-      const isMyRaisedWithResponse = request.raisedBy === normalizedEmail && lastMessage && lastMessage.senderEmail !== normalizedEmail;
+      const isMyRaisedWithResponse = request.raisedBy.toLowerCase().trim() === normalizedEmail && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== normalizedEmail;
 
       if (isAssignedToMe || isMyRaisedWithResponse) {
           return {

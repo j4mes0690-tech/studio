@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -28,70 +29,79 @@ function InfoRequestsContent() {
   
   const [isCompact, setIsCompact] = useState(false);
 
-  // Fetch current user profile
+  // 1. Fetch current user profile from Firestore
   const currentUserRef = useMemo(() => {
     if (!db || !firebaseUser?.email) return null;
     return doc(db, 'users', firebaseUser.email.toLowerCase().trim());
   }, [db, firebaseUser?.email]);
   const { data: currentUser, isLoading: profileLoading } = useDoc<DistributionUser>(currentUserRef);
 
-  // Fetch distribution users from Firestore for assignment selectors
-  const usersQuery = useMemo(() => {
-    if (!db) return null;
-    return collection(db, 'users');
-  }, [db]);
-  const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
-
-  // Fetch Projects from Firestore
+  // 2. Fetch ALL projects to determine which are authorized for this user
   const projectsQuery = useMemo(() => {
     if (!db) return null;
     return collection(db, 'projects');
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  // Filter allowed projects based on strict assignment rules
+  // 3. Fetch distribution users for assignment selectors
+  const usersQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
+  const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
+
+  // 4. Calculate STRICT allowed project list based on assignments or admin permissions
   const allowedProjects = useMemo(() => {
     if (!allProjects || !currentUser) return [];
     
-    // Project management admins see everything
+    // Admins with project management permissions see everything
     if (currentUser.permissions?.canManageProjects) return allProjects;
 
-    // Standard users only see projects they are explicitly assigned to
-    const email = currentUser.email.toLowerCase().trim();
-    return allProjects.filter(p => p.assignedUsers?.includes(email));
+    // Standard users only see projects where their normalized email is in the assignedUsers list
+    const userEmail = currentUser.email.toLowerCase().trim();
+    return allProjects.filter(p => {
+        const assignments = p.assignedUsers || [];
+        return assignments.some(email => email.toLowerCase().trim() === userEmail);
+    });
   }, [allProjects, currentUser]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
-  // Fetch Information Requests
+  // 5. Fetch Information Requests with strict access gatekeeping
   const itemsQuery = useMemo(() => {
-    if (!db) return null;
+    if (!db || !currentUser || projectsLoading) return null;
+    
+    // Optimization: If not an admin and not assigned to any projects, don't even query
+    if (!currentUser.permissions?.canManageProjects && allowedProjectIds.length === 0) {
+        return null;
+    }
+
     const base = collection(db, 'information-requests');
     
-    // If a specific project is requested via URL, we must validate access first
+    // If a specific project is selected, verify authorization BEFORE querying
     if (projectId) {
       if (!allowedProjectIds.includes(projectId)) {
-          // If the user isn't assigned to this project, we return null to prevent data fetch
-          return null;
+          return null; // Authorization denied for this specific project filter
       }
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
 
-    // Default view: fetch all RFIs (we will filter client-side against allowedProjectIds)
+    // Default: fetch RFIs (we will perform a final filter client-side for absolute security)
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIds]);
+  }, [db, projectId, allowedProjectIds, currentUser, projectsLoading]);
 
   const { data: allItems, isLoading: itemsLoading } = useCollection<InformationRequest>(itemsQuery);
 
-  // CRITICAL: Final filter to ensure only requests from allowed projects are displayed
+  // 6. FINAL SECURITY FILTER: Ensure items are strictly tied to authorized projects
   const filteredItems = useMemo(() => {
-    if (!allItems) return [];
+    if (!allItems || !currentUser) return [];
+    
+    // Filter based on authorized project IDs to ensure no data leaks
     return allItems.filter(item => allowedProjectIds.includes(item.projectId));
-  }, [allItems, allowedProjectIds]);
+  }, [allItems, allowedProjectIds, currentUser]);
 
-  // Client-side sorting: Open requests first, then closed
+  // 7. Sort for display (Active/Open status first)
   const sortedItems = useMemo(() => {
-    if (!filteredItems) return [];
     return [...filteredItems].sort((a, b) => {
       if (a.status !== b.status) {
         return a.status === 'open' ? -1 : 1;
@@ -110,11 +120,13 @@ function InfoRequestsContent() {
     );
   }
 
+  // Handle unauthorized or missing profiles
   if (!currentUser) {
     return (
         <div className="text-center py-12 space-y-4">
-            <p>Access restricted. Could not find an internal profile for: <strong>{firebaseUser?.email}</strong></p>
-            <p className="text-sm text-muted-foreground">Please ensure your email is added to the Distribution List in Settings.</p>
+            <p className="text-lg font-semibold">Profile Required</p>
+            <p>Access to documentation requires an internal profile for: <strong>{firebaseUser?.email}</strong></p>
+            <p className="text-sm text-muted-foreground">Please request project assignment from a system administrator.</p>
         </div>
     );
   }
@@ -145,20 +157,20 @@ function InfoRequestsContent() {
             </TooltipProvider>
             
             <NewInformationRequest 
-              projects={allowedProjects || []} 
+              projects={allowedProjects} 
               distributionUsers={distributionUsers || []} 
               currentUser={currentUser}
             />
           </div>
         </div>
         
-        <InformationRequestFilters projects={allowedProjects || []} />
+        <InformationRequestFilters projects={allowedProjects} />
 
-        {sortedItems && sortedItems.length > 0 ? (
+        {sortedItems.length > 0 ? (
           isCompact ? (
             <InformationRequestTable 
               items={sortedItems}
-              projects={allowedProjects || []}
+              projects={allowedProjects}
               distributionUsers={distributionUsers || []}
               currentUser={currentUser}
             />
@@ -168,7 +180,7 @@ function InfoRequestsContent() {
                 <InformationRequestCard
                   key={item.id}
                   item={item}
-                  projects={allowedProjects || []}
+                  projects={allowedProjects}
                   distributionUsers={distributionUsers || []}
                   currentUser={currentUser}
                 />
@@ -177,14 +189,14 @@ function InfoRequestsContent() {
           )
         ) : (
           <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-            <p>No information requests found for your assigned projects.</p>
-            <p className="text-sm">Only team members assigned to a project can view its requests.</p>
+            <p className="text-lg font-semibold">No records found</p>
+            <p className="text-sm">You only have access to information requests for projects you are explicitly assigned to.</p>
           </div>
         )}
 
-        {sortedItems && sortedItems.length > 0 && (
+        {sortedItems.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton items={sortedItems} projects={allowedProjects || []} distributionUsers={distributionUsers || []} />
+            <ExportButton items={sortedItems} projects={allowedProjects} distributionUsers={distributionUsers || []} />
           </div>
         )}
       </main>

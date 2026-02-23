@@ -18,37 +18,43 @@ function SnaggingContent() {
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
 
-  // Profile for security/visibility logic
+  // Profile check
   const profileRef = useMemo(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
+  // Real-time data from Firestore
   const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
   const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
-  // Filter allowed projects
+  // Visibility logic
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.canManageProjects) return allProjects;
+    
     const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => p.assignedUsers?.includes(email));
+    return allProjects.filter(p => {
+        const assignments = p.assignedUsers || [];
+        return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+    });
   }, [allProjects, profile]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
   const snaggingQuery = useMemo(() => {
+    if (!db || projectsLoading) return null;
     const base = collection(db, 'snagging-items');
     if (projectId) {
       if (!allowedProjectIds.includes(projectId)) return null;
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIds]);
+  }, [db, projectId, allowedProjectIds, projectsLoading]);
 
   const { data: allItems, isLoading: snaggingLoading } = useCollection<SnaggingItem>(snaggingQuery);
 
@@ -72,24 +78,24 @@ function SnaggingContent() {
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight">Snagging Log</h2>
           <div className="flex items-center gap-2">
-            <NewSnaggingItem projects={allowedProjects || []} subContractors={subContractors || []} />
+            <NewSnaggingItem projects={allowedProjects} subContractors={subContractors || []} />
           </div>
         </div>
-        <SnaggingFilters projects={allowedProjects || []} />
+        <SnaggingFilters projects={allowedProjects} />
         <div className="grid gap-4 md:gap-6">
-          {filteredItems && filteredItems.length > 0 ? (
+          {filteredItems.length > 0 ? (
             filteredItems.map((item) => (
               <SnaggingItemCard
                 key={item.id}
                 item={item}
-                projects={allowedProjects || []}
+                projects={allowedProjects}
                 subContractors={subContractors || []}
               />
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p>No snagging items found for your assigned projects.</p>
-              <p className="text-sm">Record items that need correction on site.</p>
+              <p className="text-lg font-semibold">No records found</p>
+              <p className="text-sm">You only see snagging lists for projects you are explicitly assigned to.</p>
             </div>
           )}
         </div>

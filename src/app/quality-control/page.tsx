@@ -14,7 +14,7 @@ export default function QualityControlPage() {
   const db = useFirestore();
   const { user: sessionUser } = useUser();
 
-  // Profile for visibility check
+  // Profile check
   const profileRef = useMemo(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
@@ -32,8 +32,12 @@ export default function QualityControlPage() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.canManageProjects) return allProjects;
+    
     const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => p.assignedUsers?.includes(email));
+    return allProjects.filter(p => {
+        const assignments = p.assignedUsers || [];
+        return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+    });
   }, [allProjects, profile]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
@@ -45,7 +49,7 @@ export default function QualityControlPage() {
 
   const filteredChecklists = useMemo(() => {
     if (!allProjectChecklists) return [];
-    // Only show checklists for projects the user has access to
+    // Strict visibility check
     return allProjectChecklists.filter(c => c.projectId && allowedProjectIds.includes(c.projectId));
   }, [allProjectChecklists, allowedProjectIds]);
 
@@ -72,23 +76,23 @@ export default function QualityControlPage() {
           <h2 className="text-2xl font-bold tracking-tight">
             Quality Control Checklists
           </h2>
-           <AddChecklistToProject projects={allowedProjects || []} checklistTemplates={checklistTemplates || []} subContractors={subContractors || []} />
+           <AddChecklistToProject projects={allowedProjects} checklistTemplates={checklistTemplates || []} subContractors={subContractors || []} />
         </div>
         
         <div className="grid gap-4 md:gap-6">
-          {filteredChecklists && filteredChecklists.length > 0 ? (
+          {filteredChecklists.length > 0 ? (
             filteredChecklists.map((checklist) => (
               <ChecklistCard
                 key={checklist.id}
                 checklist={checklist}
-                projects={allowedProjects || []}
+                projects={allowedProjects}
                 subContractors={subContractors || []}
               />
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p className="text-lg font-semibold">No checklists assigned to your projects.</p>
-              <p className="text-sm">Click "Add Checklist" to assign a template to a project.</p>
+              <p className="text-lg font-semibold">No records found</p>
+              <p className="text-sm">You only see checklists for projects you are explicitly assigned to.</p>
             </div>
           )}
         </div>

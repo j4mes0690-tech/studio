@@ -37,20 +37,25 @@ function CleanUpContent() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.canManageProjects) return allProjects;
+    
     const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => p.assignedUsers?.includes(email));
+    return allProjects.filter(p => {
+        const assignments = p.assignedUsers || [];
+        return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+    });
   }, [allProjects, profile]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
   const noticesQuery = useMemo(() => {
+    if (!db || projectsLoading) return null;
     const base = collection(db, 'cleanup-notices');
     if (projectId) {
       if (!allowedProjectIds.includes(projectId)) return null;
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIds]);
+  }, [db, projectId, allowedProjectIds, projectsLoading]);
 
   const { data: allNotices, isLoading: noticesLoading } = useCollection<CleanUpNotice>(noticesQuery);
 
@@ -76,29 +81,29 @@ function CleanUpContent() {
             Notice Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewNotice projects={allowedProjects || []} subContractors={subContractors || []} />
+            <NewNotice projects={allowedProjects} subContractors={subContractors || []} />
           </div>
         </div>
-        <NoticeFilters projects={allowedProjects || []} />
+        <NoticeFilters projects={allowedProjects} />
         <div className="grid gap-4 md:gap-6">
-          {filteredNotices && filteredNotices.length > 0 ? (
+          {filteredNotices.length > 0 ? (
             filteredNotices.map((notice) => (
               <NoticeCard
                 key={notice.id}
                 notice={notice}
-                projects={allowedProjects || []}
+                projects={allowedProjects}
               />
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p>No clean up notices found for your projects.</p>
-              <p className="text-sm">Record issues that require cleaning on site.</p>
+              <p className="text-lg font-semibold">No records found</p>
+              <p className="text-sm">You only see cleanup notices for projects you are assigned to.</p>
             </div>
           )}
         </div>
-        {filteredNotices && filteredNotices.length > 0 && (
+        {filteredNotices.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton notices={filteredNotices} projects={allowedProjects || []} />
+            <ExportButton notices={filteredNotices} projects={allowedProjects} />
           </div>
         )}
       </main>

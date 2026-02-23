@@ -33,26 +33,29 @@ function InstructionsContent() {
   const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  // Filter allowed projects
+  // Visibility logic
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.canManageProjects) return allProjects;
+    
     const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => p.assignedUsers?.includes(email));
+    return allProjects.filter(p => {
+        const assignments = p.assignedUsers || [];
+        return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+    });
   }, [allProjects, profile]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
   const instructionsQuery = useMemo(() => {
+    if (!db || projectsLoading) return null;
     const base = collection(db, 'instructions');
     if (projectId) {
-      // If filtering by a specific project, it must be in the allowed list
       if (!allowedProjectIds.includes(projectId)) return null;
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
-    // We fetch all and then filter client side because Firestore doesn't support easy "in array" for multiple IDs combined with orderBy easily in simple queries without more complex structure
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIds]);
+  }, [db, projectId, allowedProjectIds, projectsLoading]);
 
   const { data: allInstructions, isLoading: instructionsLoading } = useCollection<Instruction>(instructionsQuery);
 
@@ -78,29 +81,29 @@ function InstructionsContent() {
             Instruction Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewInstruction projects={allowedProjects || []} distributionUsers={distributionUsers || []} />
+            <NewInstruction projects={allowedProjects} distributionUsers={distributionUsers || []} />
           </div>
         </div>
-        <InstructionFilters projects={allowedProjects || []} />
+        <InstructionFilters projects={allowedProjects} />
         <div className="grid gap-4 md:gap-6">
-          {filteredInstructions && filteredInstructions.length > 0 ? (
+          {filteredInstructions.length > 0 ? (
             filteredInstructions.map((instruction) => (
               <InstructionCard
                 key={instruction.id}
                 instruction={instruction}
-                projects={allowedProjects || []}
+                projects={allowedProjects}
               />
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p>No instructions found for your assigned projects.</p>
-              <p className="text-sm">Record new instructions or check your project assignments.</p>
+              <p className="text-lg font-semibold">No records found</p>
+              <p className="text-sm">You only see instructions for projects you are assigned to.</p>
             </div>
           )}
         </div>
-        {filteredInstructions && filteredInstructions.length > 0 && (
+        {filteredInstructions.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton instructions={filteredInstructions} projects={allowedProjects || []} />
+            <ExportButton instructions={filteredInstructions} projects={allowedProjects} />
           </div>
         )}
       </main>
