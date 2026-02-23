@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
@@ -14,9 +13,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Bell, HelpCircle, Loader2, MessageSquareReply } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, query, where, or, and, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import type { InformationRequest } from '@/lib/types';
+import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -24,6 +23,28 @@ import { FirestorePermissionError } from '@/firebase/errors';
 export function NotificationsMenu({ userEmail }: { userEmail: string }) {
   const db = useFirestore();
   const normalizedEmail = userEmail.toLowerCase().trim();
+
+  // Fetch current user profile for admin check
+  const profileRef = useMemo(() => {
+    if (!db || !normalizedEmail) return null;
+    return doc(db, 'users', normalizedEmail);
+  }, [db, normalizedEmail]);
+  const { data: profile } = useDoc<DistributionUser>(profileRef);
+
+  // Fetch projects to determine authorized project IDs
+  const projectsQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'projects');
+  }, [db]);
+  const { data: allProjects } = useCollection<Project>(projectsQuery);
+
+  const allowedProjectIds = useMemo(() => {
+    if (!allProjects || !profile) return [];
+    if (profile.permissions?.canManageProjects) return allProjects.map(p => p.id);
+    return allProjects
+      .filter(p => p.assignedUsers?.includes(normalizedEmail))
+      .map(p => p.id);
+  }, [allProjects, profile, normalizedEmail]);
 
   // Query for open requests that involve the current user
   const notificationsQuery = useMemo(() => {
@@ -43,16 +64,19 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
   const { data: rawRequests, isLoading } = useCollection<InformationRequest>(notificationsQuery);
 
   const notifications = useMemo(() => {
-    if (!rawRequests) return [];
+    if (!rawRequests || !profile) return [];
 
     return rawRequests.map(request => {
-      // 0. Skip if user has dismissed this specific notification
+      // 0. Verify Project Assignment
+      if (!allowedProjectIds.includes(request.projectId)) return null;
+
+      // 1. Skip if user has dismissed this specific notification
       if (request.dismissedBy?.includes(normalizedEmail)) return null;
 
-      // 1. Check if assigned to user
+      // 2. Check if assigned to user
       const isAssignedToMe = request.assignedTo.includes(normalizedEmail);
       
-      // 2. Check if raised by user and has response from someone else
+      // 3. Check if raised by user and has response from someone else
       const messages = request.messages || [];
       const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
       const isMyRaisedWithResponse = request.raisedBy === normalizedEmail && lastMessage && lastMessage.senderEmail !== normalizedEmail;
@@ -66,7 +90,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
       }
       return null;
     }).filter(Boolean);
-  }, [rawRequests, normalizedEmail]);
+  }, [rawRequests, normalizedEmail, allowedProjectIds, profile]);
 
   const handleDismiss = (requestId: string) => {
     const docRef = doc(db, 'information-requests', requestId);

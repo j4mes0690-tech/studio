@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -50,10 +49,14 @@ function InfoRequestsContent() {
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  // Filter allowed projects
+  // Filter allowed projects based on strict assignment rules
   const allowedProjects = useMemo(() => {
     if (!allProjects || !currentUser) return [];
+    
+    // Project management admins see everything
     if (currentUser.permissions?.canManageProjects) return allProjects;
+
+    // Standard users only see projects they are explicitly assigned to
     const email = currentUser.email.toLowerCase().trim();
     return allProjects.filter(p => p.assignedUsers?.includes(email));
   }, [allProjects, currentUser]);
@@ -64,16 +67,23 @@ function InfoRequestsContent() {
   const itemsQuery = useMemo(() => {
     if (!db) return null;
     const base = collection(db, 'information-requests');
+    
+    // If a specific project is requested via URL, we must validate access first
     if (projectId) {
-      if (!allowedProjectIds.includes(projectId)) return null;
+      if (!allowedProjectIds.includes(projectId)) {
+          // If the user isn't assigned to this project, we return null to prevent data fetch
+          return null;
+      }
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
+
+    // Default view: fetch all RFIs (we will filter client-side against allowedProjectIds)
     return query(base, orderBy('createdAt', 'desc'));
   }, [db, projectId, allowedProjectIds]);
 
   const { data: allItems, isLoading: itemsLoading } = useCollection<InformationRequest>(itemsQuery);
 
-  // Filter items by project access
+  // CRITICAL: Final filter to ensure only requests from allowed projects are displayed
   const filteredItems = useMemo(() => {
     if (!allItems) return [];
     return allItems.filter(item => allowedProjectIds.includes(item.projectId));
@@ -168,7 +178,7 @@ function InfoRequestsContent() {
         ) : (
           <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
             <p>No information requests found for your assigned projects.</p>
-            <p className="text-sm">Try adjusting your filters or adding a new item.</p>
+            <p className="text-sm">Only team members assigned to a project can view its requests.</p>
           </div>
         )}
 
