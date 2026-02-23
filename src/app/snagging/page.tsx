@@ -1,22 +1,30 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
 import { SnaggingItemCard } from './snagging-card';
 import { NewSnaggingItem } from './new-snagging-item';
 import { SnaggingFilters } from './snagging-filters';
+import { SnaggingTable } from './snagging-table';
 import { useSearchParams } from 'next/navigation';
-import { useMemo, Suspense } from 'react';
+import { useMemo, useState, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LayoutGrid, List } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 function SnaggingContent() {
   const searchParams = useSearchParams();
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
+  const [isCompact, setIsCompact] = useState(false);
 
   // Profile check
   const profileRef = useMemo(() => {
@@ -36,7 +44,7 @@ function SnaggingContent() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     
-    // Decoupled canManageProjects from visibility. Only hasFullVisibility grants global oversight.
+    // Global oversight restricted to hasFullVisibility.
     if (profile.permissions?.hasFullVisibility) return allProjects;
     
     const email = profile.email.toLowerCase().trim();
@@ -80,27 +88,55 @@ function SnaggingContent() {
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight">Snagging Log</h2>
           <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setIsCompact(!isCompact)}
+                    className="hidden sm:flex"
+                  >
+                    {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Switch to {isCompact ? 'Card' : 'Compact'} View</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
             <NewSnaggingItem projects={allowedProjects} subContractors={subContractors || []} />
           </div>
         </div>
+        
         <SnaggingFilters projects={allowedProjects} />
-        <div className="grid gap-4 md:gap-6">
-          {filteredItems.length > 0 ? (
-            filteredItems.map((item) => (
-              <SnaggingItemCard
-                key={item.id}
-                item={item}
-                projects={allowedProjects}
-                subContractors={subContractors || []}
-              />
-            ))
+
+        {filteredItems.length > 0 ? (
+          isCompact ? (
+            <SnaggingTable 
+              items={filteredItems}
+              projects={allowedProjects}
+              subContractors={subContractors || []}
+            />
           ) : (
-            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p className="text-lg font-semibold">No records found</p>
-              <p className="text-sm">You only see snagging lists for projects you are explicitly assigned to.</p>
+            <div className="grid gap-4 md:gap-6">
+              {filteredItems.map((item) => (
+                <SnaggingItemCard
+                  key={item.id}
+                  item={item}
+                  projects={allowedProjects}
+                  subContractors={subContractors || []}
+                />
+              ))}
             </div>
-          )}
-        </div>
+          )
+        ) : (
+          <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+            <p className="text-lg font-semibold">No records found</p>
+            <p className="text-sm">You only see snagging lists for projects you are explicitly assigned to.</p>
+          </div>
+        )}
       </main>
   );
 }
