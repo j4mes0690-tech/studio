@@ -41,8 +41,11 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
 
   const allowedProjectIds = useMemo(() => {
     if (!allProjects || !profile) return [];
+    
+    // Admins with project management permissions see everything
     if (profile.permissions?.canManageProjects) return allProjects.map(p => p.id);
     
+    // Standard users only see notifications for projects they are assigned to
     return allProjects
       .filter(p => {
           const assignments = p.assignedUsers || [];
@@ -73,6 +76,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
 
     return rawRequests.map(request => {
       // 0. Verify Project Assignment (Primary Security Gate)
+      // Even if the user is assigned to the RFI, they must be on the project to see it
       if (!allowedProjectIds.includes(request.projectId)) return null;
 
       // 1. Skip if user has dismissed this specific notification

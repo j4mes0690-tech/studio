@@ -10,7 +10,7 @@ import { InformationRequestTable } from './information-request-table';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, Suspense } from 'react';
 import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
-import { Loader2, LayoutGrid, List } from 'lucide-react';
+import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 
 function InfoRequestsContent() {
   const { user: firebaseUser } = useUser();
@@ -36,7 +37,7 @@ function InfoRequestsContent() {
   }, [db, firebaseUser?.email]);
   const { data: currentUser, isLoading: profileLoading } = useDoc<DistributionUser>(currentUserRef);
 
-  // 2. Fetch ALL projects to determine which are authorized for this user
+  // 2. Fetch ALL projects to determine authorized list
   const projectsQuery = useMemo(() => {
     if (!db) return null;
     return collection(db, 'projects');
@@ -67,7 +68,7 @@ function InfoRequestsContent() {
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
-  // 5. Fetch Information Requests with strict access gatekeeping
+  // 5. Fetch Information Requests with access gatekeeping
   const itemsQuery = useMemo(() => {
     if (!db || !currentUser || projectsLoading) return null;
     
@@ -86,7 +87,7 @@ function InfoRequestsContent() {
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
 
-    // Default: fetch RFIs (we will perform a final filter client-side for absolute security)
+    // Default: fetch RFIs (we perform a final filter client-side for absolute security)
     return query(base, orderBy('createdAt', 'desc'));
   }, [db, projectId, allowedProjectIds, currentUser, projectsLoading]);
 
@@ -96,8 +97,12 @@ function InfoRequestsContent() {
   const filteredItems = useMemo(() => {
     if (!allItems || !currentUser) return [];
     
-    // Filter based on authorized project IDs to ensure no data leaks
-    return allItems.filter(item => allowedProjectIds.includes(item.projectId));
+    // Filter based on authorized project IDs to ensure no data leaks from the global query
+    return allItems.filter(item => {
+        const pId = item.projectId;
+        if (!pId) return false;
+        return allowedProjectIds.includes(pId);
+    });
   }, [allItems, allowedProjectIds, currentUser]);
 
   // 7. Sort for display (Active/Open status first)
@@ -131,12 +136,22 @@ function InfoRequestsContent() {
     );
   }
 
+  const isAdminView = !!currentUser.permissions?.canManageProjects;
+
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">
-            Information Request Log
-          </h2>
+          <div className='flex flex-col gap-1'>
+            <h2 className="text-2xl font-bold tracking-tight">
+                Information Request Log
+            </h2>
+            {isAdminView && (
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest">
+                    <ShieldCheck className="h-3 w-3" />
+                    Administrative Visibility Enabled
+                </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <TooltipProvider>
               <Tooltip>
@@ -190,7 +205,11 @@ function InfoRequestsContent() {
         ) : (
           <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
             <p className="text-lg font-semibold">No records found</p>
-            <p className="text-sm">You only have access to information requests for projects you are explicitly assigned to.</p>
+            <p className="text-sm">
+                {isAdminView 
+                    ? "No RFIs exist in the system yet." 
+                    : "You only have access to RFIs for projects you are explicitly assigned to."}
+            </p>
           </div>
         )}
 

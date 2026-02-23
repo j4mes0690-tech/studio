@@ -20,7 +20,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useMemo } from 'react';
 import type { Project, Instruction, DistributionUser } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldCheck } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
@@ -47,9 +47,12 @@ export default function ProjectsPage() {
     // Project management admins see everything
     if (profile.permissions?.canManageProjects) return allProjects;
 
-    // Others only see projects they are assigned to
-    const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => p.assignedUsers?.includes(email));
+    // Standard users only see projects where their normalized email is in the assignedUsers list
+    const userEmail = profile.email.toLowerCase().trim();
+    return allProjects.filter(p => {
+        const assignments = p.assignedUsers || [];
+        return assignments.some(email => email.toLowerCase().trim() === userEmail);
+    });
   }, [allProjects, profile]);
 
   const loading = projectsLoading || instructionsLoading || profileLoading;
@@ -62,16 +65,28 @@ export default function ProjectsPage() {
     );
   }
 
+  const isAdminView = !!profile?.permissions?.canManageProjects;
+
   return (
     <div className="flex flex-col w-full">
       <Header title="Projects" />
       <main className="flex-1 p-4 md:p-8">
         <Card>
           <CardHeader>
-            <CardTitle>Project Directory</CardTitle>
-            <CardDescription>
-              A list of projects you have access to and the volume of records captured.
-            </CardDescription>
+            <div className="flex justify-between items-start">
+                <div className="space-y-1">
+                    <CardTitle>Project Directory</CardTitle>
+                    <CardDescription>
+                    A list of projects you have access to and the volume of records captured.
+                    </CardDescription>
+                </div>
+                {isAdminView && (
+                    <Badge variant="secondary" className="gap-1.5 py-1 px-3">
+                        <ShieldCheck className="h-3 w-3" />
+                        Admin Access
+                    </Badge>
+                )}
+            </div>
           </CardHeader>
           <CardContent>
             <Table>
@@ -104,7 +119,9 @@ export default function ProjectsPage() {
                 }) : (
                     <TableRow>
                         <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
-                            No projects found or you haven't been assigned to any.
+                            {isAdminView 
+                                ? "No projects found in the system." 
+                                : "You haven't been assigned to any projects yet. Please contact an administrator."}
                         </TableCell>
                     </TableRow>
                 )}
