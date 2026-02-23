@@ -35,7 +35,9 @@ function SnaggingContent() {
   // Visibility logic
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
-    if (profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) return allProjects;
+    
+    // Decoupled canManageProjects from visibility. Only hasFullVisibility grants global oversight.
+    if (profile.permissions?.hasFullVisibility) return allProjects;
     
     const email = profile.email.toLowerCase().trim();
     return allProjects.filter(p => {

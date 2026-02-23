@@ -44,9 +44,10 @@ export default function ProjectsPage() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     
-    // Admins with project management OR full visibility permissions see everything
+    // Only Administrative Visibility (hasFullVisibility) grants global access.
+    // canManageProjects no longer grants visibility to project data.
     const permissions = profile.permissions;
-    if (permissions?.canManageProjects || permissions?.hasFullVisibility) {
+    if (permissions?.hasFullVisibility) {
         return allProjects;
     }
 
@@ -68,7 +69,7 @@ export default function ProjectsPage() {
     );
   }
 
-  const isAdminView = !!(profile?.permissions?.canManageProjects || profile?.permissions?.hasFullVisibility);
+  const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
 
   return (
     <div className="flex flex-col w-full">
@@ -83,10 +84,10 @@ export default function ProjectsPage() {
                     A list of projects you have access to and the volume of records captured.
                     </CardDescription>
                 </div>
-                {isAdminView && (
+                {hasFullVisibility && (
                     <Badge variant="secondary" className="gap-1.5 py-1 px-3">
                         <ShieldCheck className="h-3 w-3" />
-                        Admin Access
+                        Admin Visibility
                     </Badge>
                 )}
             </div>
@@ -122,7 +123,7 @@ export default function ProjectsPage() {
                 }) : (
                     <TableRow>
                         <TableCell colSpan={2} className="text-center py-8 text-muted-foreground">
-                            {isAdminView 
+                            {hasFullVisibility 
                                 ? "No projects found in the system." 
                                 : "You haven't been assigned to any projects yet. Please contact an administrator."}
                         </TableCell>

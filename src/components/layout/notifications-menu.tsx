@@ -42,8 +42,9 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
   const allowedProjectIds = useMemo(() => {
     if (!allProjects || !profile) return [];
     
-    // Admins with project management OR full visibility see everything
-    if (profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) return allProjects.map(p => p.id);
+    // Global oversight restricted to hasFullVisibility. 
+    // canManageProjects no longer grants visibility to notification stream.
+    if (profile.permissions?.hasFullVisibility) return allProjects.map(p => p.id);
     
     // Standard users only see notifications for projects they are assigned to
     return allProjects
