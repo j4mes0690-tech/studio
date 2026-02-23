@@ -8,7 +8,7 @@ import { SnaggingTable } from './snagging-table';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
-import { Loader2, LayoutGrid, List } from 'lucide-react';
+import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -83,10 +83,20 @@ function SnaggingContent() {
     );
   }
 
+  const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
+
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">Snagging Log</h2>
+          <div className='flex flex-col gap-1'>
+            <h2 className="text-2xl font-bold tracking-tight">Snagging Log</h2>
+            {hasFullVisibility && (
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest">
+                    <ShieldCheck className="h-3 w-3" />
+                    Administrative Visibility Active
+                </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <TooltipProvider>
               <Tooltip>
@@ -95,7 +105,7 @@ function SnaggingContent() {
                     variant="outline" 
                     size="icon" 
                     onClick={() => setIsCompact(!isCompact)}
-                    className="hidden sm:flex"
+                    className="flex"
                   >
                     {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                   </Button>

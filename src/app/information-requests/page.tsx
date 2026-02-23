@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -165,7 +164,7 @@ function InfoRequestsContent() {
                     variant="outline" 
                     size="icon" 
                     onClick={() => setIsCompact(!isCompact)}
-                    className="hidden sm:flex"
+                    className="flex"
                   >
                     {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                   </Button>
