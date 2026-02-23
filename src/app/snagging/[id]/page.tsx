@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { VoiceInput } from '@/components/voice-input';
 
 function EditSnaggingContent() {
   const { id } = useParams() as { id: string };
@@ -272,7 +273,10 @@ function EditSnaggingContent() {
         <CardContent className="space-y-6">
           <div className="flex gap-2 items-end">
             <div className="flex-1 space-y-2">
-              <Label>Add New Defect</Label>
+              <div className="flex items-center justify-between">
+                <Label>Add New Defect</Label>
+                <VoiceInput onResult={(text) => setNewItemText(text)} />
+              </div>
               <Input 
                 placeholder="Describe the issue..." 
                 value={newItemText} 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -54,6 +55,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { VoiceInput } from '@/components/voice-input';
 
 const EditSnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -359,7 +361,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
             <Separator />
 
             <div className="space-y-4">
-                <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
+                <div className="flex items-center justify-between">
+                    <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
+                    <VoiceInput onResult={(text) => setNewItemText(text)} />
+                </div>
                 
                 <div className="space-y-2">
                   <div className="flex gap-2 items-end">
