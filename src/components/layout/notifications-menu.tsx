@@ -25,7 +25,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
   const db = useFirestore();
   const normalizedEmail = userEmail.toLowerCase().trim();
 
-  // Fetch current user profile for admin check
+  // Fetch current user profile for permission check
   const profileRef = useMemo(() => {
     if (!db || !normalizedEmail) return null;
     return doc(db, 'users', normalizedEmail);
@@ -42,8 +42,8 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
   const allowedProjectIds = useMemo(() => {
     if (!allProjects || !profile) return [];
     
-    // Admins with project management permissions see everything
-    if (profile.permissions?.canManageProjects) return allProjects.map(p => p.id);
+    // Admins with project management OR full visibility see everything
+    if (profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) return allProjects.map(p => p.id);
     
     // Standard users only see notifications for projects they are assigned to
     return allProjects
@@ -76,7 +76,6 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
 
     return rawRequests.map(request => {
       // 0. Verify Project Assignment (Primary Security Gate)
-      // Even if the user is assigned to the RFI, they must be on the project to see it
       if (!allowedProjectIds.includes(request.projectId)) return null;
 
       // 1. Skip if user has dismissed this specific notification

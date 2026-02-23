@@ -44,6 +44,7 @@ const EditUserSchema = z.object({
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
+  hasFullVisibility: z.boolean().default(false),
 });
 
 type EditUserFormValues = z.infer<typeof EditUserSchema>;
@@ -69,6 +70,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
       canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
       canManageProjects: user.permissions?.canManageProjects || false,
       canManageChecklists: user.permissions?.canManageChecklists || false,
+      hasFullVisibility: user.permissions?.hasFullVisibility || false,
     },
   });
   
@@ -83,6 +85,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
         canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
         canManageProjects: user.permissions?.canManageProjects || false,
         canManageChecklists: user.permissions?.canManageChecklists || false,
+        hasFullVisibility: user.permissions?.hasFullVisibility || false,
       });
     }
   }, [open, user, form]);
@@ -99,12 +102,13 @@ export function EditUserForm({ user }: EditUserFormProps) {
           canManageSubcontractors: values.canManageSubcontractors,
           canManageProjects: values.canManageProjects,
           canManageChecklists: values.canManageChecklists,
+          hasFullVisibility: values.hasFullVisibility,
         }
       };
 
       updateDoc(docRef, updates)
         .then(() => {
-          toast({ title: 'Success', description: 'User profile and password updated.' });
+          toast({ title: 'Success', description: 'User profile and permissions updated.' });
           setOpen(false);
         })
         .catch(async (error) => {
@@ -126,7 +130,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
           <span className="sr-only">Edit User</span>
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Edit User Profile</DialogTitle>
           <DialogDescription>
@@ -182,7 +186,28 @@ export function EditUserForm({ user }: EditUserFormProps) {
 
             <Separator />
             <div className="space-y-4">
-            <FormLabel>Admin Permissions</FormLabel>
+            <FormLabel>Access & Visibility</FormLabel>
+                <FormField
+                    control={form.control}
+                    name="hasFullVisibility"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-primary/20 p-3 shadow-sm bg-primary/5">
+                        <div className="space-y-0.5">
+                            <FormLabel className="text-primary font-bold">Administrative Visibility</FormLabel>
+                            <FormDescription>
+                                Enable to allow this user to see ALL projects and records.
+                            </FormDescription>
+                        </div>
+                        <FormControl>
+                            <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                            />
+                        </FormControl>
+                    </FormItem>
+                    )}
+                />
+
                 <FormField
                     control={form.control}
                     name="canManageUsers"
@@ -266,7 +291,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
             </div>
 
             <DialogFooter>
-              <Button type="submit" disabled={isPending}>
+              <Button type="submit" className="w-full" disabled={isPending}>
                 {isPending ? 'Saving...' : 'Save Changes'}
               </Button>
             </DialogFooter>

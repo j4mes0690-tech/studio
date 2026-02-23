@@ -35,7 +35,7 @@ function SnaggingContent() {
   // Visibility logic
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
-    if (profile.permissions?.canManageProjects) return allProjects;
+    if (profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) return allProjects;
     
     const email = profile.email.toLowerCase().trim();
     return allProjects.filter(p => {
@@ -81,7 +81,7 @@ function SnaggingContent() {
             <NewSnaggingItem projects={allowedProjects} subContractors={subContractors || []} />
           </div>
         </div>
-        <SnaggingFilters projects={allowedProjects} />
+        <NoticeFilters projects={allowedProjects} />
         <div className="grid gap-4 md:gap-6">
           {filteredItems.length > 0 ? (
             filteredItems.map((item) => (

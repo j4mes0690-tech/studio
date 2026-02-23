@@ -51,12 +51,12 @@ function InfoRequestsContent() {
   }, [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  // 4. Calculate STRICT allowed project list based on assignments or admin permissions
+  // 4. Calculate STRICT allowed project list based on assignments or administrative visibility
   const allowedProjects = useMemo(() => {
     if (!allProjects || !currentUser) return [];
     
-    // Admins with project management permissions see everything
-    if (currentUser.permissions?.canManageProjects) return allProjects;
+    // Users with project management permissions OR full visibility see everything
+    if (currentUser.permissions?.canManageProjects || currentUser.permissions?.hasFullVisibility) return allProjects;
 
     // Standard users only see projects where their normalized email is in the assignedUsers list
     const userEmail = currentUser.email.toLowerCase().trim();
@@ -72,8 +72,10 @@ function InfoRequestsContent() {
   const itemsQuery = useMemo(() => {
     if (!db || !currentUser || projectsLoading) return null;
     
+    const isAdminView = !!(currentUser.permissions?.canManageProjects || currentUser.permissions?.hasFullVisibility);
+    
     // Optimization: If not an admin and not assigned to any projects, don't even query
-    if (!currentUser.permissions?.canManageProjects && allowedProjectIds.length === 0) {
+    if (!isAdminView && allowedProjectIds.length === 0) {
         return null;
     }
 
@@ -136,7 +138,7 @@ function InfoRequestsContent() {
     );
   }
 
-  const isAdminView = !!currentUser.permissions?.canManageProjects;
+  const isAdminView = !!(currentUser.permissions?.canManageProjects || currentUser.permissions?.hasFullVisibility);
 
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">

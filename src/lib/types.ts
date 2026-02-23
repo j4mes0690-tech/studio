@@ -83,6 +83,7 @@ export type UserPermissions = {
   canManageSubcontractors: boolean;
   canManageProjects: boolean;
   canManageChecklists: boolean;
+  hasFullVisibility: boolean;
 };
 
 export type DistributionUser = {

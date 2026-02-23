@@ -44,8 +44,8 @@ export default function ProjectsPage() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     
-    // Project management admins see everything
-    if (profile.permissions?.canManageProjects) return allProjects;
+    // Admins with project management OR full visibility permissions see everything
+    if (profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) return allProjects;
 
     // Standard users only see projects where their normalized email is in the assignedUsers list
     const userEmail = profile.email.toLowerCase().trim();
@@ -65,7 +65,7 @@ export default function ProjectsPage() {
     );
   }
 
-  const isAdminView = !!profile?.permissions?.canManageProjects;
+  const isAdminView = !!(profile?.permissions?.canManageProjects || profile?.permissions?.hasFullVisibility);
 
   return (
     <div className="flex flex-col w-full">

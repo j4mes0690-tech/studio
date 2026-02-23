@@ -32,6 +32,7 @@ const AddUserSchema = z.object({
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
+  hasFullVisibility: z.boolean().default(false),
 });
 
 type AddUserFormValues = z.infer<typeof AddUserSchema>;
@@ -51,6 +52,7 @@ export function AddUserForm() {
       canManageSubcontractors: false,
       canManageProjects: false,
       canManageChecklists: false,
+      hasFullVisibility: false,
     },
   });
 
@@ -67,6 +69,7 @@ export function AddUserForm() {
           canManageSubcontractors: values.canManageSubcontractors,
           canManageProjects: values.canManageProjects,
           canManageChecklists: values.canManageChecklists,
+          hasFullVisibility: values.hasFullVisibility,
         }
       };
 
@@ -135,7 +138,28 @@ export function AddUserForm() {
         />
         <Separator />
         <div className="space-y-4">
-          <FormLabel>Admin Permissions</FormLabel>
+          <FormLabel>Access & Visibility</FormLabel>
+            <FormField
+                control={form.control}
+                name="hasFullVisibility"
+                render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-primary/20 p-3 shadow-sm bg-primary/5">
+                    <div className="space-y-0.5">
+                        <FormLabel className="text-primary font-bold">Administrative Visibility</FormLabel>
+                        <FormDescription>
+                            Enable to allow this user to see ALL projects and records.
+                        </FormDescription>
+                    </div>
+                    <FormControl>
+                        <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                    </FormControl>
+                </FormItem>
+                )}
+            />
+            
             <FormField
                 control={form.control}
                 name="canManageUsers"
@@ -217,7 +241,7 @@ export function AddUserForm() {
                 )}
             />
         </div>
-        <Button type="submit" disabled={isPending}>
+        <Button type="submit" className="w-full" disabled={isPending}>
           {isPending ? 'Adding...' : 'Add User Profile'}
         </Button>
       </form>

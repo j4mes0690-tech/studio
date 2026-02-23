@@ -31,7 +31,7 @@ export default function QualityControlPage() {
   // Visibility logic
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
-    if (profile.permissions?.canManageProjects) return allProjects;
+    if (profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) return allProjects;
     
     const email = profile.email.toLowerCase().trim();
     return allProjects.filter(p => {
