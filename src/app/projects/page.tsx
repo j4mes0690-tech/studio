@@ -45,13 +45,16 @@ export default function ProjectsPage() {
     if (!allProjects || !profile) return [];
     
     // Admins with project management OR full visibility permissions see everything
-    if (profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) return allProjects;
+    const permissions = profile.permissions;
+    if (permissions?.canManageProjects || permissions?.hasFullVisibility) {
+        return allProjects;
+    }
 
     // Standard users only see projects where their normalized email is in the assignedUsers list
     const userEmail = profile.email.toLowerCase().trim();
     return allProjects.filter(p => {
         const assignments = p.assignedUsers || [];
-        return assignments.some(email => email.toLowerCase().trim() === userEmail);
+        return assignments.some(email => typeof email === 'string' && email.toLowerCase().trim() === userEmail);
     });
   }, [allProjects, profile]);
 

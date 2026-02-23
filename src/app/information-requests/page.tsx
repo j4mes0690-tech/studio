@@ -56,13 +56,16 @@ function InfoRequestsContent() {
     if (!allProjects || !currentUser) return [];
     
     // Users with project management permissions OR full visibility see everything
-    if (currentUser.permissions?.canManageProjects || currentUser.permissions?.hasFullVisibility) return allProjects;
+    const permissions = currentUser.permissions;
+    if (permissions?.canManageProjects || permissions?.hasFullVisibility) {
+        return allProjects;
+    }
 
     // Standard users only see projects where their normalized email is in the assignedUsers list
     const userEmail = currentUser.email.toLowerCase().trim();
     return allProjects.filter(p => {
         const assignments = p.assignedUsers || [];
-        return assignments.some(email => email.toLowerCase().trim() === userEmail);
+        return assignments.some(email => typeof email === 'string' && email.toLowerCase().trim() === userEmail);
     });
   }, [allProjects, currentUser]);
 
