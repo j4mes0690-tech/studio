@@ -153,7 +153,7 @@ export default function SettingsPage() {
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Projects</h3>
-                                <ProjectsList projects={projects || []} />
+                                <ProjectsList projects={projects || []} users={users || []} />
                             </div>
                         </div>
                     </AccordionContent>

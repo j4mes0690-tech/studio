@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -6,33 +7,57 @@ import { NewSnaggingItem } from './new-snagging-item';
 import { SnaggingFilters } from './snagging-filters';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, Suspense } from 'react';
-import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
+import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
+import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 
 function SnaggingContent() {
   const searchParams = useSearchParams();
   const db = useFirestore();
+  const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
 
+  // Profile for security/visibility logic
+  const profileRef = useMemo(() => {
+    if (!db || !sessionUser?.email) return null;
+    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
+  }, [db, sessionUser?.email]);
+  const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
+
   const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
-  const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
+  const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
   const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
+  // Filter allowed projects
+  const allowedProjects = useMemo(() => {
+    if (!allProjects || !profile) return [];
+    if (profile.permissions?.canManageProjects) return allProjects;
+    const email = profile.email.toLowerCase().trim();
+    return allProjects.filter(p => p.assignedUsers?.includes(email));
+  }, [allProjects, profile]);
+
+  const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
+
   const snaggingQuery = useMemo(() => {
     const base = collection(db, 'snagging-items');
     if (projectId) {
+      if (!allowedProjectIds.includes(projectId)) return null;
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId]);
+  }, [db, projectId, allowedProjectIds]);
 
-  const { data: items, isLoading: snaggingLoading } = useCollection<SnaggingItem>(snaggingQuery);
+  const { data: allItems, isLoading: snaggingLoading } = useCollection<SnaggingItem>(snaggingQuery);
 
-  const isLoading = projectsLoading || snaggingLoading || subsLoading;
+  const filteredItems = useMemo(() => {
+    if (!allItems) return [];
+    return allItems.filter(item => allowedProjectIds.includes(item.projectId));
+  }, [allItems, allowedProjectIds]);
+
+  const isLoading = projectsLoading || snaggingLoading || subsLoading || profileLoading;
 
   if (isLoading) {
     return (
@@ -47,23 +72,23 @@ function SnaggingContent() {
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight">Snagging Log</h2>
           <div className="flex items-center gap-2">
-            <NewSnaggingItem projects={projects || []} subContractors={subContractors || []} />
+            <NewSnaggingItem projects={allowedProjects || []} subContractors={subContractors || []} />
           </div>
         </div>
-        <SnaggingFilters projects={projects || []} />
+        <SnaggingFilters projects={allowedProjects || []} />
         <div className="grid gap-4 md:gap-6">
-          {items && items.length > 0 ? (
-            items.map((item) => (
+          {filteredItems && filteredItems.length > 0 ? (
+            filteredItems.map((item) => (
               <SnaggingItemCard
                 key={item.id}
                 item={item}
-                projects={projects || []}
+                projects={allowedProjects || []}
                 subContractors={subContractors || []}
               />
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p>No snagging items found.</p>
+              <p>No snagging items found for your assigned projects.</p>
               <p className="text-sm">Record items that need correction on site.</p>
             </div>
           )}

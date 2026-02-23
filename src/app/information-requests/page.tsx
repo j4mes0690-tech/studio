@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -7,11 +8,11 @@ import { InformationRequestFilters } from './information-request-filters';
 import { ExportButton } from './export-button';
 import { InformationRequestTable } from './information-request-table';
 import { useSearchParams } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, Suspense } from 'react';
 import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
 import { Loader2, LayoutGrid, List } from 'lucide-react';
-import { useUser, useFirestore, useCollection } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
+import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -20,7 +21,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-export default function InformationRequestsPage() {
+function InfoRequestsContent() {
   const { user: firebaseUser } = useUser();
   const db = useFirestore();
   const searchParams = useSearchParams();
@@ -28,7 +29,14 @@ export default function InformationRequestsPage() {
   
   const [isCompact, setIsCompact] = useState(false);
 
-  // Fetch distribution users from Firestore
+  // Fetch current user profile
+  const currentUserRef = useMemo(() => {
+    if (!db || !firebaseUser?.email) return null;
+    return doc(db, 'users', firebaseUser.email.toLowerCase().trim());
+  }, [db, firebaseUser?.email]);
+  const { data: currentUser, isLoading: profileLoading } = useDoc<DistributionUser>(currentUserRef);
+
+  // Fetch distribution users from Firestore for assignment selectors
   const usersQuery = useMemo(() => {
     if (!db) return null;
     return collection(db, 'users');
@@ -42,42 +50,51 @@ export default function InformationRequestsPage() {
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  // Fetch Information Requests from Firestore (Real-time)
+  // Filter allowed projects
+  const allowedProjects = useMemo(() => {
+    if (!allProjects || !currentUser) return [];
+    if (currentUser.permissions?.canManageProjects) return allProjects;
+    const email = currentUser.email.toLowerCase().trim();
+    return allProjects.filter(p => p.assignedUsers?.includes(email));
+  }, [allProjects, currentUser]);
+
+  const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
+
+  // Fetch Information Requests
   const itemsQuery = useMemo(() => {
     if (!db) return null;
     const base = collection(db, 'information-requests');
     if (projectId) {
+      if (!allowedProjectIds.includes(projectId)) return null;
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId]);
+  }, [db, projectId, allowedProjectIds]);
 
-  const { data: items, isLoading: itemsLoading } = useCollection<InformationRequest>(itemsQuery);
+  const { data: allItems, isLoading: itemsLoading } = useCollection<InformationRequest>(itemsQuery);
+
+  // Filter items by project access
+  const filteredItems = useMemo(() => {
+    if (!allItems) return [];
+    return allItems.filter(item => allowedProjectIds.includes(item.projectId));
+  }, [allItems, allowedProjectIds]);
 
   // Client-side sorting: Open requests first, then closed
   const sortedItems = useMemo(() => {
-    if (!items) return [];
-    return [...items].sort((a, b) => {
-      // 1. Sort by status: 'open' items come before 'closed'
+    if (!filteredItems) return [];
+    return [...filteredItems].sort((a, b) => {
       if (a.status !== b.status) {
         return a.status === 'open' ? -1 : 1;
       }
-      // 2. Secondary sort: Within the same status, sort by createdAt descending
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [items]);
+  }, [filteredItems]);
 
-  const currentUser = useMemo(() => {
-    if (!firebaseUser?.email || !distributionUsers) return null;
-    const email = firebaseUser.email.toLowerCase().trim();
-    return distributionUsers.find(u => u.email.toLowerCase().trim() === email) || null;
-  }, [firebaseUser, distributionUsers]);
-
-  const loading = usersLoading || projectsLoading || itemsLoading;
+  const loading = usersLoading || projectsLoading || itemsLoading || profileLoading;
 
   if (loading) {
     return (
-        <div className="flex flex-col w-full h-screen items-center justify-center">
+        <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
     );
@@ -85,22 +102,15 @@ export default function InformationRequestsPage() {
 
   if (!currentUser) {
     return (
-        <div className="flex flex-col w-full">
-            <Header title="Information Requests" />
-            <main className="flex-1 p-4 md:p-8 flex justify-center items-start">
-                <div className="text-center space-y-4">
-                    <p>Access restricted. Could not find an internal profile for: <strong>{firebaseUser?.email}</strong></p>
-                    <p className="text-sm text-muted-foreground">Please ensure your email is added to the Distribution List in Settings.</p>
-                </div>
-            </main>
+        <div className="text-center py-12 space-y-4">
+            <p>Access restricted. Could not find an internal profile for: <strong>{firebaseUser?.email}</strong></p>
+            <p className="text-sm text-muted-foreground">Please ensure your email is added to the Distribution List in Settings.</p>
         </div>
     );
   }
 
   return (
-    <div className="flex flex-col w-full min-h-screen">
-      <Header title="Information Requests" />
-      <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
+    <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-bold tracking-tight">
             Information Request Log
@@ -125,20 +135,20 @@ export default function InformationRequestsPage() {
             </TooltipProvider>
             
             <NewInformationRequest 
-              projects={allProjects || []} 
+              projects={allowedProjects || []} 
               distributionUsers={distributionUsers || []} 
               currentUser={currentUser}
             />
           </div>
         </div>
         
-        <InformationRequestFilters projects={allProjects || []} />
+        <InformationRequestFilters projects={allowedProjects || []} />
 
         {sortedItems && sortedItems.length > 0 ? (
           isCompact ? (
             <InformationRequestTable 
               items={sortedItems}
-              projects={allProjects || []}
+              projects={allowedProjects || []}
               distributionUsers={distributionUsers || []}
               currentUser={currentUser}
             />
@@ -148,7 +158,7 @@ export default function InformationRequestsPage() {
                 <InformationRequestCard
                   key={item.id}
                   item={item}
-                  projects={allProjects || []}
+                  projects={allowedProjects || []}
                   distributionUsers={distributionUsers || []}
                   currentUser={currentUser}
                 />
@@ -157,17 +167,31 @@ export default function InformationRequestsPage() {
           )
         ) : (
           <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-            <p>No information requests found.</p>
+            <p>No information requests found for your assigned projects.</p>
             <p className="text-sm">Try adjusting your filters or adding a new item.</p>
           </div>
         )}
 
-        {items && items.length > 0 && (
+        {sortedItems && sortedItems.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton items={items} projects={allProjects || []} distributionUsers={distributionUsers || []} />
+            <ExportButton items={sortedItems} projects={allowedProjects || []} distributionUsers={distributionUsers || []} />
           </div>
         )}
       </main>
+  );
+}
+
+export default function InformationRequestsPage() {
+  return (
+    <div className="flex flex-col w-full min-h-screen">
+      <Header title="Information Requests" />
+      <Suspense fallback={
+        <div className="flex flex-col w-full h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }>
+        <InfoRequestsContent />
+      </Suspense>
     </div>
   );
 }

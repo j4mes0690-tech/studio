@@ -1,8 +1,9 @@
+
 'use client';
 
-import type { Project } from '@/lib/types';
+import type { Project, DistributionUser } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Users } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -25,9 +26,10 @@ import { useToast } from '@/hooks/use-toast';
 
 type ProjectsListProps = {
   projects: Project[];
+  users: DistributionUser[];
 };
 
-export function ProjectsList({ projects }: ProjectsListProps) {
+export function ProjectsList({ projects, users }: ProjectsListProps) {
   const [isPending, startTransition] = useTransition();
   const db = useFirestore();
   const { toast } = useToast();
@@ -51,16 +53,22 @@ export function ProjectsList({ projects }: ProjectsListProps) {
     <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
       {projects.map((project) => (
         <div key={project.id} className="flex items-start justify-between p-3 rounded-lg border">
-          <div>
-            <p className="font-medium">{project.name}</p>
-            <div className="flex flex-wrap gap-1 mt-2">
-                {(project.areas && project.areas.length > 0) ? project.areas.map(area => (
-                    <Badge key={area.id} variant="secondary">{area.name}</Badge>
-                )) : <p className="text-xs text-muted-foreground">No areas defined</p>}
+          <div className="space-y-2">
+            <div>
+                <p className="font-medium">{project.name}</p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                    {(project.areas && project.areas.length > 0) ? project.areas.map(area => (
+                        <Badge key={area.id} variant="secondary" className="text-[10px] px-1.5">{area.name}</Badge>
+                    )) : <p className="text-[10px] text-muted-foreground">No areas defined</p>}
+                </div>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Users className="h-3 w-3" />
+                <span>{project.assignedUsers?.length || 0} users assigned</span>
             </div>
           </div>
           <div className="flex items-center flex-shrink-0">
-            <EditProjectForm project={project} />
+            <EditProjectForm project={project} users={users} />
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="icon" disabled={isPending}>

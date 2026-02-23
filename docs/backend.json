@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "DistributionUser": {
@@ -30,6 +31,11 @@
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
+        "assignedUsers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Emails of users allowed to access this project."
+        },
         "areas": {
           "type": "array",
           "items": { "$ref": "#/entities/Area" }

@@ -1,3 +1,4 @@
+
 export type Area = {
   id: string;
   name: string;
@@ -7,6 +8,7 @@ export type Project = {
   id: string;
   name:string;
   areas?: Area[];
+  assignedUsers?: string[];
 };
 
 export type Photo = {

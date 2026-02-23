@@ -1,35 +1,60 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
 import { ChecklistCard } from './checklist-card';
 import { AddChecklistToProject } from './add-checklist-to-project';
 import { useMemo } from 'react';
-import type { QualityChecklist, Project, SubContractor } from '@/lib/types';
+import type { QualityChecklist, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
+import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 
 export default function QualityControlPage() {
   const db = useFirestore();
+  const { user: sessionUser } = useUser();
+
+  // Profile for visibility check
+  const profileRef = useMemo(() => {
+    if (!db || !sessionUser?.email) return null;
+    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
+  }, [db, sessionUser?.email]);
+  const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Real-time data from Firestore
   const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
-  const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
+  const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
   const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
+  // Visibility logic
+  const allowedProjects = useMemo(() => {
+    if (!allProjects || !profile) return [];
+    if (profile.permissions?.canManageProjects) return allProjects;
+    const email = profile.email.toLowerCase().trim();
+    return allProjects.filter(p => p.assignedUsers?.includes(email));
+  }, [allProjects, profile]);
+
+  const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
+
   const checklistsQuery = useMemo(() => 
     query(collection(db, 'quality-checklists'), where('isTemplate', '==', false), orderBy('createdAt', 'desc'))
   , [db]);
-  const { data: projectChecklists, isLoading: checklistsLoading } = useCollection<QualityChecklist>(checklistsQuery);
+  const { data: allProjectChecklists, isLoading: checklistsLoading } = useCollection<QualityChecklist>(checklistsQuery);
+
+  const filteredChecklists = useMemo(() => {
+    if (!allProjectChecklists) return [];
+    // Only show checklists for projects the user has access to
+    return allProjectChecklists.filter(c => c.projectId && allowedProjectIds.includes(c.projectId));
+  }, [allProjectChecklists, allowedProjectIds]);
 
   const templatesQuery = useMemo(() => 
     query(collection(db, 'quality-checklists'), where('isTemplate', '==', true))
   , [db]);
   const { data: checklistTemplates, isLoading: templatesLoading } = useCollection<QualityChecklist>(templatesQuery);
 
-  const isLoading = projectsLoading || subsLoading || checklistsLoading || templatesLoading;
+  const isLoading = projectsLoading || subsLoading || checklistsLoading || templatesLoading || profileLoading;
 
   if (isLoading) {
     return (
@@ -47,22 +72,22 @@ export default function QualityControlPage() {
           <h2 className="text-2xl font-bold tracking-tight">
             Quality Control Checklists
           </h2>
-           <AddChecklistToProject projects={projects || []} checklistTemplates={checklistTemplates || []} subContractors={subContractors || []} />
+           <AddChecklistToProject projects={allowedProjects || []} checklistTemplates={checklistTemplates || []} subContractors={subContractors || []} />
         </div>
         
         <div className="grid gap-4 md:gap-6">
-          {projectChecklists && projectChecklists.length > 0 ? (
-            projectChecklists.map((checklist) => (
+          {filteredChecklists && filteredChecklists.length > 0 ? (
+            filteredChecklists.map((checklist) => (
               <ChecklistCard
                 key={checklist.id}
                 checklist={checklist}
-                projects={projects || []}
+                projects={allowedProjects || []}
                 subContractors={subContractors || []}
               />
             ))
           ) : (
             <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p className="text-lg font-semibold">No checklists assigned to projects.</p>
+              <p className="text-lg font-semibold">No checklists assigned to your projects.</p>
               <p className="text-sm">Click "Add Checklist" to assign a template to a project.</p>
             </div>
           )}
