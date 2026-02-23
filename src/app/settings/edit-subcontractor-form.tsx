@@ -101,7 +101,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
           <span className="sr-only">Edit Sub-contractor</span>
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Sub-contractor</DialogTitle>
           <DialogDescription>

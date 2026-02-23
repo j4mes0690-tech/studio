@@ -130,7 +130,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
           <span className="sr-only">Edit User</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit User Profile</DialogTitle>
           <DialogDescription>

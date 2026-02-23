@@ -134,7 +134,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
           <span className="sr-only">Edit Project</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Project Configuration</DialogTitle>
           <DialogDescription>
