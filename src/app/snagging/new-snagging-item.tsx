@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus, AlertTriangle, UserPlus, User } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, AlertTriangle, UserPlus, User, RefreshCw } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -89,6 +89,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
   // Camera States
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
   const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); 
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [itemPhotoTargetIdx, setItemPhotoTargetIdx] = useState<number | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
 
@@ -123,7 +124,9 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode } 
+        });
         setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
@@ -136,9 +139,11 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
     }
 
     return () => {
-      if (stream) stream.getTracks().forEach((track) => track.stop());
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
     };
-  }, [isCameraOpen, isItemCameraOpen, itemPhotoTargetIdx]);
+  }, [isCameraOpen, isItemCameraOpen, itemPhotoTargetIdx, facingMode]);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -201,6 +206,10 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
         setIsItemCameraOpen(false);
       }
     }
+  };
+
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   const handleAddItem = () => {
@@ -418,6 +427,9 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                       <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
                       <div className="flex gap-2">
                         <Button type="button" size="sm" onClick={takeItemPhoto}>Capture Photo</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={toggleCamera} title="Switch Camera">
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
                         <Button type="button" variant="ghost" size="sm" onClick={() => { setIsItemCameraOpen(false); setItemPhotoTargetIdx(null); }}>Cancel</Button>
                       </div>
                     </div>
@@ -547,6 +559,9 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                   <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
                     <Button type="button" onClick={takeGeneralPhoto}>Capture General Photo</Button>
+                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera">
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
                     <Button type="button" variant="ghost" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                     <Button type="button" variant="outline" className="ml-auto" onClick={() => fileInputRef.current?.click()}>
                       <Upload className="mr-2 h-4 w-4" /> Upload

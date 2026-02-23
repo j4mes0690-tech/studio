@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw } from 'lucide-react';
 import type { Project, DistributionUser, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -63,6 +63,7 @@ type NewInformationRequestProps = {
 export function NewInformationRequest({ projects, distributionUsers, currentUser }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
   const db = useFirestore();
@@ -131,7 +132,9 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode } 
+        });
         setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
@@ -139,8 +142,12 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
       }
     };
     if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
-  }, [isCameraOpen]);
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [isCameraOpen, facingMode]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -155,6 +162,10 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
+  };
+
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   return (
@@ -266,6 +277,9 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
                   <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
                     <Button type="button" onClick={takePhoto}>Take Photo</Button>
+                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera">
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
                     <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                   </div>
                 </div>

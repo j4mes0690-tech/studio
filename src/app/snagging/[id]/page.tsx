@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -18,7 +17,7 @@ import { doc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser } from '@/lib/types';
-import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, Loader2, Save } from 'lucide-react';
+import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, Loader2, Save, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import {
@@ -72,6 +71,7 @@ function EditSnaggingContent() {
   const [newItemText, setNewItemText] = useState('');
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
 
@@ -109,7 +109,9 @@ function EditSnaggingContent() {
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode } 
+        });
         setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
@@ -117,8 +119,12 @@ function EditSnaggingContent() {
       }
     };
     if (isCameraOpen || itemPhotoTargetId) getCameraPermission();
-    return () => { if (stream) stream.getTracks().forEach(t => t.stop()); };
-  }, [isCameraOpen, itemPhotoTargetId]);
+    return () => { 
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, [isCameraOpen, itemPhotoTargetId, facingMode]);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -162,6 +168,10 @@ function EditSnaggingContent() {
       }));
       setItemPhotoTargetId(null);
     }
+  };
+
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   const handleAddItem = () => {
@@ -381,7 +391,10 @@ function EditSnaggingContent() {
             </div>
             <div className="flex justify-center gap-4">
               <Button size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-16 w-16 p-0 border-4 border-white/20"><div className="h-10 w-10 rounded-full bg-white" /></Button>
-              <Button variant="outline" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full">Cancel</Button>
+              <Button variant="outline" size="icon" onClick={toggleCamera} className="rounded-full h-12 w-12 text-white border-white/40 hover:bg-white/20" title="Switch Camera">
+                <RefreshCw className="h-6 w-6" />
+              </Button>
+              <Button variant="outline" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 border-white/40 text-white hover:bg-white/20">Cancel</Button>
             </div>
           </div>
         </div>

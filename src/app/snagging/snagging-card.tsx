@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo } from '@/lib/types';
@@ -17,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User, Upload, X, AlertTriangle, Maximize2, ExternalLink } from 'lucide-react';
+import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User, Upload, X, AlertTriangle, Maximize2, ExternalLink, RefreshCw } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
@@ -82,6 +81,7 @@ export function SnaggingItemCard({
   const [completingItem, setCompletingItem] = useState<SnaggingListItem | null>(null);
   const [completionPhotos, setCompletionPhotos] = useState<Photo[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -95,7 +95,9 @@ export function SnaggingItemCard({
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode } 
+        });
         setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
@@ -103,8 +105,12 @@ export function SnaggingItemCard({
       }
     };
     if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
-  }, [isCameraOpen]);
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [isCameraOpen, facingMode]);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -168,6 +174,10 @@ export function SnaggingItemCard({
       updateItemOnServer(completingItem.id, 'closed', completionPhotos);
       setCompletingItem(null);
     }
+  };
+
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   const handleDeleteList = () => {
@@ -460,6 +470,9 @@ export function SnaggingItemCard({
                       setIsCameraOpen(false);
                     }
                   }}>Capture</Button>
+                  <Button size="sm" variant="outline" onClick={toggleCamera} title="Switch Camera">
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
                   <Button size="sm" variant="ghost" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                 </div>
               </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -34,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, AlertTriangle, UserPlus, User } from 'lucide-react';
+import { Pencil, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, AlertTriangle, UserPlus, User, RefreshCw } from 'lucide-react';
 import type { Project, SnaggingItem, Photo, Area, SnaggingListItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -96,6 +95,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   // Camera States
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isItemCameraOpen, setIsItemCameraOpen] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
 
@@ -153,7 +153,9 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode } 
+        });
         setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
@@ -168,7 +170,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
     return () => {
       if (stream) stream.getTracks().forEach((track) => track.stop());
     };
-  }, [isCameraOpen, isItemCameraOpen, itemPhotoTargetId]);
+  }, [isCameraOpen, isItemCameraOpen, itemPhotoTargetId, facingMode]);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -209,7 +211,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       if (itemPhotoTargetId) {
         setItems(prev => prev.map(i => {
           if (i.id === itemPhotoTargetId) {
-            const isClosing = i.status === 'open'; // It will be closed
             const field = i.status === 'closed' ? 'photos' : 'completionPhotos';
             return { ...i, [field]: [...(i[field] || []), photo] };
           }
@@ -221,6 +222,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
         setIsItemCameraOpen(false);
       }
     }
+  };
+
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   const handleAddItem = () => {
@@ -414,6 +419,9 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                       <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
                       <div className="flex gap-2">
                         <Button type="button" size="sm" onClick={takeItemPhoto}>Capture Photo</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={toggleCamera} title="Switch Camera">
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
                         <Button type="button" variant="ghost" size="sm" onClick={() => { setIsItemCameraOpen(false); setItemPhotoTargetId(null); }}>Cancel</Button>
                       </div>
                     </div>
@@ -576,6 +584,9 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                   <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
                     <Button type="button" onClick={takeGeneralPhoto}>Capture General Photo</Button>
+                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera">
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
                     <Button type="button" variant="ghost" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                     <Button type="button" variant="outline" className="ml-auto" onClick={() => fileInputRef.current?.click()}>
                       <Upload className="mr-2 h-4 w-4" /> Upload

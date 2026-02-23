@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X } from 'lucide-react';
+import { Pencil, Camera, Upload, X, RefreshCw } from 'lucide-react';
 import type { Project, InformationRequest, DistributionUser, Photo } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -64,6 +64,7 @@ type EditInformationRequestProps = {
 export function EditInformationRequest({ item, projects, distributionUsers }: EditInformationRequestProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [hasCameraPermission, setHasCameraPermission] = useState<
     boolean | undefined
   >();
@@ -151,7 +152,9 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode } 
+        });
         setHasCameraPermission(true);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
@@ -166,9 +169,11 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
     }
 
     return () => {
-      stream?.getTracks().forEach((track) => track.stop());
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
     };
-  }, [isCameraOpen]);
+  }, [isCameraOpen, facingMode]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -186,6 +191,10 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
+  };
+
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   const removePhoto = (index: number) => {
@@ -394,6 +403,9 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
                           >
                             <Camera className="mr-2 h-4 w-4" />
                             Take Photo
+                          </Button>
+                          <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera">
+                            <RefreshCw className="h-4 w-4" />
                           </Button>
                           <Button
                             type="button"
