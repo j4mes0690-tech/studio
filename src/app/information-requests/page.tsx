@@ -141,7 +141,8 @@ function InfoRequestsContent() {
     );
   }
 
-  const isAdminView = !!(currentUser.permissions?.canManageProjects || currentUser.permissions?.hasFullVisibility);
+  const hasFullVisibility = !!currentUser.permissions?.hasFullVisibility;
+  const canManageProjects = !!currentUser.permissions?.canManageProjects;
 
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
@@ -150,12 +151,17 @@ function InfoRequestsContent() {
             <h2 className="text-2xl font-bold tracking-tight">
                 Information Request Log
             </h2>
-            {isAdminView && (
+            {hasFullVisibility ? (
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest">
                     <ShieldCheck className="h-3 w-3" />
-                    Administrative Visibility Enabled
+                    Administrative Visibility Active
                 </div>
-            )}
+            ) : canManageProjects ? (
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest">
+                    <ShieldCheck className="h-3 w-3" />
+                    Project Management Visibility
+                </div>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             <TooltipProvider>
@@ -211,7 +217,7 @@ function InfoRequestsContent() {
           <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
             <p className="text-lg font-semibold">No records found</p>
             <p className="text-sm">
-                {isAdminView 
+                {(hasFullVisibility || canManageProjects) 
                     ? "No RFIs exist in the system yet." 
                     : "You only have access to RFIs for projects you are explicitly assigned to."}
             </p>
