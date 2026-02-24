@@ -49,9 +49,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { ClientDate } from '../../components/client-date';
 import { useFirestore } from '@/firebase';
-import { doc, updateDoc, deleteDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
 import { ImageLightbox } from '@/components/image-lightbox';
 
@@ -116,7 +116,10 @@ export function InformationRequestCard({ item, projects, distributionUsers, curr
         <CardHeader>
           <div className="flex justify-between items-start border-b pb-4">
             <div className="space-y-1">
-              <CardTitle className="text-xl">{project?.name || 'Unknown Project'}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xl">{project?.name || 'Unknown Project'}</CardTitle>
+                <Badge variant="outline" className="font-mono text-[10px] bg-background">{item.reference}</Badge>
+              </div>
               <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
                   <span className="text-xs text-muted-foreground/80 font-medium">Opened <ClientDate date={item.createdAt} format="date" /></span>
                   {item.clientInstructionId && <Badge variant="outline" className="text-[9px] gap-1 h-4 px-1.5"><LinkIcon className="h-2 w-2" /> Linked to Client Directive</Badge>}

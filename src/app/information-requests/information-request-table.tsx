@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -48,6 +49,7 @@ export function InformationRequestTable({ items, projects, distributionUsers, cu
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-[120px]">Ref</TableHead>
             <TableHead className="w-[150px]">Project</TableHead>
             <TableHead>Description</TableHead>
             <TableHead className="w-[100px]">Status</TableHead>
@@ -91,7 +93,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
         sender: 'System',
         senderEmail: 'system@sitecommand.internal',
         message: newStatus === 'closed' 
-          ? `Request closed by ${currentUser.name}. Thank you all for your input.`
+          ? `Request closed by ${currentUser.name}.`
           : `Request reopened by ${currentUser.name}`,
         createdAt: new Date().toISOString(),
       };
@@ -127,6 +129,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
 
   return (
     <TableRow className={cn(item.status === 'closed' && "opacity-60")}>
+      <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
       <TableCell className="font-medium">{project?.name || 'Unknown'}</TableCell>
       <TableCell>
         <div className="max-w-[300px] truncate text-sm" title={item.description}>
@@ -201,7 +204,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>Permanently delete this information request. This cannot be undone.</AlertDialogDescription>
+                <AlertDialogDescription>Permanently delete this information request.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>

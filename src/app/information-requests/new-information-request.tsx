@@ -45,6 +45,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { generateReference } from '@/lib/utils';
 
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -108,6 +109,7 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
           .map(u => u.email.toLowerCase().trim());
 
         const requestData = {
+          reference: generateReference('RFI'),
           projectId: values.projectId,
           description: values.description,
           assignedTo: assignedEmails,

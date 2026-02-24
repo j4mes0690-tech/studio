@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useTransition } from 'react';
+import { useState, useMemo, useTransition, useEffect } from 'react';
 import type { ClientInstruction, Project, DistributionUser, ChatMessage, Photo, SubContractor } from '@/lib/types';
 import Image from 'next/image';
 import {
@@ -80,10 +80,23 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
     const [rfis, setRfis] = useState<{ description: string, assignedTo: string[] }[]>([]);
     const [siteInsts, setSiteInsts] = useState<{ description: string, subcontractorId: string }[]>([]);
 
-    const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+    useEffect(() => {
+        if (!open) {
+            setRfis([]);
+            setSiteInsts([]);
+        }
+    }, [open]);
+
+    const subsQuery = useMemo(() => {
+        if (!db) return null;
+        return collection(db, 'sub-contractors');
+    }, [db]);
     const { data: allSubs } = useCollection<SubContractor>(subsQuery);
     
-    const usersQuery = useMemo(() => collection(db, 'users'), [db]);
+    const usersQuery = useMemo(() => {
+        if (!db) return null;
+        return collection(db, 'users');
+    }, [db]);
     const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
     const project = useMemo(() => projects.find(p => p.id === instruction.projectId), [projects, instruction.projectId]);
@@ -94,8 +107,8 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
         return allSubs.filter(s => projectSubIds.includes(s.id));
     }, [allSubs, project]);
 
-    const handleAddRfi = () => setRfis([...rfis, { description: `Clarification needed for ${instruction.reference}`, assignedTo: [] }]);
-    const handleAddInst = () => setSiteInsts([...siteInsts, { description: `Implementation of ${instruction.reference}`, subcontractorId: '' }]);
+    const handleAddRfi = () => setRfis([...rfis, { description: `Technical clarification for ${instruction.reference}`, assignedTo: [] }]);
+    const handleAddInst = () => setSiteInsts([...siteInsts, { description: `Site implementation of ${instruction.reference}`, subcontractorId: '' }]);
 
     const handleAccept = () => {
         startTransition(async () => {
@@ -106,11 +119,10 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     id: `system-${Date.now()}`,
                     sender: 'System',
                     senderEmail: 'system@sitecommand.internal',
-                    message: `Instruction ACCEPTED by ${currentUser.name}. Generated ${rfis.length} RFIs and ${siteInsts.length} Site Instructions.`,
+                    message: `Directive ACCEPTED. Triggered ${rfis.length} RFIs and ${siteInsts.length} Instructions.`,
                     createdAt: new Date().toISOString()
                 };
 
-                // Non-blocking update
                 updateDoc(docRef, {
                     status: 'accepted',
                     messages: arrayUnion(systemMessage)
@@ -122,9 +134,9 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     }));
                 });
 
-                // Generate triggered actions
                 rfis.forEach(rfi => {
                     const rfiData = {
+                        reference: generateReference('RFI'),
                         projectId: instruction.projectId,
                         clientInstructionId: instruction.id,
                         description: rfi.description,
@@ -166,7 +178,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     });
                 });
 
-                toast({ title: 'Success', description: 'Directive accepted and actions triggered.' });
+                toast({ title: 'Success', description: 'Directive processed successfully.' });
                 setOpen(false);
             } catch (err) {
                 console.error(err);
@@ -185,9 +197,9 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
             </DialogTrigger>
             <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0">
                 <DialogHeader className="p-6 pb-0">
-                    <DialogTitle>Accept Client Directive: {instruction.reference}</DialogTitle>
+                    <DialogTitle>Action Workspace: {instruction.reference}</DialogTitle>
                     <DialogDescription>
-                        Generate and link follow-up site actions in one go.
+                        Generate linked RFIs or Instructions to implement this directive.
                     </DialogDescription>
                 </DialogHeader>
                 
@@ -196,7 +208,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                         <div className="flex items-center justify-between border-b pb-2">
                             <div className="flex items-center gap-2">
                                 <HelpCircle className="h-5 w-5 text-primary" />
-                                <h3 className="font-bold">Requests for Information (RFIs)</h3>
+                                <h3 className="font-bold">Requests for Information</h3>
                             </div>
                             <Button type="button" variant="outline" size="sm" onClick={handleAddRfi} className="h-7 px-2">
                                 <Plus className="h-3.5 w-3.5 mr-1" /> Add RFI
@@ -204,7 +216,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                         </div>
                         
                         {rfis.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic py-2">No technical clarifications required.</p>
+                            <p className="text-xs text-muted-foreground italic py-2">No technical queries added.</p>
                         ) : (
                             <div className="space-y-4">
                                 {rfis.map((rfi, idx) => (
@@ -218,7 +230,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                                             <X className="h-3.5 w-3.5" />
                                         </Button>
                                         <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">RFI Query</Label>
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Query</Label>
                                             <Input 
                                                 value={rfi.description} 
                                                 onChange={(e) => setRfis(rfis.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
@@ -226,12 +238,12 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                                             />
                                         </div>
                                         <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Assign To</Label>
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Recipient</Label>
                                             <Select 
                                                 onValueChange={(val) => setRfis(rfis.map((r, i) => i === idx ? { ...r, assignedTo: [val] } : r))}
                                             >
                                                 <SelectTrigger className="h-8 text-xs">
-                                                    <SelectValue placeholder="Select team member" />
+                                                    <SelectValue placeholder="Select member" />
                                                 </SelectTrigger>
                                                 <SelectContent>
                                                     {allUsers?.map(u => <SelectItem key={u.id} value={u.email}>{u.name}</SelectItem>)}
@@ -248,7 +260,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                         <div className="flex items-center justify-between border-b pb-2">
                             <div className="flex items-center gap-2">
                                 <ClipboardList className="h-5 w-5 text-accent" />
-                                <h3 className="font-bold">Sub-contractor Instructions</h3>
+                                <h3 className="font-bold">Internal Instructions</h3>
                             </div>
                             <Button type="button" variant="outline" size="sm" onClick={handleAddInst} className="h-7 px-2">
                                 <Plus className="h-3.5 w-3.5 mr-1" /> Add Instruction
@@ -256,7 +268,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                         </div>
 
                         {siteInsts.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic py-2">No instructions to distribute yet.</p>
+                            <p className="text-xs text-muted-foreground italic py-2">No instructions drafted.</p>
                         ) : (
                             <div className="space-y-4">
                                 {siteInsts.map((si, idx) => (
@@ -270,7 +282,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                                             <X className="h-3.5 w-3.5" />
                                         </Button>
                                         <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Site Task</Label>
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Instruction</Label>
                                             <Input 
                                                 value={si.description} 
                                                 onChange={(e) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, description: e.target.value } : s))}
@@ -301,7 +313,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                     <Button onClick={handleAccept} disabled={isPending} className="bg-green-600 hover:bg-green-700 font-bold min-w-[180px]">
                         {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
-                        Confirm & Trigger
+                        Accept & Create Actions
                     </Button>
                 </DialogFooter>
             </DialogContent>

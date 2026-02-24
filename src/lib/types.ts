@@ -93,6 +93,7 @@ export type ChatMessage = {
 
 export type InformationRequest = {
   id: string;
+  reference: string;
   projectId: string;
   clientInstructionId?: string;
   description: string;
