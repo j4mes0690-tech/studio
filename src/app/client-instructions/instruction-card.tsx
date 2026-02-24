@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -195,121 +194,123 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     Accept Directive
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col p-0">
-                <DialogHeader className="p-6 pb-0">
+            <DialogContent className="sm:max-w-2xl h-[85vh] flex flex-col p-0 overflow-hidden">
+                <DialogHeader className="p-6 pb-0 flex-none">
                     <DialogTitle>Action Workspace: {instruction.reference}</DialogTitle>
                     <DialogDescription>
                         Generate linked RFIs or Instructions to implement this directive.
                     </DialogDescription>
                 </DialogHeader>
                 
-                <ScrollArea className="flex-1 p-6 space-y-8">
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between border-b pb-2">
-                            <div className="flex items-center gap-2">
-                                <HelpCircle className="h-5 w-5 text-primary" />
-                                <h3 className="font-bold">Requests for Information</h3>
+                <ScrollArea className="flex-1 p-6">
+                    <div className="space-y-8 pb-4">
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between border-b pb-2">
+                                <div className="flex items-center gap-2">
+                                    <HelpCircle className="h-5 w-5 text-primary" />
+                                    <h3 className="font-bold">Requests for Information</h3>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" onClick={handleAddRfi} className="h-7 px-2">
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add RFI
+                                </Button>
                             </div>
-                            <Button type="button" variant="outline" size="sm" onClick={handleAddRfi} className="h-7 px-2">
-                                <Plus className="h-3.5 w-3.5 mr-1" /> Add RFI
-                            </Button>
-                        </div>
-                        
-                        {rfis.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic py-2">No technical queries added.</p>
-                        ) : (
-                            <div className="space-y-4">
-                                {rfis.map((rfi, idx) => (
-                                    <div key={idx} className="p-3 border rounded-lg bg-muted/10 space-y-3 relative group">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" 
-                                            onClick={() => setRfis(rfis.filter((_, i) => i !== idx))}
-                                        >
-                                            <X className="h-3.5 w-3.5" />
-                                        </Button>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Query</Label>
-                                            <Input 
-                                                value={rfi.description} 
-                                                onChange={(e) => setRfis(rfis.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
-                                                className="text-sm h-8"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Recipient</Label>
-                                            <Select 
-                                                onValueChange={(val) => setRfis(rfis.map((r, i) => i === idx ? { ...r, assignedTo: [val] } : r))}
+                            
+                            {rfis.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic py-2">No technical queries added.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {rfis.map((rfi, idx) => (
+                                        <div key={idx} className="p-3 border rounded-lg bg-muted/10 space-y-3 relative group">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" 
+                                                onClick={() => setRfis(rfis.filter((_, i) => i !== idx))}
                                             >
-                                                <SelectTrigger className="h-8 text-xs">
-                                                    <SelectValue placeholder="Select member" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {allUsers?.map(u => <SelectItem key={u.id} value={u.email}>{u.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
+                                                <X className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Query</Label>
+                                                <Input 
+                                                    value={rfi.description} 
+                                                    onChange={(e) => setRfis(rfis.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
+                                                    className="text-sm h-8"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Recipient</Label>
+                                                <Select 
+                                                    onValueChange={(val) => setRfis(rfis.map((r, i) => i === idx ? { ...r, assignedTo: [val] } : r))}
+                                                >
+                                                    <SelectTrigger className="h-8 text-xs">
+                                                        <SelectValue placeholder="Select member" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {allUsers?.map(u => <SelectItem key={u.id} value={u.email}>{u.name}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex items-center justify-between border-b pb-2">
-                            <div className="flex items-center gap-2">
-                                <ClipboardList className="h-5 w-5 text-accent" />
-                                <h3 className="font-bold">Internal Instructions</h3>
-                            </div>
-                            <Button type="button" variant="outline" size="sm" onClick={handleAddInst} className="h-7 px-2">
-                                <Plus className="h-3.5 w-3.5 mr-1" /> Add Instruction
-                            </Button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
-                        {siteInsts.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic py-2">No instructions drafted.</p>
-                        ) : (
-                            <div className="space-y-4">
-                                {siteInsts.map((si, idx) => (
-                                    <div key={idx} className="p-3 border rounded-lg bg-muted/10 space-y-3 relative group">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" 
-                                            onClick={() => setSiteInsts(siteInsts.filter((_, i) => i !== idx))}
-                                        >
-                                            <X className="h-3.5 w-3.5" />
-                                        </Button>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Instruction</Label>
-                                            <Input 
-                                                value={si.description} 
-                                                onChange={(e) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, description: e.target.value } : s))}
-                                                className="text-sm h-8"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Sub-contractor</Label>
-                                            <Select 
-                                                onValueChange={(val) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, subcontractorId: val } : s))}
-                                            >
-                                                <SelectTrigger className="h-8 text-xs">
-                                                    <SelectValue placeholder="Assign trade" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-                                ))}
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between border-b pb-2">
+                                <div className="flex items-center gap-2">
+                                    <ClipboardList className="h-5 w-5 text-accent" />
+                                    <h3 className="font-bold">Internal Instructions</h3>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" onClick={handleAddInst} className="h-7 px-2">
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Instruction
+                                </Button>
                             </div>
-                        )}
+
+                            {siteInsts.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic py-2">No instructions drafted.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {siteInsts.map((si, idx) => (
+                                        <div key={idx} className="p-3 border rounded-lg bg-muted/10 space-y-3 relative group">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" 
+                                                onClick={() => setSiteInsts(siteInsts.filter((_, i) => i !== idx))}
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Instruction</Label>
+                                                <Input 
+                                                    value={si.description} 
+                                                    onChange={(e) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, description: e.target.value } : s))}
+                                                    className="text-sm h-8"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Sub-contractor</Label>
+                                                <Select 
+                                                    onValueChange={(val) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, subcontractorId: val } : s))}
+                                                >
+                                                    <SelectTrigger className="h-8 text-xs">
+                                                        <SelectValue placeholder="Assign trade" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </ScrollArea>
 
-                <DialogFooter className="p-6 bg-muted/5 border-t gap-2 sm:gap-0">
+                <DialogFooter className="p-6 bg-muted/5 border-t flex-none gap-2 sm:gap-0">
                     <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
                     <Button onClick={handleAccept} disabled={isPending} className="bg-green-600 hover:bg-green-700 font-bold min-w-[180px]">
                         {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}

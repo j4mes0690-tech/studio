@@ -12,8 +12,8 @@ interface ImageLightboxProps {
 
 /**
  * ImageLightbox - A high-performance full-screen documentation viewer.
- * Uses strictly enforced viewport constraints to ensure high-resolution 
- * site photos fit the screen perfectly without scrolling or overflow.
+ * Uses strictly enforced viewport constraints and native image scaling to ensure
+ * site documentation photos resize correctly to fit any screen size without overflow.
  */
 export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
   useEffect(() => {
@@ -52,10 +52,9 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
         <span className="sr-only">Close Viewer</span>
       </button>
 
-      {/* Constraints: Container takes full viewport, image fits within it */}
+      {/* Constraints: Absolute inset ensures image is bounded by viewport */}
       <div 
-        className="w-screen h-screen flex items-center justify-center p-4 md:p-12 overflow-hidden" 
-        onClick={(e) => e.stopPropagation()}
+        className="absolute inset-0 flex items-center justify-center p-4 md:p-8 overflow-hidden pointer-events-none" 
       >
         <img
           src={photo.url}
