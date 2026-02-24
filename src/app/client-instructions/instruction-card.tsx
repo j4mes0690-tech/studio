@@ -358,43 +358,43 @@ export function ClientInstructionCard({
               </div>
 
               <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="action-items">
-                  <AccordionTrigger className="text-sm font-semibold">
-                  <div className="flex items-center gap-2">
-                      <CheckSquare className="h-4 w-4" />
-                      <span>
-                      Extracted Action Items ({instruction.actionItems.length})
-                      </span>
-                  </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                  <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
-                      {instruction.actionItems.map((item, index) => (
-                      <li key={index}>{item}</li>
-                      ))}
-                  </ul>
-                  </AccordionContent>
-              </AccordionItem>
+                <AccordionItem value="action-items">
+                    <AccordionTrigger className="text-sm font-semibold">
+                    <div className="flex items-center gap-2">
+                        <CheckSquare className="h-4 w-4" />
+                        <span>
+                        Extracted Action Items ({instruction.actionItems.length})
+                        </span>
+                    </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                    <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
+                        {instruction.actionItems.map((item, index) => (
+                        <li key={index}>{item}</li>
+                        ))}
+                    </ul>
+                    </AccordionContent>
+                </AccordionItem>
 
-              {instruction.recipients && instruction.recipients.length > 0 && (
-                  <AccordionItem value="recipients">
-                  <AccordionTrigger className="text-sm font-semibold">
-                  <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      <span>
-                      Internal Distribution ({instruction.recipients.length})
-                      </span>
-                  </div>
-                  </AccordionTrigger>
-                  <AccordionContent>
-                  <div className="flex flex-wrap gap-1">
-                      {instruction.recipients.map((email, index) => (
-                      <Badge key={index} variant="outline" className="bg-background">{email}</Badge>
-                      ))}
-                  </div>
-                  </AccordionContent>
-                  </AccordionItem>
-              )}
+                {instruction.recipients && instruction.recipients.length > 0 && (
+                    <AccordionItem value="recipients">
+                    <AccordionTrigger className="text-sm font-semibold">
+                    <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4" />
+                        <span>
+                        Internal Distribution ({instruction.recipients.length})
+                        </span>
+                    </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                    <div className="flex flex-wrap gap-1">
+                        {instruction.recipients.map((email, index) => (
+                        <Badge key={index} variant="outline" className="bg-background">{email}</Badge>
+                        ))}
+                    </div>
+                    </AccordionContent>
+                    </AccordionItem>
+                )}
               </Accordion>
           </div>
         </CardContent>
