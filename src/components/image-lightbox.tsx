@@ -12,8 +12,9 @@ interface ImageLightboxProps {
 }
 
 /**
- * ImageLightbox - A simplified, robust full-screen viewer for site documentation.
- * Uses object-contain to ensure images fit the screen regardless of aspect ratio.
+ * ImageLightbox - A robust full-screen viewer for site documentation.
+ * Uses object-contain within a fixed-size viewport container to ensure
+ * images fit the screen perfectly regardless of aspect ratio.
  */
 export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
   // Handle escape key and body scroll lock
@@ -37,7 +38,7 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
 
   return (
     <div 
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none animate-in fade-in duration-200 overflow-hidden"
       onClick={onClose}
     >
       {/* Close Button - Large touch target for site use */}
@@ -46,18 +47,18 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
           e.stopPropagation();
           onClose();
         }}
-        className="absolute top-6 right-6 z-[10000] h-12 w-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 border border-white/20 shadow-2xl transition-all active:scale-95"
+        className="absolute top-6 right-6 z-[10000] h-12 w-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 border border-white/20 shadow-2xl transition-all active:scale-95 focus:outline-none"
       >
         <X className="h-8 w-8" />
         <span className="sr-only">Close Viewer</span>
       </button>
 
-      {/* Image Container - Forced to viewport bounds */}
+      {/* Image Container - Strictly constrained to viewport bounds to prevent scrolling */}
       <div 
-        className="relative w-full h-full flex items-center justify-center p-4 md:p-12" 
+        className="relative w-full h-full flex items-center justify-center p-4 md:p-8 overflow-hidden" 
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative w-full h-full">
+        <div className="relative w-full h-full max-w-full max-h-full">
           <Image
             src={photo.url}
             alt="Site documentation"
