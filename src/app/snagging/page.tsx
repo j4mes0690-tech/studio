@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -43,8 +44,6 @@ function SnaggingContent() {
   // Visibility logic
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
-    
-    // Global oversight restricted to hasFullVisibility.
     if (profile.permissions?.hasFullVisibility) return allProjects;
     
     const email = profile.email.toLowerCase().trim();
@@ -55,23 +54,25 @@ function SnaggingContent() {
   }, [allProjects, profile]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
+  const allowedProjectIdsKey = useMemo(() => allowedProjectIds.sort().join(','), [allowedProjectIds]);
 
   const snaggingQuery = useMemo(() => {
     if (!db || projectsLoading) return null;
     const base = collection(db, 'snagging-items');
     if (projectId) {
-      if (!allowedProjectIds.includes(projectId)) return null;
+      if (!allowedProjectIdsKey.split(',').includes(projectId)) return null;
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIds, projectsLoading]);
+  }, [db, projectId, allowedProjectIdsKey, projectsLoading]);
 
   const { data: allItems, isLoading: snaggingLoading } = useCollection<SnaggingItem>(snaggingQuery);
 
   const filteredItems = useMemo(() => {
     if (!allItems) return [];
-    return allItems.filter(item => allowedProjectIds.includes(item.projectId));
-  }, [allItems, allowedProjectIds]);
+    const authorizedIds = allowedProjectIdsKey.split(',').filter(Boolean);
+    return allItems.filter(item => authorizedIds.includes(item.projectId));
+  }, [allItems, allowedProjectIdsKey]);
 
   const isLoading = projectsLoading || snaggingLoading || subsLoading || profileLoading;
 

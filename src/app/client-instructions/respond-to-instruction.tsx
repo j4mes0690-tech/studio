@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useRef } from 'react';
@@ -25,7 +26,7 @@ import {
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquareReply, Camera, Upload, FileIcon, X, RefreshCw, FileText, Download } from 'lucide-react';
+import { MessageSquareReply, Camera, Upload, FileIcon, X, RefreshCw, FileText, Download, Loader2 } from 'lucide-react';
 import type { ClientInstruction, DistributionUser, ChatMessage, Photo, FileAttachment } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFirestore } from '@/firebase';
@@ -58,6 +59,7 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isReadingFiles, setIsReadingFiles] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -77,6 +79,7 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
       setPhotos([]);
       setFiles([]);
       setIsCameraOpen(false);
+      setIsReadingFiles(false);
     }
   }, [open, form]);
 
@@ -109,26 +112,34 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
-    if (!selectedFiles) return;
-    Array.from(selectedFiles).forEach(f => {
-      const reader = new FileReader();
-      reader.onload = (re) => {
-        setFiles(prev => [...prev, {
-          name: f.name,
-          type: f.type,
-          size: f.size,
-          url: re.target?.result as string
-        }]);
-      };
-      reader.readAsDataURL(f);
+    if (!selectedFiles || selectedFiles.length === 0) return;
+    
+    setIsReadingFiles(true);
+    const readers = Array.from(selectedFiles).map(f => {
+      return new Promise<void>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (re) => {
+          setFiles(prev => [...prev, {
+            name: f.name,
+            type: f.type,
+            size: f.size,
+            url: re.target?.result as string
+          }]);
+          resolve();
+        };
+        reader.readAsDataURL(f);
+      });
     });
+
+    await Promise.all(readers);
+    setIsReadingFiles(false);
   };
 
   const onSubmit = (values: AddChatMessageFormValues) => {
     const newMessage: ChatMessage = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       sender: currentUser.name,
       senderEmail: currentUser.email.toLowerCase().trim(),
       message: values.message,
@@ -142,14 +153,12 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
         messages: arrayUnion(newMessage)
     };
 
-    // Close dialog immediately for better responsiveness
+    // Close dialog immediately
     setOpen(false);
 
+    // Perform background update
     updateDoc(docRef, updates)
-      .then(() => {
-        toast({ title: 'Success', description: 'Update posted to thread.' });
-      })
-      .catch(async (error) => {
+      .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
           path: docRef.path,
           operation: 'update',
@@ -305,8 +314,9 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
                     />
 
                     {/* Media Previews */}
-                    {(photos.length > 0 || files.length > 0) && (
+                    {(photos.length > 0 || files.length > 0 || isReadingFiles) && (
                       <div className="flex flex-wrap gap-2 border rounded-md p-2 bg-muted/20">
+                        {isReadingFiles && <div className="flex items-center gap-2 text-[10px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Processing files...</div>}
                         {photos.map((p, i) => (
                           <div key={i} className="relative w-12 h-12">
                             <Image src={p.url} alt="Pre" fill className="rounded object-cover border" />
@@ -345,7 +355,7 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
                         </div>
                       )}
                       
-                      <Button type="submit" className="ml-auto">
+                      <Button type="submit" className="ml-auto" disabled={isReadingFiles}>
                           Post Update
                       </Button>
                     </div>

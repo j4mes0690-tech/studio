@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -69,6 +70,7 @@ function InfoRequestsContent() {
   }, [allProjects, currentUser]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
+  const allowedProjectIdsKey = useMemo(() => allowedProjectIds.sort().join(','), [allowedProjectIds]);
 
   // 5. Fetch Information Requests with access gatekeeping
   const itemsQuery = useMemo(() => {
@@ -77,7 +79,7 @@ function InfoRequestsContent() {
     const isGlobalVisibility = !!currentUser.permissions?.hasFullVisibility;
     
     // Optimization: If not an admin and not assigned to any projects, don't even query
-    if (!isGlobalVisibility && allowedProjectIds.length === 0) {
+    if (!isGlobalVisibility && allowedProjectIdsKey === '') {
         return null;
     }
 
@@ -85,29 +87,28 @@ function InfoRequestsContent() {
     
     // If a specific project is selected, verify authorization BEFORE querying
     if (projectId) {
-      if (!allowedProjectIds.includes(projectId)) {
-          return null; // Authorization denied for this specific project filter
+      if (!allowedProjectIdsKey.split(',').includes(projectId)) {
+          return null; 
       }
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
 
-    // Default: fetch RFIs (we perform a final filter client-side for absolute security)
+    // Default: fetch all
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIds, currentUser, projectsLoading]);
+  }, [db, projectId, allowedProjectIdsKey, currentUser, projectsLoading]);
 
   const { data: allItems, isLoading: itemsLoading } = useCollection<InformationRequest>(itemsQuery);
 
-  // 6. FINAL SECURITY FILTER: Ensure items are strictly tied to authorized projects
+  // 6. FINAL SECURITY FILTER
   const filteredItems = useMemo(() => {
     if (!allItems || !currentUser) return [];
-    
-    // Filter based on authorized project IDs to ensure no data leaks from the global query
+    const authorizedIds = allowedProjectIdsKey.split(',').filter(Boolean);
     return allItems.filter(item => {
         const pId = item.projectId;
         if (!pId) return false;
-        return allowedProjectIds.includes(pId);
+        return authorizedIds.includes(pId);
     });
-  }, [allItems, allowedProjectIds, currentUser]);
+  }, [allItems, allowedProjectIdsKey, currentUser]);
 
   // 7. Sort for display (Active/Open status first)
   const sortedItems = useMemo(() => {

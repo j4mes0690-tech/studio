@@ -46,23 +46,31 @@ function InstructionsContent() {
   }, [allProjects, profile]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
+  // Create a stable key for the query dependency to prevent flickering/resubscribing
+  const allowedProjectIdsKey = useMemo(() => allowedProjectIds.sort().join(','), [allowedProjectIds]);
 
   const instructionsQuery = useMemo(() => {
     if (!db || projectsLoading) return null;
     const base = collection(db, 'client-instructions');
+    
     if (projectId) {
-      if (!allowedProjectIds.includes(projectId)) return null;
+      // If filtering by a specific project, ensure it's allowed
+      if (!allowedProjectIdsKey.split(',').includes(projectId)) return null;
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
+    
+    // Default: fetch all (we filter client-side for precision)
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIds, projectsLoading]);
+  }, [db, projectId, allowedProjectIdsKey, projectsLoading]);
 
   const { data: allInstructions, isLoading: instructionsLoading } = useCollection<ClientInstruction>(instructionsQuery);
 
   const filteredInstructions = useMemo(() => {
     if (!allInstructions) return [];
-    return allInstructions.filter(inst => allowedProjectIds.includes(inst.projectId));
-  }, [allInstructions, allowedProjectIds]);
+    // Strict client-side filter to ensure no data leaks during query transitions
+    const authorizedIds = allowedProjectIdsKey.split(',').filter(Boolean);
+    return allInstructions.filter(inst => authorizedIds.includes(inst.projectId));
+  }, [allInstructions, allowedProjectIdsKey]);
 
   const isLoading = usersLoading || projectsLoading || instructionsLoading || profileLoading;
 
