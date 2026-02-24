@@ -1,3 +1,4 @@
+
 import {
   Card,
   CardContent,
@@ -5,7 +6,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Header } from '@/components/layout/header';
-import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck } from 'lucide-react';
+import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -21,19 +22,31 @@ export default async function Dashboard() {
             <p className="text-muted-foreground">Select an action to get started.</p>
         </div>
         <div className="grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8 w-full">
-          <Link href="/instructions">
-            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
+          <Link href="/client-instructions">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full border-primary/20 bg-primary/5">
               <CardHeader className="p-0">
-                <MessageSquare className="h-16 w-16 text-primary mb-4" />
-                <CardTitle className="text-2xl">Instructions</CardTitle>
+                <MessageCircle className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">Client Instructions</CardTitle>
               </CardHeader>
               <CardContent className="p-0 mt-2">
-                <p className="text-muted-foreground">
-                  Record, summarize, and distribute instructions to your team.
+                <p className="text-muted-foreground font-medium">
+                  Directives received from the client for implementation.
                 </p>
               </CardContent>
             </Card>
           </Link>
+          <Link href="/instructions">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
+              <CardHeader className="p-0">
+                <MessageSquare className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">Site Instructions</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 mt-2">
+                <p className="text-muted-foreground">
+                  Record, summarize, and distribute internal instructions to your team.
+                </p>
+              </CardContent>
+            </Link>
           <Link href="/cleanup-notices">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
@@ -45,8 +58,7 @@ export default async function Dashboard() {
                   Create and send clean up notices to sub-contractors with photos.
                 </p>
               </CardContent>
-            </Card>
-          </Link>
+            </Link>
           <Link href="/snagging">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
@@ -58,8 +70,7 @@ export default async function Dashboard() {
                   Record and track snagging items with photos and descriptions.
                 </p>
               </CardContent>
-            </Card>
-          </Link>
+            </Link>
           <Link href="/information-requests">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
@@ -71,8 +82,7 @@ export default async function Dashboard() {
                   Log and track requests for information.
                 </p>
               </CardContent>
-            </Card>
-          </Link>
+            </Link>
           <Link href="/quality-control">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
@@ -84,8 +94,7 @@ export default async function Dashboard() {
                   Use checklists to check each trade's work and sign off.
                 </p>
               </CardContent>
-            </Card>
-          </Link>
+            </Link>
         </div>
       </main>
     </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -21,12 +22,14 @@ import {
   HelpCircle,
   ClipboardCheck,
   CircleUser,
+  MessageCircle,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
-  { href: '/instructions', label: 'Instructions', icon: MessageSquare },
+  { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle },
+  { href: '/instructions', label: 'Site Instructions', icon: MessageSquare },
   { href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles },
   { href: '/snagging', label: 'Snagging', icon: ListChecks },
   { href: '/quality-control', label: 'Quality Control', icon: ClipboardCheck },

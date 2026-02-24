@@ -65,6 +65,19 @@
         "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
       }
     },
+    "ClientInstruction": {
+      "title": "ClientInstruction",
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string" },
+        "originalText": { "type": "string" },
+        "summary": { "type": "string" },
+        "actionItems": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "recipients": { "type": "array", "items": { "type": "string" } },
+        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
+      }
+    },
     "Photo": {
       "title": "Photo",
       "type": "object",
@@ -173,6 +186,10 @@
     "/instructions/{id}": {
       "schema": "Instruction",
       "description": "On-site instructions."
+    },
+    "/client-instructions/{id}": {
+      "schema": "ClientInstruction",
+      "description": "Directives from the client."
     },
     "/cleanup-notices/{id}": {
       "schema": "CleanUpNotice",

@@ -27,6 +27,17 @@ export type Instruction = {
   recipients?: string[];
 };
 
+export type ClientInstruction = {
+  id: string;
+  projectId: string;
+  originalText: string;
+  summary: string;
+  actionItems: string[];
+  createdAt: string;
+  photos?: Photo[];
+  recipients?: string[];
+};
+
 export type CleanUpNotice = {
   id: string;
   projectId: string;
