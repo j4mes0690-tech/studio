@@ -1,4 +1,3 @@
-
 import {
   Card,
   CardContent,
@@ -46,7 +45,8 @@ export default async function Dashboard() {
                   Record, summarize, and distribute internal instructions to your team.
                 </p>
               </CardContent>
-            </Link>
+            </Card>
+          </Link>
           <Link href="/cleanup-notices">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
@@ -58,7 +58,8 @@ export default async function Dashboard() {
                   Create and send clean up notices to sub-contractors with photos.
                 </p>
               </CardContent>
-            </Link>
+            </Card>
+          </Link>
           <Link href="/snagging">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
@@ -70,7 +71,8 @@ export default async function Dashboard() {
                   Record and track snagging items with photos and descriptions.
                 </p>
               </CardContent>
-            </Link>
+            </Card>
+          </Link>
           <Link href="/information-requests">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
@@ -82,7 +84,8 @@ export default async function Dashboard() {
                   Log and track requests for information.
                 </p>
               </CardContent>
-            </Link>
+            </Card>
+          </Link>
           <Link href="/quality-control">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
@@ -94,7 +97,8 @@ export default async function Dashboard() {
                   Use checklists to check each trade's work and sign off.
                 </p>
               </CardContent>
-            </Link>
+            </Card>
+          </Link>
         </div>
       </main>
     </div>
