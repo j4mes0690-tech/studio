@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
@@ -67,6 +68,8 @@ import { cn, generateReference } from '@/lib/utils';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 function AcceptInstructionButton({ instruction, currentUser, projects }: { instruction: ClientInstruction, currentUser: DistributionUser, projects: Project[] }) {
     const [open, setOpen] = useState(false);
@@ -83,9 +86,13 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
     const usersQuery = useMemo(() => collection(db, 'users'), [db]);
     const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
-    const project = projects.find(p => p.id === instruction.projectId);
-    const projectSubIds = project?.assignedSubContractors || [];
-    const projectSubs = allSubs?.filter(s => projectSubIds.includes(s.id)) || [];
+    const project = useMemo(() => projects.find(p => p.id === instruction.projectId), [projects, instruction.projectId]);
+    
+    const projectSubs = useMemo(() => {
+        if (!allSubs || !project) return [];
+        const projectSubIds = project.assignedSubContractors || [];
+        return allSubs.filter(s => projectSubIds.includes(s.id));
+    }, [allSubs, project]);
 
     const handleAddRfi = () => setRfis([...rfis, { description: `Clarification needed for ${instruction.reference}`, assignedTo: [] }]);
     const handleAddInst = () => setSiteInsts([...siteInsts, { description: `Implementation of ${instruction.reference}`, subcontractorId: '' }]);
@@ -103,13 +110,21 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     createdAt: new Date().toISOString()
                 };
 
-                await updateDoc(docRef, {
+                // Non-blocking update
+                updateDoc(docRef, {
                     status: 'accepted',
                     messages: arrayUnion(systemMessage)
+                }).catch(err => {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({
+                        path: docRef.path,
+                        operation: 'update',
+                        requestResourceData: { status: 'accepted' }
+                    }));
                 });
 
-                for (const rfi of rfis) {
-                    await addDoc(collection(db, 'information-requests'), {
+                // Generate triggered actions
+                rfis.forEach(rfi => {
+                    const rfiData = {
                         projectId: instruction.projectId,
                         clientInstructionId: instruction.id,
                         description: rfi.description,
@@ -119,12 +134,19 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                         status: 'open',
                         messages: [],
                         photos: instruction.photos || []
+                    };
+                    addDoc(collection(db, 'information-requests'), rfiData).catch(err => {
+                        errorEmitter.emit('permission-error', new FirestorePermissionError({
+                            path: 'information-requests',
+                            operation: 'create',
+                            requestResourceData: rfiData
+                        }));
                     });
-                }
+                });
 
-                for (const si of siteInsts) {
+                siteInsts.forEach(si => {
                     const sub = allSubs?.find(s => s.id === si.subcontractorId);
-                    await addDoc(collection(db, 'instructions'), {
+                    const siData = {
                         reference: generateReference('SI'),
                         projectId: instruction.projectId,
                         clientInstructionId: instruction.id,
@@ -134,8 +156,15 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                         createdAt: new Date().toISOString(),
                         photos: instruction.photos || [],
                         recipients: sub ? [sub.email] : []
+                    };
+                    addDoc(collection(db, 'instructions'), siData).catch(err => {
+                        errorEmitter.emit('permission-error', new FirestorePermissionError({
+                            path: 'instructions',
+                            operation: 'create',
+                            requestResourceData: siData
+                        }));
                     });
-                }
+                });
 
                 toast({ title: 'Success', description: 'Directive accepted and actions triggered.' });
                 setOpen(false);
