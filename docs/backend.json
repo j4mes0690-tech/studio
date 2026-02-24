@@ -76,6 +76,7 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "recipients": { "type": "array", "items": { "type": "string" } },
         "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } },
+        "files": { "type": "array", "items": { "$ref": "#/entities/FileAttachment" } },
         "messages": { "type": "array", "items": { "$ref": "#/entities/ChatMessage" } },
         "status": { "type": "string", "enum": ["open", "accepted"] }
       }
@@ -86,6 +87,16 @@
       "properties": {
         "url": { "type": "string" },
         "takenAt": { "type": "string" }
+      }
+    },
+    "FileAttachment": {
+      "title": "FileAttachment",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string" },
+        "type": { "type": "string" },
+        "size": { "type": "number" }
       }
     },
     "SubContractor": {
@@ -142,7 +153,9 @@
         "sender": { "type": "string" },
         "senderEmail": { "type": "string" },
         "message": { "type": "string" },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "string" },
+        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } },
+        "files": { "type": "array", "items": { "$ref": "#/entities/FileAttachment" } }
       }
     },
     "QualityChecklist": {

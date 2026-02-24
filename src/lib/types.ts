@@ -16,6 +16,13 @@ export type Photo = {
   takenAt: string;
 };
 
+export type FileAttachment = {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+};
+
 export type Instruction = {
   id: string;
   projectId: string;
@@ -35,6 +42,7 @@ export type ClientInstruction = {
   actionItems: string[];
   createdAt: string;
   photos?: Photo[];
+  files?: FileAttachment[];
   recipients?: string[];
   messages?: ChatMessage[];
   status?: 'open' | 'accepted';
@@ -75,6 +83,8 @@ export type ChatMessage = {
   senderEmail: string;
   message: string;
   createdAt: string;
+  photos?: Photo[];
+  files?: FileAttachment[];
 };
 
 export type InformationRequest = {

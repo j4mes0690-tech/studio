@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -33,8 +34,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw } from 'lucide-react';
-import type { Project, DistributionUser, Photo } from '@/lib/types';
+import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText } from 'lucide-react';
+import type { Project, DistributionUser, Photo, FileAttachment } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -51,7 +52,6 @@ const NewInstructionSchema = z.object({
   originalText: z
     .string()
     .min(10, 'Client directives must be at least 10 characters.'),
-  photos: z.string().optional(),
   recipients: z.array(z.string()).optional(),
 });
 
@@ -72,28 +72,24 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [files, setFiles] = useState<FileAttachment[]>([]);
 
   const form = useForm<NewInstructionFormValues>({
     resolver: zodResolver(NewInstructionSchema),
     defaultValues: {
       projectId: '',
       originalText: '',
-      photos: '',
       recipients: [],
     },
   });
 
-  useEffect(() => {
-    form.setValue('photos', JSON.stringify(photos));
-  }, [photos, form]);
-
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
       try {
-        // Run AI flows to process the directive
         const [summaryResult, actionItemsResult] = await Promise.all([
           summarizeInstructions({ instructions: values.originalText }),
           extractInstructionActionItems({ instructionText: values.originalText }),
@@ -107,6 +103,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
           recipients: values.recipients || [],
           createdAt: new Date().toISOString(),
           photos: photos,
+          files: files,
           messages: [],
           status: 'open',
         };
@@ -137,6 +134,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
     if (!open) {
       setIsCameraOpen(false);
       setPhotos([]);
+      setFiles([]);
       form.reset();
     }
   }, [open, form]);
@@ -181,6 +179,23 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles) return;
+    Array.from(selectedFiles).forEach(f => {
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        setFiles(prev => [...prev, {
+          name: f.name,
+          type: f.type,
+          size: f.size,
+          url: re.target?.result as string
+        }]);
+      };
+      reader.readAsDataURL(f);
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -193,7 +208,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
         <DialogHeader>
           <DialogTitle>Record Client Instruction</DialogTitle>
           <DialogDescription>
-            Capture external directives from the client. AI will summarize and extract tasks automatically. This will initiate a new conversation thread.
+            Capture external directives from the client. AI will summarize and extract tasks automatically.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -238,44 +253,65 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
             />
 
             <FormItem>
-              <FormLabel>Reference Photos</FormLabel>
+              <FormLabel>Reference Documentation</FormLabel>
               <div className="space-y-4">
-                {photos.length > 0 && (
-                  <div className="grid grid-cols-3 gap-4">
-                    {photos.map((p, i) => (
-                      <div key={i} className="relative group">
-                        <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                        <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                {/* Visual Assets */}
+                {(photos.length > 0 || files.length > 0) && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      {photos.map((p, i) => (
+                        <div key={`p-${i}`} className="relative group">
+                          <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
+                          <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-1">
+                      {files.map((f, i) => (
+                        <div key={`f-${i}`} className="flex items-center justify-between p-2 rounded-md border bg-muted/30 group">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span className="text-xs truncate font-medium">{f.name}</span>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* Controls */}
                 {isCameraOpen ? (
                   <div className="space-y-2">
                     <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                     <div className="flex gap-2">
-                      <Button type="button" onClick={takePhoto}>Take Photo</Button>
-                      <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera">
+                      <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={toggleCamera} title="Switch Camera">
                         <RefreshCw className="h-4 w-4" />
                       </Button>
-                      <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                     </div>
                   </div>
                 ) : (
-                  <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
-                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload Photos</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Attach Files</Button>
+                    
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                      const files = e.target.files;
-                      if (!files) return;
-                      Array.from(files).forEach(f => {
+                      const selected = e.target.files;
+                      if (!selected) return;
+                      Array.from(selected).forEach(f => {
                         const reader = new FileReader();
                         reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
                         reader.readAsDataURL(f);
                       });
                     }} />
+                    <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
                   </div>
                 )}
               </div>
@@ -312,7 +348,9 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
 
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
-              <Button type="submit" disabled={isPending}>{isPending ? 'AI Processing...' : 'Record Directive'}</Button>
+              <Button type="submit" disabled={isPending} className="w-full">
+                {isPending ? 'AI Processing...' : 'Record Directive'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

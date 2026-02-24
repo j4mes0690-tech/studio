@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ClientInstruction, Project, DistributionUser, ChatMessage } from '@/lib/types';
@@ -15,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { CheckSquare, MessageCircle, Camera, Users, Trash2, MessageSquareReply, CheckCircle2 } from 'lucide-react';
+import { CheckSquare, MessageCircle, Camera, Users, Trash2, MessageSquareReply, CheckCircle2, FileText, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -253,6 +254,31 @@ export function ClientInstructionCard({
                     <div className="bg-background px-4 py-3 rounded-2xl rounded-tl-none border shadow-sm max-w-[90%]">
                         <p className="text-[10px] font-bold mb-1 text-primary uppercase">Initial Client Directive</p>
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{instruction.originalText}</p>
+                        
+                        {/* Photos from original instruction */}
+                        {instruction.photos && instruction.photos.length > 0 && (
+                          <div className="grid grid-cols-3 gap-1 mt-2">
+                            {instruction.photos.map((p, i) => (
+                              <div key={i} className="relative aspect-video rounded overflow-hidden border">
+                                <Image src={p.url} alt="Directive" fill className="object-cover" />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Files from original instruction */}
+                        {instruction.files && instruction.files.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {instruction.files.map((f, i) => (
+                              <a key={i} href={f.url} download={f.name} className="flex items-center gap-1.5 p-1.5 rounded text-[10px] bg-muted border border-border text-primary hover:bg-accent transition-colors">
+                                <FileText className="h-3 w-3" />
+                                <span className="truncate flex-1">{f.name}</span>
+                                <Download className="h-3 w-3" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+
                         <div className="text-[9px] text-muted-foreground mt-2 uppercase font-medium">
                             Logged <ClientDate date={instruction.createdAt} />
                         </div>
@@ -291,6 +317,29 @@ export function ClientInstructionCard({
                                         </p>
                                     )}
                                     <p className="text-sm leading-snug whitespace-pre-wrap">{msg.message}</p>
+                                    
+                                    {/* Message Attachments */}
+                                    {msg.photos && msg.photos.length > 0 && (
+                                      <div className="grid grid-cols-2 gap-1 mt-2">
+                                        {msg.photos.map((p, i) => (
+                                          <div key={i} className="relative aspect-video rounded overflow-hidden border bg-background">
+                                            <Image src={p.url} alt="Update" fill className="object-cover" />
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {msg.files && msg.files.length > 0 && (
+                                      <div className="mt-2 space-y-1">
+                                        {msg.files.map((f, i) => (
+                                          <a key={i} href={f.url} download={f.name} className={cn("flex items-center gap-1.5 p-1.5 rounded text-[10px] border transition-colors", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white hover:bg-primary-foreground/20" : "bg-background border-border text-primary hover:bg-muted")}>
+                                            <FileText className="h-3 w-3" />
+                                            <span className="truncate flex-1">{f.name}</span>
+                                            <Download className="h-3 w-3" />
+                                          </a>
+                                        ))}
+                                      </div>
+                                    )}
+
                                     <div className={cn(
                                         "flex items-center justify-end gap-1 mt-1",
                                         isMe ? "text-primary-foreground/70" : "text-muted-foreground"
@@ -344,48 +393,6 @@ export function ClientInstructionCard({
                 </div>
                 </AccordionContent>
             </AccordionItem>
-            )}
-            {instruction.photos && instruction.photos.length > 0 && (
-                <AccordionItem value="photo">
-                <AccordionTrigger className="text-sm font-semibold">
-                    <div className="flex items-center gap-2">
-                    <Camera className="h-4 w-4" />
-                    <span>Attached Reference Photos ({instruction.photos.length})</span>
-                </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                    <Carousel className="w-full max-w-sm mx-auto">
-                    <CarouselContent>
-                        {instruction.photos.map((photo, index) => (
-                        <CarouselItem key={index}>
-                            <div className="p-1">
-                            <div className="space-y-2">
-                                <Image
-                                src={photo.url}
-                                alt={`Client Instruction photo ${index + 1}`}
-                                width={600}
-                                height={400}
-                                className="rounded-md border object-cover aspect-video"
-                                data-ai-hint="client instruction site"
-                                />
-                                <p className="text-xs text-muted-foreground text-center">
-                                Taken on:{' '}
-                                <ClientDate date={photo.takenAt} />
-                                </p>
-                            </div>
-                            </div>
-                        </CarouselItem>
-                        ))}
-                    </CarouselContent>
-                    {instruction.photos.length > 1 && (
-                        <>
-                        <CarouselPrevious />
-                        <CarouselNext />
-                        </>
-                    )}
-                    </Carousel>
-                </AccordionContent>
-                </AccordionItem>
             )}
             </Accordion>
         </div>
