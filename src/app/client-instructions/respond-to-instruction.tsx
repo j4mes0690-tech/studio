@@ -103,11 +103,18 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
       const video = videoRef.current;
       const context = canvas.getContext('2d');
       if (!context) return;
+      
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 600;
-      canvas.height = 600 / aspectRatio;
+      // Optimized for Firestore document size limits (max 1MB per document)
+      canvas.width = 500; 
+      canvas.height = 500 / aspectRatio;
+      
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      setPhotos(prev => [...prev, { url: canvas.toDataURL('image/jpeg', 0.8), takenAt: new Date().toISOString() }]);
+      
+      // Use lower quality (0.6) to ensure many photos can fit in one thread
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+      
+      setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
   };
@@ -153,10 +160,10 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
         messages: arrayUnion(newMessage)
     };
 
-    // Close dialog immediately
+    // Close dialog immediately for optimistic UX
     setOpen(false);
 
-    // Perform background update
+    // Perform non-blocking background update
     updateDoc(docRef, updates)
       .catch(async (serverError) => {
         const permissionError = new FirestorePermissionError({
@@ -365,7 +372,24 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
                       if (!selected) return;
                       Array.from(selected).forEach(f => {
                         const reader = new FileReader();
-                        reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                        reader.onload = (re) => {
+                            // Pre-compress uploaded files as well
+                            const img = new (window as any).Image();
+                            img.onload = () => {
+                                const canvas = document.createElement('canvas');
+                                const ctx = canvas.getContext('2d');
+                                const MAX_WIDTH = 800;
+                                const scale = Math.min(1, MAX_WIDTH / img.width);
+                                canvas.width = img.width * scale;
+                                canvas.height = img.height * scale;
+                                ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                setPhotos(prev => [...prev, { 
+                                    url: canvas.toDataURL('image/jpeg', 0.6), 
+                                    takenAt: new Date().toISOString() 
+                                }]);
+                            };
+                            img.src = re.target?.result as string;
+                        };
                         reader.readAsDataURL(f);
                       });
                     }} />

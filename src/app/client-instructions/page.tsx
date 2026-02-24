@@ -39,12 +39,12 @@ function InstructionsContent() {
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  // STABLE QUERY: Only depends on the database and the explicit URL filter.
-  // We do NOT include reactive permission lists in the query dependencies to prevent listener restarts.
+  // STABLE QUERY: Persistent listener for the collection.
   const instructionsQuery = useMemo(() => {
     if (!db) return null;
     const base = collection(db, 'client-instructions');
     
+    // We apply the project filter at the Firestore query level if explicitly selected via URL.
     if (projectId) {
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
@@ -54,11 +54,14 @@ function InstructionsContent() {
 
   const { data: allInstructions, isLoading: instructionsLoading } = useCollection<ClientInstruction>(instructionsQuery);
 
-  // Security & Visibility filtering happens CLIENT-SIDE.
-  // This allows the Firestore listener to remain stable even if project assignments refresh in the background.
+  // SECURITY & VISIBILITY: Client-side filtering ensures that the listener remains stable
+  // even if project assignments or permissions are refreshing in the background.
   const filteredInstructions = useMemo(() => {
-    if (!allInstructions || !profile || !allProjects) return [];
-    
+    // If we're loading and have NO data, return null to show the loader.
+    // If we have data but something is re-loading, keep the existing filtered list.
+    if (!allInstructions) return [];
+    if (!profile || !allProjects) return allInstructions; // Fallback during sync
+
     const email = profile.email.toLowerCase().trim();
     const hasFullVisibility = !!profile.permissions?.hasFullVisibility;
 
@@ -73,9 +76,9 @@ function InstructionsContent() {
     return allInstructions.filter(inst => allowedProjectIds.includes(inst.projectId));
   }, [allInstructions, profile, allProjects]);
 
-  const isLoading = usersLoading || projectsLoading || instructionsLoading || profileLoading;
+  const isLoading = (usersLoading || projectsLoading || instructionsLoading || profileLoading) && !allInstructions;
 
-  if (isLoading && !allInstructions) {
+  if (isLoading) {
     return (
         <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />

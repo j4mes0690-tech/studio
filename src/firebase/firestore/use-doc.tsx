@@ -9,6 +9,10 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 
+/**
+ * useDoc - Robust hook for real-time Firestore documents.
+ * Prevents "loading flicker" by keeping existing data while re-subscribing.
+ */
 export function useDoc<T = DocumentData>(ref: DocumentReference<T> | null) {
   const [data, setData] = useState<T | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,11 +25,19 @@ export function useDoc<T = DocumentData>(ref: DocumentReference<T> | null) {
       return;
     }
 
-    setIsLoading(true);
+    // Only set loading if we don't have data to show.
+    if (!data) {
+      setIsLoading(true);
+    }
+
     const unsubscribe = onSnapshot(
       ref,
       (snapshot: DocumentSnapshot<T>) => {
-        setData(snapshot.exists() ? ({ ...snapshot.data(), id: snapshot.id } as T) : null);
+        if (snapshot.exists()) {
+          setData({ ...snapshot.data(), id: snapshot.id } as T);
+        } else {
+          setData(null);
+        }
         setIsLoading(false);
       },
       (err) => {
@@ -36,7 +48,7 @@ export function useDoc<T = DocumentData>(ref: DocumentReference<T> | null) {
     );
 
     return () => unsubscribe();
-  }, [ref]);
+  }, [ref]); // Stability depends on the caller using useMemo for the ref
 
   return { data, isLoading, error };
 }
