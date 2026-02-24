@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -41,18 +42,18 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { summarizeInstructions } from '@/ai/flows/summarize-client-instructions';
 import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   originalText: z
     .string()
     .min(10, 'Instructions must be at least 10 characters.'),
-  photos: z.string().optional(),
   recipients: z.array(z.string()).optional(),
 });
 
@@ -70,6 +71,7 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -82,19 +84,28 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
     defaultValues: {
       projectId: '',
       originalText: '',
-      photos: '',
       recipients: [],
     },
   });
 
-  useEffect(() => {
-    form.setValue('photos', JSON.stringify(photos));
-  }, [photos, form]);
-
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
       try {
-        // Run AI flows
+        toast({ title: 'Processing', description: 'Uploading photos and running AI analysis...' });
+
+        // 1. Upload Photos to Storage
+        const uploadedPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `internal-instructions/photos/${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
+
+        // 2. Run AI flows
         const [summaryResult, actionItemsResult] = await Promise.all([
           summarizeInstructions({ instructions: values.originalText }),
           extractInstructionActionItems({ instructionText: values.originalText }),
@@ -107,13 +118,13 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
           actionItems: actionItemsResult.actionItems,
           recipients: values.recipients || [],
           createdAt: new Date().toISOString(),
-          photos: photos,
+          photos: uploadedPhotos,
         };
 
         const colRef = collection(db, 'instructions');
         addDoc(colRef, instructionData)
           .then(() => {
-            toast({ title: 'Success', description: 'Instruction recorded and processed.' });
+            toast({ title: 'Success', description: 'Instruction recorded.' });
             setOpen(false);
           })
           .catch((error) => {
@@ -127,7 +138,7 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
 
       } catch (err) {
         console.error(err);
-        toast({ title: 'AI Processing Error', description: 'Failed to summarize instructions.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to process instruction or upload photos.', variant: 'destructive' });
       }
     });
   };
@@ -167,10 +178,10 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
       const video = videoRef.current;
       const context = canvas.getContext('2d');
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 600;
-      canvas.height = 600 / aspectRatio;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
@@ -192,7 +203,7 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
         <DialogHeader>
           <DialogTitle>Record New Instruction</DialogTitle>
           <DialogDescription>
-            Capture instructions on-site. The AI will summarize and extract action items automatically.
+            Capture instructions on-site. AI will summarize tasks automatically.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -236,49 +247,47 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
               )}
             />
 
-            <FormItem>
+            <div className="space-y-4">
               <FormLabel>Photos</FormLabel>
-              <div className="space-y-4">
-                {photos.length > 0 && (
-                  <div className="grid grid-cols-3 gap-4">
-                    {photos.map((p, i) => (
-                      <div key={i} className="relative group">
-                        <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                        <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {isCameraOpen ? (
-                  <div className="space-y-2">
-                    <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
-                    <div className="flex gap-2">
-                      <Button type="button" onClick={takePhoto}>Take Photo</Button>
-                      <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera">
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                      <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+              {photos.length > 0 && (
+                <div className="grid grid-cols-3 gap-4">
+                  {photos.map((p, i) => (
+                    <div key={i} className="relative group">
+                      <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
+                      <button type="button" className="absolute top-1 right-1 h-6 w-6 bg-destructive text-white rounded-full flex items-center justify-center" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
-                  </div>
-                ) : (
+                  ))}
+                </div>
+              )}
+              {isCameraOpen ? (
+                <div className="space-y-2">
+                  <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
-                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                      const files = e.target.files;
-                      if (!files) return;
-                      Array.from(files).forEach(f => {
-                        const reader = new FileReader();
-                        reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                        reader.readAsDataURL(f);
-                      });
-                    }} />
+                    <Button type="button" onClick={takePhoto}>Capture</Button>
+                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera}>
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                   </div>
-                )}
-              </div>
-            </FormItem>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                    const files = e.target.files;
+                    if (!files) return;
+                    Array.from(files).forEach(f => {
+                      const reader = new FileReader();
+                      reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                      reader.readAsDataURL(f);
+                    });
+                  }} />
+                </div>
+              )}
+            </div>
 
             <Separator />
             
@@ -311,7 +320,7 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
 
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
-              <Button type="submit" disabled={isPending}>{isPending ? 'Processing...' : 'Save Instruction'}</Button>
+              <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : 'Save Instruction'}</Button>
             </DialogFooter>
           </form>
         </Form>

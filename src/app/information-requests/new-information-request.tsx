@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -35,15 +36,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw } from 'lucide-react';
 import type { Project, DistributionUser, Photo } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/date-picker';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -67,6 +68,7 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -86,37 +88,55 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
 
   const onSubmit = (values: NewInformationRequestFormValues) => {
     startTransition(async () => {
-      // IDs are emails in the system
-      const assignedEmails = distributionUsers
-        .filter(u => values.assignedTo.includes(u.id))
-        .map(u => u.email.toLowerCase().trim());
+      try {
+        toast({ title: 'Uploading', description: 'Persisting media items...' });
 
-      const requestData = {
-        projectId: values.projectId,
-        description: values.description,
-        assignedTo: assignedEmails,
-        raisedBy: currentUser.email.toLowerCase().trim(),
-        photos: photos,
-        requiredBy: values.requiredBy || null,
-        status: 'open',
-        messages: [],
-        createdAt: new Date().toISOString(),
-      };
+        // 1. Upload Photos
+        const uploadedPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `information-requests/${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
 
-      const colRef = collection(db, 'information-requests');
-      addDoc(colRef, requestData)
-        .then(() => {
-          toast({ title: 'Success', description: 'Information request logged.' });
-          setOpen(false);
-        })
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: colRef.path,
-            operation: 'create',
-            requestResourceData: requestData,
+        const assignedEmails = distributionUsers
+          .filter(u => values.assignedTo.includes(u.id))
+          .map(u => u.email.toLowerCase().trim());
+
+        const requestData = {
+          projectId: values.projectId,
+          description: values.description,
+          assignedTo: assignedEmails,
+          raisedBy: currentUser.email.toLowerCase().trim(),
+          photos: uploadedPhotos,
+          requiredBy: values.requiredBy || null,
+          status: 'open',
+          messages: [],
+          createdAt: new Date().toISOString(),
+        };
+
+        const colRef = collection(db, 'information-requests');
+        addDoc(colRef, requestData)
+          .then(() => {
+            toast({ title: 'Success', description: 'Information request logged.' });
+            setOpen(false);
+          })
+          .catch((error) => {
+            const permissionError = new FirestorePermissionError({
+              path: colRef.path,
+              operation: 'create',
+              requestResourceData: requestData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
           });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Error', description: 'Failed to upload photos.', variant: 'destructive' });
+      }
     });
   };
 
@@ -155,10 +175,10 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
       const video = videoRef.current;
       const context = canvas.getContext('2d');
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 600;
-      canvas.height = 600 / aspectRatio;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
@@ -276,8 +296,8 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
                 <div className="space-y-2">
                   <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
-                    <Button type="button" onClick={takePhoto}>Take Photo</Button>
-                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera">
+                    <Button type="button" onClick={takePhoto}>Capture</Button>
+                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera}>
                       <RefreshCw className="h-4 w-4" />
                     </Button>
                     <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>

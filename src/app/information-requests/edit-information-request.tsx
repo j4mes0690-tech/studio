@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -40,10 +41,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DatePicker } from '@/components/date-picker';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 
 const EditInformationRequestSchema = z.object({
   id: z.string().min(1),
@@ -70,6 +72,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
   >();
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,36 +98,52 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
 
   const onSubmit = (values: EditInformationRequestFormValues) => {
     startTransition(async () => {
-      const assignedEmails = distributionUsers
-        .filter(u => values.assignedTo.includes(u.id))
-        .map(u => u.email);
+      try {
+        toast({ title: 'Saving', description: 'Uploading new photos to cloud storage...' });
 
-      const updates = {
-        projectId: values.projectId,
-        description: values.description,
-        assignedTo: assignedEmails,
-        photos: photos,
-        requiredBy: values.requiredBy || null,
-      };
+        // 1. Upload Photos
+        const uploadedPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `information-requests/${item.id}-${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
 
-      const docRef = doc(db, 'information-requests', values.id);
-      
-      updateDoc(docRef, updates)
-        .then(() => {
-          toast({
-            title: 'Success',
-            description: 'Information request updated.',
+        const assignedEmails = distributionUsers
+          .filter(u => values.assignedTo.includes(u.id))
+          .map(u => u.email);
+
+        const updates = {
+          projectId: values.projectId,
+          description: values.description,
+          assignedTo: assignedEmails,
+          photos: uploadedPhotos,
+          requiredBy: values.requiredBy || null,
+        };
+
+        const docRef = doc(db, 'information-requests', values.id);
+        
+        updateDoc(docRef, updates)
+          .then(() => {
+            toast({ title: 'Success', description: 'Information request updated.' });
+            setOpen(false);
+          })
+          .catch((error) => {
+            const permissionError = new FirestorePermissionError({
+              path: docRef.path,
+              operation: 'update',
+              requestResourceData: updates,
+            });
+            errorEmitter.emit('permission-error', permissionError);
           });
-          setOpen(false);
-        })
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'update',
-            requestResourceData: updates,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Error', description: 'Failed to upload photos.', variant: 'destructive' });
+      }
     });
   };
 
@@ -182,11 +201,11 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
       const context = canvas.getContext('2d');
       
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 600;
-      canvas.height = 600 / aspectRatio;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
 
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);

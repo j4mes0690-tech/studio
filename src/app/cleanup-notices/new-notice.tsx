@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -39,11 +40,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 
 const NewNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -65,6 +67,7 @@ export function NewNotice({ projects, subContractors }: NewNoticeProps) {
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,32 +86,51 @@ export function NewNotice({ projects, subContractors }: NewNoticeProps) {
 
   const onSubmit = (values: NewNoticeFormValues) => {
     startTransition(async () => {
-      const recipientEmails = subContractors
-        .filter(sub => values.recipients?.includes(sub.id))
-        .map(sub => sub.email);
+      try {
+        toast({ title: 'Uploading', description: 'Persisting photos to cloud storage...' });
 
-      const noticeData = {
-        projectId: values.projectId,
-        description: values.description,
-        recipients: recipientEmails,
-        photos: photos,
-        createdAt: new Date().toISOString(),
-      };
+        // 1. Upload Photos
+        const uploadedPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `cleanup-notices/${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
 
-      const colRef = collection(db, 'cleanup-notices');
-      addDoc(colRef, noticeData)
-        .then(() => {
-          toast({ title: 'Success', description: 'Clean up notice recorded.' });
-          setOpen(false);
-        })
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: colRef.path,
-            operation: 'create',
-            requestResourceData: noticeData,
+        const recipientEmails = subContractors
+          .filter(sub => values.recipients?.includes(sub.id))
+          .map(sub => sub.email);
+
+        const noticeData = {
+          projectId: values.projectId,
+          description: values.description,
+          recipients: recipientEmails,
+          photos: uploadedPhotos,
+          createdAt: new Date().toISOString(),
+        };
+
+        const colRef = collection(db, 'cleanup-notices');
+        addDoc(colRef, noticeData)
+          .then(() => {
+            toast({ title: 'Success', description: 'Clean up notice recorded.' });
+            setOpen(false);
+          })
+          .catch((error) => {
+            const permissionError = new FirestorePermissionError({
+              path: colRef.path,
+              operation: 'create',
+              requestResourceData: noticeData,
+            });
+            errorEmitter.emit('permission-error', permissionError);
           });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Error', description: 'Failed to upload photos.', variant: 'destructive' });
+      }
     });
   };
 
@@ -147,10 +169,10 @@ export function NewNotice({ projects, subContractors }: NewNoticeProps) {
       const video = videoRef.current;
       const context = canvas.getContext('2d');
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 600;
-      canvas.height = 600 / aspectRatio;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
@@ -234,7 +256,7 @@ export function NewNotice({ projects, subContractors }: NewNoticeProps) {
                 <div className="space-y-2">
                   <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
-                    <Button type="button" onClick={takePhoto}>Take Photo</Button>
+                    <Button type="button" onClick={takePhoto}>Capture</Button>
                     <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera">
                       <RefreshCw className="h-4 w-4" />
                     </Button>

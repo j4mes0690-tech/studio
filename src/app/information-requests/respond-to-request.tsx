@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -28,7 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { MessageSquareReply } from 'lucide-react';
 import type { InformationRequest, DistributionUser, ChatMessage } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
@@ -53,6 +54,7 @@ export function RespondToRequest({ item, distributionUsers, currentUser }: Respo
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   const [isPending, startTransition] = useTransition();
 
   const form = useForm<AddChatMessageFormValues>({
