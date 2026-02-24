@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { X } from 'lucide-react';
-import Image from 'next/image';
 import type { Photo } from '@/lib/types';
 import { useEffect } from 'react';
 
@@ -13,8 +12,8 @@ interface ImageLightboxProps {
 
 /**
  * ImageLightbox - A robust full-screen viewer for site documentation.
- * Uses object-contain within a fixed-size viewport container to ensure
- * images fit the screen perfectly regardless of aspect ratio.
+ * Uses native img tag with max-viewport constraints to guarantee the image 
+ * fits the screen perfectly without scrolling or overflow.
  */
 export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
   // Handle escape key and body scroll lock
@@ -41,7 +40,7 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
       className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none animate-in fade-in duration-200 overflow-hidden"
       onClick={onClose}
     >
-      {/* Close Button - Large touch target for site use */}
+      {/* Close Button - High visibility for site use */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -53,22 +52,16 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
         <span className="sr-only">Close Viewer</span>
       </button>
 
-      {/* Image Container - Strictly constrained to viewport bounds to prevent scrolling */}
+      {/* Image Container - Strictly constrained to viewport bounds */}
       <div 
-        className="relative w-full h-full flex items-center justify-center p-4 md:p-8 overflow-hidden" 
+        className="w-full h-full flex items-center justify-center p-4 md:p-12 overflow-hidden" 
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="relative w-full h-full max-w-full max-h-full">
-          <Image
-            src={photo.url}
-            alt="Site documentation"
-            fill
-            className="object-contain"
-            priority
-            quality={100}
-            sizes="100vw"
-          />
-        </div>
+        <img
+          src={photo.url}
+          alt="Site documentation"
+          className="max-w-full max-h-full object-contain shadow-2xl pointer-events-none rounded-sm border border-white/5"
+        />
       </div>
 
       {/* Metadata Overlay */}
