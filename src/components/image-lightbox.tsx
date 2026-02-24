@@ -11,12 +11,11 @@ interface ImageLightboxProps {
 }
 
 /**
- * ImageLightbox - A robust full-screen viewer for site documentation.
- * Uses native img tag with max-viewport constraints to guarantee the image 
- * fits the screen perfectly without scrolling or overflow.
+ * ImageLightbox - A high-performance full-screen documentation viewer.
+ * Uses strictly enforced viewport constraints to ensure high-resolution 
+ * site photos fit the screen perfectly without scrolling or overflow.
  */
 export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
-  // Handle escape key and body scroll lock
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -24,6 +23,7 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
 
     if (photo) {
       window.addEventListener('keydown', handleEsc);
+      // Prevent background scrolling
       document.body.style.overflow = 'hidden';
     }
 
@@ -40,7 +40,7 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
       className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none animate-in fade-in duration-200 overflow-hidden"
       onClick={onClose}
     >
-      {/* Close Button - High visibility for site use */}
+      {/* High-Visibility Close Button */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -52,19 +52,19 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
         <span className="sr-only">Close Viewer</span>
       </button>
 
-      {/* Image Container - Strictly constrained to viewport bounds */}
+      {/* Constraints: Container takes full viewport, image fits within it */}
       <div 
-        className="w-full h-full flex items-center justify-center p-4 md:p-12 overflow-hidden" 
+        className="w-screen h-screen flex items-center justify-center p-4 md:p-12 overflow-hidden" 
         onClick={(e) => e.stopPropagation()}
       >
         <img
           src={photo.url}
           alt="Site documentation"
-          className="max-w-full max-h-full object-contain shadow-2xl pointer-events-none rounded-sm border border-white/5"
+          className="max-w-full max-h-full object-contain shadow-2xl rounded-sm border border-white/5 pointer-events-none"
         />
       </div>
 
-      {/* Metadata Overlay */}
+      {/* Capture Metadata Overlay */}
       <div className="absolute bottom-10 left-0 right-0 flex justify-center pointer-events-none px-4">
         <div className="bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 shadow-2xl pointer-events-auto">
           <p className="text-[10px] font-bold text-white/90 uppercase tracking-widest text-center">
