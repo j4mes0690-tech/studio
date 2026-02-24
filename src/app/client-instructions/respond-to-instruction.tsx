@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useRef } from 'react';
@@ -26,7 +25,7 @@ import {
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquareReply, Camera, Upload, FileIcon, X, RefreshCw, FileText } from 'lucide-react';
+import { MessageSquareReply, Camera, Upload, FileIcon, X, RefreshCw, FileText, Download } from 'lucide-react';
 import type { ClientInstruction, DistributionUser, ChatMessage, Photo, FileAttachment } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFirestore } from '@/firebase';
@@ -37,7 +36,6 @@ import { cn } from '@/lib/utils';
 import { ClientDate } from '../../components/client-date';
 import { Badge } from '@/components/ui/badge';
 import { VoiceInput } from '@/components/voice-input';
-import { Separator } from '@/components/ui/separator';
 
 const AddChatMessageSchema = z.object({
   message: z.string().min(1, 'Message cannot be empty.'),
@@ -101,10 +99,11 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
       const canvas = canvasRef.current;
       const video = videoRef.current;
       const context = canvas.getContext('2d');
+      if (!context) return;
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 600;
       canvas.height = 600 / aspectRatio;
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
       setPhotos(prev => [...prev, { url: canvas.toDataURL('image/jpeg', 0.8), takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
@@ -128,36 +127,36 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
   };
 
   const onSubmit = (values: AddChatMessageFormValues) => {
-    startTransition(async () => {
-      const newMessage: ChatMessage = {
-        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        sender: currentUser.name,
-        senderEmail: currentUser.email.toLowerCase().trim(),
-        message: values.message,
-        createdAt: new Date().toISOString(),
-        photos: photos,
-        files: files,
-      };
+    const newMessage: ChatMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      sender: currentUser.name,
+      senderEmail: currentUser.email.toLowerCase().trim(),
+      message: values.message,
+      createdAt: new Date().toISOString(),
+      photos: [...photos],
+      files: [...files],
+    };
 
-      const docRef = doc(db, 'client-instructions', instruction.id);
-      const updates = { 
-          messages: arrayUnion(newMessage)
-      };
+    const docRef = doc(db, 'client-instructions', instruction.id);
+    const updates = { 
+        messages: arrayUnion(newMessage)
+    };
 
-      updateDoc(docRef, updates)
-        .then(() => {
-          toast({ title: 'Success', description: 'Message sent.' });
-          setOpen(false);
-        })
-        .catch((serverError) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'update',
-            requestResourceData: updates,
-          } satisfies SecurityRuleContext);
-          errorEmitter.emit('permission-error', permissionError);
-        });
-    });
+    // Close dialog immediately for better responsiveness
+    setOpen(false);
+
+    updateDoc(docRef, updates)
+      .then(() => {
+        toast({ title: 'Success', description: 'Update posted to thread.' });
+      })
+      .catch(async (error) => {
+        const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: updates,
+        } satisfies SecurityRuleContext);
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const isAccepted = instruction.status === 'accepted';
@@ -184,14 +183,31 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
         <DialogHeader>
           <DialogTitle>Client Instruction Conversation</DialogTitle>
           <DialogDescription>
-            Post a message to discuss this directive or provide implementation updates.
+            Discuss requirements or provide implementation updates.
           </DialogDescription>
         </DialogHeader>
         
         <div className='flex-1 overflow-y-auto min-h-0 py-4 px-2 space-y-4 bg-muted/10 rounded-md border'>
             <div className='bg-background p-3 rounded-lg border-l-4 border-l-primary shadow-sm mb-6'>
                 <p className='text-[10px] font-bold text-primary uppercase tracking-widest mb-1'>Original Directive</p>
-                <p className='text-sm text-foreground line-clamp-3 font-medium'>{instruction.originalText}</p>
+                <p className='text-sm text-foreground mb-2 line-clamp-3 font-medium'>{instruction.originalText}</p>
+                
+                {/* Reference original attachments if any */}
+                {(instruction.photos && instruction.photos.length > 0) || (instruction.files && instruction.files.length > 0) ? (
+                  <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
+                    {instruction.photos?.map((p, i) => (
+                      <div key={`ref-p-${i}`} className="relative w-8 h-8 rounded border overflow-hidden">
+                        <Image src={p.url} alt="Ref" fill className="object-cover" />
+                      </div>
+                    ))}
+                    {instruction.files?.map((f, i) => (
+                      <div key={`ref-f-${i}`} className="flex items-center gap-1 bg-muted px-1.5 py-0.5 rounded text-[8px] text-muted-foreground border">
+                        <FileText className="h-2 w-2" />
+                        <span className="truncate max-w-[60px]">{f.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
             </div>
 
             <div className='space-y-3'>
@@ -226,17 +242,19 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
                                 {(msg.photos?.length || 0) > 0 && (
                                   <div className="grid grid-cols-2 gap-1 mt-2">
                                     {msg.photos?.map((p, i) => (
-                                      <Image key={i} src={p.url} alt="Attached" width={100} height={100} className="rounded object-cover aspect-video border bg-background" />
+                                      <div key={i} className="relative aspect-video rounded overflow-hidden border bg-background min-w-[100px]">
+                                        <Image src={p.url} alt="Attached" fill className="object-cover" />
+                                      </div>
                                     ))}
                                   </div>
                                 )}
                                 {(msg.files?.length || 0) > 0 && (
                                   <div className="mt-2 space-y-1">
                                     {msg.files?.map((f, i) => (
-                                      <a key={i} href={f.url} download={f.name} className={cn("flex items-center gap-1.5 p-1.5 rounded text-[10px] border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-background border-border text-primary")}>
+                                      <div key={i} className={cn("flex items-center gap-1.5 p-1.5 rounded text-[10px] border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-background border-border text-primary")}>
                                         <FileText className="h-3 w-3" />
                                         <span className="truncate max-w-[120px]">{f.name}</span>
-                                      </a>
+                                      </div>
                                     ))}
                                   </div>
                                 )}
@@ -327,8 +345,8 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
                         </div>
                       )}
                       
-                      <Button type="submit" disabled={isPending} className="ml-auto">
-                          {isPending ? 'Sending...' : 'Post Update'}
+                      <Button type="submit" className="ml-auto">
+                          Post Update
                       </Button>
                     </div>
 

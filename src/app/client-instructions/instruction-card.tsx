@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ClientInstruction, Project, DistributionUser, ChatMessage } from '@/lib/types';
@@ -48,27 +47,24 @@ import { RespondToInstruction } from './respond-to-instruction';
 import { cn } from '@/lib/utils';
 
 function DeleteMessageButton({ instructionId, message }: { instructionId: string, message: ChatMessage }) {
-    const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const db = useFirestore();
 
     const handleDelete = () => {
-        startTransition(async () => {
-            const docRef = doc(db, 'client-instructions', instructionId);
-            const updates = {
-                messages: arrayRemove(message)
-            };
-            updateDoc(docRef, updates)
-              .then(() => toast({ title: 'Success', description: 'Message deleted.' }))
-              .catch((serverError) => {
-                const permissionError = new FirestorePermissionError({
-                  path: docRef.path,
-                  operation: 'update',
-                  requestResourceData: updates,
-                });
-                errorEmitter.emit('permission-error', permissionError);
-              });
-        });
+        const docRef = doc(db, 'client-instructions', instructionId);
+        const updates = {
+            messages: arrayRemove(message)
+        };
+        updateDoc(docRef, updates)
+          .then(() => toast({ title: 'Success', description: 'Message deleted.' }))
+          .catch(async (error) => {
+            const permissionError = new FirestorePermissionError({
+              path: docRef.path,
+              operation: 'update',
+              requestResourceData: updates,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+          });
     };
 
     return (
@@ -88,8 +84,8 @@ function DeleteMessageButton({ instructionId, message }: { instructionId: string
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} disabled={isPending} className="bg-destructive hover:bg-destructive/90">
-                        {isPending ? 'Deleting...' : 'Delete'}
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                        Delete
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -98,39 +94,36 @@ function DeleteMessageButton({ instructionId, message }: { instructionId: string
 }
 
 function AcceptInstructionButton({ instruction, currentUser }: { instruction: ClientInstruction, currentUser: DistributionUser }) {
-    const [isPending, startTransition] = useTransition();
     const { toast } = useToast();
     const db = useFirestore();
 
     const handleAccept = () => {
-        startTransition(async () => {
-            const docRef = doc(db, 'client-instructions', instruction.id);
-            const systemMessage: ChatMessage = {
-                id: `system-${Date.now()}`,
-                sender: 'System',
-                senderEmail: 'system@sitecommand.internal',
-                message: `Instruction ACCEPTED by ${currentUser.name}. Ready for implementation.`,
-                createdAt: new Date().toISOString()
-            };
+        const docRef = doc(db, 'client-instructions', instruction.id);
+        const systemMessage: ChatMessage = {
+            id: `system-${Date.now()}`,
+            sender: 'System',
+            senderEmail: 'system@sitecommand.internal',
+            message: `Instruction ACCEPTED by ${currentUser.name}. Ready for implementation.`,
+            createdAt: new Date().toISOString()
+        };
 
-            const updates = {
-                status: 'accepted',
-                messages: arrayUnion(systemMessage)
-            };
+        const updates = {
+            status: 'accepted',
+            messages: arrayUnion(systemMessage)
+        };
 
-            updateDoc(docRef, updates)
-              .then(() => {
-                  toast({ title: 'Instruction Accepted', description: 'The directive has been marked for implementation.' });
-              })
-              .catch((err) => {
-                  const permissionError = new FirestorePermissionError({
-                      path: docRef.path,
-                      operation: 'update',
-                      requestResourceData: updates
-                  });
-                  errorEmitter.emit('permission-error', permissionError);
+        updateDoc(docRef, updates)
+          .then(() => {
+              toast({ title: 'Instruction Accepted', description: 'The directive has been marked for implementation.' });
+          })
+          .catch((err) => {
+              const permissionError = new FirestorePermissionError({
+                  path: docRef.path,
+                  operation: 'update',
+                  requestResourceData: updates
               });
-        });
+              errorEmitter.emit('permission-error', permissionError);
+          });
     };
 
     return (
@@ -150,8 +143,8 @@ function AcceptInstructionButton({ instruction, currentUser }: { instruction: Cl
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleAccept} disabled={isPending} className="bg-green-600 hover:bg-green-700">
-                        {isPending ? 'Processing...' : 'Confirm Acceptance'}
+                    <AlertDialogAction onClick={handleAccept} className="bg-green-600 hover:bg-green-700">
+                        Confirm Acceptance
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
@@ -173,21 +166,18 @@ export function ClientInstructionCard({
   const project = projects.find((p) => p.id === instruction.projectId);
   const db = useFirestore();
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
 
   const handleDelete = () => {
-    startTransition(async () => {
-      const docRef = doc(db, 'client-instructions', instruction.id);
-      deleteDoc(docRef)
-        .then(() => toast({ title: 'Success', description: 'Client instruction deleted.' }))
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'delete',
-          });
-          errorEmitter.emit('permission-error', permissionError);
+    const docRef = doc(db, 'client-instructions', instruction.id);
+    deleteDoc(docRef)
+      .then(() => toast({ title: 'Success', description: 'Client instruction deleted.' }))
+      .catch((error) => {
+        const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
         });
-    });
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   const isAccepted = instruction.status === 'accepted';
@@ -229,8 +219,8 @@ export function ClientInstructionCard({
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
-                    {isPending ? 'Deleting...' : 'Delete'}
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                    Delete
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -322,7 +312,7 @@ export function ClientInstructionCard({
                                     {msg.photos && msg.photos.length > 0 && (
                                       <div className="grid grid-cols-2 gap-1 mt-2">
                                         {msg.photos.map((p, i) => (
-                                          <div key={i} className="relative aspect-video rounded overflow-hidden border bg-background">
+                                          <div key={i} className="relative aspect-video rounded overflow-hidden border bg-background min-w-[100px]">
                                             <Image src={p.url} alt="Update" fill className="object-cover" />
                                           </div>
                                         ))}
