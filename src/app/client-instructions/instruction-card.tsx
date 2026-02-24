@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition } from 'react';
 import type { ClientInstruction, Project, DistributionUser, ChatMessage, Photo } from '@/lib/types';
 import Image from 'next/image';
 import {
@@ -16,11 +16,23 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { CheckSquare, MessageCircle, Trash2, CheckCircle2, FileText, Download, Maximize2 } from 'lucide-react';
+import { 
+  CheckSquare, 
+  MessageCircle, 
+  Trash2, 
+  CheckCircle2, 
+  FileText, 
+  Download, 
+  Maximize2, 
+  ArrowRightLeft,
+  HelpCircle,
+  ClipboardList,
+  Loader2
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ClientDate } from '../../components/client-date';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc, doc, deleteDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
@@ -35,7 +47,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 import { RespondToInstruction } from './respond-to-instruction';
 import { cn } from '@/lib/utils';
 import { ImageLightbox } from '@/components/image-lightbox';
@@ -89,68 +112,141 @@ function DeleteMessageButton({ instructionId, message }: { instructionId: string
 }
 
 function AcceptInstructionButton({ instruction, currentUser }: { instruction: ClientInstruction, currentUser: DistributionUser }) {
+    const [open, setOpen] = useState(false);
+    const [createRfi, setCreateRfi] = useState(false);
+    const [createInternalInst, setCreateInternalInst] = useState(true);
     const { toast } = useToast();
     const db = useFirestore();
+    const [isPending, startTransition] = useTransition();
 
     const handleAccept = () => {
-        const docRef = doc(db, 'client-instructions', instruction.id);
-        const systemMessage: ChatMessage = {
-            id: `system-${Date.now()}`,
-            sender: 'System',
-            senderEmail: 'system@sitecommand.internal',
-            message: `Instruction ACCEPTED by ${currentUser.name}. Ready for implementation.`,
-            createdAt: new Date().toISOString()
-        };
+        startTransition(async () => {
+            try {
+                const docRef = doc(db, 'client-instructions', instruction.id);
+                
+                let triggeredLog = "Ready for implementation.";
+                if (createRfi && createInternalInst) triggeredLog = "Triggered RFI and Site Instruction.";
+                else if (createRfi) triggeredLog = "Triggered RFI for technical clarification.";
+                else if (createInternalInst) triggeredLog = "Triggered Internal Site Instruction.";
 
-        const updates = {
-            status: 'accepted',
-            messages: arrayUnion(systemMessage)
-        };
+                const systemMessage: ChatMessage = {
+                    id: `system-${Date.now()}`,
+                    sender: 'System',
+                    senderEmail: 'system@sitecommand.internal',
+                    message: `Instruction ACCEPTED by ${currentUser.name}. ${triggeredLog}`,
+                    createdAt: new Date().toISOString()
+                };
 
-        updateDoc(docRef, updates)
-          .then(() => {
-              toast({ title: 'Instruction Accepted', description: 'The directive has been marked for implementation.' });
-          })
-          .catch((err) => {
-              const permissionError = new FirestorePermissionError({
-                  path: docRef.path,
-                  operation: 'update',
-                  requestResourceData: updates
-              });
-              errorEmitter.emit('permission-error', permissionError);
-          });
+                const updates = {
+                    status: 'accepted',
+                    messages: arrayUnion(systemMessage)
+                };
+
+                // 1. Mark Client Instruction as Accepted
+                await updateDoc(docRef, updates);
+
+                // 2. Trigger RFI if requested
+                if (createRfi) {
+                    await addDoc(collection(db, 'information-requests'), {
+                        projectId: instruction.projectId,
+                        description: `FOLLOW-UP RFI: Technical clarification required for client directive regarding: ${instruction.summary}\n\nDirect Reference: ${instruction.originalText}`,
+                        assignedTo: [],
+                        raisedBy: currentUser.email.toLowerCase().trim(),
+                        createdAt: new Date().toISOString(),
+                        status: 'open',
+                        messages: [],
+                        photos: instruction.photos || []
+                    });
+                }
+
+                // 3. Trigger Site Instruction if requested
+                if (createInternalInst) {
+                    await addDoc(collection(db, 'instructions'), {
+                        projectId: instruction.projectId,
+                        originalText: instruction.originalText,
+                        summary: instruction.summary,
+                        actionItems: instruction.actionItems,
+                        createdAt: new Date().toISOString(),
+                        photos: instruction.photos || [],
+                        recipients: instruction.recipients || []
+                    });
+                }
+
+                toast({ title: 'Success', description: 'Directive accepted and actions triggered.' });
+                setOpen(false);
+            } catch (err) {
+                console.error(err);
+                toast({ title: 'Error', description: 'Failed to process acceptance.', variant: 'destructive' });
+            }
+        });
     };
 
     return (
-        <AlertDialog>
+        <Dialog open={open} onOpenChange={setOpen}>
             <TooltipProvider>
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <AlertDialogTrigger asChild>
+                        <DialogTrigger asChild>
                             <Button variant="outline" size="sm" className="gap-2 text-green-600 border-green-200 hover:bg-green-50">
                                 <CheckCircle2 className="h-4 w-4" />
                                 Accept
                             </Button>
-                        </AlertDialogTrigger>
+                        </DialogTrigger>
                     </TooltipTrigger>
                     <TooltipContent>Accept Instruction</TooltipContent>
                 </Tooltip>
             </TooltipProvider>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Accept this Instruction?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Confirming will mark this directive as "Accepted". This indicates that you have all required information and are ready to proceed with implementation.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleAccept} className="bg-green-600 hover:bg-green-700">
-                        Confirm Acceptance
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Accept Client Directive</DialogTitle>
+                    <DialogDescription>
+                        Confirming indicates you have all required information to proceed. You can trigger follow-up actions below.
+                    </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-4">
+                    <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/10">
+                        <Checkbox 
+                            id="create-internal" 
+                            checked={createInternalInst} 
+                            onCheckedChange={(c) => setCreateInternalInst(!!c)}
+                            className="mt-1"
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                            <Label htmlFor="create-internal" className="flex items-center gap-2 cursor-pointer font-bold">
+                                <ClipboardList className="h-4 w-4 text-primary" />
+                                Create Site Instruction
+                            </Label>
+                            <p className="text-xs text-muted-foreground">Distribute these action items to the site team for implementation.</p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 rounded-lg border bg-muted/10">
+                        <Checkbox 
+                            id="create-rfi" 
+                            checked={createRfi} 
+                            onCheckedChange={(c) => setCreateRfi(!!c)}
+                            className="mt-1"
+                        />
+                        <div className="grid gap-1.5 leading-none">
+                            <Label htmlFor="create-rfi" className="flex items-center gap-2 cursor-pointer font-bold">
+                                <HelpCircle className="h-4 w-4 text-accent" />
+                                Raise RFI
+                            </Label>
+                            <p className="text-xs text-muted-foreground">Request technical clarification or additional details from consultants.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <DialogFooter className="gap-2 sm:gap-0">
+                    <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button onClick={handleAccept} disabled={isPending} className="bg-green-600 hover:bg-green-700">
+                        {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
+                        Confirm & Trigger Actions
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
