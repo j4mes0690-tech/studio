@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useTransition } from 'react';
+import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,6 +24,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -34,9 +35,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw } from 'lucide-react';
-import type { Project, DistributionUser, Photo } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { PlusCircle, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck } from 'lucide-react';
+import type { Project, DistributionUser, Photo, SubContractor } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -62,9 +62,10 @@ type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
 type NewInstructionProps = {
   projects: Project[];
   distributionUsers: DistributionUser[];
+  subContractors: SubContractor[];
 };
 
-export function NewInstruction({ projects, distributionUsers }: NewInstructionProps) {
+export function NewInstruction({ projects, distributionUsers, subContractors }: NewInstructionProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -87,6 +88,18 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
       recipients: [],
     },
   });
+
+  const selectedProjectId = form.watch('projectId');
+
+  // Filter subcontractors based on project assignment
+  const availableSubContractors = useMemo(() => {
+    if (!selectedProjectId) return [];
+    const project = projects.find(p => p.id === selectedProjectId);
+    if (!project) return [];
+    
+    const assignedIds = project.assignedSubContractors || [];
+    return subContractors.filter(sub => assignedIds.includes(sub.id));
+  }, [selectedProjectId, projects, subContractors]);
 
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
@@ -124,7 +137,7 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
         const colRef = collection(db, 'instructions');
         addDoc(colRef, instructionData)
           .then(() => {
-            toast({ title: 'Success', description: 'Instruction recorded.' });
+            toast({ title: 'Success', description: 'Instruction recorded and distributed.' });
             setOpen(false);
           })
           .catch((error) => {
@@ -199,15 +212,15 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
           New Instruction
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Record New Instruction</DialogTitle>
+          <DialogTitle>Record New Site Instruction</DialogTitle>
           <DialogDescription>
-            Capture instructions on-site. AI will summarize tasks automatically.
+            Capture requirements on-site. AI will summarize tasks and notify relevant project members.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="projectId"
@@ -240,7 +253,7 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
                     />
                   </div>
                   <FormControl>
-                    <Textarea placeholder="Enter instructions here..." className="min-h-[150px]" {...field} />
+                    <Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -291,36 +304,85 @@ export function NewInstruction({ projects, distributionUsers }: NewInstructionPr
 
             <Separator />
             
-            <FormItem>
-              <FormLabel>Email Distribution</FormLabel>
-              <ScrollArea className="h-40 rounded-md border p-4">
-                {distributionUsers.map((u) => (
-                  <FormField
-                    key={u.id}
-                    control={form.control}
-                    name="recipients"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value?.includes(u.email)}
-                            onCheckedChange={(c) => {
-                              const curr = field.value || [];
-                              field.onChange(c ? [...curr, u.email] : curr.filter(v => v !== u.email));
-                            }}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal">{u.name} ({u.email})</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                ))}
-              </ScrollArea>
-            </FormItem>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormItem>
+                    <div className='flex items-center gap-2 mb-2'>
+                        <ShieldCheck className='h-4 w-4 text-primary' />
+                        <FormLabel>Internal Staff</FormLabel>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                        {distributionUsers.map((u) => (
+                        <FormField
+                            key={u.id}
+                            control={form.control}
+                            name="recipients"
+                            render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                <FormControl>
+                                <Checkbox
+                                    checked={field.value?.includes(u.email)}
+                                    onCheckedChange={(c) => {
+                                    const curr = field.value || [];
+                                    field.onChange(c ? [...curr, u.email] : curr.filter(v => v !== u.email));
+                                    }}
+                                />
+                                </FormControl>
+                                <div className="flex flex-col leading-none">
+                                    <FormLabel className="text-xs font-semibold">{u.name}</FormLabel>
+                                    <span className="text-[10px] text-muted-foreground">{u.email}</span>
+                                </div>
+                            </FormItem>
+                            )}
+                        />
+                        ))}
+                    </ScrollArea>
+                </FormItem>
+
+                <FormItem>
+                    <div className='flex items-center gap-2 mb-2'>
+                        <HardHat className='h-4 w-4 text-accent' />
+                        <FormLabel>Assigned Sub-contractors</FormLabel>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                        {availableSubContractors.map((sub) => (
+                        <FormField
+                            key={sub.id}
+                            control={form.control}
+                            name="recipients"
+                            render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                <FormControl>
+                                <Checkbox
+                                    checked={field.value?.includes(sub.email)}
+                                    onCheckedChange={(c) => {
+                                    const curr = field.value || [];
+                                    field.onChange(c ? [...curr, sub.email] : curr.filter(v => v !== sub.email));
+                                    }}
+                                />
+                                </FormControl>
+                                <div className="flex flex-col leading-none">
+                                    <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
+                                    <span className="text-[10px] text-muted-foreground">{sub.email}</span>
+                                </div>
+                            </FormItem>
+                            )}
+                        />
+                        ))}
+                        {!selectedProjectId && (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to view assigned sub-contractors.</p>
+                        )}
+                        {selectedProjectId && availableSubContractors.length === 0 && (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">No sub-contractors are assigned to this project in settings.</p>
+                        )}
+                    </ScrollArea>
+                </FormItem>
+            </div>
 
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
-              <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : 'Save Instruction'}</Button>
+              <Button type="submit" disabled={isPending} className="w-full">
+                {isPending ? 'Processing & Distributing...' : 'Save & Distribute Instruction'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

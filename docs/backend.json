@@ -37,6 +37,11 @@
           "items": { "type": "string" },
           "description": "Emails of users allowed to access this project."
         },
+        "assignedSubContractors": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "IDs of sub-contractors assigned to this project."
+        },
         "areas": {
           "type": "array",
           "items": { "$ref": "#/entities/Area" }

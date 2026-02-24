@@ -8,7 +8,7 @@ import { InstructionFilters } from './instruction-filters';
 import { ExportButton } from './export-button';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, Suspense } from 'react';
-import type { Instruction, Project, DistributionUser } from '@/lib/types';
+import type { Instruction, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
@@ -26,12 +26,15 @@ function InstructionsContent() {
   }, [db, sessionUser?.email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
-  // Fetch data
+  // Fetch static lookups
   const usersQuery = useMemo(() => collection(db, 'users'), [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
   const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
+
+  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
   // Visibility logic
   const allowedProjects = useMemo(() => {
@@ -66,7 +69,7 @@ function InstructionsContent() {
     return allInstructions.filter(inst => allowedProjectIds.includes(inst.projectId));
   }, [allInstructions, allowedProjectIds]);
 
-  const isLoading = usersLoading || projectsLoading || instructionsLoading || profileLoading;
+  const isLoading = usersLoading || projectsLoading || instructionsLoading || profileLoading || subsLoading;
 
   if (isLoading) {
     return (
@@ -83,7 +86,11 @@ function InstructionsContent() {
             Instruction Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewInstruction projects={allowedProjects} distributionUsers={distributionUsers || []} />
+            <NewInstruction 
+              projects={allowedProjects} 
+              distributionUsers={distributionUsers || []} 
+              subContractors={subContractors || []}
+            />
           </div>
         </div>
         <InstructionFilters projects={allowedProjects} />

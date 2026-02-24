@@ -9,6 +9,7 @@ export type Project = {
   name:string;
   areas?: Area[];
   assignedUsers?: string[];
+  assignedSubContractors?: string[];
 };
 
 export type Photo = {

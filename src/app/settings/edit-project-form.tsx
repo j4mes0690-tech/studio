@@ -25,11 +25,11 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, X, UserPlus, Shield } from 'lucide-react';
-import type { Project, Area, DistributionUser } from '@/lib/types';
+import { Pencil, X, UserPlus, Shield, HardHat } from 'lucide-react';
+import type { Project, Area, DistributionUser, SubContractor } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useFirestore, useCollection } from '@/firebase';
+import { doc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -41,6 +41,7 @@ const EditProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required.'),
   areas: z.string().optional(),
   assignedUsers: z.array(z.string()).optional(),
+  assignedSubContractors: z.array(z.string()).optional(),
 });
 
 type EditProjectFormValues = z.infer<typeof EditProjectSchema>;
@@ -58,6 +59,10 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
   const [areas, setAreas] = useState<Area[]>(project.areas || []);
   const [currentArea, setCurrentArea] = useState('');
 
+  // Fetch all subcontractors for assignment
+  const subsQuery = collection(db, 'sub-contractors');
+  const { data: allSubContractors } = useCollection<SubContractor>(subsQuery);
+
   const form = useForm<EditProjectFormValues>({
     resolver: zodResolver(EditProjectSchema),
     defaultValues: {
@@ -65,6 +70,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
       name: project.name,
       areas: JSON.stringify(project.areas || []),
       assignedUsers: project.assignedUsers || [],
+      assignedSubContractors: project.assignedSubContractors || [],
     },
   });
   
@@ -76,6 +82,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
         name: project.name,
         areas: JSON.stringify(initialAreas),
         assignedUsers: project.assignedUsers || [],
+        assignedSubContractors: project.assignedSubContractors || [],
       });
       setAreas(initialAreas);
       setCurrentArea('');
@@ -108,6 +115,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
         name: values.name,
         areas: JSON.parse(values.areas || '[]'),
         assignedUsers: values.assignedUsers || [],
+        assignedSubContractors: values.assignedSubContractors || [],
       };
 
       updateDoc(docRef, updates)
@@ -161,9 +169,10 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
             />
 
             <Tabs defaultValue="areas" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="areas">Site Areas</TabsTrigger>
                     <TabsTrigger value="access">User Access</TabsTrigger>
+                    <TabsTrigger value="subs">Sub-contractors</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="areas" className="space-y-4 py-4">
@@ -201,7 +210,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                         <Shield className="h-5 w-5 text-primary mt-0.5" />
                         <div>
                             <p className="text-xs font-semibold text-primary uppercase">Project Visibility</p>
-                            <p className="text-xs text-muted-foreground">Only users selected below can see this project and its related records (instructions, snags, etc). Admins with project management permissions see all projects.</p>
+                            <p className="text-xs text-muted-foreground">Only users selected below can see this project and its related records. Admins with project management permissions see all projects.</p>
                         </div>
                     </div>
 
@@ -239,6 +248,56 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                                     }}
                                 />
                             ))}
+                        </div>
+                    </ScrollArea>
+                </TabsContent>
+
+                <TabsContent value="subs" className="space-y-4 py-4">
+                    <div className="bg-accent/5 p-3 rounded-lg border border-accent/10 mb-4 flex items-start gap-3">
+                        <HardHat className="h-5 w-5 text-accent mt-0.5" />
+                        <div>
+                            <p className="text-xs font-semibold text-accent uppercase">Site Distribution List</p>
+                            <p className="text-xs text-muted-foreground">Assign sub-contractors to this project to allow their selection in Site Instructions and Quality Control modules.</p>
+                        </div>
+                    </div>
+
+                    <ScrollArea className="h-[200px] rounded-md border p-4 bg-muted/10">
+                        <div className="space-y-3">
+                            {allSubContractors?.map((sub) => (
+                                <FormField
+                                    key={sub.id}
+                                    control={form.control}
+                                    name="assignedSubContractors"
+                                    render={({ field }) => {
+                                        return (
+                                            <FormItem
+                                                key={sub.id}
+                                                className="flex flex-row items-center space-x-3 space-y-0 p-2 rounded-md hover:bg-background transition-colors"
+                                            >
+                                                <FormControl>
+                                                    <Checkbox
+                                                        checked={field.value?.includes(sub.id)}
+                                                        onCheckedChange={(checked) => {
+                                                            return checked
+                                                                ? field.onChange([...(field.value || []), sub.id])
+                                                                : field.onChange((field.value || []).filter((v) => v !== sub.id));
+                                                        }}
+                                                    />
+                                                </FormControl>
+                                                <div className="flex-1 overflow-hidden">
+                                                    <FormLabel className="text-sm font-medium block truncate">
+                                                        {sub.name}
+                                                    </FormLabel>
+                                                    <p className="text-[10px] text-muted-foreground truncate">{sub.email}</p>
+                                                </div>
+                                            </FormItem>
+                                        );
+                                    }}
+                                />
+                            ))}
+                            {allSubContractors?.length === 0 && (
+                                <p className="text-center py-8 text-xs text-muted-foreground">No sub-contractors registered in the system yet.</p>
+                            )}
                         </div>
                     </ScrollArea>
                 </TabsContent>
