@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
@@ -31,14 +30,13 @@ import {
   Loader2,
   Plus,
   User,
-  HardHat
+  HardHat,
+  X
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ClientDate } from '../../components/client-date';
 import { useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, doc, deleteDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { collection, addDoc, doc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -76,15 +74,12 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
     const db = useFirestore();
     const [isPending, startTransition] = useTransition();
 
-    // Action lists
     const [rfis, setRfis] = useState<{ description: string, assignedTo: string[] }[]>([]);
     const [siteInsts, setSiteInsts] = useState<{ description: string, subcontractorId: string }[]>([]);
 
-    // Sub-contractor lookup
     const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
     const { data: allSubs } = useCollection<SubContractor>(subsQuery);
     
-    // Internal user lookup
     const usersQuery = useMemo(() => collection(db, 'users'), [db]);
     const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
@@ -108,13 +103,11 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     createdAt: new Date().toISOString()
                 };
 
-                // 1. Update Client Instruction
                 await updateDoc(docRef, {
                     status: 'accepted',
                     messages: arrayUnion(systemMessage)
                 });
 
-                // 2. Create RFIs
                 for (const rfi of rfis) {
                     await addDoc(collection(db, 'information-requests'), {
                         projectId: instruction.projectId,
@@ -129,7 +122,6 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     });
                 }
 
-                // 3. Create Site Instructions
                 for (const si of siteInsts) {
                     const sub = allSubs?.find(s => s.id === si.subcontractorId);
                     await addDoc(collection(db, 'instructions'), {
@@ -171,7 +163,6 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                 </DialogHeader>
                 
                 <ScrollArea className="flex-1 p-6 space-y-8">
-                    {/* RFI Section */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between border-b pb-2">
                             <div className="flex items-center gap-2">
@@ -189,7 +180,12 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                             <div className="space-y-4">
                                 {rfis.map((rfi, idx) => (
                                     <div key={idx} className="p-3 border rounded-lg bg-muted/10 space-y-3 relative group">
-                                        <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setRfis(rfis.filter((_, i) => i !== idx))}>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" 
+                                            onClick={() => setRfis(rfis.filter((_, i) => i !== idx))}
+                                        >
                                             <X className="h-3.5 w-3.5" />
                                         </Button>
                                         <div className="space-y-1">
@@ -219,7 +215,6 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                         )}
                     </div>
 
-                    {/* Site Instruction Section */}
                     <div className="space-y-4">
                         <div className="flex items-center justify-between border-b pb-2">
                             <div className="flex items-center gap-2">
@@ -237,7 +232,12 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                             <div className="space-y-4">
                                 {siteInsts.map((si, idx) => (
                                     <div key={idx} className="p-3 border rounded-lg bg-muted/10 space-y-3 relative group">
-                                        <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setSiteInsts(siteInsts.filter((_, i) => i !== idx))}>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" 
+                                            onClick={() => setSiteInsts(siteInsts.filter((_, i) => i !== idx))}
+                                        >
                                             <X className="h-3.5 w-3.5" />
                                         </Button>
                                         <div className="space-y-1">
@@ -364,7 +364,11 @@ export function ClientInstructionCard({ instruction, projects, currentUser }: { 
                           <div className={cn("relative px-4 py-2 rounded-2xl max-w-[90%] shadow-sm", isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none border")}>
                               {!isMe && <p className="text-[10px] font-bold mb-1 text-primary">{msg.sender}</p>}
                               <p className="text-sm leading-snug whitespace-pre-wrap">{msg.message}</p>
-                              {msg.photos?.map((p, i) => <div key={i} className="relative aspect-video rounded-lg overflow-hidden border bg-background mt-2 cursor-pointer" onClick={() => setViewingPhoto(p)}><Image src={p.url} alt="U" fill className="object-cover" /></div>)}
+                              {msg.photos?.map((p, i) => (
+                                <div key={i} className="relative aspect-video rounded-lg overflow-hidden border bg-background mt-2 cursor-pointer" onClick={() => setViewingPhoto(p)}>
+                                  <Image src={p.url} alt="Update photo" fill className="object-cover" />
+                                </div>
+                              ))}
                               <div className={cn("text-[9px] mt-2", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}><ClientDate date={msg.createdAt} /></div>
                           </div>
                       </div>
