@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -35,7 +36,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, Trash2, Plus, AlertTriangle, UserPlus, User, RefreshCw } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor } from '@/lib/types';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -44,6 +45,7 @@ import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,24 +71,21 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   
-  // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const pendingItemFileInputRef = useRef<HTMLInputElement>(null);
 
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [availableAreas, setAreas] = useState<Area[]>([]);
   
-  // Item States
   const [items, setItems] = useState<Omit<SnaggingListItem, 'id'>[]>([]);
   const [newItemText, setNewItemText] = useState('');
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   
-  // Camera States
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
   const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); 
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -155,29 +154,17 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 800; 
       canvas.height = 800 / aspectRatio;
-      
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
-      // Draw Timestamp Overlay
       const now = new Date();
-      const dateStr = now.toLocaleDateString();
-      const timeStr = now.toLocaleTimeString();
-      const fullStr = `${dateStr} ${timeStr}`;
-      
+      const fullStr = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
       context.font = 'bold 24px sans-serif';
       context.fillStyle = 'white';
       context.shadowColor = 'black';
       context.shadowBlur = 6;
-      context.lineWidth = 2;
+      context.fillText(fullStr, canvas.width - context.measureText(fullStr).width - 20, canvas.height - 20);
       
-      const metrics = context.measureText(fullStr);
-      const textWidth = metrics.width;
-      const padding = 20;
-      
-      context.fillText(fullStr, canvas.width - textWidth - padding, canvas.height - padding);
-      
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      return { url: dataUrl, takenAt: now.toISOString() };
+      return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: now.toISOString() };
     }
     return null;
   };
@@ -227,22 +214,6 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
     }
   };
 
-  const handleRemoveItem = (index: number) => {
-    setItems(items.filter((_, i) => i !== index));
-  };
-
-  const removeItemPhoto = (itemIdx: number, photoIdx: number) => {
-    setItems(prev => prev.map((item, i) => {
-      if (i === itemIdx) {
-        return {
-          ...item,
-          photos: (item.photos || []).filter((_, pIdx) => pIdx !== photoIdx)
-        };
-      }
-      return item;
-    }));
-  };
-
   const onSubmit = (values: NewSnaggingListFormValues) => {
     if (items.length === 0) {
       toast({ title: 'Item Required', description: 'Please add at least one snagging item to the list.', variant: 'destructive' });
@@ -250,30 +221,58 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
     }
 
     startTransition(async () => {
-      const data = {
-        ...values,
-        createdAt: new Date().toISOString(),
-        photos: photos,
-        items: items.map((item, idx) => ({
-          ...item,
-          id: `item-${Date.now()}-${idx}`
-        })),
-      };
-      
-      const colRef = collection(db, 'snagging-items');
-      addDoc(colRef, data)
-        .then(() => {
-          toast({ title: 'Success', description: 'Snagging list recorded.' });
-          setOpen(false);
-        })
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: colRef.path,
-            operation: 'create',
-            requestResourceData: data,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+      try {
+        toast({ title: 'Uploading', description: 'Uploading photos to cloud storage...' });
+
+        // 1. Upload General List Photos
+        const uploadedGeneralPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `snagging/general/${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
+
+        // 2. Upload Individual Item Photos
+        const uploadedItems = await Promise.all(
+          items.map(async (item, itemIdx) => {
+            const upPhotos = await Promise.all(
+              (item.photos || []).map(async (p, pIdx) => {
+                if (p.url.startsWith('data:')) {
+                  const blob = await dataUriToBlob(p.url);
+                  const url = await uploadFile(storage, `snagging/items/${Date.now()}-${itemIdx}-${pIdx}.jpg`, blob);
+                  return { ...p, url };
+                }
+                return p;
+              })
+            );
+            return {
+              ...item,
+              id: `item-${Date.now()}-${itemIdx}`,
+              photos: upPhotos
+            };
+          })
+        );
+
+        const data = {
+          ...values,
+          createdAt: new Date().toISOString(),
+          photos: uploadedGeneralPhotos,
+          items: uploadedItems,
+        };
+        
+        const colRef = collection(db, 'snagging-items');
+        await addDoc(colRef, data);
+        toast({ title: 'Success', description: 'Snagging list recorded.' });
+        setOpen(false);
+
+      } catch (err: any) {
+        console.error(err);
+        toast({ title: 'Upload Error', description: err.message || 'Failed to upload photos.', variant: 'destructive' });
+      }
     });
   };
 
@@ -365,11 +364,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
-                    <VoiceInput 
-                        onResult={(text) => {
-                            setNewItemText(text);
-                        }} 
-                    />
+                    <VoiceInput onResult={(text) => setNewItemText(text)} />
                 </div>
                 
                 <div className="space-y-3">
@@ -396,22 +391,10 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                           </SelectContent>
                         </Select>
 
-                        <Button 
-                          type="button" 
-                          variant={isItemCameraOpen ? "secondary" : "outline"}
-                          size="icon" 
-                          onClick={() => {
-                            setIsItemCameraOpen(!isItemCameraOpen);
-                            setIsCameraOpen(false);
-                            setItemPhotoTargetIdx(null);
-                          }}
-                          title="Take photo for this item"
-                        >
+                        <Button type="button" variant={isItemCameraOpen ? "secondary" : "outline"} size="icon" onClick={() => setIsItemCameraOpen(!isItemCameraOpen)} title="Take photo for this item">
                           <Camera className="h-4 w-4" />
                         </Button>
-                        <Button type="button" size="icon" onClick={handleAddItem} title="Add item to list">
-                          <Plus className="h-4 w-4" />
-                        </Button>
+                        <Button type="button" size="icon" onClick={handleAddItem} title="Add item to list"><Plus className="h-4 w-4" /></Button>
                       </div>
                   </div>
 
@@ -427,20 +410,10 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                       <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
                       <div className="flex gap-2">
                         <Button type="button" size="sm" onClick={takeItemPhoto}>Capture Photo</Button>
-                        <Button type="button" variant="outline" size="sm" onClick={toggleCamera} title="Switch Camera">
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
+                        <Button type="button" variant="outline" size="sm" onClick={toggleCamera} title="Switch Camera"><RefreshCw className="h-4 w-4" /></Button>
                         <Button type="button" variant="ghost" size="sm" onClick={() => { setIsItemCameraOpen(false); setItemPhotoTargetIdx(null); }}>Cancel</Button>
                       </div>
                     </div>
-                  )}
-
-                  {pendingSubId && (
-                    <Badge variant="secondary" className="gap-1">
-                      <User className="h-3 w-3" />
-                      Assigned: {subContractors.find(s => s.id === pendingSubId)?.name}
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => setPendingSubId(undefined)} />
-                    </Badge>
                   )}
 
                   {pendingItemPhotos.length > 0 && (
@@ -459,71 +432,28 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
 
                 <div className="space-y-3 border rounded-md p-3 bg-muted/20">
                     {items.length === 0 ? (
-                        <p className="text-sm text-center text-muted-foreground py-4">No items added yet. Enter a description above.</p>
+                        <p className="text-sm text-center text-muted-foreground py-4">No items added yet.</p>
                     ) : (
-                        items.map((item, idx) => {
-                            const sub = subContractors.find(s => s.id === item.subContractorId);
-                            return (
-                                <div key={idx} className="space-y-2 bg-background p-3 rounded-md border shadow-sm">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-sm font-medium">{item.description}</span>
-                                            {sub && <span className="text-[10px] text-muted-foreground flex items-center gap-1"><User className="h-2.5 w-2.5" /> {sub.name}</span>}
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            <Button 
-                                              type="button" 
-                                              variant="ghost" 
-                                              size="icon" 
-                                              className="h-8 w-8 text-primary" 
-                                              onClick={() => {
-                                                setItemPhotoTargetIdx(idx);
-                                                setIsCameraOpen(false);
-                                                setIsItemCameraOpen(false);
-                                              }}
-                                            >
-                                                <Camera className="h-4 w-4" />
-                                            </Button>
-                                            
-                                            <AlertDialog>
-                                              <AlertDialogTrigger asChild>
-                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                              </AlertDialogTrigger>
-                                              <AlertDialogContent>
-                                                <AlertDialogHeader>
-                                                  <AlertDialogTitle>Remove Item?</AlertDialogTitle>
-                                                  <AlertDialogDescription>
-                                                    Are you sure you want to remove "{item.description}" from this list?
-                                                  </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                  <AlertDialogAction onClick={() => handleRemoveItem(idx)} className="bg-destructive hover:bg-destructive/90">
-                                                    Remove
-                                                  </AlertDialogAction>
-                                                </AlertDialogFooter>
-                                              </AlertDialogContent>
-                                            </AlertDialog>
-                                        </div>
+                        items.map((item, idx) => (
+                            <div key={idx} className="space-y-2 bg-background p-3 rounded-md border shadow-sm">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="text-sm font-medium">{item.description}</span>
+                                        {item.subContractorId && <span className="text-[10px] text-muted-foreground">Assigned: {subContractors.find(s => s.id === item.subContractorId)?.name}</span>}
                                     </div>
-
-                                    {item.photos && item.photos.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 pt-1">
-                                            {item.photos.map((p, pIdx) => (
-                                                <div key={pIdx} className="relative w-12 h-12">
-                                                    <Image src={p.url} alt="Item photo" fill className="rounded object-cover border" />
-                                                    <button type="button" className="absolute -top-1 -right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => removeItemPhoto(idx, pIdx)}>
-                                                        <X className="h-2 w-2" />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => setItems(items.filter((_, i) => i !== idx))}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                                 </div>
-                            );
-                        })
+                                {item.photos && item.photos.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {item.photos.map((p, pIdx) => (
+                                            <div key={pIdx} className="relative w-12 h-12">
+                                                <Image src={p.url} alt="Item photo" fill className="rounded object-cover border" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))
                     )}
                 </div>
             </div>
@@ -531,7 +461,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
             <Separator />
 
             <div className="space-y-2">
-              <FormLabel>General Reference Photos (Overall Area)</FormLabel>
+              <FormLabel>General Reference Photos</FormLabel>
               <div className="flex flex-wrap gap-2">
                 {photos.map((p, i) => (
                   <div key={i} className="relative w-20 h-20">
@@ -539,67 +469,27 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                     <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
                   </div>
                 ))}
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="icon" 
-                  className="w-20 h-20" 
-                  onClick={() => {
-                    setIsCameraOpen(true);
-                    setIsItemCameraOpen(false);
-                    setItemPhotoTargetIdx(null);
-                  }}
-                >
-                  <Camera className="h-6 w-6" />
-                </Button>
+                <Button type="button" variant="outline" size="icon" className="w-20 h-20" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6" /></Button>
               </div>
 
               {isCameraOpen && (
                 <div className="space-y-2 border rounded-md p-2 bg-muted/30 mt-2">
                   <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
-                    <Button type="button" onClick={takeGeneralPhoto}>Capture General Photo</Button>
-                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera">
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
+                    <Button type="button" onClick={takeGeneralPhoto}>Capture Photo</Button>
+                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera"><RefreshCw className="h-4 w-4" /></Button>
                     <Button type="button" variant="ghost" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
-                    <Button type="button" variant="outline" className="ml-auto" onClick={() => fileInputRef.current?.click()}>
-                      <Upload className="mr-2 h-4 w-4" /> Upload
-                    </Button>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Hidden file inputs */}
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-              const files = e.target.files;
-              if (!files) return;
-              Array.from(files).forEach(f => {
-                const reader = new FileReader();
-                reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                reader.readAsDataURL(f);
-              });
-            }} />
-            <input type="file" ref={pendingItemFileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-              const files = e.target.files;
-              if (!files) return;
-              Array.from(files).forEach(f => {
-                const reader = new FileReader();
-                reader.onload = (re) => {
-                    const newPhoto = { url: re.target?.result as string, takenAt: new Date().toISOString() };
-                    setPendingItemPhotos(prev => [...prev, newPhoto]);
-                };
-                reader.readAsDataURL(f);
-              });
-            }} />
+            <canvas ref={canvasRef} className="hidden" />
           </form>
         </Form>
 
-        <canvas ref={canvasRef} className="hidden" />
-
         <DialogFooter className="mt-4 pt-4 border-t">
-          <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>{isPending ? 'Saving...' : 'Save Snagging List'}</Button>
+          <Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>{isPending ? 'Processing & Uploading...' : 'Save Snagging List'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
