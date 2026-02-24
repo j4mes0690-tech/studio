@@ -49,32 +49,31 @@ function InstructionsContent() {
   // Create a stable key for the query dependency to prevent flickering/resubscribing
   const allowedProjectIdsKey = useMemo(() => allowedProjectIds.sort().join(','), [allowedProjectIds]);
 
+  // STABLE QUERY: Only depends on db and the URL-based projectId filter
+  // We remove reactive project assignment keys from the query itself to prevent listener resets
   const instructionsQuery = useMemo(() => {
-    if (!db || projectsLoading) return null;
+    if (!db) return null;
     const base = collection(db, 'client-instructions');
     
     if (projectId) {
-      // If filtering by a specific project, ensure it's allowed
-      if (!allowedProjectIdsKey.split(',').includes(projectId)) return null;
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
     
-    // Default: fetch all (we filter client-side for precision)
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIdsKey, projectsLoading]);
+  }, [db, projectId]);
 
   const { data: allInstructions, isLoading: instructionsLoading } = useCollection<ClientInstruction>(instructionsQuery);
 
   const filteredInstructions = useMemo(() => {
     if (!allInstructions) return [];
-    // Strict client-side filter to ensure no data leaks during query transitions
+    // Strict client-side filter ensures no data leaks even if the query instance is broad
     const authorizedIds = allowedProjectIdsKey.split(',').filter(Boolean);
     return allInstructions.filter(inst => authorizedIds.includes(inst.projectId));
   }, [allInstructions, allowedProjectIdsKey]);
 
   const isLoading = usersLoading || projectsLoading || instructionsLoading || profileLoading;
 
-  if (isLoading) {
+  if (isLoading && !allInstructions) {
     return (
         <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -84,7 +83,7 @@ function InstructionsContent() {
 
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
 
-  if (!profile) {
+  if (!profile && !profileLoading) {
     return (
         <div className="text-center py-12 space-y-4">
             <p className="text-lg font-semibold">Profile Required</p>
@@ -119,7 +118,7 @@ function InstructionsContent() {
                 key={instruction.id}
                 instruction={instruction}
                 projects={allowedProjects}
-                currentUser={profile}
+                currentUser={profile!}
               />
             ))
           ) : (

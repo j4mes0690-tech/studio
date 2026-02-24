@@ -55,13 +55,11 @@ function InfoRequestsContent() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !currentUser) return [];
     
-    // Only Administrative Visibility (hasFullVisibility) bypasses assignments.
     const permissions = currentUser.permissions;
     if (permissions?.hasFullVisibility) {
         return allProjects;
     }
 
-    // Standard users only see projects where their normalized email is in the assignedUsers list
     const userEmail = currentUser.email.toLowerCase().trim();
     return allProjects.filter(p => {
         const assignments = p.assignedUsers || [];
@@ -72,34 +70,22 @@ function InfoRequestsContent() {
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
   const allowedProjectIdsKey = useMemo(() => allowedProjectIds.sort().join(','), [allowedProjectIds]);
 
-  // 5. Fetch Information Requests with access gatekeeping
+  // 5. STABLE QUERY: Only depends on db and URL filter
+  // We decouple from reactive assignments to prevent listener resets during background updates
   const itemsQuery = useMemo(() => {
-    if (!db || !currentUser || projectsLoading) return null;
-    
-    const isGlobalVisibility = !!currentUser.permissions?.hasFullVisibility;
-    
-    // Optimization: If not an admin and not assigned to any projects, don't even query
-    if (!isGlobalVisibility && allowedProjectIdsKey === '') {
-        return null;
-    }
-
+    if (!db) return null;
     const base = collection(db, 'information-requests');
     
-    // If a specific project is selected, verify authorization BEFORE querying
     if (projectId) {
-      if (!allowedProjectIdsKey.split(',').includes(projectId)) {
-          return null; 
-      }
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
 
-    // Default: fetch all
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIdsKey, currentUser, projectsLoading]);
+  }, [db, projectId]);
 
   const { data: allItems, isLoading: itemsLoading } = useCollection<InformationRequest>(itemsQuery);
 
-  // 6. FINAL SECURITY FILTER
+  // 6. FINAL SECURITY FILTER (Client-side)
   const filteredItems = useMemo(() => {
     if (!allItems || !currentUser) return [];
     const authorizedIds = allowedProjectIdsKey.split(',').filter(Boolean);
@@ -122,7 +108,7 @@ function InfoRequestsContent() {
 
   const loading = usersLoading || projectsLoading || itemsLoading || profileLoading;
 
-  if (loading) {
+  if (loading && !allItems) {
     return (
         <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -130,18 +116,16 @@ function InfoRequestsContent() {
     );
   }
 
-  // Handle unauthorized or missing profiles
-  if (!currentUser) {
+  if (!currentUser && !profileLoading) {
     return (
         <div className="text-center py-12 space-y-4">
             <p className="text-lg font-semibold">Profile Required</p>
             <p>Access to documentation requires an internal profile for: <strong>{firebaseUser?.email}</strong></p>
-            <p className="text-sm text-muted-foreground">Please request project assignment from a system administrator.</p>
         </div>
     );
   }
 
-  const hasFullVisibility = !!currentUser.permissions?.hasFullVisibility;
+  const hasFullVisibility = !!currentUser?.permissions?.hasFullVisibility;
 
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
@@ -176,11 +160,13 @@ function InfoRequestsContent() {
               </Tooltip>
             </TooltipProvider>
             
-            <NewInformationRequest 
-              projects={allowedProjects} 
-              distributionUsers={distributionUsers || []} 
-              currentUser={currentUser}
-            />
+            {currentUser && (
+              <NewInformationRequest 
+                projects={allowedProjects} 
+                distributionUsers={distributionUsers || []} 
+                currentUser={currentUser}
+              />
+            )}
           </div>
         </div>
         
@@ -192,7 +178,7 @@ function InfoRequestsContent() {
               items={sortedItems}
               projects={allowedProjects}
               distributionUsers={distributionUsers || []}
-              currentUser={currentUser}
+              currentUser={currentUser!}
             />
           ) : (
             <div className="grid gap-4 md:gap-6">
@@ -202,7 +188,7 @@ function InfoRequestsContent() {
                   item={item}
                   projects={allowedProjects}
                   distributionUsers={distributionUsers || []}
-                  currentUser={currentUser}
+                  currentUser={currentUser!}
                 />
               ))}
             </div>

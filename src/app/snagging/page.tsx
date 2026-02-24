@@ -56,15 +56,15 @@ function SnaggingContent() {
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
   const allowedProjectIdsKey = useMemo(() => allowedProjectIds.sort().join(','), [allowedProjectIds]);
 
+  // STABLE QUERY
   const snaggingQuery = useMemo(() => {
-    if (!db || projectsLoading) return null;
+    if (!db) return null;
     const base = collection(db, 'snagging-items');
     if (projectId) {
-      if (!allowedProjectIdsKey.split(',').includes(projectId)) return null;
       return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
     }
     return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIdsKey, projectsLoading]);
+  }, [db, projectId]);
 
   const { data: allItems, isLoading: snaggingLoading } = useCollection<SnaggingItem>(snaggingQuery);
 
@@ -76,7 +76,7 @@ function SnaggingContent() {
 
   const isLoading = projectsLoading || snaggingLoading || subsLoading || profileLoading;
 
-  if (isLoading) {
+  if (isLoading && !allItems) {
     return (
         <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
