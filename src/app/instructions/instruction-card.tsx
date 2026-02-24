@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -16,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { CheckSquare, MessageCircle, Camera, Users, Trash2, Maximize2 } from 'lucide-react';
+import { CheckSquare, MessageCircle, Camera, Users, Trash2, Maximize2, Link as LinkIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -81,16 +82,24 @@ export function InstructionCard({
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
-            <div>
-              <CardTitle>{project?.name || 'Unknown Project'}</CardTitle>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">{project?.name || 'Unknown Project'}</CardTitle>
+                <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
+              </div>
               <CardDescription className="flex items-center gap-2 pt-1">
                 <span className="text-xs text-muted-foreground/80">
                   <ClientDate date={instruction.createdAt} />
                 </span>
+                {instruction.clientInstructionId && (
+                    <Badge variant="secondary" className="text-[9px] gap-1 h-4 px-1.5 font-normal">
+                        <LinkIcon className="h-2 w-2" /> Linked to Client Directive
+                    </Badge>
+                )}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">Instruction</Badge>
+              <Badge variant="secondary">Site Instruction</Badge>
               
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -103,7 +112,7 @@ export function InstructionCard({
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Instruction?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This will permanently remove this instruction record. This action cannot be undone.
+                      This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -180,8 +189,8 @@ export function InstructionCard({
                                   className="rounded-md border object-cover aspect-video"
                                   data-ai-hint="construction site"
                                 />
-                                <div className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Maximize2 className="h-4 w-4" />
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Maximize2 className="h-6 w-6 text-white" />
                                 </div>
                               </div>
                               <p className="text-xs text-muted-foreground text-center">
@@ -207,7 +216,7 @@ export function InstructionCard({
               <AccordionTrigger className="text-sm font-semibold">
                 <div className="flex items-center gap-2">
                   <MessageCircle className="h-4 w-4" />
-                  <span>Original Instruction</span>
+                  <span>Original Context</span>
                 </div>
               </AccordionTrigger>
               <AccordionContent>

@@ -48,6 +48,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { generateReference } from '@/lib/utils';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -91,12 +92,10 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
 
   const selectedProjectId = form.watch('projectId');
 
-  // Filter subcontractors based on project assignment
   const availableSubContractors = useMemo(() => {
     if (!selectedProjectId) return [];
     const project = projects.find(p => p.id === selectedProjectId);
     if (!project) return [];
-    
     const assignedIds = project.assignedSubContractors || [];
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, projects, subContractors]);
@@ -106,7 +105,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
       try {
         toast({ title: 'Processing', description: 'Uploading photos and running AI analysis...' });
 
-        // 1. Upload Photos to Storage
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -118,13 +116,13 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
           })
         );
 
-        // 2. Run AI flows
         const [summaryResult, actionItemsResult] = await Promise.all([
           summarizeInstructions({ instructions: values.originalText }),
           extractInstructionActionItems({ instructionText: values.originalText }),
         ]);
 
         const instructionData = {
+          reference: generateReference('SI'),
           projectId: values.projectId,
           originalText: values.originalText,
           summary: summaryResult.summary,
@@ -151,7 +149,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
 
       } catch (err) {
         console.error(err);
-        toast({ title: 'Error', description: 'Failed to process instruction or upload photos.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to process instruction.', variant: 'destructive' });
       }
     });
   };
@@ -168,9 +166,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode } 
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
         setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
@@ -178,11 +174,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
       }
     };
     if (isCameraOpen) getCameraPermission();
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
+    return () => stream?.getTracks().forEach((track) => track.stop());
   }, [isCameraOpen, facingMode]);
 
   const takePhoto = () => {
@@ -207,10 +199,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          New Instruction
-        </Button>
+        <Button><PlusCircle className="mr-2 h-4 w-4" />New Instruction</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -228,12 +217,8 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                 <FormItem>
                   <FormLabel>Project</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger></FormControl>
+                    <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
@@ -246,15 +231,9 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                 <FormItem>
                   <div className="flex items-center justify-between">
                     <FormLabel>Instruction Text</FormLabel>
-                    <VoiceInput 
-                      onResult={(text) => {
-                        form.setValue('originalText', text);
-                      }} 
-                    />
+                    <VoiceInput onResult={(text) => form.setValue('originalText', text)} />
                   </div>
-                  <FormControl>
-                    <Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} />
-                  </FormControl>
+                  <FormControl><Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -279,9 +258,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                   <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
                     <Button type="button" onClick={takePhoto}>Capture</Button>
-                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera}>
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
+                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera}><RefreshCw className="h-4 w-4" /></Button>
                     <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                   </div>
                 </div>
@@ -341,7 +318,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                 <FormItem>
                     <div className='flex items-center gap-2 mb-2'>
                         <HardHat className='h-4 w-4 text-accent' />
-                        <FormLabel>Assigned Sub-contractors</FormLabel>
+                        <FormLabel>Project Sub-contractors</FormLabel>
                     </div>
                     <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
                         {availableSubContractors.map((sub) => (
@@ -368,12 +345,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                             )}
                         />
                         ))}
-                        {!selectedProjectId && (
-                            <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to view assigned sub-contractors.</p>
-                        )}
-                        {selectedProjectId && availableSubContractors.length === 0 && (
-                            <p className="text-[10px] text-muted-foreground text-center py-8">No sub-contractors are assigned to this project in settings.</p>
-                        )}
+                        {!selectedProjectId && <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to view assigned sub-contractors.</p>}
                     </ScrollArea>
                 </FormItem>
             </div>

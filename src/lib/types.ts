@@ -26,7 +26,9 @@ export type FileAttachment = {
 
 export type Instruction = {
   id: string;
+  reference: string;
   projectId: string;
+  clientInstructionId?: string;
   originalText: string;
   summary: string;
   actionItems: string[];
@@ -37,6 +39,7 @@ export type Instruction = {
 
 export type ClientInstruction = {
   id: string;
+  reference: string;
   projectId: string;
   originalText: string;
   summary: string;
@@ -91,6 +94,7 @@ export type ChatMessage = {
 export type InformationRequest = {
   id: string;
   projectId: string;
+  clientInstructionId?: string;
   description: string;
   assignedTo: string[];
   raisedBy: string;

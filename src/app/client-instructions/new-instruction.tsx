@@ -47,6 +47,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { generateReference } from '@/lib/utils';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -94,7 +95,6 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
       try {
         toast({ title: 'Processing', description: 'Uploading media and running AI analysis...' });
 
-        // 1. Upload Photos to Firebase Storage
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -106,7 +106,6 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
           })
         );
 
-        // 2. Upload Files to Firebase Storage
         const uploadedFiles = await Promise.all(
           files.map(async (f, i) => {
             if (f.url.startsWith('data:')) {
@@ -118,13 +117,13 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
           })
         );
 
-        // 3. AI flows
         const [summaryResult, actionItemsResult] = await Promise.all([
           summarizeInstructions({ instructions: values.originalText }),
           extractInstructionActionItems({ instructionText: values.originalText }),
         ]);
 
         const instructionData = {
+          reference: generateReference('CI'),
           projectId: values.projectId,
           originalText: values.originalText,
           summary: summaryResult.summary,
@@ -172,9 +171,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode } 
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
         setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
@@ -182,11 +179,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
       }
     };
     if (isCameraOpen) getCameraPermission();
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
+    return () => stream?.getTracks().forEach((track) => track.stop());
   }, [isCameraOpen, facingMode]);
 
   const takePhoto = () => {
@@ -284,7 +277,6 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
             <FormItem>
               <FormLabel>Reference Documentation</FormLabel>
               <div className="space-y-4">
-                {/* Visual Assets */}
                 {(photos.length > 0 || files.length > 0) && (
                   <div className="space-y-2">
                     <div className="grid grid-cols-3 gap-2">
@@ -313,7 +305,6 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
                   </div>
                 )}
 
-                {/* Controls */}
                 {isCameraOpen ? (
                   <div className="space-y-2">
                     <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
