@@ -4,7 +4,6 @@ import * as React from 'react';
 import { X } from 'lucide-react';
 import Image from 'next/image';
 import type { Photo } from '@/lib/types';
-import { ClientDate } from './client-date';
 import { useEffect } from 'react';
 
 interface ImageLightboxProps {
@@ -13,30 +12,35 @@ interface ImageLightboxProps {
 }
 
 /**
- * ImageLightbox - A high-performance, full-screen documentation viewer.
- * Bypasses all UI constraints to ensure site photos fit the screen perfectly.
+ * ImageLightbox - A simplified, robust full-screen viewer for site documentation.
+ * Uses object-contain to ensure images fit the screen regardless of aspect ratio.
  */
 export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
-  // Lock body scroll when active
+  // Handle escape key and body scroll lock
   useEffect(() => {
-    if (photo) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => {
-      document.body.style.overflow = 'unset';
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
     };
-  }, [photo]);
+
+    if (photo) {
+      window.addEventListener('keydown', handleEsc);
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+      document.body.style.overflow = '';
+    };
+  }, [photo, onClose]);
 
   if (!photo) return null;
 
   return (
     <div 
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none"
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none animate-in fade-in duration-200"
       onClick={onClose}
     >
-      {/* Close Control */}
+      {/* Close Button - Large touch target for site use */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -48,8 +52,11 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
         <span className="sr-only">Close Viewer</span>
       </button>
 
-      {/* Edge-to-Edge Image Container */}
-      <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-8" onClick={(e) => e.stopPropagation()}>
+      {/* Image Container - Forced to viewport bounds */}
+      <div 
+        className="relative w-full h-full flex items-center justify-center p-4 md:p-12" 
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="relative w-full h-full">
           <Image
             src={photo.url}
@@ -63,13 +70,12 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
         </div>
       </div>
 
-      {/* Metadata Footer Overlay */}
-      <div className="absolute bottom-8 left-0 right-0 flex justify-center pointer-events-none px-4">
-        <div className="bg-black/60 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/10 shadow-2xl pointer-events-auto flex flex-col items-center gap-1">
-          <span className="text-[10px] font-black tracking-[0.25em] uppercase text-primary">Documentation Record</span>
-          <span className="text-xs font-semibold text-white/90">
-            Captured <ClientDate date={photo.takenAt} />
-          </span>
+      {/* Metadata Overlay */}
+      <div className="absolute bottom-10 left-0 right-0 flex justify-center pointer-events-none px-4">
+        <div className="bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 shadow-2xl pointer-events-auto">
+          <p className="text-[10px] font-bold text-white/90 uppercase tracking-widest text-center">
+            Captured {new Date(photo.takenAt).toLocaleString()}
+          </p>
         </div>
       </div>
     </div>

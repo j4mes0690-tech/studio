@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { ClientInstruction, Project, DistributionUser, ChatMessage, Photo } from '@/lib/types';
 import Image from 'next/image';
 import {
@@ -184,7 +184,9 @@ export function ClientInstructionCard({
   };
 
   const isAccepted = instruction.status === 'accepted';
-  const sortedMessages = [...(instruction.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const sortedMessages = useMemo(() => {
+    return [...(instruction.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [instruction.messages]);
 
   return (
     <>
