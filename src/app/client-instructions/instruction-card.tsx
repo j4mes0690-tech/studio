@@ -393,7 +393,7 @@ export function ClientInstructionCard({
                       ))}
                   </div>
                   </AccordionContent>
-              </AccordionItem>
+                  </AccordionItem>
               )}
               </Accordion>
           </div>
