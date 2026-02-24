@@ -39,6 +39,7 @@ import { Button } from '@/components/ui/button';
 import { RespondToInstruction } from './respond-to-instruction';
 import { cn } from '@/lib/utils';
 import { ImageLightbox } from '@/components/image-lightbox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 function DeleteMessageButton({ instructionId, message }: { instructionId: string, message: ChatMessage }) {
     const { toast } = useToast();
@@ -152,8 +153,6 @@ function AcceptInstructionButton({ instruction, currentUser }: { instruction: Cl
         </AlertDialog>
     );
 }
-
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type InstructionCardProps = {
   instruction: ClientInstruction;
@@ -395,6 +394,7 @@ export function ClientInstructionCard({
                   </div>
                   </AccordionContent>
               </AccordionItem>
+              )}
               </Accordion>
           </div>
         </CardContent>
