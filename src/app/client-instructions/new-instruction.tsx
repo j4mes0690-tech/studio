@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition } from 'react';
@@ -94,7 +93,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
       try {
-        // Run AI flows
+        // Run AI flows to process the directive
         const [summaryResult, actionItemsResult] = await Promise.all([
           summarizeInstructions({ instructions: values.originalText }),
           extractInstructionActionItems({ instructionText: values.originalText }),
@@ -194,7 +193,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
         <DialogHeader>
           <DialogTitle>Record Client Instruction</DialogTitle>
           <DialogDescription>
-            Capture external directives from the client. AI will summarize and extract tasks automatically. You can add more follow-ups in the chat log later.
+            Capture external directives from the client. AI will summarize and extract tasks automatically. This will initiate a new conversation thread.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -223,7 +222,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center justify-between">
-                    <FormLabel>Opening Directive / Request</FormLabel>
+                    <FormLabel>Client Directive / Request</FormLabel>
                     <VoiceInput 
                       onResult={(text) => {
                         form.setValue('originalText', text);
@@ -231,7 +230,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
                     />
                   </div>
                   <FormControl>
-                    <Textarea placeholder="What is the primary instruction from the client?" className="min-h-[150px]" {...field} />
+                    <Textarea placeholder="What did the client instruct?" className="min-h-[150px]" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

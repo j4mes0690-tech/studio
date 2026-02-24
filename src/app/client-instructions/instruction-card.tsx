@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ClientInstruction, Project, DistributionUser, ChatMessage } from '@/lib/types';
@@ -109,7 +108,7 @@ function AcceptInstructionButton({ instruction, currentUser }: { instruction: Cl
                 id: `system-${Date.now()}`,
                 sender: 'System',
                 senderEmail: 'system@sitecommand.internal',
-                message: `Instruction ACCEPTED by ${currentUser.name}. Processing implementation actions...`,
+                message: `Instruction ACCEPTED by ${currentUser.name}. Ready for implementation.`,
                 createdAt: new Date().toISOString()
             };
 
@@ -145,7 +144,7 @@ function AcceptInstructionButton({ instruction, currentUser }: { instruction: Cl
                 <AlertDialogHeader>
                     <AlertDialogTitle>Accept this Instruction?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Confirming will mark this directive as "Accepted". This indicates that you have all required information and will now trigger the implementation workflow.
+                        Confirming will mark this directive as "Accepted". This indicates that you have all required information and are ready to proceed with implementation.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -246,13 +245,13 @@ export function ClientInstructionCard({
             <div className="bg-muted/20 rounded-lg border p-4 space-y-4">
                 <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest border-b pb-2 mb-2">
                     <MessageCircle className="h-3 w-3" />
-                    <span>Instruction Thread</span>
+                    <span>Instruction Log & Thread</span>
                 </div>
 
                 {/* The "Original Entry" acts as the start of the thread */}
                 <div className="flex flex-col items-start">
                     <div className="bg-background px-4 py-3 rounded-2xl rounded-tl-none border shadow-sm max-w-[90%]">
-                        <p className="text-[10px] font-bold mb-1 text-primary uppercase">Client Directive</p>
+                        <p className="text-[10px] font-bold mb-1 text-primary uppercase">Initial Client Directive</p>
                         <p className="text-sm leading-relaxed whitespace-pre-wrap">{instruction.originalText}</p>
                         <div className="text-[9px] text-muted-foreground mt-2 uppercase font-medium">
                             Logged <ClientDate date={instruction.createdAt} />
@@ -260,7 +259,7 @@ export function ClientInstructionCard({
                     </div>
                 </div>
 
-                {/* Messages in thread */}
+                {/* Follow-up messages */}
                 <div className="space-y-4">
                     {sortedMessages.map((msg) => {
                         const normalizedCurrentEmail = (currentUser.email || '').toLowerCase().trim();

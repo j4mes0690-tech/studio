@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition } from 'react';
@@ -129,7 +128,7 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
         <div className='flex-1 overflow-y-auto min-h-0 py-4 px-2 space-y-4 bg-muted/10 rounded-md border'>
             <div className='bg-background p-3 rounded-lg border-l-4 border-l-primary shadow-sm mb-6'>
                 <p className='text-[10px] font-bold text-primary uppercase tracking-widest mb-1'>Original Directive</p>
-                <p className='text-sm text-foreground line-clamp-3'>{instruction.originalText}</p>
+                <p className='text-sm text-foreground line-clamp-3 font-medium'>{instruction.originalText}</p>
             </div>
 
             <div className='space-y-3'>
