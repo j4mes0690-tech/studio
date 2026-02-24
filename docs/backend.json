@@ -75,7 +75,8 @@
         "actionItems": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" },
         "recipients": { "type": "array", "items": { "type": "string" } },
-        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
+        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } },
+        "messages": { "type": "array", "items": { "$ref": "#/entities/ChatMessage" } }
       }
     },
     "Photo": {

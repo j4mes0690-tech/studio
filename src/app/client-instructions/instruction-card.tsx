@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { ClientInstruction, Project } from '@/lib/types';
+import type { ClientInstruction, Project, DistributionUser, ChatMessage } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -16,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { CheckSquare, MessageCircle, Camera, Users, Trash2 } from 'lucide-react';
+import { CheckSquare, MessageCircle, Camera, Users, Trash2, MessageSquareReply } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -28,9 +28,9 @@ import {
 import { ClientDate } from '../../components/client-date';
 import { useTransition } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, arrayRemove } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -44,15 +44,69 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { RespondToInstruction } from './respond-to-instruction';
+import { cn } from '@/lib/utils';
+
+function DeleteMessageButton({ instructionId, message }: { instructionId: string, message: ChatMessage }) {
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+    const db = useFirestore();
+
+    const handleDelete = () => {
+        startTransition(async () => {
+            const docRef = doc(db, 'client-instructions', instructionId);
+            const updates = {
+                messages: arrayRemove(message)
+            };
+            updateDoc(docRef, updates)
+              .then(() => toast({ title: 'Success', description: 'Message deleted.' }))
+              .catch((serverError) => {
+                const permissionError = new FirestorePermissionError({
+                  path: docRef.path,
+                  operation: 'update',
+                  requestResourceData: updates,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+              });
+        });
+    };
+
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-4 w-4 p-0 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+                    <Trash2 className="h-3 w-3" />
+                    <span className="sr-only">Delete Message</span>
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Message?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will permanently remove your update from the conversation history.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} disabled={isPending} className="bg-destructive hover:bg-destructive/90">
+                        {isPending ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
 
 type InstructionCardProps = {
   instruction: ClientInstruction;
   projects: Project[];
+  currentUser: DistributionUser;
 };
 
 export function ClientInstructionCard({
   instruction,
   projects,
+  currentUser,
 }: InstructionCardProps) {
   const project = projects.find((p) => p.id === instruction.projectId);
   const db = useFirestore();
@@ -74,6 +128,8 @@ export function ClientInstructionCard({
     });
   };
 
+  const sortedMessages = [...(instruction.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
   return (
     <Card className="border-l-4 border-l-primary">
       <CardHeader>
@@ -89,6 +145,8 @@ export function ClientInstructionCard({
           <div className="flex items-center gap-2">
             <Badge variant="default">Client Instruction</Badge>
             
+            <RespondToInstruction instruction={instruction} currentUser={currentUser} />
+
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -134,6 +192,58 @@ export function ClientInstructionCard({
               </ul>
             </AccordionContent>
           </AccordionItem>
+
+          <AccordionItem value="conversation">
+            <AccordionTrigger className="text-sm font-semibold">
+              <div className="flex items-center gap-2">
+                <MessageSquareReply className="h-4 w-4" />
+                <span>Conversation ({sortedMessages.length})</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="pt-4 px-1">
+              {sortedMessages.length === 0 ? (
+                  <div className="py-8 text-center bg-muted/20 rounded-lg border-2 border-dashed">
+                    <p className="text-sm text-muted-foreground">No discussion yet. Respond to start conversation.</p>
+                  </div>
+              ) : (
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                    {sortedMessages.map((msg) => {
+                        const normalizedCurrentEmail = (currentUser.email || '').toLowerCase().trim();
+                        const normalizedSenderEmail = (msg.senderEmail || '').toLowerCase().trim();
+                        const isMe = normalizedSenderEmail === normalizedCurrentEmail;
+
+                        return (
+                            <div key={msg.id} className={cn("flex flex-col group", isMe ? "items-end" : "items-start")}>
+                                <div className={cn(
+                                    "relative px-4 py-2 rounded-2xl max-w-[85%] shadow-sm",
+                                    isMe 
+                                        ? "bg-primary text-primary-foreground rounded-tr-none" 
+                                        : "bg-muted text-foreground rounded-tl-none border"
+                                )}>
+                                    {!isMe && (
+                                        <p className="text-[10px] font-bold mb-1 text-primary tracking-wide">
+                                            {msg.sender}
+                                        </p>
+                                    )}
+                                    <p className="text-sm leading-snug whitespace-pre-wrap">{msg.message}</p>
+                                    <div className={cn(
+                                        "flex items-center justify-end gap-1 mt-1",
+                                        isMe ? "text-primary-foreground/70" : "text-muted-foreground"
+                                    )}>
+                                        <span className="text-[9px] font-medium uppercase">
+                                            <ClientDate date={msg.createdAt} />
+                                        </span>
+                                        {isMe && <DeleteMessageButton instructionId={instruction.id} message={msg} />}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                  </div>
+              )}
+            </AccordionContent>
+          </AccordionItem>
+
           {instruction.recipients && instruction.recipients.length > 0 && (
              <AccordionItem value="recipients">
              <AccordionTrigger className="text-sm font-semibold">
@@ -199,7 +309,7 @@ export function ClientInstructionCard({
             <AccordionTrigger className="text-sm font-semibold">
               <div className="flex items-center gap-2">
                 <MessageCircle className="h-4 w-4" />
-                <span>Original Client Instruction</span>
+                <span>Original Client Directive</span>
               </div>
             </AccordionTrigger>
             <AccordionContent>

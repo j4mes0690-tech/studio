@@ -36,6 +36,7 @@ export type ClientInstruction = {
   createdAt: string;
   photos?: Photo[];
   recipients?: string[];
+  messages?: ChatMessage[];
 };
 
 export type CleanUpNotice = {

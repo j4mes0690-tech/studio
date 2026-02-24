@@ -36,7 +36,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw } from 'lucide-react';
 import type { Project, DistributionUser, Photo } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -109,6 +108,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
           recipients: values.recipients || [],
           createdAt: new Date().toISOString(),
           photos: photos,
+          messages: [],
         };
 
         const colRef = collection(db, 'client-instructions');
@@ -193,7 +193,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
         <DialogHeader>
           <DialogTitle>Record Client Instruction</DialogTitle>
           <DialogDescription>
-            Capture external directives from the client. AI will summarize and extract tasks automatically.
+            Capture external directives from the client. AI will summarize and extract tasks automatically. You can add more follow-ups in the chat log later.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -222,7 +222,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center justify-between">
-                    <FormLabel>Directives / Conversation</FormLabel>
+                    <FormLabel>Opening Directive / Request</FormLabel>
                     <VoiceInput 
                       onResult={(text) => {
                         form.setValue('originalText', text);
@@ -230,7 +230,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
                     />
                   </div>
                   <FormControl>
-                    <Textarea placeholder="What did the client request?" className="min-h-[150px]" {...field} />
+                    <Textarea placeholder="What is the primary instruction from the client?" className="min-h-[150px]" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

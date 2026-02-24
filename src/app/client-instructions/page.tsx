@@ -19,7 +19,7 @@ function InstructionsContent() {
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
 
-  // Fetch profile for permission check
+  // Fetch profile for permission check and message sending
   const profileRef = useMemo(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
@@ -76,6 +76,15 @@ function InstructionsContent() {
 
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
 
+  if (!profile) {
+    return (
+        <div className="text-center py-12 space-y-4">
+            <p className="text-lg font-semibold">Profile Required</p>
+            <p>Access to client documentation requires an internal profile for: <strong>{sessionUser?.email}</strong></p>
+        </div>
+    );
+  }
+
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
@@ -102,6 +111,7 @@ function InstructionsContent() {
                 key={instruction.id}
                 instruction={instruction}
                 projects={allowedProjects}
+                currentUser={profile}
               />
             ))
           ) : (
