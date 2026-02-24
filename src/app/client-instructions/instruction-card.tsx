@@ -16,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { CheckSquare, MessageCircle, Camera, Users, Trash2, CheckCircle2, FileText, Download, Maximize2 } from 'lucide-react';
+import { CheckSquare, MessageCircle, Trash2, CheckCircle2, FileText, Download, Maximize2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ClientDate } from '../../components/client-date';
 import { useFirestore } from '@/firebase';
@@ -52,7 +52,7 @@ function DeleteMessageButton({ instructionId, message }: { instructionId: string
         };
         updateDoc(docRef, updates)
           .then(() => toast({ title: 'Success', description: 'Message deleted.' }))
-          .catch(async (error) => {
+          .catch((error) => {
             const permissionError = new FirestorePermissionError({
               path: docRef.path,
               operation: 'update',
@@ -168,7 +168,6 @@ export function ClientInstructionCard({
   const project = projects.find((p) => p.id === instruction.projectId);
   const db = useFirestore();
   const { toast } = useToast();
-  
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
   const handleDelete = () => {
@@ -237,20 +236,17 @@ export function ClientInstructionCard({
           <p className="text-sm font-semibold text-foreground mb-4">{instruction.summary}</p>
           
           <div className="space-y-4">
-              {/* Unified Conversation Thread */}
               <div className="bg-muted/20 rounded-lg border p-4 space-y-4">
                   <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest border-b pb-2 mb-2">
                       <MessageCircle className="h-3 w-3" />
                       <span>Instruction Log & Thread</span>
                   </div>
 
-                  {/* The "Original Entry" acts as the start of the thread */}
                   <div className="flex flex-col items-start">
                       <div className="bg-background px-4 py-3 rounded-2xl rounded-tl-none border shadow-sm max-w-[95%]">
                           <p className="text-[10px] font-bold mb-1 text-primary uppercase">Initial Client Directive</p>
                           <p className="text-sm leading-relaxed whitespace-pre-wrap">{instruction.originalText}</p>
                           
-                          {/* Photos from original instruction */}
                           {instruction.photos && instruction.photos.length > 0 && (
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
                               {instruction.photos.map((p, i) => (
@@ -264,7 +260,6 @@ export function ClientInstructionCard({
                             </div>
                           )}
 
-                          {/* Files from original instruction */}
                           {instruction.files && instruction.files.length > 0 && (
                             <div className="mt-3 space-y-1">
                               {instruction.files.map((f, i) => (
@@ -283,7 +278,6 @@ export function ClientInstructionCard({
                       </div>
                   </div>
 
-                  {/* Follow-up messages */}
                   <div className="space-y-4">
                       {sortedMessages.map((msg) => {
                           const normalizedCurrentEmail = (currentUser.email || '').toLowerCase().trim();
@@ -316,7 +310,6 @@ export function ClientInstructionCard({
                                       )}
                                       <p className="text-sm leading-snug whitespace-pre-wrap">{msg.message}</p>
                                       
-                                      {/* Message Attachments */}
                                       {msg.photos && msg.photos.length > 0 && (
                                         <div className="grid grid-cols-2 gap-2 mt-3">
                                           {msg.photos.map((p, i) => (
@@ -380,7 +373,7 @@ export function ClientInstructionCard({
                     <AccordionItem value="recipients">
                     <AccordionTrigger className="text-sm font-semibold">
                     <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
+                        <MessageCircle className="h-4 w-4" />
                         <span>
                         Internal Distribution ({instruction.recipients.length})
                         </span>
