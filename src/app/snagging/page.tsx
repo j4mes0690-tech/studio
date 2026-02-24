@@ -10,7 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
+import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,27 +34,18 @@ function SnaggingContent() {
   }, [db, sessionUser?.email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
-  // Real-time data from Firestore
-  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  // Lookups
+  const projectsQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'projects');
+  }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const subsQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
-
-  // Visibility logic
-  const allowedProjects = useMemo(() => {
-    if (!allProjects || !profile) return [];
-    if (profile.permissions?.hasFullVisibility) return allProjects;
-    
-    const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => {
-        const assignments = p.assignedUsers || [];
-        return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
-    });
-  }, [allProjects, profile]);
-
-  const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
-  const allowedProjectIdsKey = useMemo(() => allowedProjectIds.sort().join(','), [allowedProjectIds]);
 
   // STABLE QUERY
   const snaggingQuery = useMemo(() => {
@@ -68,11 +59,23 @@ function SnaggingContent() {
 
   const { data: allItems, isLoading: snaggingLoading } = useCollection<SnaggingItem>(snaggingQuery);
 
+  // SECURITY FILTER (Client-side)
   const filteredItems = useMemo(() => {
-    if (!allItems) return [];
-    const authorizedIds = allowedProjectIdsKey.split(',').filter(Boolean);
-    return allItems.filter(item => authorizedIds.includes(item.projectId));
-  }, [allItems, allowedProjectIdsKey]);
+    if (!allItems || !profile || !allProjects) return [];
+    
+    const email = profile.email.toLowerCase().trim();
+    const hasFullVisibility = !!profile.permissions?.hasFullVisibility;
+
+    const allowedProjectIds = allProjects
+        .filter(p => {
+            if (hasFullVisibility) return true;
+            const assignments = p.assignedUsers || [];
+            return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+        })
+        .map(p => p.id);
+
+    return allItems.filter(item => allowedProjectIds.includes(item.projectId));
+  }, [allItems, profile, allProjects]);
 
   const isLoading = projectsLoading || snaggingLoading || subsLoading || profileLoading;
 
@@ -85,6 +88,11 @@ function SnaggingContent() {
   }
 
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
+  const allowedProjects = allProjects?.filter(p => {
+      if (hasFullVisibility) return true;
+      const email = profile?.email.toLowerCase().trim();
+      return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email);
+  }) || [];
 
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
@@ -127,7 +135,7 @@ function SnaggingContent() {
           isCompact ? (
             <SnaggingTable 
               items={filteredItems}
-              projects={allowedProjects}
+              projects={allProjects || []}
               subContractors={subContractors || []}
             />
           ) : (
@@ -136,7 +144,7 @@ function SnaggingContent() {
                 <SnaggingItemCard
                   key={item.id}
                   item={item}
-                  projects={allowedProjects}
+                  projects={allProjects || []}
                   subContractors={subContractors || []}
                 />
               ))}

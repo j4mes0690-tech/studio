@@ -20,7 +20,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
 
 function InfoRequestsContent() {
   const { user: firebaseUser } = useUser();
@@ -30,48 +29,27 @@ function InfoRequestsContent() {
   
   const [isCompact, setIsCompact] = useState(false);
 
-  // 1. Fetch current user profile from Firestore
+  // Fetch current user profile
   const currentUserRef = useMemo(() => {
     if (!db || !firebaseUser?.email) return null;
     return doc(db, 'users', firebaseUser.email.toLowerCase().trim());
   }, [db, firebaseUser?.email]);
   const { data: currentUser, isLoading: profileLoading } = useDoc<DistributionUser>(currentUserRef);
 
-  // 2. Fetch ALL projects to determine authorized list
+  // Fetch lookups
   const projectsQuery = useMemo(() => {
     if (!db) return null;
     return collection(db, 'projects');
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  // 3. Fetch distribution users for assignment selectors
   const usersQuery = useMemo(() => {
     if (!db) return null;
     return collection(db, 'users');
   }, [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  // 4. Calculate STRICT allowed project list based on assignments or administrative visibility
-  const allowedProjects = useMemo(() => {
-    if (!allProjects || !currentUser) return [];
-    
-    const permissions = currentUser.permissions;
-    if (permissions?.hasFullVisibility) {
-        return allProjects;
-    }
-
-    const userEmail = currentUser.email.toLowerCase().trim();
-    return allProjects.filter(p => {
-        const assignments = p.assignedUsers || [];
-        return assignments.some(email => typeof email === 'string' && email.toLowerCase().trim() === userEmail);
-    });
-  }, [allProjects, currentUser]);
-
-  const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
-  const allowedProjectIdsKey = useMemo(() => allowedProjectIds.sort().join(','), [allowedProjectIds]);
-
-  // 5. STABLE QUERY: Only depends on db and URL filter
-  // We decouple from reactive assignments to prevent listener resets during background updates
+  // STABLE QUERY: Listen to the entire collection (or URL filter) persistently.
   const itemsQuery = useMemo(() => {
     if (!db) return null;
     const base = collection(db, 'information-requests');
@@ -85,18 +63,25 @@ function InfoRequestsContent() {
 
   const { data: allItems, isLoading: itemsLoading } = useCollection<InformationRequest>(itemsQuery);
 
-  // 6. FINAL SECURITY FILTER (Client-side)
+  // SECURITY FILTER (Client-side)
   const filteredItems = useMemo(() => {
-    if (!allItems || !currentUser) return [];
-    const authorizedIds = allowedProjectIdsKey.split(',').filter(Boolean);
-    return allItems.filter(item => {
-        const pId = item.projectId;
-        if (!pId) return false;
-        return authorizedIds.includes(pId);
-    });
-  }, [allItems, allowedProjectIdsKey, currentUser]);
+    if (!allItems || !currentUser || !allProjects) return [];
+    
+    const email = currentUser.email.toLowerCase().trim();
+    const hasFullVisibility = !!currentUser.permissions?.hasFullVisibility;
 
-  // 7. Sort for display (Active/Open status first)
+    const allowedProjectIds = allProjects
+        .filter(p => {
+            if (hasFullVisibility) return true;
+            const assignments = p.assignedUsers || [];
+            return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+        })
+        .map(p => p.id);
+
+    return allItems.filter(item => allowedProjectIds.includes(item.projectId));
+  }, [allItems, currentUser, allProjects]);
+
+  // Sort for display (Active/Open status first)
   const sortedItems = useMemo(() => {
     return [...filteredItems].sort((a, b) => {
       if (a.status !== b.status) {
@@ -126,6 +111,11 @@ function InfoRequestsContent() {
   }
 
   const hasFullVisibility = !!currentUser?.permissions?.hasFullVisibility;
+  const allowedProjects = allProjects?.filter(p => {
+      if (hasFullVisibility) return true;
+      const email = currentUser?.email.toLowerCase().trim();
+      return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email);
+  }) || [];
 
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
@@ -176,7 +166,7 @@ function InfoRequestsContent() {
           isCompact ? (
             <InformationRequestTable 
               items={sortedItems}
-              projects={allowedProjects}
+              projects={allProjects || []}
               distributionUsers={distributionUsers || []}
               currentUser={currentUser!}
             />
@@ -186,7 +176,7 @@ function InfoRequestsContent() {
                 <InformationRequestCard
                   key={item.id}
                   item={item}
-                  projects={allowedProjects}
+                  projects={allProjects || []}
                   distributionUsers={distributionUsers || []}
                   currentUser={currentUser!}
                 />
@@ -206,7 +196,7 @@ function InfoRequestsContent() {
 
         {sortedItems.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton items={sortedItems} projects={allowedProjects} distributionUsers={distributionUsers || []} />
+            <ExportButton items={sortedItems} projects={allProjects || []} distributionUsers={distributionUsers || []} />
           </div>
         )}
       </main>

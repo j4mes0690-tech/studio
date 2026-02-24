@@ -19,38 +19,28 @@ function InstructionsContent() {
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
 
-  // Fetch profile for permission check and message sending
+  // Fetch profile for permission check
   const profileRef = useMemo(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
-  // Fetch data
-  const usersQuery = useMemo(() => collection(db, 'users'), [db]);
+  // Fetch static lookups
+  const usersQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const projectsQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'projects');
+  }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  // Visibility logic
-  const allowedProjects = useMemo(() => {
-    if (!allProjects || !profile) return [];
-    if (profile.permissions?.hasFullVisibility) return allProjects;
-    
-    const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => {
-        const assignments = p.assignedUsers || [];
-        return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
-    });
-  }, [allProjects, profile]);
-
-  const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
-  // Create a stable key for the query dependency to prevent flickering/resubscribing
-  const allowedProjectIdsKey = useMemo(() => allowedProjectIds.sort().join(','), [allowedProjectIds]);
-
-  // STABLE QUERY: Only depends on db and the URL-based projectId filter
-  // We remove reactive project assignment keys from the query itself to prevent listener resets
+  // STABLE QUERY: Only depends on the database and the explicit URL filter.
+  // We do NOT include reactive permission lists in the query dependencies to prevent listener restarts.
   const instructionsQuery = useMemo(() => {
     if (!db) return null;
     const base = collection(db, 'client-instructions');
@@ -64,12 +54,24 @@ function InstructionsContent() {
 
   const { data: allInstructions, isLoading: instructionsLoading } = useCollection<ClientInstruction>(instructionsQuery);
 
+  // Security & Visibility filtering happens CLIENT-SIDE.
+  // This allows the Firestore listener to remain stable even if project assignments refresh in the background.
   const filteredInstructions = useMemo(() => {
-    if (!allInstructions) return [];
-    // Strict client-side filter ensures no data leaks even if the query instance is broad
-    const authorizedIds = allowedProjectIdsKey.split(',').filter(Boolean);
-    return allInstructions.filter(inst => authorizedIds.includes(inst.projectId));
-  }, [allInstructions, allowedProjectIdsKey]);
+    if (!allInstructions || !profile || !allProjects) return [];
+    
+    const email = profile.email.toLowerCase().trim();
+    const hasFullVisibility = !!profile.permissions?.hasFullVisibility;
+
+    const allowedProjectIds = allProjects
+        .filter(p => {
+            if (hasFullVisibility) return true;
+            const assignments = p.assignedUsers || [];
+            return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+        })
+        .map(p => p.id);
+
+    return allInstructions.filter(inst => allowedProjectIds.includes(inst.projectId));
+  }, [allInstructions, profile, allProjects]);
 
   const isLoading = usersLoading || projectsLoading || instructionsLoading || profileLoading;
 
@@ -81,8 +83,6 @@ function InstructionsContent() {
     );
   }
 
-  const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
-
   if (!profile && !profileLoading) {
     return (
         <div className="text-center py-12 space-y-4">
@@ -91,6 +91,13 @@ function InstructionsContent() {
         </div>
     );
   }
+
+  const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
+  const allowedProjects = allProjects?.filter(p => {
+      if (hasFullVisibility) return true;
+      const email = profile?.email.toLowerCase().trim();
+      return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email);
+  }) || [];
 
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
@@ -117,7 +124,7 @@ function InstructionsContent() {
               <ClientInstructionCard
                 key={instruction.id}
                 instruction={instruction}
-                projects={allowedProjects}
+                projects={allProjects || []}
                 currentUser={profile!}
               />
             ))
@@ -130,7 +137,7 @@ function InstructionsContent() {
         </div>
         {filteredInstructions.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton instructions={filteredInstructions} projects={allowedProjects} />
+            <ExportButton instructions={filteredInstructions} projects={allProjects || []} />
           </div>
         )}
       </main>
