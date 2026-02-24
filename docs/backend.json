@@ -76,7 +76,8 @@
         "createdAt": { "type": "string", "format": "date-time" },
         "recipients": { "type": "array", "items": { "type": "string" } },
         "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } },
-        "messages": { "type": "array", "items": { "$ref": "#/entities/ChatMessage" } }
+        "messages": { "type": "array", "items": { "$ref": "#/entities/ChatMessage" } },
+        "status": { "type": "string", "enum": ["open", "accepted"] }
       }
     },
     "Photo": {

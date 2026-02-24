@@ -98,6 +98,7 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
     });
   };
 
+  const isAccepted = instruction.status === 'accepted';
   const sortedMessages = [...(instruction.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
@@ -119,7 +120,7 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
       </TooltipProvider>
       <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Respond to Client Instruction</DialogTitle>
+          <DialogTitle>Client Instruction Conversation</DialogTitle>
           <DialogDescription>
             Post a message to discuss this directive or provide implementation updates.
           </DialogDescription>
@@ -131,73 +132,91 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
                 <p className='text-sm text-foreground line-clamp-3'>{instruction.originalText}</p>
             </div>
 
-            {sortedMessages.length === 0 ? (
-                <p className='text-center text-xs text-muted-foreground py-4 italic'>No discussion yet. Be the first to respond.</p>
-            ) : (
-                <div className='space-y-3'>
-                    {sortedMessages.map(msg => {
-                        const normalizedCurrentEmail = (currentUser.email || '').toLowerCase().trim();
-                        const normalizedSenderEmail = (msg.senderEmail || '').toLowerCase().trim();
-                        const isMe = normalizedSenderEmail === normalizedCurrentEmail;
+            <div className='space-y-3'>
+                {sortedMessages.map(msg => {
+                    const normalizedCurrentEmail = (currentUser.email || '').toLowerCase().trim();
+                    const normalizedSenderEmail = (msg.senderEmail || '').toLowerCase().trim();
+                    const isMe = normalizedSenderEmail === normalizedCurrentEmail;
+                    const isSystem = msg.senderEmail === 'system@sitecommand.internal';
 
+                    if (isSystem) {
                         return (
-                            <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                                <div className={cn(
-                                    "px-3 py-1.5 rounded-2xl max-w-[90%] shadow-sm",
-                                    isMe 
-                                        ? "bg-primary text-primary-foreground rounded-tr-none" 
-                                        : "bg-muted text-foreground rounded-tl-none border"
-                                )}>
-                                    {!isMe && <p className="text-[9px] font-bold mb-0.5 text-primary">{msg.sender}</p>}
-                                    <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                                    <div className={cn("text-[8px] text-right mt-0.5 opacity-70")}>
-                                        <ClientDate date={msg.createdAt} />
-                                    </div>
-                                </div>
+                            <div key={msg.id} className="flex justify-center my-2">
+                                <span className="bg-muted/50 text-[9px] uppercase font-bold px-3 py-1 rounded-full text-muted-foreground border">
+                                    {msg.message}
+                                </span>
                             </div>
                         );
-                    })}
-                </div>
-            )}
+                    }
+
+                    return (
+                        <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
+                            <div className={cn(
+                                "px-3 py-1.5 rounded-2xl max-w-[90%] shadow-sm",
+                                isMe 
+                                    ? "bg-primary text-primary-foreground rounded-tr-none" 
+                                    : "bg-muted text-foreground rounded-tl-none border"
+                            )}>
+                                {!isMe && <p className="text-[9px] font-bold mb-0.5 text-primary">{msg.sender}</p>}
+                                <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                                <div className={cn("text-[8px] text-right mt-0.5 opacity-70")}>
+                                    <ClientDate date={msg.createdAt} />
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+                {sortedMessages.length === 0 && (
+                    <p className='text-center text-xs text-muted-foreground py-4 italic'>No discussion yet. Be the first to respond.</p>
+                )}
+            </div>
         </div>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-            <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
-                    <span>Replying as:</span>
-                    <Badge variant="secondary" className="text-[10px] px-2 py-0 h-auto">{currentUser.name}</Badge>
-                </div>
-                <VoiceInput 
-                  onResult={(text) => {
-                    form.setValue('message', text);
-                  }}
-                />
-            </div>
+        {!isAccepted ? (
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+                            <span>Replying as:</span>
+                            <Badge variant="secondary" className="text-[10px] px-2 py-0 h-auto">{currentUser.name}</Badge>
+                        </div>
+                        <VoiceInput 
+                        onResult={(text) => {
+                            form.setValue('message', text);
+                        }}
+                        />
+                    </div>
 
-            <FormField
-              control={form.control}
-              name="message"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Textarea 
-                        placeholder="Add a follow-up or implementation note..." 
-                        className="min-h-[100px] resize-none" 
-                        {...field} 
+                    <FormField
+                    control={form.control}
+                    name="message"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormControl>
+                            <Textarea 
+                                placeholder="Add a follow-up or implementation note..." 
+                                className="min-h-[100px] resize-none" 
+                                {...field} 
+                            />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
                     />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <DialogFooter>
-              <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
-                {isPending ? 'Sending...' : 'Post Update'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                    <DialogFooter>
+                    <Button type="submit" disabled={isPending} className="w-full sm:w-auto">
+                        {isPending ? 'Sending...' : 'Post Update'}
+                    </Button>
+                    </DialogFooter>
+                </form>
+            </Form>
+        ) : (
+            <div className="pt-4 border-t text-center">
+                <p className="text-sm text-muted-foreground font-medium bg-green-50 text-green-700 py-3 rounded-md border border-green-100">
+                    This instruction has been ACCEPTED. Further comments are disabled.
+                </p>
+            </div>
+        )}
       </DialogContent>
     </Dialog>
   );

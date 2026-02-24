@@ -16,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { CheckSquare, MessageCircle, Camera, Users, Trash2, MessageSquareReply } from 'lucide-react';
+import { CheckSquare, MessageCircle, Camera, Users, Trash2, MessageSquareReply, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -28,7 +28,7 @@ import {
 import { ClientDate } from '../../components/client-date';
 import { useTransition } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc, updateDoc, arrayRemove } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, arrayRemove, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
@@ -97,6 +97,68 @@ function DeleteMessageButton({ instructionId, message }: { instructionId: string
     );
 }
 
+function AcceptInstructionButton({ instruction, currentUser }: { instruction: ClientInstruction, currentUser: DistributionUser }) {
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+    const db = useFirestore();
+
+    const handleAccept = () => {
+        startTransition(async () => {
+            const docRef = doc(db, 'client-instructions', instruction.id);
+            const systemMessage: ChatMessage = {
+                id: `system-${Date.now()}`,
+                sender: 'System',
+                senderEmail: 'system@sitecommand.internal',
+                message: `Instruction ACCEPTED by ${currentUser.name}. Processing implementation actions...`,
+                createdAt: new Date().toISOString()
+            };
+
+            const updates = {
+                status: 'accepted',
+                messages: arrayUnion(systemMessage)
+            };
+
+            updateDoc(docRef, updates)
+              .then(() => {
+                  toast({ title: 'Instruction Accepted', description: 'The directive has been marked for implementation.' });
+              })
+              .catch((err) => {
+                  const permissionError = new FirestorePermissionError({
+                      path: docRef.path,
+                      operation: 'update',
+                      requestResourceData: updates
+                  });
+                  errorEmitter.emit('permission-error', permissionError);
+              });
+        });
+    };
+
+    return (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 text-green-600 border-green-200 hover:bg-green-50">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Accept Instruction
+                </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Accept this Instruction?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Confirming will mark this directive as "Accepted". This indicates that you have all required information and will now trigger the implementation workflow.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleAccept} disabled={isPending} className="bg-green-600 hover:bg-green-700">
+                        {isPending ? 'Processing...' : 'Confirm Acceptance'}
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
+
 type InstructionCardProps = {
   instruction: ClientInstruction;
   projects: Project[];
@@ -128,10 +190,11 @@ export function ClientInstructionCard({
     });
   };
 
+  const isAccepted = instruction.status === 'accepted';
   const sortedMessages = [...(instruction.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   return (
-    <Card className="border-l-4 border-l-primary">
+    <Card className={cn("border-l-4", isAccepted ? "border-l-green-500 bg-green-50/10" : "border-l-primary")}>
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
@@ -143,8 +206,11 @@ export function ClientInstructionCard({
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Badge variant="default">Client Instruction</Badge>
+            <Badge variant={isAccepted ? "secondary" : "default"} className={cn(isAccepted && "bg-green-100 text-green-800 border-green-200")}>
+                {isAccepted ? "Accepted Directive" : "Open Directive"}
+            </Badge>
             
+            {!isAccepted && <AcceptInstructionButton instruction={instruction} currentUser={currentUser} />}
             <RespondToInstruction instruction={instruction} currentUser={currentUser} />
 
             <AlertDialog>
@@ -174,43 +240,43 @@ export function ClientInstructionCard({
       </CardHeader>
       <CardContent>
         <p className="text-sm font-medium text-foreground mb-4">{instruction.summary}</p>
-        <Accordion type="single" collapsible className="w-full">
-          <AccordionItem value="action-items">
-            <AccordionTrigger className="text-sm font-semibold">
-              <div className="flex items-center gap-2">
-                <CheckSquare className="h-4 w-4" />
-                <span>
-                  Action Items ({instruction.actionItems.length})
-                </span>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
-                {instruction.actionItems.map((item, index) => (
-                  <li key={index}>{item}</li>
-                ))}
-              </ul>
-            </AccordionContent>
-          </AccordionItem>
+        
+        <div className="space-y-4">
+            {/* Unified Conversation Thread */}
+            <div className="bg-muted/20 rounded-lg border p-4 space-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest border-b pb-2 mb-2">
+                    <MessageCircle className="h-3 w-3" />
+                    <span>Instruction Thread</span>
+                </div>
 
-          <AccordionItem value="conversation">
-            <AccordionTrigger className="text-sm font-semibold">
-              <div className="flex items-center gap-2">
-                <MessageSquareReply className="h-4 w-4" />
-                <span>Conversation ({sortedMessages.length})</span>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent className="pt-4 px-1">
-              {sortedMessages.length === 0 ? (
-                  <div className="py-8 text-center bg-muted/20 rounded-lg border-2 border-dashed">
-                    <p className="text-sm text-muted-foreground">No discussion yet. Respond to start conversation.</p>
-                  </div>
-              ) : (
-                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                {/* The "Original Entry" acts as the start of the thread */}
+                <div className="flex flex-col items-start">
+                    <div className="bg-background px-4 py-3 rounded-2xl rounded-tl-none border shadow-sm max-w-[90%]">
+                        <p className="text-[10px] font-bold mb-1 text-primary uppercase">Client Directive</p>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{instruction.originalText}</p>
+                        <div className="text-[9px] text-muted-foreground mt-2 uppercase font-medium">
+                            Logged <ClientDate date={instruction.createdAt} />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Messages in thread */}
+                <div className="space-y-4">
                     {sortedMessages.map((msg) => {
                         const normalizedCurrentEmail = (currentUser.email || '').toLowerCase().trim();
                         const normalizedSenderEmail = (msg.senderEmail || '').toLowerCase().trim();
                         const isMe = normalizedSenderEmail === normalizedCurrentEmail;
+                        const isSystem = msg.senderEmail === 'system@sitecommand.internal';
+
+                        if (isSystem) {
+                            return (
+                                <div key={msg.id} className="flex justify-center my-2">
+                                    <Badge variant="outline" className="bg-background text-[10px] py-0.5 px-3 rounded-full border-dashed font-semibold text-muted-foreground">
+                                        {msg.message}
+                                    </Badge>
+                                </div>
+                            );
+                        }
 
                         return (
                             <div key={msg.id} className={cn("flex flex-col group", isMe ? "items-end" : "items-start")}>
@@ -239,86 +305,91 @@ export function ClientInstructionCard({
                             </div>
                         );
                     })}
-                  </div>
-              )}
-            </AccordionContent>
-          </AccordionItem>
-
-          {instruction.recipients && instruction.recipients.length > 0 && (
-             <AccordionItem value="recipients">
-             <AccordionTrigger className="text-sm font-semibold">
-               <div className="flex items-center gap-2">
-                 <Users className="h-4 w-4" />
-                 <span>
-                   Distribution List ({instruction.recipients.length})
-                 </span>
-               </div>
-             </AccordionTrigger>
-             <AccordionContent>
-              <div className="flex flex-wrap gap-1">
-                {instruction.recipients.map((email, index) => (
-                  <Badge key={index} variant="outline">{email}</Badge>
-                ))}
-              </div>
-             </AccordionContent>
-           </AccordionItem>
-          )}
-          {instruction.photos && instruction.photos.length > 0 && (
-            <AccordionItem value="photo">
-              <AccordionTrigger className="text-sm font-semibold">
-                <div className="flex items-center gap-2">
-                  <Camera className="h-4 w-4" />
-                  <span>Attached Photos ({instruction.photos.length})</span>
                 </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <Carousel className="w-full max-w-sm mx-auto">
-                  <CarouselContent>
-                    {instruction.photos.map((photo, index) => (
-                      <CarouselItem key={index}>
-                        <div className="p-1">
-                          <div className="space-y-2">
-                            <Image
-                              src={photo.url}
-                              alt={`Client Instruction photo ${index + 1}`}
-                              width={600}
-                              height={400}
-                              className="rounded-md border object-cover aspect-video"
-                              data-ai-hint="client instruction site"
-                            />
-                            <p className="text-xs text-muted-foreground text-center">
-                              Taken on:{' '}
-                              <ClientDate date={photo.takenAt} />
-                            </p>
-                          </div>
-                        </div>
-                      </CarouselItem>
+            </div>
+
+            <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="action-items">
+                <AccordionTrigger className="text-sm font-semibold">
+                <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4" />
+                    <span>
+                    Extracted Action Items ({instruction.actionItems.length})
+                    </span>
+                </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
+                    {instruction.actionItems.map((item, index) => (
+                    <li key={index}>{item}</li>
                     ))}
-                  </CarouselContent>
-                   {instruction.photos.length > 1 && (
-                    <>
-                      <CarouselPrevious />
-                      <CarouselNext />
-                    </>
-                  )}
-                </Carousel>
-              </AccordionContent>
+                </ul>
+                </AccordionContent>
             </AccordionItem>
-          )}
-          <AccordionItem value="original-text">
-            <AccordionTrigger className="text-sm font-semibold">
-              <div className="flex items-center gap-2">
-                <MessageCircle className="h-4 w-4" />
-                <span>Original Client Directive</span>
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                {instruction.originalText}
-              </p>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+
+            {instruction.recipients && instruction.recipients.length > 0 && (
+                <AccordionItem value="recipients">
+                <AccordionTrigger className="text-sm font-semibold">
+                <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <span>
+                    Internal Distribution ({instruction.recipients.length})
+                    </span>
+                </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                <div className="flex flex-wrap gap-1">
+                    {instruction.recipients.map((email, index) => (
+                    <Badge key={index} variant="outline">{email}</Badge>
+                    ))}
+                </div>
+                </AccordionContent>
+            </AccordionItem>
+            )}
+            {instruction.photos && instruction.photos.length > 0 && (
+                <AccordionItem value="photo">
+                <AccordionTrigger className="text-sm font-semibold">
+                    <div className="flex items-center gap-2">
+                    <Camera className="h-4 w-4" />
+                    <span>Attached Reference Photos ({instruction.photos.length})</span>
+                </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                    <Carousel className="w-full max-w-sm mx-auto">
+                    <CarouselContent>
+                        {instruction.photos.map((photo, index) => (
+                        <CarouselItem key={index}>
+                            <div className="p-1">
+                            <div className="space-y-2">
+                                <Image
+                                src={photo.url}
+                                alt={`Client Instruction photo ${index + 1}`}
+                                width={600}
+                                height={400}
+                                className="rounded-md border object-cover aspect-video"
+                                data-ai-hint="client instruction site"
+                                />
+                                <p className="text-xs text-muted-foreground text-center">
+                                Taken on:{' '}
+                                <ClientDate date={photo.takenAt} />
+                                </p>
+                            </div>
+                            </div>
+                        </CarouselItem>
+                        ))}
+                    </CarouselContent>
+                    {instruction.photos.length > 1 && (
+                        <>
+                        <CarouselPrevious />
+                        <CarouselNext />
+                        </>
+                    )}
+                    </Carousel>
+                </AccordionContent>
+                </AccordionItem>
+            )}
+            </Accordion>
+        </div>
       </CardContent>
     </Card>
   );

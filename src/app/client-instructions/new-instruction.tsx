@@ -109,6 +109,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
           createdAt: new Date().toISOString(),
           photos: photos,
           messages: [],
+          status: 'open',
         };
 
         const colRef = collection(db, 'client-instructions');
@@ -284,7 +285,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
             <Separator />
             
             <FormItem>
-              <FormLabel>Internal Distribution</FormLabel>
+              <FormLabel>Internal Distribution List</FormLabel>
               <ScrollArea className="h-40 rounded-md border p-4">
                 {distributionUsers.map((u) => (
                   <FormField

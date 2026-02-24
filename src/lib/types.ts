@@ -37,6 +37,7 @@ export type ClientInstruction = {
   photos?: Photo[];
   recipients?: string[];
   messages?: ChatMessage[];
+  status?: 'open' | 'accepted';
 };
 
 export type CleanUpNotice = {
