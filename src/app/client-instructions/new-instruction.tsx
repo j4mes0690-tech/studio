@@ -41,11 +41,12 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { summarizeInstructions } from '@/ai/flows/summarize-client-instructions';
 import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -69,6 +70,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,6 +92,33 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
       try {
+        toast({ title: 'Processing', description: 'Uploading media and running AI analysis...' });
+
+        // 1. Upload Photos to Firebase Storage
+        const uploadedPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `client-instructions/photos/${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
+
+        // 2. Upload Files to Firebase Storage
+        const uploadedFiles = await Promise.all(
+          files.map(async (f, i) => {
+            if (f.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(f.url);
+              const url = await uploadFile(storage, `client-instructions/files/${Date.now()}-${i}-${f.name}`, blob);
+              return { ...f, url };
+            }
+            return f;
+          })
+        );
+
+        // 3. AI flows
         const [summaryResult, actionItemsResult] = await Promise.all([
           summarizeInstructions({ instructions: values.originalText }),
           extractInstructionActionItems({ instructionText: values.originalText }),
@@ -102,8 +131,8 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
           actionItems: actionItemsResult.actionItems,
           recipients: values.recipients || [],
           createdAt: new Date().toISOString(),
-          photos: photos,
-          files: files,
+          photos: uploadedPhotos,
+          files: uploadedFiles,
           messages: [],
           status: 'open',
         };
@@ -125,7 +154,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
 
       } catch (err) {
         console.error(err);
-        toast({ title: 'AI Error', description: 'Failed to process directives.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to upload media or process directives.', variant: 'destructive' });
       }
     });
   };
@@ -166,10 +195,10 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
       const video = videoRef.current;
       const context = canvas.getContext('2d');
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 600;
-      canvas.height = 600 / aspectRatio;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
@@ -299,8 +328,8 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload Photos</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Attach Files</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
                     
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
                       const selected = e.target.files;
@@ -349,7 +378,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
               <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? 'AI Processing...' : 'Record Directive'}
+                {isPending ? 'Processing & Uploading...' : 'Record Directive'}
               </Button>
             </DialogFooter>
           </form>

@@ -29,7 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { MessageSquareReply, Camera, Upload, FileIcon, X, RefreshCw, FileText, Download, Loader2 } from 'lucide-react';
 import type { ClientInstruction, DistributionUser, ChatMessage, Photo, FileAttachment } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { ClientDate } from '../../components/client-date';
 import { Badge } from '@/components/ui/badge';
 import { VoiceInput } from '@/components/voice-input';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 
 const AddChatMessageSchema = z.object({
   message: z.string().min(1, 'Message cannot be empty.'),
@@ -53,6 +54,7 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   const [isPending, startTransition] = useTransition();
 
   // Media state
@@ -105,15 +107,11 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
       if (!context) return;
       
       const aspectRatio = video.videoWidth / video.videoHeight;
-      // Optimized for Firestore document size limits (max 1MB per document)
-      canvas.width = 500; 
-      canvas.height = 500 / aspectRatio;
+      canvas.width = 1200; 
+      canvas.height = 1200 / aspectRatio;
       
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Use lower quality (0.6) to ensure many photos can fit in one thread
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
-      
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
@@ -145,34 +143,58 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
   };
 
   const onSubmit = (values: AddChatMessageFormValues) => {
-    const newMessage: ChatMessage = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-      sender: currentUser.name,
-      senderEmail: currentUser.email.toLowerCase().trim(),
-      message: values.message,
-      createdAt: new Date().toISOString(),
-      photos: [...photos],
-      files: [...files],
-    };
+    startTransition(async () => {
+      try {
+        toast({ title: 'Uploading', description: 'Persisting media to cloud storage...' });
 
-    const docRef = doc(db, 'client-instructions', instruction.id);
-    const updates = { 
-        messages: arrayUnion(newMessage)
-    };
+        // 1. Upload Photos
+        const uploadedPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `instruction-threads/photos/${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
 
-    // Close dialog immediately for optimistic UX
-    setOpen(false);
+        // 2. Upload Files
+        const uploadedFiles = await Promise.all(
+          files.map(async (f, i) => {
+            if (f.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(f.url);
+              const url = await uploadFile(storage, `instruction-threads/files/${Date.now()}-${i}-${f.name}`, blob);
+              return { ...f, url };
+            }
+            return f;
+          })
+        );
 
-    // Perform non-blocking background update
-    updateDoc(docRef, updates)
-      .catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: docRef.path,
-          operation: 'update',
-          requestResourceData: updates,
-        } satisfies SecurityRuleContext);
-        errorEmitter.emit('permission-error', permissionError);
-      });
+        const newMessage: ChatMessage = {
+          id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+          sender: currentUser.name,
+          senderEmail: currentUser.email.toLowerCase().trim(),
+          message: values.message,
+          createdAt: new Date().toISOString(),
+          photos: uploadedPhotos,
+          files: uploadedFiles,
+        };
+
+        const docRef = doc(db, 'client-instructions', instruction.id);
+        const updates = { 
+            messages: arrayUnion(newMessage)
+        };
+
+        await updateDoc(docRef, updates);
+        toast({ title: 'Success', description: 'Update posted.' });
+        setOpen(false);
+
+      } catch (err) {
+        console.error('Thread post error:', err);
+        toast({ title: 'Error', description: 'Failed to post update. Check your connection.', variant: 'destructive' });
+      }
+    });
   };
 
   const isAccepted = instruction.status === 'accepted';
@@ -321,9 +343,10 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
                     />
 
                     {/* Media Previews */}
-                    {(photos.length > 0 || files.length > 0 || isReadingFiles) && (
+                    {(photos.length > 0 || files.length > 0 || isReadingFiles || isPending) && (
                       <div className="flex flex-wrap gap-2 border rounded-md p-2 bg-muted/20">
                         {isReadingFiles && <div className="flex items-center gap-2 text-[10px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Processing files...</div>}
+                        {isPending && <div className="flex items-center gap-2 text-[10px] text-primary"><Loader2 className="h-3 w-3 animate-spin" /> Uploading to cloud...</div>}
                         {photos.map((p, i) => (
                           <div key={i} className="relative w-12 h-12">
                             <Image src={p.url} alt="Pre" fill className="rounded object-cover border" />
@@ -362,8 +385,8 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
                         </div>
                       )}
                       
-                      <Button type="submit" className="ml-auto" disabled={isReadingFiles}>
-                          Post Update
+                      <Button type="submit" className="ml-auto" disabled={isReadingFiles || isPending}>
+                          {isPending ? 'Posting...' : 'Post Update'}
                       </Button>
                     </div>
 
@@ -373,22 +396,10 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
                       Array.from(selected).forEach(f => {
                         const reader = new FileReader();
                         reader.onload = (re) => {
-                            // Pre-compress uploaded files as well
-                            const img = new (window as any).Image();
-                            img.onload = () => {
-                                const canvas = document.createElement('canvas');
-                                const ctx = canvas.getContext('2d');
-                                const MAX_WIDTH = 800;
-                                const scale = Math.min(1, MAX_WIDTH / img.width);
-                                canvas.width = img.width * scale;
-                                canvas.height = img.height * scale;
-                                ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                setPhotos(prev => [...prev, { 
-                                    url: canvas.toDataURL('image/jpeg', 0.6), 
-                                    takenAt: new Date().toISOString() 
-                                }]);
-                            };
-                            img.src = re.target?.result as string;
+                            setPhotos(prev => [...prev, { 
+                                url: re.target?.result as string, 
+                                takenAt: new Date().toISOString() 
+                            }]);
                         };
                         reader.readAsDataURL(f);
                       });

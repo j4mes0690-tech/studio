@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -12,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useDoc, useCollection, useUser } from '@/firebase';
+import { useFirestore, useDoc, useCollection, useUser, useStorage } from '@/firebase';
 import { doc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -20,6 +21,7 @@ import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Are
 import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, Loader2, Save, RefreshCw } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +40,7 @@ function EditSnaggingContent() {
   const router = useRouter();
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   const { user: sessionUser } = useUser();
   const [isPending, startTransition] = useTransition();
 
@@ -133,8 +136,8 @@ function EditSnaggingContent() {
       const context = canvas.getContext('2d');
       if (!context) return null;
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 800;
-      canvas.height = 800 / aspectRatio;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const now = new Date();
       const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
@@ -191,20 +194,63 @@ function EditSnaggingContent() {
   const handleSave = () => {
     if (!snagRef) return;
     startTransition(async () => {
-      const updates = { title, description, projectId, areaId, items, photos };
-      updateDoc(snagRef, updates)
-        .then(() => {
-          toast({ title: 'Success', description: 'Snagging list saved.' });
-          router.push('/snagging');
-        })
-        .catch(err => {
-          const permissionError = new FirestorePermissionError({
-            path: snagRef.path,
-            operation: 'update',
-            requestResourceData: updates
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+      try {
+        toast({ title: 'Saving', description: 'Uploading media items...' });
+
+        // 1. Upload overall list photos
+        const uploadedGeneralPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `snagging/general/${id}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
+
+        // 2. Upload individual item photos
+        const uploadedItems = await Promise.all(
+          items.map(async (item) => {
+            const upPhotos = await Promise.all((item.photos || []).map(async (p, i) => {
+              if (p.url.startsWith('data:')) {
+                const blob = await dataUriToBlob(p.url);
+                const url = await uploadFile(storage, `snagging/items/${id}-${item.id}-defect-${i}.jpg`, blob);
+                return { ...p, url };
+              }
+              return p;
+            }));
+
+            const upCompletion = await Promise.all((item.completionPhotos || []).map(async (p, i) => {
+              if (p.url.startsWith('data:')) {
+                const blob = await dataUriToBlob(p.url);
+                const url = await uploadFile(storage, `snagging/items/${id}-${item.id}-fixed-${i}.jpg`, blob);
+                return { ...p, url };
+              }
+              return p;
+            }));
+
+            return { ...item, photos: upPhotos, completionPhotos: upCompletion };
+          })
+        );
+
+        const updates = { 
+          title, 
+          description, 
+          projectId, 
+          areaId, 
+          items: uploadedItems, 
+          photos: uploadedGeneralPhotos 
+        };
+
+        await updateDoc(snagRef, updates);
+        toast({ title: 'Success', description: 'Snagging list saved.' });
+        router.push('/snagging');
+
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Error', description: 'Failed to upload media or save records.', variant: 'destructive' });
+      }
     });
   };
 
