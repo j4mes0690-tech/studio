@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useTransition } from 'react';
+import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,8 +35,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw } from 'lucide-react';
-import type { Project, SubContractor, Photo } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import type { Project, SubContractor, Photo, CleanUpNotice } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -46,6 +45,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { getProjectInitials, getNextReference } from '@/lib/utils';
 
 const NewNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -58,9 +58,10 @@ type NewNoticeFormValues = z.infer<typeof NewNoticeSchema>;
 type NewNoticeProps = {
   projects: Project[];
   subContractors: SubContractor[];
+  allNotices: CleanUpNotice[];
 };
 
-export function NewNotice({ projects, subContractors }: NewNoticeProps) {
+export function NewNotice({ projects, subContractors, allNotices }: NewNoticeProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -84,6 +85,9 @@ export function NewNotice({ projects, subContractors }: NewNoticeProps) {
     },
   });
 
+  const selectedProjectId = form.watch('projectId');
+  const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+
   const onSubmit = (values: NewNoticeFormValues) => {
     startTransition(async () => {
       try {
@@ -105,7 +109,11 @@ export function NewNotice({ projects, subContractors }: NewNoticeProps) {
           .filter(sub => values.recipients?.includes(sub.id))
           .map(sub => sub.email);
 
+        const initials = getProjectInitials(selectedProject?.name || 'PRJ');
+        const reference = getNextReference(allNotices, values.projectId, 'CN', initials);
+
         const noticeData = {
+          reference,
           projectId: values.projectId,
           description: values.description,
           recipients: recipientEmails,

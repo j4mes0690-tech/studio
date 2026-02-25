@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -81,7 +82,11 @@ function CleanUpContent() {
             Notice Log
           </h2>
           <div className="flex items-center gap-2">
-            <NewNotice projects={allowedProjects} subContractors={subContractors || []} />
+            <NewNotice 
+              projects={allowedProjects} 
+              subContractors={subContractors || []} 
+              allNotices={allNotices || []}
+            />
           </div>
         </div>
         <NoticeFilters projects={allowedProjects} />

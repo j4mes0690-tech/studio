@@ -55,6 +55,7 @@ export type ClientInstruction = {
 
 export type CleanUpNotice = {
   id: string;
+  reference: string;
   projectId: string;
   description: string;
   createdAt: string;

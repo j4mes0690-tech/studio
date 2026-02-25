@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -81,11 +82,18 @@ export function NoticeCard({
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
-            <div>
-              <CardTitle>{project?.name || 'Unknown Project'}</CardTitle>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-xl">{project?.name || 'Unknown Project'}</CardTitle>
+                {notice.reference && (
+                  <Badge variant="outline" className="font-mono text-[10px] bg-background">
+                    {notice.reference}
+                  </Badge>
+                )}
+              </div>
               <CardDescription className="flex items-center gap-2 pt-1">
                 <span className="text-xs text-muted-foreground/80">
-                  <ClientDate date={notice.createdAt} />
+                  Logged <ClientDate date={notice.createdAt} />
                 </span>
               </CardDescription>
             </div>

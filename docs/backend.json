@@ -61,6 +61,8 @@
       "title": "Instruction",
       "type": "object",
       "properties": {
+        "id": { "type": "string" },
+        "reference": { "type": "string" },
         "projectId": { "type": "string" },
         "originalText": { "type": "string" },
         "summary": { "type": "string" },
@@ -75,6 +77,8 @@
       "title": "ClientInstruction",
       "type": "object",
       "properties": {
+        "id": { "type": "string" },
+        "reference": { "type": "string" },
         "projectId": { "type": "string" },
         "originalText": { "type": "string" },
         "summary": { "type": "string" },
@@ -120,6 +124,8 @@
       "title": "CleanUpNotice",
       "type": "object",
       "properties": {
+        "id": { "type": "string" },
+        "reference": { "type": "string" },
         "projectId": { "type": "string" },
         "description": { "type": "string" },
         "createdAt": { "type": "string" },
@@ -143,6 +149,8 @@
       "description": "RFIs.",
       "type": "object",
       "properties": {
+        "id": { "type": "string" },
+        "reference": { "type": "string" },
         "projectId": { "type": "string" },
         "description": { "type": "string" },
         "assignedTo": { "type": "array", "items": { "type": "string" } },
