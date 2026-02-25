@@ -16,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { MessageCircle, Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download } from 'lucide-react';
+import { Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -138,7 +138,7 @@ export function InstructionCard({
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-foreground mb-4">{instruction.summary}</p>
+          <p className="text-sm text-foreground mb-4 whitespace-pre-wrap">{instruction.originalText}</p>
           
           {instruction.files && instruction.files.length > 0 && (
             <div className="mb-4 space-y-1 border rounded-lg p-3 bg-muted/10">
@@ -199,8 +199,8 @@ export function InstructionCard({
                                   className="rounded-md border object-cover aspect-video"
                                   data-ai-hint="construction site"
                                 />
-                                <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Maximize2 className="h-6 w-6 text-white" />
+                                <div className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Maximize2 className="h-4 w-4" />
                                 </div>
                               </div>
                               <p className="text-xs text-muted-foreground text-center">
@@ -222,19 +222,6 @@ export function InstructionCard({
                 </AccordionContent>
               </AccordionItem>
             )}
-            <AccordionItem value="original-text">
-              <AccordionTrigger className="text-sm font-semibold">
-                <div className="flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4" />
-                  <span>Original Context</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                  {instruction.originalText}
-                </p>
-              </AccordionContent>
-            </AccordionItem>
           </Accordion>
         </CardContent>
       </Card>
