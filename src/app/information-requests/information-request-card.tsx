@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -17,7 +18,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw, Trash2, Maximize2, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw, Trash2, Maximize2, Link as LinkIcon, ExternalLink, FileText, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditInformationRequest } from './edit-information-request';
 import {
@@ -160,7 +161,7 @@ export function InformationRequestCard({
             </Link>
             <div className="flex items-center gap-2">
               <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className='capitalize'>{item.status}</Badge>
-              {item.status === 'open' ? <RespondToRequest item={item} distributionUsers={distributionUsers} currentUser={currentUser} /> : null}
+              {item.status === 'open' ? <RespondToRequest item={item} currentUser={currentUser} /> : null}
               <UpdateStatusButton requestId={item.id} newStatus={item.status === 'open' ? 'closed' : 'open'} currentUser={currentUser} />
               <EditInformationRequest item={item} projects={projects} distributionUsers={distributionUsers} />
               
@@ -192,7 +193,21 @@ export function InformationRequestCard({
         <CardContent className="pt-6">
           <div className="bg-muted/30 p-4 rounded-lg border mb-6">
               <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Inquiry</p>
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{item.description}</p>
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap mb-4">{item.description}</p>
+              
+              {/* Request Attachments */}
+              {(item.files && item.files.length > 0) && (
+                <div className="space-y-1 border-t pt-3">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Technical Documentation</p>
+                  {item.files.map((f, i) => (
+                    <a key={i} href={f.url} download={f.name} className="flex items-center gap-2 p-2 rounded text-[10px] bg-background border text-primary hover:bg-accent group">
+                      <FileText className="h-3.5 w-3.5" /> 
+                      <span className="truncate flex-1 font-medium">{f.name}</span> 
+                      <Download className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                    </a>
+                  ))}
+                </div>
+              )}
           </div>
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="assigned-to">
@@ -212,7 +227,16 @@ export function InformationRequestCard({
                                     <div className={cn("relative px-4 py-2 rounded-2xl max-w-[85%] shadow-sm", isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none border")}>
                                         {!isMe && <p className="text-[10px] font-bold mb-1 text-primary">{msg.sender}</p>}
                                         <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                                        
+                                        {/* Message Media */}
                                         {msg.photos?.map((p, i) => <div key={i} className="relative aspect-video rounded-lg overflow-hidden border mt-2 cursor-pointer" onClick={() => setViewingPhoto(p)}><Image src={p.url} alt="U" fill className="object-cover" /></div>)}
+                                        {msg.files?.map((f, i) => (
+                                          <a key={i} href={f.url} download={f.name} className={cn("flex items-center gap-2 p-1.5 rounded text-[9px] mt-2 border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-background border-border text-primary")}>
+                                            <FileText className="h-3 w-3" />
+                                            <span className="truncate max-w-[150px]">{f.name}</span>
+                                          </a>
+                                        ))}
+
                                         <div className={cn("text-[9px] mt-1 opacity-70")}><ClientDate date={msg.createdAt} /></div>
                                     </div>
                                 </div>
@@ -227,7 +251,7 @@ export function InformationRequestCard({
                 <AccordionContent>
                   <Carousel className="w-full max-w-sm mx-auto">
                     <CarouselContent>{item.photos.map((photo, i) => <CarouselItem key={i}><div className="relative aspect-video rounded-md overflow-hidden border cursor-pointer" onClick={() => setViewingPhoto(photo)}><Image src={photo.url} alt="Site" fill className="object-cover" /><div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 hover:opacity-100"><Maximize2 className="h-6 w-6 text-white" /></div></div></CarouselItem>)}</CarouselContent>
-                    <CarouselPrevious /><CarouselNext />
+                    {item.photos.length > 1 && <><CarouselPrevious /><CarouselNext /></>}
                   </Carousel>
                 </AccordionContent>
               </AccordionItem>

@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
-import type { ClientInstruction, Project, DistributionUser, ChatMessage, Photo, SubContractor } from '@/lib/types';
+import type { ClientInstruction, Project, DistributionUser, ChatMessage, Photo, SubContractor, FileAttachment } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -163,7 +164,8 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                         createdAt: new Date().toISOString(),
                         status: 'open',
                         messages: [],
-                        photos: instruction.photos || []
+                        photos: instruction.photos || [],
+                        files: instruction.files || [] // Inherit files
                     };
                     addDoc(collection(db, 'information-requests'), rfiData).catch(err => {
                         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -445,6 +447,12 @@ export function ClientInstructionCard({ instruction, projects, currentUser }: { 
                                 <div key={i} className="relative aspect-video rounded-lg overflow-hidden border bg-background mt-2 cursor-pointer" onClick={() => setViewingPhoto(p)}>
                                   <Image src={p.url} alt="Update photo" fill className="object-cover" />
                                 </div>
+                              ))}
+                              {msg.files?.map((f, i) => (
+                                <a key={i} href={f.url} download={f.name} className={cn("flex items-center gap-2 p-1.5 rounded text-[9px] mt-2 border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-background border-border text-primary")}>
+                                  <FileText className="h-3 w-3" />
+                                  <span className="truncate max-w-[150px]">{f.name}</span>
+                                </a>
                               ))}
                               <div className={cn("text-[9px] mt-2", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}><ClientDate date={msg.createdAt} /></div>
                           </div>

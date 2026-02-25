@@ -101,6 +101,7 @@ export type InformationRequest = {
   raisedBy: string;
   createdAt: string;
   photos?: Photo[];
+  files?: FileAttachment[];
   requiredBy?: string;
   status: 'open' | 'closed';
   messages: ChatMessage[];
