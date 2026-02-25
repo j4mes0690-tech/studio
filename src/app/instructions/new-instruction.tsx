@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -33,7 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText, Users2, Shield } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -53,7 +54,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   originalText: z.string().min(10, 'Instructions must be at least 10 characters.'),
-  recipients: z.array(z.string()).min(1, 'You must select exactly one external partner to issue this instruction.').max(1, 'Only one external partner can be assigned per instruction.'),
+  externalRecipient: z.string().min(1, 'You must select exactly one external partner to issue this instruction.'),
+  internalRecipients: z.array(z.string()).optional(),
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
@@ -86,7 +88,8 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
     defaultValues: {
       projectId: '',
       originalText: '',
-      recipients: [],
+      externalRecipient: '',
+      internalRecipients: [],
     },
   });
 
@@ -99,6 +102,16 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
     const assignedIds = project.assignedSubContractors || [];
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, projects, subContractors]);
+
+  const availableInternalUsers = useMemo(() => {
+    if (!selectedProjectId) return [];
+    const project = projects.find(p => p.id === selectedProjectId);
+    if (!project) return [];
+    const assignedEmails = project.assignedUsers || [];
+    return distributionUsers.filter(u => 
+      assignedEmails.some(email => email.toLowerCase().trim() === u.email.toLowerCase().trim())
+    );
+  }, [selectedProjectId, projects, distributionUsers]);
 
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
@@ -132,13 +145,18 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
           extractInstructionActionItems({ instructionText: values.originalText }),
         ]);
 
+        const combinedRecipients = [
+            values.externalRecipient,
+            ...(values.internalRecipients || [])
+        ].filter(Boolean);
+
         const instructionData = {
           reference: generateReference('SI'),
           projectId: values.projectId,
           originalText: values.originalText,
           summary: summaryResult.summary,
           actionItems: actionItemsResult.actionItems,
-          recipients: values.recipients,
+          recipients: combinedRecipients,
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
           files: uploadedFiles,
@@ -231,11 +249,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
       <DialogTrigger asChild>
         <Button><PlusCircle className="mr-2 h-4 w-4" />New Instruction</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record New Site Instruction</DialogTitle>
           <DialogDescription>
-            Capture requirements on-site. AI will summarize tasks and notify the selected partner.
+            Capture requirements on-site. AI will summarize tasks and distribute to selected partners and staff.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -311,9 +329,9 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                   </div>
                 ) : (
                   <div className="flex gap-2 flex-wrap">
-                    <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
-                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                    <Button type="button" variant="outline" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files (Max 10MB)</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files (Max 10MB)</Button>
                     
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
                       const selected = e.target.files;
@@ -332,40 +350,80 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
 
             <Separator />
             
-            <div className="space-y-4">
-                <div className='flex flex-col gap-1'>
-                    <FormLabel>Project Team Recipient (Required)</FormLabel>
-                    <p className='text-[10px] text-muted-foreground'>Select exactly one sub-contractor or designer to receive this instruction.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                    <div className='flex flex-col gap-1'>
+                        <div className="flex items-center gap-2">
+                            <Users2 className="h-4 w-4 text-accent" />
+                            <FormLabel className="font-bold">Primary Recipient (External)</FormLabel>
+                        </div>
+                        <p className='text-[10px] text-muted-foreground'>Select exactly one partner to issue this SI to.</p>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                        {availableSubContractors.map((sub) => (
+                        <FormField
+                            key={sub.id}
+                            control={form.control}
+                            name="externalRecipient"
+                            render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                <FormControl>
+                                <Checkbox
+                                    checked={field.value === sub.email}
+                                    onCheckedChange={(c) => {
+                                        field.onChange(c ? sub.email : '');
+                                    }}
+                                />
+                                </FormControl>
+                                <div className="flex flex-col leading-none">
+                                    <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
+                                    <span className="text-[10px] text-muted-foreground">{sub.email}</span>
+                                </div>
+                            </FormItem>
+                            )}
+                        />
+                        ))}
+                        {selectedProjectId && availableSubContractors.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8 italic">No external partners assigned to this project.</p>}
+                    </ScrollArea>
+                    <FormField control={form.control} name="externalRecipient" render={() => <FormMessage />} />
                 </div>
-                <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                    {availableSubContractors.map((sub) => (
-                    <FormField
-                        key={sub.id}
-                        control={form.control}
-                        name="recipients"
-                        render={({ field }) => (
-                        <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                            <FormControl>
-                            <Checkbox
-                                checked={field.value?.includes(sub.email)}
-                                onCheckedChange={(c) => {
-                                    // radio behavior
-                                    field.onChange(c ? [sub.email] : []);
-                                }}
-                            />
-                            </FormControl>
-                            <div className="flex flex-col leading-none">
-                                <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
-                                <span className="text-[10px] text-muted-foreground">{sub.email}</span>
-                            </div>
-                        </FormItem>
-                        )}
-                    />
-                    ))}
-                    {!selectedProjectId && <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to view assigned team members.</p>}
-                    {selectedProjectId && availableSubContractors.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8">No external partners assigned to this project.</p>}
-                </ScrollArea>
-                <FormField control={form.control} name="recipients" render={() => <FormMessage />} />
+
+                <div className="space-y-4">
+                    <div className='flex flex-col gap-1'>
+                        <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-primary" />
+                            <FormLabel className="font-bold">Staff Notifications (Internal)</FormLabel>
+                        </div>
+                        <p className='text-[10px] text-muted-foreground'>Select team members to be notified of this instruction.</p>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                        {availableInternalUsers.map((user) => (
+                        <FormField
+                            key={user.id}
+                            control={form.control}
+                            name="internalRecipients"
+                            render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                <FormControl>
+                                <Checkbox
+                                    checked={field.value?.includes(user.email)}
+                                    onCheckedChange={(c) => {
+                                        const curr = field.value || [];
+                                        field.onChange(c ? [...curr, user.email] : curr.filter(v => v !== user.email));
+                                    }}
+                                />
+                                </FormControl>
+                                <div className="flex flex-col leading-none">
+                                    <FormLabel className="text-xs font-semibold">{user.name}</FormLabel>
+                                    <span className="text-[10px] text-muted-foreground">{user.email}</span>
+                                </div>
+                            </FormItem>
+                            )}
+                        />
+                        ))}
+                        {selectedProjectId && availableInternalUsers.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8 italic">No staff members assigned to this project.</p>}
+                    </ScrollArea>
+                </div>
             </div>
 
             <canvas ref={canvasRef} className="hidden" />
