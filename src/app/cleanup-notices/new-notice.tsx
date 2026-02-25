@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -91,7 +90,8 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedIds.includes(sub.id));
+    // Only show contacts assigned to the project who are classified as Sub-contractors (Excludes Designers-only)
+    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const onSubmit = (values: NewNoticeFormValues) => {

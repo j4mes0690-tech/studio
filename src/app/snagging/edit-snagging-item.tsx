@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useRef, useTransition } from 'react';
+import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -107,15 +106,22 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   });
 
   const selectedProjectId = form.watch('projectId');
+  const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+
+  const projectSubs = useMemo(() => {
+    if (!selectedProjectId || !selectedProject) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
+    // Filter by project assignment and ensure contact is classified as a Sub-contractor (excludes Designers only)
+    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+  }, [selectedProjectId, selectedProject, subContractors]);
 
   useEffect(() => {
     if (selectedProjectId) {
-      const selectedProject = projects.find(p => p.id === selectedProjectId);
       setAreas(selectedProject?.areas || []);
     } else {
       setAreas([]);
     }
-  }, [selectedProjectId, projects]);
+  }, [selectedProjectId, selectedProject]);
 
   useEffect(() => {
     if (open) {
@@ -236,6 +242,20 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
     });
   };
 
+  const handleAddItem = () => {
+    if (newItemText.trim()) {
+      setItems([...items, { 
+        id: `item-${Date.now()}`, 
+        description: newItemText.trim(), 
+        status: 'open', 
+        photos: [],
+        subContractorId: pendingSubId
+      }]);
+      setNewItemText('');
+      setPendingSubId(undefined);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -256,25 +276,56 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
             <FormField control={form.control} name="title" render={({ field }) => (
                 <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
             )} />
+            
             <Separator />
+            
             <div className="space-y-4">
-                <FormLabel className="text-base font-semibold">List Items</FormLabel>
+                <div className="flex items-center justify-between">
+                    <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
+                    <VoiceInput onResult={(text) => setNewItemText(text)} />
+                </div>
+                
+                <div className="flex gap-2 items-end">
+                    <Input 
+                        placeholder="Add new defect..." 
+                        value={newItemText} 
+                        onChange={(e) => setNewItemText(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
+                    />
+                    <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
+                        <SelectTrigger className="w-10 px-0 flex justify-center"><UserPlus className="h-4 w-4" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                            {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Button type="button" onClick={handleAddItem} size="icon"><Plus className="h-4 w-4" /></Button>
+                </div>
+
                 <div className="space-y-3">
-                    {items.map(listItem => (
-                        <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 group">
-                            <div className="flex items-center justify-between">
-                                <span className={cn("text-sm", listItem.status === 'closed' && "line-through text-muted-foreground")}>{listItem.description}</span>
-                                <div className="flex gap-1 items-center">
-                                    <Button type="button" variant="ghost" size="icon" className="text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setItems(items.filter(i => i.id !== listItem.id))}><Trash2 className="h-4 w-4" /></Button>
+                    {items.map(listItem => {
+                        const sub = subContractors.find(s => s.id === listItem.subContractorId);
+                        return (
+                            <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 group">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex flex-col gap-1">
+                                        <span className={cn("text-sm font-medium", listItem.status === 'closed' && "line-through text-muted-foreground")}>{listItem.description}</span>
+                                        {sub && <Badge variant="secondary" className="w-fit text-[10px] gap-1"><User className="h-2 w-2" /> {sub.name}</Badge>}
+                                    </div>
+                                    <div className="flex gap-1 items-center">
+                                        <Button type="button" variant="ghost" size="icon" className="text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                        <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setItems(items.filter(i => i.id !== listItem.id))}><Trash2 className="h-4 w-4" /></Button>
+                                    </div>
                                 </div>
+                                {(listItem.photos?.length || 0) > 0 && <div className="flex gap-2 mt-2">{listItem.photos?.map((p, idx) => <div key={idx} className="relative w-10 h-10"><Image src={p.url} alt="D" fill className="rounded object-cover border" /></div>)}</div>}
                             </div>
-                            {(listItem.photos?.length || 0) > 0 && <div className="flex gap-2 mt-2">{listItem.photos?.map((p, idx) => <div key={idx} className="relative w-10 h-10"><Image src={p.url} alt="D" fill className="rounded object-cover border" /></div>)}</div>}
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
+            
             <Separator />
+            
             <div className="space-y-2">
               <FormLabel>Reference Photos</FormLabel>
               <div className="flex flex-wrap gap-2">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -73,16 +73,23 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
   });
 
   const selectedProjectId = form.watch('projectId');
+  const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+
+  const projectSubs = useMemo(() => {
+    if (!selectedProjectId || !selectedProject) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
+    // Only show contacts assigned to the project who are classified as Sub-contractors (Excludes Designers-only)
+    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+  }, [selectedProjectId, selectedProject, subContractors]);
 
   useEffect(() => {
     if (selectedProjectId) {
-      const selectedProject = projects.find(p => p.id === selectedProjectId);
       setAreas(selectedProject?.areas || []);
       form.setValue('areaId', '');
     } else {
       setAreas([]);
     }
-  }, [selectedProjectId, projects, form]);
+  }, [selectedProjectId, selectedProject, form]);
 
   const onSubmit = (values: AssignChecklistFormValues) => {
     startTransition(async () => {
@@ -208,7 +215,11 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
             <FormItem>
               <FormLabel>Assign to Sub-Contractor (Optional)</FormLabel>
               <ScrollArea className="h-40 rounded-md border p-4">
-                {subContractors.map((sub) => (
+                {projectSubs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-8">
+                    {selectedProjectId ? "No sub-contractors assigned to this project." : "Please select a project first."}
+                  </p>
+                ) : projectSubs.map((sub) => (
                   <FormField
                     key={sub.id}
                     control={form.control}

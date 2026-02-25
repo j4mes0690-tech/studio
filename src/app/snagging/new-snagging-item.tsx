@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useRef, useTransition } from 'react';
+import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -98,17 +97,24 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
   });
 
   const selectedProjectId = form.watch('projectId');
+  const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
   const selectedAreaId = form.watch('areaId');
+
+  const projectSubs = useMemo(() => {
+    if (!selectedProjectId || !selectedProject) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
+    // Only show contacts assigned to the project who are classified as Sub-contractors (Excludes Designers-only)
+    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+  }, [selectedProjectId, selectedProject, subContractors]);
 
   useEffect(() => {
     if (selectedProjectId) {
-      const selectedProject = projects.find(p => p.id === selectedProjectId);
       setAreas(selectedProject?.areas || []);
       form.setValue('areaId', '');
     } else {
       setAreas([]);
     }
-  }, [selectedProjectId, projects, form]);
+  }, [selectedProjectId, selectedProject, form]);
 
   useEffect(() => {
     if (selectedAreaId && selectedAreaId !== 'none') {
@@ -385,9 +391,12 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                           </SelectTrigger>
                           <SelectContent className="min-w-[200px]">
                             <SelectItem value="unassigned" className="cursor-pointer hover:bg-accent focus:bg-accent">Unassigned</SelectItem>
-                            {subContractors.map(sub => (
+                            {projectSubs.map(sub => (
                               <SelectItem key={sub.id} value={sub.id} className="cursor-pointer hover:bg-accent focus:bg-accent">{sub.name}</SelectItem>
                             ))}
+                            {selectedProjectId && projectSubs.length === 0 && (
+                              <div className="p-2 text-[10px] text-muted-foreground text-center italic">No sub-contractors assigned to project.</div>
+                            )}
                           </SelectContent>
                         </Select>
 
