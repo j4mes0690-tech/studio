@@ -36,7 +36,8 @@ import {
   X,
   ShieldCheck,
   Ruler,
-  Users2
+  Users2,
+  RefreshCw
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ClientDate } from '../../components/client-date';
@@ -74,6 +75,73 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+
+function ReopenInstructionButton({ instruction, currentUser }: { instruction: ClientInstruction, currentUser: DistributionUser }) {
+    const { toast } = useToast();
+    const db = useFirestore();
+    const [isPending, startTransition] = useTransition();
+
+    const handleReopen = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        startTransition(async () => {
+            const docRef = doc(db, 'client-instructions', instruction.id);
+            const systemMessage: ChatMessage = {
+                id: `system-${Date.now()}`,
+                sender: 'System',
+                senderEmail: 'system@sitecommand.internal',
+                message: `Directive REOPENED by ${currentUser.name} for further clarification.`,
+                createdAt: new Date().toISOString()
+            };
+
+            updateDoc(docRef, {
+                status: 'open',
+                messages: arrayUnion(systemMessage)
+            }).then(() => {
+                toast({ title: 'Directive Reopened', description: 'Communication workspace is now active.' });
+            }).catch(err => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: docRef.path,
+                    operation: 'update',
+                    requestResourceData: { status: 'open' }
+                }));
+            });
+        });
+    };
+
+    return (
+        <AlertDialog>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="gap-2" onClick={(e) => e.stopPropagation()}>
+                                <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
+                                Reopen Directive
+                            </Button>
+                        </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Allow further comments and implementation updates</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Reopen Client Directive?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will move the directive back to "Open" status, re-enabling the implementation thread for further questions or documentation.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleReopen} disabled={isPending}>
+                        Confirm Reopen
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
 
 function AcceptInstructionButton({ 
     instruction, 
@@ -239,12 +307,12 @@ function AcceptInstructionButton({
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2 text-green-600 border-green-200 hover:bg-green-50">
+                <Button variant="outline" size="sm" className="gap-2 text-green-600 border-green-200 hover:bg-green-50" onClick={(e) => e.stopPropagation()}>
                     <CheckCircle2 className="h-4 w-4" />
                     Accept Directive
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-3xl h-[85vh] flex flex-col p-0 overflow-hidden">
+            <DialogContent className="sm:max-w-3xl h-[85vh] flex flex-col p-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                 <DialogHeader className="p-6 pb-0 flex-none">
                     <DialogTitle>Action Workspace: {instruction.reference}</DialogTitle>
                     <DialogDescription>
@@ -458,7 +526,7 @@ export function ClientInstructionCard({
               <Badge variant={isAccepted ? "secondary" : "default"} className={cn(isAccepted && "bg-green-100 text-green-800 border-green-200")}>
                   {isAccepted ? "Accepted" : "Open Directive"}
               </Badge>
-              {!isAccepted && (
+              {!isAccepted ? (
                 <AcceptInstructionButton 
                     instruction={instruction} 
                     currentUser={currentUser} 
@@ -466,6 +534,8 @@ export function ClientInstructionCard({
                     allSiteInstructions={allSiteInstructions}
                     allRfis={allRfis}
                 />
+              ) : (
+                <ReopenInstructionButton instruction={instruction} currentUser={currentUser} />
               )}
               <RespondToInstruction instruction={instruction} currentUser={currentUser} />
               <AlertDialog>

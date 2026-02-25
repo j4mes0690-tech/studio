@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition } from 'react';
 import {
   Table,
   TableBody,
@@ -13,12 +14,11 @@ import { Badge } from '@/components/ui/badge';
 import type { ClientInstruction, Project, DistributionUser, Instruction, InformationRequest, ChatMessage } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { RespondToInstruction } from './respond-to-instruction';
-import { useTransition } from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, MessageSquare, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2 } from 'lucide-react';
+import { Trash2, MessageSquare, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SortKey = 'reference' | 'project' | 'directive' | 'status' | 'date';
@@ -153,6 +153,33 @@ function InstructionRow({ item, projects, currentUser }: { item: ClientInstructi
 
   const isAccepted = item.status === 'accepted';
 
+  const handleReopen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    startTransition(async () => {
+      const docRef = doc(db, 'client-instructions', item.id);
+      const systemMessage: ChatMessage = {
+        id: `system-${Date.now()}`,
+        sender: 'System',
+        senderEmail: 'system@sitecommand.internal',
+        message: `Directive REOPENED by ${currentUser.name}.`,
+        createdAt: new Date().toISOString()
+      };
+
+      updateDoc(docRef, {
+        status: 'open',
+        messages: arrayUnion(systemMessage)
+      }).then(() => {
+        toast({ title: 'Success', description: 'Directive reopened.' });
+      }).catch(err => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'update',
+          requestResourceData: { status: 'open' }
+        }));
+      });
+    });
+  };
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     startTransition(async () => {
@@ -201,6 +228,19 @@ function InstructionRow({ item, projects, currentUser }: { item: ClientInstructi
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {isAccepted ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" onClick={handleReopen} disabled={isPending}>
+                    <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Reopen Directive</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+          
           <RespondToInstruction instruction={item} currentUser={currentUser} />
           
           <AlertDialog>
@@ -216,7 +256,7 @@ function InstructionRow({ item, projects, currentUser }: { item: ClientInstructi
                 <TooltipContent><p>Delete Record</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <AlertDialogContent>
+            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>Permanently delete this client instruction record. This cannot be undone.</AlertDialogDescription>
