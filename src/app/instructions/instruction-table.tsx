@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -11,12 +10,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
 import type { Instruction, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { EditInstruction } from './edit-instruction';
@@ -153,9 +146,15 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const recipientEmail = item.recipients?.[0];
   const recipient = subContractors.find(s => s.email === recipientEmail) || distributionUsers.find(u => u.email === recipientEmail);
+
+  // Identify external recipient for validation
+  const instructedParty = useMemo(() => {
+    return subContractors.find(s => item.recipients?.includes(s.email));
+  }, [subContractors, item.recipients]);
 
   const isDraft = item.status === 'draft';
 
@@ -177,6 +176,20 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
 
   const handleIssue = (e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    const hasText = item.originalText && item.originalText.trim().length >= 10;
+    const hasRecipient = !!instructedParty;
+
+    if (!hasText || !hasRecipient) {
+      toast({ 
+        title: "Requirements Not Met", 
+        description: "Please complete the directive details and assign a trade partner before issuing.", 
+        variant: "destructive" 
+      });
+      setIsEditDialogOpen(true);
+      return;
+    }
+
     startTransition(async () => {
       const docRef = doc(db, 'instructions', item.id);
       updateDoc(docRef, { status: 'issued' })
@@ -252,7 +265,9 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
             item={item} 
             projects={projects} 
             distributionUsers={distributionUsers} 
-            subContractors={subContractors} 
+            subContractors={subContractors}
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
           />
           
           <AlertDialog>

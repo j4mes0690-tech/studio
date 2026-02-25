@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -71,6 +70,7 @@ export function InstructionCard({
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -90,7 +90,30 @@ export function InstructionCard({
     });
   };
 
+  // Identify the instructed party (the external contact)
+  const instructedParty = useMemo(() => {
+    return subContractors.find(s => instruction.recipients?.includes(s.email));
+  }, [subContractors, instruction.recipients]);
+
+  // Identify the internal distribution list
+  const internalDistribution = useMemo(() => {
+    return distributionUsers.filter(u => instruction.recipients?.includes(u.email));
+  }, [distributionUsers, instruction.recipients]);
+
   const handleIssue = () => {
+    const hasText = instruction.originalText && instruction.originalText.trim().length >= 10;
+    const hasRecipient = !!instructedParty;
+
+    if (!hasText || !hasRecipient) {
+      toast({ 
+        title: "Requirements Not Met", 
+        description: "A description (min 10 chars) and an assigned trade partner are required to formally issue this instruction.", 
+        variant: "destructive" 
+      });
+      setIsEditDialogOpen(true);
+      return;
+    }
+
     startTransition(async () => {
       const docRef = doc(db, 'instructions', instruction.id);
       updateDoc(docRef, { status: 'issued' })
@@ -105,16 +128,6 @@ export function InstructionCard({
         });
     });
   };
-
-  // Identify the instructed party (the external contact)
-  const instructedParty = useMemo(() => {
-    return subContractors.find(s => instruction.recipients?.includes(s.email));
-  }, [subContractors, instruction.recipients]);
-
-  // Identify the internal distribution list
-  const internalDistribution = useMemo(() => {
-    return distributionUsers.filter(u => instruction.recipients?.includes(u.email));
-  }, [distributionUsers, instruction.recipients]);
 
   const isDraft = instruction.status === 'draft';
 
@@ -177,7 +190,9 @@ export function InstructionCard({
                 item={instruction} 
                 projects={projects} 
                 distributionUsers={distributionUsers} 
-                subContractors={subContractors} 
+                subContractors={subContractors}
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
               />
 
               <AlertDialog>

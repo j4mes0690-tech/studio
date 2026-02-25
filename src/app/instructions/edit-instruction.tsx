@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText, Users2, Shield } from 'lucide-react';
+import { Pencil, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText, Users2, Shield, Loader2 } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -49,9 +49,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const EditInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  originalText: z.string().min(10, 'Instructions must be at least 10 characters.'),
-  externalRecipient: z.string().min(1, 'You must select exactly one external partner to issue this instruction.'),
-  internalRecipients: z.array(z.string()).optional(),
+  originalText: z.string().optional().default(''),
+  externalRecipient: z.string().optional().default(''),
 });
 
 type EditInstructionFormValues = z.infer<typeof EditInstructionSchema>;
@@ -61,13 +60,22 @@ type EditInstructionProps = {
   projects: Project[];
   distributionUsers: DistributionUser[];
   subContractors: SubContractor[];
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
-export function EditInstruction({ item, projects, distributionUsers, subContractors }: EditInstructionProps) {
-  const [open, setOpen] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
+export function EditInstruction({ 
+  item, 
+  projects, 
+  distributionUsers, 
+  subContractors,
+  open: externalOpen,
+  onOpenChange: setExternalOpen
+}: EditInstructionProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = setExternalOpen !== undefined ? setExternalOpen : setInternalOpen;
+
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
@@ -76,9 +84,12 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
+  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'issued'>('issued');
 
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
   const form = useForm<EditInstructionFormValues>({
     resolver: zodResolver(EditInstructionSchema),
@@ -86,56 +97,53 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
       projectId: item.projectId,
       originalText: item.originalText,
       externalRecipient: '',
-      internalRecipients: [],
     },
   });
 
   const selectedProjectId = form.watch('projectId');
+  const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [selectedProjectId, projects]);
 
   const availableSubContractors = useMemo(() => {
-    if (!selectedProjectId) return [];
-    const project = projects.find(p => p.id === selectedProjectId);
-    if (!project) return [];
-    const assignedIds = project.assignedSubContractors || [];
+    if (!selectedProject) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
     return subContractors.filter(sub => assignedIds.includes(sub.id));
-  }, [selectedProjectId, projects, subContractors]);
-
-  const availableInternalUsers = useMemo(() => {
-    if (!selectedProjectId) return [];
-    const project = projects.find(p => p.id === selectedProjectId);
-    if (!project) return [];
-    const assignedEmails = project.assignedUsers || [];
-    return distributionUsers.filter(u => 
-      assignedEmails.some(email => email.toLowerCase().trim() === u.email.toLowerCase().trim())
-    );
-  }, [selectedProjectId, projects, distributionUsers]);
+  }, [selectedProject, subContractors]);
 
   useEffect(() => {
     if (open && item) {
-      // Split recipients back into external and internal
       const external = (item.recipients || []).find(email => 
         subContractors.some(s => s.email.toLowerCase() === email.toLowerCase())
       ) || '';
       
-      const internal = (item.recipients || []).filter(email => 
-        email.toLowerCase() !== external.toLowerCase()
-      );
-
       form.reset({
         projectId: item.projectId,
         originalText: item.originalText,
         externalRecipient: external,
-        internalRecipients: internal,
       });
       setPhotos(item.photos || []);
       setFiles(item.files || []);
+      setSubmissionStatus(item.status === 'issued' ? 'issued' : 'draft');
     }
   }, [open, item, form, subContractors]);
 
   const onSubmit = (values: EditInstructionFormValues) => {
+    // Contextual Validation for Issuing
+    if (submissionStatus === 'issued') {
+      let hasError = false;
+      if (!values.originalText || values.originalText.trim().length < 10) {
+        form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' });
+        hasError = true;
+      }
+      if (!values.externalRecipient) {
+        form.setError('externalRecipient', { message: 'An external partner must be selected to formally issue this instruction.' });
+        hasError = true;
+      }
+      if (hasError) return;
+    }
+
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Uploading media documentation...' });
+        toast({ title: 'Processing', description: 'Updating documentation...' });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -159,21 +167,23 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
           })
         );
 
+        // Automate staff notification based on project assignment
+        const internalStaffEmails = selectedProject?.assignedUsers || [];
         const combinedRecipients = [
             values.externalRecipient,
-            ...(values.internalRecipients || [])
+            ...internalStaffEmails
         ].filter(Boolean);
 
         const updates = {
           projectId: values.projectId,
-          originalText: values.originalText,
-          // Update summary from original text if it changed
-          summary: values.originalText.length > 100 
+          originalText: values.originalText || '',
+          summary: values.originalText && values.originalText.length > 100 
             ? values.originalText.substring(0, 100) + '...' 
-            : values.originalText,
+            : (values.originalText || 'No description provided'),
           recipients: combinedRecipients,
           photos: uploadedPhotos,
           files: uploadedFiles,
+          status: submissionStatus
         };
 
         const docRef = doc(db, 'instructions', item.id);
@@ -203,10 +213,9 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
     const getCameraPermission = async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
-        setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
-        setHasCameraPermission(false);
+        console.error('Camera access denied');
       }
     };
     if (isCameraOpen) getCameraPermission();
@@ -261,7 +270,7 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
         <DialogHeader>
           <DialogTitle>Edit Site Instruction</DialogTitle>
           <DialogDescription>
-            Modify instructions or documentation for this directive.
+            Modify instructions or documentation. Formal issuing requires a description and a recipient.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -358,86 +367,63 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
 
             <Separator />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                    <div className='flex flex-col gap-1'>
-                        <div className="flex items-center gap-2">
-                            <Users2 className="h-4 w-4 text-accent" />
-                            <FormLabel className="font-bold">Primary Recipient (External)</FormLabel>
-                        </div>
-                        <p className='text-[10px] text-muted-foreground'>Select exactly one partner to issue this SI to.</p>
+            <div className="space-y-4">
+                <div className='flex flex-col gap-1'>
+                    <div className="flex items-center gap-2">
+                        <Users2 className="h-4 w-4 text-accent" />
+                        <FormLabel className="font-bold">Primary Recipient (External Partner)</FormLabel>
                     </div>
-                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {availableSubContractors.map((sub) => (
-                        <FormField
-                            key={sub.id}
-                            control={form.control}
-                            name="externalRecipient"
-                            render={({ field }) => (
-                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                                <FormControl>
-                                <Checkbox
-                                    checked={field.value === sub.email}
-                                    onCheckedChange={(c) => {
-                                        field.onChange(c ? sub.email : '');
-                                    }}
-                                />
-                                </FormControl>
-                                <div className="flex flex-col leading-none">
-                                    <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
-                                    <span className="text-[10px] text-muted-foreground">{sub.email}</span>
-                                </div>
-                            </FormItem>
-                            )}
-                        />
-                        ))}
-                        {availableSubContractors.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8 italic">No external partners assigned to this project.</p>}
-                    </ScrollArea>
-                    <FormField control={form.control} name="externalRecipient" render={() => <FormMessage />} />
+                    <p className='text-[10px] text-muted-foreground'>Select the trade partner to issue this SI to. All project staff are CC'd automatically.</p>
                 </div>
-
-                <div className="space-y-4">
-                    <div className='flex flex-col gap-1'>
-                        <div className="flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-primary" />
-                            <FormLabel className="font-bold">Staff Notifications (Internal)</FormLabel>
-                        </div>
-                        <p className='text-[10px] text-muted-foreground'>Select team members to be notified.</p>
-                    </div>
-                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {availableInternalUsers.map((user) => (
-                        <FormField
-                            key={user.id}
-                            control={form.control}
-                            name="internalRecipients"
-                            render={({ field }) => (
-                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                                <FormControl>
-                                <Checkbox
-                                    checked={field.value?.includes(user.email)}
-                                    onCheckedChange={(c) => {
-                                        const curr = field.value || [];
-                                        field.onChange(c ? [...curr, user.email] : curr.filter(v => v !== user.email));
-                                    }}
-                                />
-                                </FormControl>
-                                <div className="flex flex-col leading-none">
-                                    <FormLabel className="text-xs font-semibold">{user.name}</FormLabel>
-                                    <span className="text-[10px] text-muted-foreground">{user.email}</span>
-                                </div>
-                            </FormItem>
-                            )}
-                        />
-                        ))}
-                        {availableInternalUsers.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8 italic">No staff assigned to this project.</p>}
-                    </ScrollArea>
-                </div>
+                <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                    {availableSubContractors.map((sub) => (
+                    <FormField
+                        key={sub.id}
+                        control={form.control}
+                        name="externalRecipient"
+                        render={({ field }) => (
+                        <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                            <FormControl>
+                            <Checkbox
+                                checked={field.value === sub.email}
+                                onCheckedChange={(c) => {
+                                    field.onChange(c ? sub.email : '');
+                                }}
+                            />
+                            </FormControl>
+                            <div className="flex flex-col leading-none">
+                                <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
+                                <span className="text-[10px] text-muted-foreground">{sub.email}</span>
+                            </div>
+                        </FormItem>
+                        )}
+                    />
+                    ))}
+                    {availableSubContractors.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8 italic">No external partners assigned to this project.</p>}
+                </ScrollArea>
+                <FormField control={form.control} name="externalRecipient" render={() => <FormMessage />} />
             </div>
 
             <canvas ref={canvasRef} className="hidden" />
-            <DialogFooter className="pt-4 border-t">
-              <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? 'Updating Documentation...' : 'Save Instruction Changes'}
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <Button 
+                type="submit" 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                disabled={isPending}
+                onClick={() => setSubmissionStatus('draft')}
+              >
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save as Draft
+              </Button>
+              <Button 
+                type="submit" 
+                className="w-full sm:flex-1" 
+                disabled={isPending}
+                onClick={() => setSubmissionStatus('issued')}
+              >
+                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save & Issue Instruction
               </Button>
             </DialogFooter>
           </form>
