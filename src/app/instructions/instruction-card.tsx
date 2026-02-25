@@ -47,6 +47,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { EditInstruction } from './edit-instruction';
+import { DistributeInstructionButton } from './distribute-instruction-button';
 
 type InstructionCardProps = {
   instruction: Instruction;
@@ -110,7 +111,7 @@ export function InstructionCard({
                 </Link>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
               </div>
-              <CardDescription className="flex items-center gap-2 pt-1">
+              <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
                 <span className="text-xs text-muted-foreground/80">
                   Logged <ClientDate date={instruction.createdAt} />
                 </span>
@@ -134,6 +135,12 @@ export function InstructionCard({
             <div className="flex items-center gap-2">
               <Badge variant="secondary">Site Instruction</Badge>
               
+              <DistributeInstructionButton 
+                instruction={instruction} 
+                project={project} 
+                subContractors={subContractors} 
+              />
+
               <EditInstruction 
                 item={instruction} 
                 projects={projects} 

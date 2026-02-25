@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import type { Instruction, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { EditInstruction } from './edit-instruction';
+import { DistributeInstructionButton } from './distribute-instruction-button';
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
@@ -194,6 +195,12 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <DistributeInstructionButton 
+            instruction={item} 
+            project={project} 
+            subContractors={subContractors} 
+          />
+
           <EditInstruction 
             item={item} 
             projects={projects} 
@@ -220,6 +227,9 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
                 <AlertDialogDescription>Permanently delete this site instruction record.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
+                <Accordion type="single" collapsible className="w-full">
+                    {/* Spacer for dialog padding */}
+                </Accordion>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
                     {isDeleting ? 'Deleting...' : 'Delete'}
