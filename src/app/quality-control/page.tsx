@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -31,8 +30,6 @@ export default function QualityControlPage() {
   // Visibility logic
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
-    
-    // Only hasFullVisibility grants global data oversight.
     if (profile.permissions?.hasFullVisibility) return allProjects;
     
     const email = profile.email.toLowerCase().trim();
@@ -44,6 +41,8 @@ export default function QualityControlPage() {
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
+  // STABLE QUERY: Fetch all by date to avoid composite index requirements
+  // Note: We keep the isTemplate filter as it's a simple equality check
   const checklistsQuery = useMemo(() => 
     query(collection(db, 'quality-checklists'), where('isTemplate', '==', false), orderBy('createdAt', 'desc'))
   , [db]);
@@ -51,7 +50,7 @@ export default function QualityControlPage() {
 
   const filteredChecklists = useMemo(() => {
     if (!allProjectChecklists) return [];
-    // Strict visibility check
+    // Strict visibility check done on the client to avoid missing index blockers
     return allProjectChecklists.filter(c => c.projectId && allowedProjectIds.includes(c.projectId));
   }, [allProjectChecklists, allowedProjectIds]);
 

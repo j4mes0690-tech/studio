@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -11,7 +10,7 @@ import { useMemo, useState, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -47,19 +46,15 @@ function SnaggingContent() {
   }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
-  // STABLE QUERY
+  // STABLE QUERY: Fetch all by date to avoid composite index requirements
   const snaggingQuery = useMemo(() => {
     if (!db) return null;
-    const base = collection(db, 'snagging-items');
-    if (projectId) {
-      return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
-    }
-    return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId]);
+    return query(collection(db, 'snagging-items'), orderBy('createdAt', 'desc'));
+  }, [db]);
 
   const { data: allItems, isLoading: snaggingLoading } = useCollection<SnaggingItem>(snaggingQuery);
 
-  // SECURITY FILTER (Client-side)
+  // SECURITY & PROJECT FILTER (Client-side)
   const filteredItems = useMemo(() => {
     if (!allItems || !profile || !allProjects) return [];
     
@@ -74,8 +69,12 @@ function SnaggingContent() {
         })
         .map(p => p.id);
 
-    return allItems.filter(item => allowedProjectIds.includes(item.projectId));
-  }, [allItems, profile, allProjects]);
+    return allItems.filter(item => {
+        const isAllowed = allowedProjectIds.includes(item.projectId);
+        const matchesFilter = projectId ? item.projectId === projectId : true;
+        return isAllowed && matchesFilter;
+    });
+  }, [allItems, profile, allProjects, projectId]);
 
   const isLoading = projectsLoading || snaggingLoading || subsLoading || profileLoading;
 

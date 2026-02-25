@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -11,7 +10,7 @@ import { useMemo, Suspense } from 'react';
 import type { ClientInstruction, Project, DistributionUser } from '@/lib/types';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 
 function InstructionsContent() {
   const searchParams = useSearchParams();
@@ -39,28 +38,18 @@ function InstructionsContent() {
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  // STABLE QUERY: Persistent listener for the collection.
+  // STABLE QUERY: Fetch all by date to avoid composite index requirements
   const instructionsQuery = useMemo(() => {
     if (!db) return null;
-    const base = collection(db, 'client-instructions');
-    
-    // We apply the project filter at the Firestore query level if explicitly selected via URL.
-    if (projectId) {
-      return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
-    }
-    
-    return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId]);
+    return query(collection(db, 'client-instructions'), orderBy('createdAt', 'desc'));
+  }, [db]);
 
   const { data: allInstructions, isLoading: instructionsLoading } = useCollection<ClientInstruction>(instructionsQuery);
 
-  // SECURITY & VISIBILITY: Client-side filtering ensures that the listener remains stable
-  // even if project assignments or permissions are refreshing in the background.
+  // SECURITY & VISIBILITY & FILTERING (Client-side)
   const filteredInstructions = useMemo(() => {
-    // If we're loading and have NO data, return null to show the loader.
-    // If we have data but something is re-loading, keep the existing filtered list.
     if (!allInstructions) return [];
-    if (!profile || !allProjects) return allInstructions; // Fallback during sync
+    if (!profile || !allProjects) return allInstructions;
 
     const email = profile.email.toLowerCase().trim();
     const hasFullVisibility = !!profile.permissions?.hasFullVisibility;
@@ -73,8 +62,12 @@ function InstructionsContent() {
         })
         .map(p => p.id);
 
-    return allInstructions.filter(inst => allowedProjectIds.includes(inst.projectId));
-  }, [allInstructions, profile, allProjects]);
+    return allInstructions.filter(inst => {
+        const isAllowed = allowedProjectIds.includes(inst.projectId);
+        const matchesFilter = projectId ? inst.projectId === projectId : true;
+        return isAllowed && matchesFilter;
+    });
+  }, [allInstructions, profile, allProjects, projectId]);
 
   const isLoading = (usersLoading || projectsLoading || instructionsLoading || profileLoading) && !allInstructions;
 

@@ -11,7 +11,7 @@ import { useMemo, useState, Suspense } from 'react';
 import type { InformationRequest, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
   Tooltip,
@@ -54,21 +54,15 @@ function InfoRequestsContent() {
   }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
-  // STABLE QUERY: Listen to the entire collection (or URL filter) persistently.
+  // STABLE QUERY: We fetch all items ordered by date to avoid composite index requirements
   const itemsQuery = useMemo(() => {
     if (!db) return null;
-    const base = collection(db, 'information-requests');
-    
-    if (projectId) {
-      return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
-    }
-
-    return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId]);
+    return query(collection(db, 'information-requests'), orderBy('createdAt', 'desc'));
+  }, [db]);
 
   const { data: allItems, isLoading: itemsLoading } = useCollection<InformationRequest>(itemsQuery);
 
-  // SECURITY FILTER (Client-side)
+  // SECURITY & PROJECT FILTER (Client-side)
   const filteredItems = useMemo(() => {
     if (!allItems || !currentUser || !allProjects) return [];
     
@@ -83,8 +77,12 @@ function InfoRequestsContent() {
         })
         .map(p => p.id);
 
-    return allItems.filter(item => allowedProjectIds.includes(item.projectId));
-  }, [allItems, currentUser, allProjects]);
+    return allItems.filter(item => {
+        const isAllowed = allowedProjectIds.includes(item.projectId);
+        const matchesFilter = projectId ? item.projectId === projectId : true;
+        return isAllowed && matchesFilter;
+    });
+  }, [allItems, currentUser, allProjects, projectId]);
 
   // Sort for display (Active/Open status first)
   const sortedItems = useMemo(() => {

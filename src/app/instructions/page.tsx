@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -11,7 +10,7 @@ import { useMemo, Suspense } from 'react';
 import type { Instruction, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 
 function InstructionsContent() {
   const searchParams = useSearchParams();
@@ -36,11 +35,9 @@ function InstructionsContent() {
   const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
-  // Visibility logic
+  // Visibility logic for projects
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
-    
-    // Decoupled canManageProjects from visibility. Only hasFullVisibility grants global oversight.
     if (profile.permissions?.hasFullVisibility) return allProjects;
     
     const email = profile.email.toLowerCase().trim();
@@ -52,22 +49,23 @@ function InstructionsContent() {
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
+  // STABLE QUERY: Fetch all by date to avoid composite index requirements
   const instructionsQuery = useMemo(() => {
-    if (!db || projectsLoading) return null;
-    const base = collection(db, 'instructions');
-    if (projectId) {
-      if (!allowedProjectIds.includes(projectId)) return null;
-      return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
-    }
-    return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIds, projectsLoading]);
+    if (!db) return null;
+    return query(collection(db, 'instructions'), orderBy('createdAt', 'desc'));
+  }, [db]);
 
   const { data: allInstructions, isLoading: instructionsLoading } = useCollection<Instruction>(instructionsQuery);
 
+  // CLIENT-SIDE FILTERING (Security & Selection)
   const filteredInstructions = useMemo(() => {
     if (!allInstructions) return [];
-    return allInstructions.filter(inst => allowedProjectIds.includes(inst.projectId));
-  }, [allInstructions, allowedProjectIds]);
+    return allInstructions.filter(inst => {
+        const isAllowed = allowedProjectIds.includes(inst.projectId);
+        const matchesFilter = projectId ? inst.projectId === projectId : true;
+        return isAllowed && matchesFilter;
+    });
+  }, [allInstructions, allowedProjectIds, projectId]);
 
   const isLoading = usersLoading || projectsLoading || instructionsLoading || profileLoading || subsLoading;
 

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -11,7 +10,7 @@ import { useMemo, Suspense } from 'react';
 import type { CleanUpNotice, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 
 function CleanUpContent() {
   const searchParams = useSearchParams();
@@ -36,8 +35,6 @@ function CleanUpContent() {
   // Visibility logic
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
-    
-    // Decoupled canManageProjects from visibility. Only hasFullVisibility grants global oversight.
     if (profile.permissions?.hasFullVisibility) return allProjects;
     
     const email = profile.email.toLowerCase().trim();
@@ -49,22 +46,23 @@ function CleanUpContent() {
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
+  // STABLE QUERY: Fetch all by date to avoid composite index requirements
   const noticesQuery = useMemo(() => {
-    if (!db || projectsLoading) return null;
-    const base = collection(db, 'cleanup-notices');
-    if (projectId) {
-      if (!allowedProjectIds.includes(projectId)) return null;
-      return query(base, where('projectId', '==', projectId), orderBy('createdAt', 'desc'));
-    }
-    return query(base, orderBy('createdAt', 'desc'));
-  }, [db, projectId, allowedProjectIds, projectsLoading]);
+    if (!db) return null;
+    return query(collection(db, 'cleanup-notices'), orderBy('createdAt', 'desc'));
+  }, [db]);
 
   const { data: allNotices, isLoading: noticesLoading } = useCollection<CleanUpNotice>(noticesQuery);
 
+  // CLIENT-SIDE FILTERING (Security & Selection)
   const filteredNotices = useMemo(() => {
     if (!allNotices) return [];
-    return allNotices.filter(n => allowedProjectIds.includes(n.projectId));
-  }, [allNotices, allowedProjectIds]);
+    return allNotices.filter(n => {
+        const isAllowed = allowedProjectIds.includes(n.projectId);
+        const matchesFilter = projectId ? n.projectId === projectId : true;
+        return isAllowed && matchesFilter;
+    });
+  }, [allNotices, allowedProjectIds, projectId]);
 
   const isLoading = projectsLoading || subsLoading || noticesLoading || profileLoading;
 
