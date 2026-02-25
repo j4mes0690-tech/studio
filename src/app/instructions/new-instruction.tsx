@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText, Users2, Shield } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText, Users2, Shield, Loader2 } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -77,6 +77,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
+  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'issued'>('issued');
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
@@ -150,7 +151,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           reference,
           projectId: values.projectId,
           originalText: values.originalText,
-          // Generate a simple summary from the text instead of using AI
           summary: values.originalText.length > 100 
             ? values.originalText.substring(0, 100) + '...' 
             : values.originalText,
@@ -159,13 +159,18 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
           files: uploadedFiles,
-          status: 'issued' // Manually created instructions are issued immediately
+          status: submissionStatus
         };
 
         const colRef = collection(db, 'instructions');
         addDoc(colRef, instructionData)
           .then(() => {
-            toast({ title: 'Success', description: 'Instruction recorded and issued.' });
+            toast({ 
+              title: 'Success', 
+              description: submissionStatus === 'draft' 
+                ? 'Instruction saved as draft.' 
+                : 'Instruction recorded and issued.' 
+            });
             setOpen(false);
           })
           .catch((error) => {
@@ -427,9 +432,25 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
             </div>
 
             <canvas ref={canvasRef} className="hidden" />
-            <DialogFooter>
-              <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? 'Distributing Documentation...' : 'Save & Distribute Instruction'}
+            <DialogFooter className="flex flex-col sm:flex-row gap-3">
+              <Button 
+                type="submit" 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                disabled={isPending}
+                onClick={() => setSubmissionStatus('draft')}
+              >
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save as Draft
+              </Button>
+              <Button 
+                type="submit" 
+                className="w-full sm:flex-1" 
+                disabled={isPending}
+                onClick={() => setSubmissionStatus('issued')}
+              >
+                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save & Issue Instruction
               </Button>
             </DialogFooter>
           </form>
