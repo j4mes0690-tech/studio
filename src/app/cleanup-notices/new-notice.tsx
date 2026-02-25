@@ -88,6 +88,12 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
 
+  const projectSubs = useMemo(() => {
+    if (!selectedProjectId || !selectedProject) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
+    return subContractors.filter(sub => assignedIds.includes(sub.id));
+  }, [selectedProjectId, selectedProject, subContractors]);
+
   const onSubmit = (values: NewNoticeFormValues) => {
     startTransition(async () => {
       try {
@@ -213,7 +219,13 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Project</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select 
+                    onValueChange={(val) => {
+                      field.onChange(val);
+                      form.setValue('recipients', []);
+                    }} 
+                    value={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
                     </FormControl>
@@ -291,9 +303,13 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
             <Separator />
             
             <FormItem>
-              <FormLabel>Notify Sub-Contractors</FormLabel>
-              <ScrollArea className="h-40 rounded-md border p-4">
-                {subContractors.map((sub) => (
+              <FormLabel>Notify Assigned Sub-Contractors</FormLabel>
+              <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
+                {projectSubs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-8">
+                    {selectedProjectId ? "No sub-contractors assigned to this project." : "Please select a project first."}
+                  </p>
+                ) : projectSubs.map((sub) => (
                   <FormField
                     key={sub.id}
                     control={form.control}
@@ -309,7 +325,10 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
                             }}
                           />
                         </FormControl>
-                        <FormLabel className="font-normal">{sub.name} ({sub.email})</FormLabel>
+                        <div className="flex flex-col">
+                          <FormLabel className="font-normal text-sm">{sub.name}</FormLabel>
+                          <span className="text-[10px] text-muted-foreground">{sub.email}</span>
+                        </div>
                       </FormItem>
                     )}
                   />
