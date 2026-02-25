@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -45,8 +44,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { summarizeInstructions } from '@/ai/flows/summarize-client-instructions';
-import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -138,7 +135,7 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
   const onSubmit = (values: EditInstructionFormValues) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Uploading media and running AI analysis...' });
+        toast({ title: 'Processing', description: 'Uploading media documentation...' });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -162,18 +159,6 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
           })
         );
 
-        let summary = item.summary;
-        let actionItems = item.actionItems;
-
-        if (values.originalText !== item.originalText) {
-            const [summaryResult, actionItemsResult] = await Promise.all([
-                summarizeInstructions({ instructions: values.originalText }),
-                extractInstructionActionItems({ instructionText: values.originalText }),
-            ]);
-            summary = summaryResult.summary;
-            actionItems = actionItemsResult.actionItems;
-        }
-
         const combinedRecipients = [
             values.externalRecipient,
             ...(values.internalRecipients || [])
@@ -182,8 +167,10 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
         const updates = {
           projectId: values.projectId,
           originalText: values.originalText,
-          summary,
-          actionItems,
+          // Update summary from original text if it changed
+          summary: values.originalText.length > 100 
+            ? values.originalText.substring(0, 100) + '...' 
+            : values.originalText,
           recipients: combinedRecipients,
           photos: uploadedPhotos,
           files: uploadedFiles,
@@ -274,7 +261,7 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
         <DialogHeader>
           <DialogTitle>Edit Site Instruction</DialogTitle>
           <DialogDescription>
-            Modify instructions or documentation. AI will re-analyze if text is updated.
+            Modify instructions or documentation for this directive.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -450,7 +437,7 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter className="pt-4 border-t">
               <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? 'Saving...' : 'Save Instruction Changes'}
+                {isPending ? 'Updating Documentation...' : 'Save Instruction Changes'}
               </Button>
             </DialogFooter>
           </form>

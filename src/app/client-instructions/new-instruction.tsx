@@ -38,8 +38,6 @@ import type { Project, DistributionUser, Photo, FileAttachment, ClientInstructio
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { summarizeInstructions } from '@/ai/flows/summarize-client-instructions';
-import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -96,7 +94,7 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Uploading media and running AI analysis...' });
+        toast({ title: 'Processing', description: 'Uploading media documentation...' });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -120,11 +118,6 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
           })
         );
 
-        const [summaryResult, actionItemsResult] = await Promise.all([
-          summarizeInstructions({ instructions: values.originalText }),
-          extractInstructionActionItems({ instructionText: values.originalText }),
-        ]);
-
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const reference = getNextReference(allInstructions, values.projectId, 'CI', initials);
 
@@ -132,8 +125,11 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
           reference,
           projectId: values.projectId,
           originalText: values.originalText,
-          summary: summaryResult.summary,
-          actionItems: actionItemsResult.actionItems,
+          // Generate a simple summary from the text instead of using AI
+          summary: values.originalText.length > 100 
+            ? values.originalText.substring(0, 100) + '...' 
+            : values.originalText,
+          actionItems: [],
           recipients: values.recipients || [],
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
@@ -145,7 +141,7 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
         const colRef = collection(db, 'client-instructions');
         addDoc(colRef, instructionData)
           .then(() => {
-            toast({ title: 'Success', description: 'Client instruction processed and recorded.' });
+            toast({ title: 'Success', description: 'Client instruction recorded.' });
             setOpen(false);
           })
           .catch((error) => {
@@ -159,7 +155,7 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
 
       } catch (err) {
         console.error(err);
-        toast({ title: 'Error', description: 'Failed to upload media or process directives.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to upload media documentation.', variant: 'destructive' });
       }
     });
   };
@@ -232,7 +228,7 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
         <DialogHeader>
           <DialogTitle>Record Client Instruction</DialogTitle>
           <DialogDescription>
-            Capture external directives from the client. AI will summarize and extract tasks automatically.
+            Capture external directives from the client for internal distribution and tracking.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -371,7 +367,7 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
               <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? 'Processing & Uploading...' : 'Record Directive'}
+                {isPending ? 'Uploading Documentation...' : 'Record Directive'}
               </Button>
             </DialogFooter>
           </form>

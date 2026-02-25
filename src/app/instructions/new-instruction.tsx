@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -39,8 +38,6 @@ import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, I
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { summarizeInstructions } from '@/ai/flows/summarize-client-instructions';
-import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -117,7 +114,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Uploading photos/files and running AI analysis...' });
+        toast({ title: 'Processing', description: 'Uploading documentation photos and files...' });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -141,11 +138,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           })
         );
 
-        const [summaryResult, actionItemsResult] = await Promise.all([
-          summarizeInstructions({ instructions: values.originalText }),
-          extractInstructionActionItems({ instructionText: values.originalText }),
-        ]);
-
         const combinedRecipients = [
             values.externalRecipient,
             ...(values.internalRecipients || [])
@@ -158,8 +150,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           reference,
           projectId: values.projectId,
           originalText: values.originalText,
-          summary: summaryResult.summary,
-          actionItems: actionItemsResult.actionItems,
+          // Generate a simple summary from the text instead of using AI
+          summary: values.originalText.length > 100 
+            ? values.originalText.substring(0, 100) + '...' 
+            : values.originalText,
+          actionItems: [],
           recipients: combinedRecipients,
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
@@ -184,7 +179,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
 
       } catch (err) {
         console.error(err);
-        toast({ title: 'Error', description: 'Failed to process instruction.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to process instruction documentation.', variant: 'destructive' });
       }
     });
   };
@@ -258,7 +253,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         <DialogHeader>
           <DialogTitle>Record New Site Instruction</DialogTitle>
           <DialogDescription>
-            Capture requirements on-site. AI will summarize tasks and distribute to selected partners and staff.
+            Capture requirements on-site and distribute to selected partners and staff.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -434,7 +429,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
               <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? 'Processing & Distributing...' : 'Save & Distribute Instruction'}
+                {isPending ? 'Distributing Documentation...' : 'Save & Distribute Instruction'}
               </Button>
             </DialogFooter>
           </form>
