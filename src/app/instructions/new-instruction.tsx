@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText, Users2, Shield, Loader2 } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Users2, Loader2 } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -50,8 +50,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  originalText: z.string().min(10, 'Instructions must be at least 10 characters.'),
-  externalRecipient: z.string().min(1, 'You must select exactly one external partner to issue this instruction.'),
+  originalText: z.string().optional().default(''),
+  externalRecipient: z.string().optional().default(''),
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
@@ -103,6 +103,20 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: NewInstructionFormValues) => {
+    // Contextual Validation for Issuing
+    if (submissionStatus === 'issued') {
+      let hasError = false;
+      if (!values.originalText || values.originalText.trim().length < 10) {
+        form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' });
+        hasError = true;
+      }
+      if (!values.externalRecipient) {
+        form.setError('externalRecipient', { message: 'An external partner must be selected to formally issue this instruction.' });
+        hasError = true;
+      }
+      if (hasError) return;
+    }
+
     startTransition(async () => {
       try {
         toast({ title: 'Processing', description: 'Uploading documentation photos and files...' });
@@ -142,10 +156,10 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         const instructionData = {
           reference,
           projectId: values.projectId,
-          originalText: values.originalText,
-          summary: values.originalText.length > 100 
+          originalText: values.originalText || '',
+          summary: values.originalText && values.originalText.length > 100 
             ? values.originalText.substring(0, 100) + '...' 
-            : values.originalText,
+            : (values.originalText || 'No description provided'),
           actionItems: [],
           recipients: combinedRecipients,
           createdAt: new Date().toISOString(),
@@ -353,7 +367,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                         <Users2 className="h-4 w-4 text-accent" />
                         <FormLabel className="font-bold">Primary Recipient (Project Partner)</FormLabel>
                     </div>
-                    <p className='text-[10px] text-muted-foreground'>Select the contractor or designer to issue this instruction to.</p>
+                    <p className='text-[10px] text-muted-foreground'>Select the contractor or designer to issue this instruction to. Optional for drafts.</p>
                 </div>
                 <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
                     {availableSubContractors.map((sub) => (
@@ -366,8 +380,8 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                             <FormControl>
                             <Checkbox
                                 checked={field.value === sub.email}
-                                onCheckedChange={(c) => {
-                                    field.onChange(c ? sub.email : '');
+                                onCheckedChange={(checked) => {
+                                    field.onChange(checked ? sub.email : '');
                                 }}
                             />
                             </FormControl>
