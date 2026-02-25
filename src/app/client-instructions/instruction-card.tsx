@@ -114,14 +114,14 @@ function ReopenInstructionButton({ instruction, currentUser }: { instruction: Cl
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <AlertDialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="gap-2" onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
                                 <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
-                                Reopen Directive
+                                <span className="sr-only">Reopen Directive</span>
                             </Button>
                         </AlertDialogTrigger>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>Allow further comments and implementation updates</p>
+                        <p>Reopen Directive</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>
