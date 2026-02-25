@@ -452,7 +452,6 @@ export function ClientInstructionCard({
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-sm font-semibold text-foreground mb-4">{instruction.summary}</p>
           <div className="bg-muted/20 rounded-lg border p-4 space-y-4">
               <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest border-b pb-2">
                   <MessageCircle className="h-3 w-3" /> <span>Implementation Thread</span>
@@ -506,14 +505,6 @@ export function ClientInstructionCard({
                   );
               })}
           </div>
-          <Accordion type="single" collapsible className="w-full mt-4">
-            <AccordionItem value="action-items">
-                <AccordionTrigger className="text-sm font-semibold">
-                    <div className="flex items-center gap-2"><CheckSquare className="h-4 w-4" /> <span>Extracted Action Items ({instruction.actionItems.length})</span></div>
-                </AccordionTrigger>
-                <AccordionContent><ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">{instruction.actionItems.map((item, index) => <li key={index}>{item}</li>)}</ul></AccordionContent>
-            </AccordionItem>
-          </Accordion>
         </CardContent>
       </Card>
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
