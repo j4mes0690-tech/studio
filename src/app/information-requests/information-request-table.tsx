@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -14,7 +13,7 @@ import type { InformationRequest, Project, DistributionUser, ChatMessage } from 
 import { ClientDate } from '@/components/client-date';
 import { RespondToRequest } from './respond-to-request';
 import { EditInformationRequest } from './edit-information-request';
-import { useTransition, useMemo } from 'react';
+import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
@@ -128,7 +127,10 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
   };
 
   return (
-    <TableRow className={cn(item.status === 'closed' && "opacity-60")}>
+    <TableRow 
+      className={cn("group cursor-pointer", item.status === 'closed' && "opacity-60")}
+      href={`/information-requests/${item.id}`}
+    >
       <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
       <TableCell className="font-medium">{project?.name || 'Unknown'}</TableCell>
       <TableCell>
@@ -158,7 +160,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
         </div>
       </TableCell>
       <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           {item.status === 'open' ? (
             <>
               <RespondToRequest item={item} distributionUsers={distributionUsers} currentUser={currentUser} />

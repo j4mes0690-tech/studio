@@ -1,9 +1,9 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
 import type { InformationRequest, Project, DistributionUser, ChatMessage, Photo } from '@/lib/types';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw, Trash2, Maximize2, Link as LinkIcon } from 'lucide-react';
+import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw, Trash2, Maximize2, Link as LinkIcon, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditInformationRequest } from './edit-information-request';
 import {
@@ -115,17 +115,18 @@ export function InformationRequestCard({ item, projects, distributionUsers, curr
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start border-b pb-4">
-            <div className="space-y-1">
+            <Link href={`/information-requests/${item.id}`} className="space-y-1 flex-1 group">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-xl">{project?.name || 'Unknown Project'}</CardTitle>
+                <CardTitle className="text-xl group-hover:text-primary transition-colors">{project?.name || 'Unknown Project'}</CardTitle>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{item.reference}</Badge>
+                <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
                   <span className="text-xs text-muted-foreground/80 font-medium">Opened <ClientDate date={item.createdAt} format="date" /></span>
                   {item.clientInstructionId && <Badge variant="outline" className="text-[9px] gap-1 h-4 px-1.5"><LinkIcon className="h-2 w-2" /> Linked to Client Directive</Badge>}
               </CardDescription>
               {item.requiredBy && <div className="flex items-center gap-2 text-xs text-destructive mt-2 font-semibold"><CalendarClock className="h-4 w-4" /><span>Due: <ClientDate date={item.requiredBy} format="date" /></span></div>}
-            </div>
+            </Link>
             <div className="flex items-center gap-2">
               <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className='capitalize'>{item.status}</Badge>
               {item.status === 'open' ? <RespondToRequest item={item} distributionUsers={distributionUsers} currentUser={currentUser} /> : null}
