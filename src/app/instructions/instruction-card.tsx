@@ -16,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { CheckSquare, MessageCircle, Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download } from 'lucide-react';
+import { MessageCircle, Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -156,23 +156,6 @@ export function InstructionCard({
           )}
 
           <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="action-items">
-              <AccordionTrigger className="text-sm font-semibold">
-                <div className="flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4" />
-                  <span>
-                    Action Items ({instruction.actionItems.length})
-                  </span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent>
-                <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
-                  {instruction.actionItems.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              </AccordionContent>
-            </AccordionItem>
             {instruction.recipients && instruction.recipients.length > 0 && (
                <AccordionItem value="recipients">
                <AccordionTrigger className="text-sm font-semibold">

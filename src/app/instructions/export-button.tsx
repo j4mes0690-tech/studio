@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -35,7 +34,6 @@ export function ExportButton({
       'Project',
       'Date',
       'Summary',
-      'Action Items',
       'Recipients',
       'Photo URLs',
       'Photo Timestamps',
@@ -50,7 +48,6 @@ export function ExportButton({
         project?.name || 'N/A',
         new Date(instruction.createdAt).toLocaleString(),
         instruction.summary,
-        instruction.actionItems.join('; '),
         instruction.recipients?.join('; ') || '',
         photoUrls,
         photoTimestamps,
