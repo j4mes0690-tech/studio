@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Instruction, Project, Photo, DistributionUser, SubContractor } from '@/lib/types';
 import Image from 'next/image';
 import {
@@ -16,7 +16,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download } from 'lucide-react';
+import { Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -81,6 +81,16 @@ export function InstructionCard({
     });
   };
 
+  // Identify the instructed party (the external contact)
+  const instructedParty = useMemo(() => {
+    return subContractors.find(s => instruction.recipients?.includes(s.email));
+  }, [subContractors, instruction.recipients]);
+
+  // Identify the internal team CCs
+  const internalCCs = useMemo(() => {
+    return distributionUsers.filter(u => instruction.recipients?.includes(u.email));
+  }, [distributionUsers, instruction.recipients]);
+
   return (
     <>
       <Card>
@@ -101,6 +111,16 @@ export function InstructionCard({
                     </Badge>
                 )}
               </CardDescription>
+              
+              {instructedParty && (
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Instructed:</span>
+                  <Badge variant="default" className="gap-1.5 h-5 px-2 text-[10px] bg-primary/10 text-primary border-primary/20">
+                    {instructedParty.isDesigner ? <Ruler className="h-2.5 w-2.5" /> : <HardHat className="h-2.5 w-2.5" />}
+                    {instructedParty.name}
+                  </Badge>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Badge variant="secondary">Site Instruction</Badge>
@@ -138,7 +158,9 @@ export function InstructionCard({
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-foreground mb-4 whitespace-pre-wrap">{instruction.originalText}</p>
+          <div className="bg-muted/5 p-4 rounded-lg border mb-4">
+            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{instruction.originalText}</p>
+          </div>
           
           {instruction.files && instruction.files.length > 0 && (
             <div className="mb-4 space-y-1 border rounded-lg p-3 bg-muted/10">
@@ -156,20 +178,20 @@ export function InstructionCard({
           )}
 
           <Accordion type="single" collapsible className="w-full">
-            {instruction.recipients && instruction.recipients.length > 0 && (
+            {internalCCs.length > 0 && (
                <AccordionItem value="recipients">
                <AccordionTrigger className="text-sm font-semibold">
                  <div className="flex items-center gap-2">
                    <Users className="h-4 w-4" />
                    <span>
-                     Distribution List ({instruction.recipients.length})
+                     Internal Team CC ({internalCCs.length})
                    </span>
                  </div>
                </AccordionTrigger>
                <AccordionContent>
                 <div className="flex flex-wrap gap-1">
-                  {instruction.recipients.map((email, index) => (
-                    <Badge key={index} variant="outline" className="bg-background">{email}</Badge>
+                  {internalCCs.map((user, index) => (
+                    <Badge key={index} variant="outline" className="bg-background">{user.name} ({user.email})</Badge>
                   ))}
                 </div>
                </AccordionContent>
