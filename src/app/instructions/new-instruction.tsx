@@ -52,7 +52,6 @@ const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   originalText: z.string().min(10, 'Instructions must be at least 10 characters.'),
   externalRecipient: z.string().min(1, 'You must select exactly one external partner to issue this instruction.'),
-  internalRecipients: z.array(z.string()).optional(),
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
@@ -88,7 +87,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
       projectId: '',
       originalText: '',
       externalRecipient: '',
-      internalRecipients: [],
     },
   });
 
@@ -103,14 +101,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     const assignedIds = selectedProject.assignedSubContractors || [];
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [selectedProject, subContractors]);
-
-  const availableInternalUsers = useMemo(() => {
-    if (!selectedProject) return [];
-    const assignedEmails = selectedProject.assignedUsers || [];
-    return distributionUsers.filter(u => 
-      assignedEmails.some(email => email.toLowerCase().trim() === u.email.toLowerCase().trim())
-    );
-  }, [selectedProject, distributionUsers]);
 
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
@@ -139,9 +129,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           })
         );
 
+        // Automatically include all project-assigned staff
+        const internalStaffEmails = selectedProject?.assignedUsers || [];
         const combinedRecipients = [
             values.externalRecipient,
-            ...(values.internalRecipients || [])
+            ...internalStaffEmails
         ].filter(Boolean);
 
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
@@ -258,7 +250,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         <DialogHeader>
           <DialogTitle>Record New Site Instruction</DialogTitle>
           <DialogDescription>
-            Capture requirements on-site and distribute to selected partners and staff.
+            Capture requirements on-site and distribute to project partners. Internal project staff are notified automatically.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -355,80 +347,47 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
 
             <Separator />
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                    <div className='flex flex-col gap-1'>
-                        <div className="flex items-center gap-2">
-                            <Users2 className="h-4 w-4 text-accent" />
-                            <FormLabel className="font-bold">Primary Recipient (Project Team)</FormLabel>
-                        </div>
-                        <p className='text-[10px] text-muted-foreground'>Select exactly one partner to issue this SI to.</p>
+            <div className="space-y-4">
+                <div className='flex flex-col gap-1'>
+                    <div className="flex items-center gap-2">
+                        <Users2 className="h-4 w-4 text-accent" />
+                        <FormLabel className="font-bold">Primary Recipient (Project Partner)</FormLabel>
                     </div>
-                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {availableSubContractors.map((sub) => (
-                        <FormField
-                            key={sub.id}
-                            control={form.control}
-                            name="externalRecipient"
-                            render={({ field }) => (
-                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                                <FormControl>
-                                <Checkbox
-                                    checked={field.value === sub.email}
-                                    onCheckedChange={(c) => {
-                                        field.onChange(c ? sub.email : '');
-                                    }}
-                                />
-                                </FormControl>
-                                <div className="flex flex-col leading-none">
+                    <p className='text-[10px] text-muted-foreground'>Select the contractor or designer to issue this instruction to.</p>
+                </div>
+                <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                    {availableSubContractors.map((sub) => (
+                    <FormField
+                        key={sub.id}
+                        control={form.control}
+                        name="externalRecipient"
+                        render={({ field }) => (
+                        <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                            <FormControl>
+                            <Checkbox
+                                checked={field.value === sub.email}
+                                onCheckedChange={(c) => {
+                                    field.onChange(c ? sub.email : '');
+                                }}
+                            />
+                            </FormControl>
+                            <div className="flex flex-col leading-none">
+                                <div className="flex items-center gap-2">
                                     <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
-                                    <span className="text-[10px] text-muted-foreground">{sub.email}</span>
+                                    <div className="flex gap-1">
+                                        {sub.isDesigner && <span className="text-[8px] px-1 bg-primary/10 text-primary rounded">Designer</span>}
+                                        {sub.isSubContractor && <span className="text-[8px] px-1 bg-accent/10 text-accent rounded">Sub</span>}
+                                    </div>
                                 </div>
-                            </FormItem>
-                            )}
-                        />
-                        ))}
-                        {selectedProjectId && availableSubContractors.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8 italic">No external partners assigned to this project.</p>}
-                    </ScrollArea>
-                    <FormField control={form.control} name="externalRecipient" render={() => <FormMessage />} />
-                </div>
-
-                <div className="space-y-4">
-                    <div className='flex flex-col gap-1'>
-                        <div className="flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-primary" />
-                            <FormLabel className="font-bold">Staff Notifications (Internal)</FormLabel>
-                        </div>
-                        <p className='text-[10px] text-muted-foreground'>Select team members to be notified of this instruction.</p>
-                    </div>
-                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {availableInternalUsers.map((user) => (
-                        <FormField
-                            key={user.id}
-                            control={form.control}
-                            name="internalRecipients"
-                            render={({ field }) => (
-                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                                <FormControl>
-                                <Checkbox
-                                    checked={field.value?.includes(user.email)}
-                                    onCheckedChange={(c) => {
-                                        const curr = field.value || [];
-                                        field.onChange(c ? [...curr, user.email] : curr.filter(v => v !== user.email));
-                                    }}
-                                />
-                                </FormControl>
-                                <div className="flex flex-col leading-none">
-                                    <FormLabel className="text-xs font-semibold">{user.name}</FormLabel>
-                                    <span className="text-[10px] text-muted-foreground">{user.email}</span>
-                                </div>
-                            </FormItem>
-                            )}
-                        />
-                        ))}
-                        {selectedProjectId && availableInternalUsers.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8 italic">No staff members assigned to this project.</p>}
-                    </ScrollArea>
-                </div>
+                                <span className="text-[10px] text-muted-foreground">{sub.email}</span>
+                            </div>
+                        </FormItem>
+                        )}
+                    />
+                    ))}
+                    {selectedProjectId && availableSubContractors.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8 italic">No external partners assigned to this project.</p>}
+                </ScrollArea>
+                <FormField control={form.control} name="externalRecipient" render={() => <FormMessage />} />
             </div>
 
             <canvas ref={canvasRef} className="hidden" />
