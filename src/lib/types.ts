@@ -36,6 +36,7 @@ export type Instruction = {
   photos?: Photo[];
   files?: FileAttachment[];
   recipients?: string[];
+  status?: 'draft' | 'issued';
 };
 
 export type ClientInstruction = {

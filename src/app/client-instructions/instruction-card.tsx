@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -210,7 +211,8 @@ function AcceptInstructionButton({
                         actionItems: instruction.actionItems,
                         createdAt: new Date().toISOString(),
                         photos: instruction.photos || [],
-                        recipients: sub ? [sub.email] : []
+                        recipients: sub ? [sub.email] : [],
+                        status: 'draft' // Site instructions generated from CI start as draft
                     };
 
                     currentSis.push(siData as any);

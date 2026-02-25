@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -17,7 +18,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink } from 'lucide-react';
+import { Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -29,7 +30,7 @@ import {
 import { ClientDate } from '../../components/client-date';
 import { useTransition } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
@@ -48,6 +49,7 @@ import { Button } from '@/components/ui/button';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { EditInstruction } from './edit-instruction';
 import { DistributeInstructionButton } from './distribute-instruction-button';
+import { cn } from '@/lib/utils';
 
 type InstructionCardProps = {
   instruction: Instruction;
@@ -88,6 +90,22 @@ export function InstructionCard({
     });
   };
 
+  const handleIssue = () => {
+    startTransition(async () => {
+      const docRef = doc(db, 'instructions', instruction.id);
+      updateDoc(docRef, { status: 'issued' })
+        .then(() => toast({ title: 'Success', description: 'Site Instruction has been formally issued.' }))
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: { status: 'issued' }
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+    });
+  };
+
   // Identify the instructed party (the external contact)
   const instructedParty = useMemo(() => {
     return subContractors.find(s => instruction.recipients?.includes(s.email));
@@ -98,9 +116,11 @@ export function InstructionCard({
     return distributionUsers.filter(u => instruction.recipients?.includes(u.email));
   }, [distributionUsers, instruction.recipients]);
 
+  const isDraft = instruction.status === 'draft';
+
   return (
     <>
-      <Card>
+      <Card className={cn(isDraft && "border-orange-200 bg-orange-50/10")}>
         <CardHeader>
           <div className="flex justify-between items-start">
             <div className="space-y-1 flex-1">
@@ -110,6 +130,7 @@ export function InstructionCard({
                   <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </Link>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
+                {isDraft && <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>}
               </div>
               <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
                 <span className="text-xs text-muted-foreground/80">
@@ -133,7 +154,18 @@ export function InstructionCard({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">Site Instruction</Badge>
+              {isDraft && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50"
+                  onClick={handleIssue}
+                  disabled={isPending}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Issue Instruction
+                </Button>
+              )}
               
               <DistributeInstructionButton 
                 instruction={instruction} 

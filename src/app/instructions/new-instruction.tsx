@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -163,6 +164,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
           files: uploadedFiles,
+          status: 'issued' // Manually created instructions are issued immediately
         };
 
         const colRef = collection(db, 'instructions');

@@ -448,7 +448,7 @@ export function EditInstruction({ item, projects, distributionUsers, subContract
             </div>
 
             <canvas ref={canvasRef} className="hidden" />
-            <DialogFooter>
+            <DialogFooter className="pt-4 border-t">
               <Button type="submit" disabled={isPending} className="w-full">
                 {isPending ? 'Saving...' : 'Save Instruction Changes'}
               </Button>

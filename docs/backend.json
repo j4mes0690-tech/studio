@@ -64,13 +64,15 @@
         "id": { "type": "string" },
         "reference": { "type": "string" },
         "projectId": { "type": "string" },
+        "clientInstructionId": { "type": "string" },
         "originalText": { "type": "string" },
         "summary": { "type": "string" },
         "actionItems": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" },
         "recipients": { "type": "array", "items": { "type": "string" } },
         "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } },
-        "files": { "type": "array", "items": { "$ref": "#/entities/FileAttachment" } }
+        "files": { "type": "array", "items": { "$ref": "#/entities/FileAttachment" } },
+        "status": { "type": "string", "enum": ["draft", "issued"] }
       }
     },
     "ClientInstruction": {

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -23,7 +24,7 @@ import { DistributeInstructionButton } from './distribute-instruction-button';
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import {
@@ -39,7 +40,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, FileText, Camera, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, FileText, Camera, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SortKey = 'reference' | 'project' | 'summary' | 'recipient' | 'date';
@@ -123,6 +124,7 @@ export function InstructionTable({ items, projects, distributionUsers, subContra
             <TableHead className="w-[180px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('recipient')}>
               <div className="flex items-center">Recipient <SortIcon column="recipient" /></div>
             </TableHead>
+            <TableHead className="w-[100px]">Status</TableHead>
             <TableHead className="w-[120px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('date')}>
               <div className="flex items-center">Date <SortIcon column="date" /></div>
             </TableHead>
@@ -150,14 +152,16 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
   const project = projects.find((p) => p.id === item.projectId);
   const { toast } = useToast();
   const db = useFirestore();
-  const [isDeleting, startDeleteTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   const recipientEmail = item.recipients?.[0];
   const recipient = subContractors.find(s => s.email === recipientEmail) || distributionUsers.find(u => u.email === recipientEmail);
 
+  const isDraft = item.status === 'draft';
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    startDeleteTransition(async () => {
+    startTransition(async () => {
       const docRef = doc(db, 'instructions', item.id);
       deleteDoc(docRef)
         .then(() => toast({ title: 'Success', description: 'Instruction deleted.' }))
@@ -171,10 +175,27 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
     });
   };
 
+  const handleIssue = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    startTransition(async () => {
+      const docRef = doc(db, 'instructions', item.id);
+      updateDoc(docRef, { status: 'issued' })
+        .then(() => toast({ title: 'Success', description: 'Instruction issued.' }))
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: { status: 'issued' }
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+    });
+  };
+
   return (
     <TableRow 
       href={`/instructions/${item.id}`}
-      className="group"
+      className={cn("group", isDraft && "bg-orange-50/20")}
     >
       <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
       <TableCell className="font-medium">{project?.name || 'Unknown'}</TableCell>
@@ -189,6 +210,13 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
         </div>
       </TableCell>
       <TableCell>
+        {isDraft ? (
+          <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
+        ) : (
+          <Badge variant="outline" className="text-[10px] text-green-600 border-green-200">ISSUED</Badge>
+        )}
+      </TableCell>
+      <TableCell>
         <span className="text-xs text-muted-foreground">
             <ClientDate date={item.createdAt} format="date" />
         </span>
@@ -201,6 +229,19 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {isDraft && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-orange-600" onClick={handleIssue} disabled={isPending}>
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Issue Instruction</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          
           <DistributeInstructionButton 
             instruction={item} 
             project={project} 
@@ -234,8 +275,8 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
-                    {isDeleting ? 'Deleting...' : 'Delete'}
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                    {isPending ? 'Deleting...' : 'Delete'}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
