@@ -318,7 +318,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                 <FormItem>
                     <div className='flex items-center gap-2 mb-2'>
                         <HardHat className='h-4 w-4 text-accent' />
-                        <FormLabel>Project Sub-contractors</FormLabel>
+                        <FormLabel>Project Team</FormLabel>
                     </div>
                     <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
                         {availableSubContractors.map((sub) => (
@@ -345,7 +345,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                             )}
                         />
                         ))}
-                        {!selectedProjectId && <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to view assigned sub-contractors.</p>}
+                        {!selectedProjectId && <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to view assigned team members.</p>}
                     </ScrollArea>
                 </FormItem>
             </div>
