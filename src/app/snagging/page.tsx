@@ -6,7 +6,7 @@ import { NewSnaggingItem } from './new-snagging-item';
 import { SnaggingFilters } from './snagging-filters';
 import { SnaggingTable } from './snagging-table';
 import { useSearchParams } from 'next/navigation';
-import { useMemo, useState, Suspense } from 'react';
+import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
@@ -25,6 +25,20 @@ function SnaggingContent() {
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
   const [isCompact, setIsCompact] = useState(false);
+
+  // Load persistence
+  useEffect(() => {
+    const saved = localStorage.getItem('sitecommand_view_snagging');
+    if (saved !== null) {
+      setIsCompact(saved === 'true');
+    }
+  }, []);
+
+  const toggleView = () => {
+    const newVal = !isCompact;
+    setIsCompact(newVal);
+    localStorage.setItem('sitecommand_view_snagging', String(newVal));
+  };
 
   // Profile check
   const profileRef = useMemo(() => {
@@ -112,7 +126,7 @@ function SnaggingContent() {
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    onClick={() => setIsCompact(!isCompact)}
+                    onClick={toggleView}
                     className="flex"
                   >
                     {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}

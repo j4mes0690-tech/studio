@@ -7,7 +7,7 @@ import { InformationRequestFilters } from './information-request-filters';
 import { ExportButton } from './export-button';
 import { InformationRequestTable } from './information-request-table';
 import { useSearchParams } from 'next/navigation';
-import { useMemo, useState, Suspense } from 'react';
+import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { InformationRequest, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
@@ -27,6 +27,20 @@ function InfoRequestsContent() {
   const projectId = searchParams.get('project') || undefined;
   
   const [isCompact, setIsCompact] = useState(false);
+
+  // Load persistence
+  useEffect(() => {
+    const saved = localStorage.getItem('sitecommand_view_information_requests');
+    if (saved !== null) {
+      setIsCompact(saved === 'true');
+    }
+  }, []);
+
+  const toggleView = () => {
+    const newVal = !isCompact;
+    setIsCompact(newVal);
+    localStorage.setItem('sitecommand_view_information_requests', String(newVal));
+  };
 
   // Fetch current user profile
   const currentUserRef = useMemo(() => {
@@ -141,7 +155,7 @@ function InfoRequestsContent() {
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    onClick={() => setIsCompact(!isCompact)}
+                    onClick={toggleView}
                     className="flex"
                   >
                     {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}

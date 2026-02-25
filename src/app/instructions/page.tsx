@@ -7,7 +7,7 @@ import { InstructionFilters } from './instruction-filters';
 import { ExportButton } from './export-button';
 import { InstructionTable } from './instruction-table';
 import { useSearchParams } from 'next/navigation';
-import { useMemo, useState, Suspense } from 'react';
+import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { Instruction, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { Loader2, LayoutGrid, List } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
@@ -34,6 +34,20 @@ function InstructionsContent() {
   const projectId = searchParams.get('project') || undefined;
   
   const [isCompact, setIsCompact] = useState(false);
+
+  // Load persistence
+  useEffect(() => {
+    const saved = localStorage.getItem('sitecommand_view_instructions');
+    if (saved !== null) {
+      setIsCompact(saved === 'true');
+    }
+  }, []);
+
+  const toggleView = () => {
+    const newVal = !isCompact;
+    setIsCompact(newVal);
+    localStorage.setItem('sitecommand_view_instructions', String(newVal));
+  };
 
   // Fetch profile for permission check
   const profileRef = useMemo(() => {
@@ -107,7 +121,7 @@ function InstructionsContent() {
                   <Button 
                     variant="outline" 
                     size="icon" 
-                    onClick={() => setIsCompact(!isCompact)}
+                    onClick={toggleView}
                     className="flex"
                   >
                     {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
