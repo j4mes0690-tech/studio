@@ -5,18 +5,28 @@ import { InstructionCard } from './instruction-card';
 import { NewInstruction } from './new-instruction';
 import { InstructionFilters } from './instruction-filters';
 import { ExportButton } from './export-button';
+import { InstructionTable } from './instruction-table';
 import { useSearchParams } from 'next/navigation';
-import { useMemo, Suspense } from 'react';
+import { useMemo, useState, Suspense } from 'react';
 import type { Instruction, Project, DistributionUser, SubContractor } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LayoutGrid, List } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 function InstructionsContent() {
   const searchParams = useSearchParams();
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
+  
+  const [isCompact, setIsCompact] = useState(false);
 
   // Fetch profile for permission check
   const profileRef = useMemo(() => {
@@ -69,7 +79,7 @@ function InstructionsContent() {
 
   const isLoading = usersLoading || projectsLoading || instructionsLoading || profileLoading || subsLoading;
 
-  if (isLoading) {
+  if (isLoading && !allInstructions) {
     return (
         <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -84,6 +94,24 @@ function InstructionsContent() {
             Instruction Log
           </h2>
           <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setIsCompact(!isCompact)}
+                    className="flex"
+                  >
+                    {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Switch to {isCompact ? 'Card' : 'Compact'} View</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
             <NewInstruction 
               projects={allowedProjects} 
               distributionUsers={distributionUsers || []} 
@@ -91,23 +119,36 @@ function InstructionsContent() {
             />
           </div>
         </div>
-        <InstructionFilters projects={allowedProjects} />
-        <div className="grid gap-4 md:gap-6">
-          {filteredInstructions.length > 0 ? (
-            filteredInstructions.map((instruction) => (
-              <InstructionCard
-                key={instruction.id}
-                instruction={instruction}
-                projects={allowedProjects}
-              />
-            ))
+        <NoticeFilters projects={allowedProjects} />
+        
+        {filteredInstructions.length > 0 ? (
+          isCompact ? (
+            <InstructionTable 
+              items={filteredInstructions}
+              projects={allProjects || []}
+              distributionUsers={distributionUsers || []}
+              subContractors={subContractors || []}
+            />
           ) : (
-            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p className="text-lg font-semibold">No records found</p>
-              <p className="text-sm">You only see instructions for projects you are assigned to.</p>
+            <div className="grid gap-4 md:gap-6">
+              {filteredInstructions.map((instruction) => (
+                <InstructionCard
+                  key={instruction.id}
+                  instruction={instruction}
+                  projects={allowedProjects}
+                  distributionUsers={distributionUsers || []}
+                  subContractors={subContractors || []}
+                />
+              ))}
             </div>
-          )}
-        </div>
+          )
+        ) : (
+          <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg bg-muted/10">
+            <p className="text-lg font-semibold">No records found</p>
+            <p className="text-sm">You only see instructions for projects you are assigned to.</p>
+          </div>
+        )}
+
         {filteredInstructions.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
             <ExportButton instructions={filteredInstructions} projects={allowedProjects} />
@@ -115,6 +156,33 @@ function InstructionsContent() {
         )}
       </main>
   );
+}
+
+function NoticeFilters({ projects }: { projects: Project[] }) {
+    const searchParams = useSearchParams();
+    const projectId = searchParams.get('project') || 'all';
+    
+    return (
+        <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="flex-1 w-full sm:w-auto">
+                <Select
+                    value={projectId}
+                    onValueChange={(val) => {
+                        const params = new URLSearchParams(window.location.search);
+                        if (val === 'all') params.delete('project');
+                        else params.set('project', val);
+                        window.history.pushState(null, '', `?${params.toString()}`);
+                    }}
+                >
+                    <SelectTrigger><SelectValue placeholder="Filter by project..." /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Projects</SelectItem>
+                        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
+    );
 }
 
 export default function InstructionsPage() {

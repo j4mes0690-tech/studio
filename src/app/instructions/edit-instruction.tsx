@@ -33,38 +33,38 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText } from 'lucide-react';
-import type { Project, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
+import { Pencil, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText } from 'lucide-react';
+import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { summarizeInstructions } from '@/ai/flows/summarize-client-instructions';
-import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
 import { useFirestore, useStorage } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { generateReference } from '@/lib/utils';
+import { summarizeInstructions } from '@/ai/flows/summarize-client-instructions';
+import { extractInstructionActionItems } from '@/ai/flows/extract-instruction-action-items';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-const NewInstructionSchema = z.object({
+const EditInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   originalText: z.string().min(10, 'Instructions must be at least 10 characters.'),
-  recipients: z.array(z.string()).min(1, 'You must select exactly one external partner to issue this instruction.').max(1, 'Only one external partner can be assigned per instruction.'),
+  recipients: z.array(z.string()).min(1, 'You must select exactly one external partner.').max(1, 'You can only select one external partner.'),
 });
 
-type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
+type EditInstructionFormValues = z.infer<typeof EditInstructionSchema>;
 
-type NewInstructionProps = {
+type EditInstructionProps = {
+  item: Instruction;
   projects: Project[];
   distributionUsers: DistributionUser[];
   subContractors: SubContractor[];
 };
 
-export function NewInstruction({ projects, distributionUsers, subContractors }: NewInstructionProps) {
+export function EditInstruction({ item, projects, distributionUsers, subContractors }: EditInstructionProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -78,15 +78,15 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [files, setFiles] = useState<FileAttachment[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
+  const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
 
-  const form = useForm<NewInstructionFormValues>({
-    resolver: zodResolver(NewInstructionSchema),
+  const form = useForm<EditInstructionFormValues>({
+    resolver: zodResolver(EditInstructionSchema),
     defaultValues: {
-      projectId: '',
-      originalText: '',
-      recipients: [],
+      projectId: item.projectId,
+      originalText: item.originalText,
+      recipients: item.recipients || [],
     },
   });
 
@@ -100,10 +100,22 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, projects, subContractors]);
 
-  const onSubmit = (values: NewInstructionFormValues) => {
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        projectId: item.projectId,
+        originalText: item.originalText,
+        recipients: item.recipients || [],
+      });
+      setPhotos(item.photos || []);
+      setFiles(item.files || []);
+    }
+  }, [open, item, form]);
+
+  const onSubmit = (values: EditInstructionFormValues) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Uploading photos/files and running AI analysis...' });
+        toast({ title: 'Processing', description: 'Uploading media and running AI analysis...' });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -127,53 +139,50 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
           })
         );
 
-        const [summaryResult, actionItemsResult] = await Promise.all([
-          summarizeInstructions({ instructions: values.originalText }),
-          extractInstructionActionItems({ instructionText: values.originalText }),
-        ]);
+        // Re-run AI analysis if text changed
+        let summary = item.summary;
+        let actionItems = item.actionItems;
 
-        const instructionData = {
-          reference: generateReference('SI'),
+        if (values.originalText !== item.originalText) {
+            const [summaryResult, actionItemsResult] = await Promise.all([
+                summarizeInstructions({ instructions: values.originalText }),
+                extractInstructionActionItems({ instructionText: values.originalText }),
+            ]);
+            summary = summaryResult.summary;
+            actionItems = actionItemsResult.actionItems;
+        }
+
+        const updates = {
           projectId: values.projectId,
           originalText: values.originalText,
-          summary: summaryResult.summary,
-          actionItems: actionItemsResult.actionItems,
+          summary,
+          actionItems,
           recipients: values.recipients,
-          createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
           files: uploadedFiles,
         };
 
-        const colRef = collection(db, 'instructions');
-        addDoc(colRef, instructionData)
+        const docRef = doc(db, 'instructions', item.id);
+        updateDoc(docRef, updates)
           .then(() => {
-            toast({ title: 'Success', description: 'Instruction recorded and issued.' });
+            toast({ title: 'Success', description: 'Instruction updated.' });
             setOpen(false);
           })
           .catch((error) => {
             const permissionError = new FirestorePermissionError({
-              path: colRef.path,
-              operation: 'create',
-              requestResourceData: instructionData,
+              path: docRef.path,
+              operation: 'update',
+              requestResourceData: updates,
             });
             errorEmitter.emit('permission-error', permissionError);
           });
 
       } catch (err) {
         console.error(err);
-        toast({ title: 'Error', description: 'Failed to process instruction.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to process update.', variant: 'destructive' });
       }
     });
   };
-
-  useEffect(() => {
-    if (!open) {
-      setIsCameraOpen(false);
-      setPhotos([]);
-      setFiles([]);
-      form.reset();
-    }
-  }, [open, form]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -229,13 +238,16 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button><PlusCircle className="mr-2 h-4 w-4" />New Instruction</Button>
+        <Button variant="ghost" size="icon">
+            <Pencil className="h-4 w-4" />
+            <span className="sr-only">Edit Instruction</span>
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Record New Site Instruction</DialogTitle>
+          <DialogTitle>Edit Site Instruction</DialogTitle>
           <DialogDescription>
-            Capture requirements on-site. AI will summarize tasks and notify the selected partner.
+            Modify instructions or documentation. AI will re-analyze if text is updated.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -247,7 +259,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                 <FormItem>
                   <FormLabel>Project</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger></FormControl>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                   <FormMessage />
@@ -263,14 +275,14 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                     <FormLabel>Instruction Text</FormLabel>
                     <VoiceInput onResult={(text) => form.setValue('originalText', text)} />
                   </div>
-                  <FormControl><Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} /></FormControl>
+                  <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
             <div className="space-y-4">
-              <FormLabel>Reference Documentation</FormLabel>
+              <FormLabel>Documentation</FormLabel>
               <div className="space-y-4">
                 {(photos.length > 0 || files.length > 0) && (
                   <div className="space-y-2">
@@ -304,16 +316,16 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                   <div className="space-y-2">
                     <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                     <div className="flex gap-2">
-                      <Button type="button" onClick={takePhoto}>Capture</Button>
-                      <Button type="button" variant="outline" size="icon" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
-                      <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                      <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex gap-2 flex-wrap">
-                    <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
-                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                    <Button type="button" variant="outline" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files (Max 10MB)</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
                     
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
                       const selected = e.target.files;
@@ -334,8 +346,8 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
             
             <div className="space-y-4">
                 <div className='flex flex-col gap-1'>
-                    <FormLabel>Project Team Recipient (Required)</FormLabel>
-                    <p className='text-[10px] text-muted-foreground'>Select exactly one sub-contractor or designer to receive this instruction.</p>
+                    <FormLabel>Primary Project Recipient (Required)</FormLabel>
+                    <p className='text-[10px] text-muted-foreground'>Select exactly one external partner to issue this instruction to.</p>
                 </div>
                 <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
                     {availableSubContractors.map((sub) => (
@@ -349,7 +361,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                             <Checkbox
                                 checked={field.value?.includes(sub.email)}
                                 onCheckedChange={(c) => {
-                                    // radio behavior
+                                    // Radio-like behavior: exactly one
                                     field.onChange(c ? [sub.email] : []);
                                 }}
                             />
@@ -362,8 +374,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                         )}
                     />
                     ))}
-                    {!selectedProjectId && <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to view assigned team members.</p>}
-                    {selectedProjectId && availableSubContractors.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8">No external partners assigned to this project.</p>}
+                    {availableSubContractors.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8 italic">No external partners assigned to this project.</p>}
                 </ScrollArea>
                 <FormField control={form.control} name="recipients" render={() => <FormMessage />} />
             </div>
@@ -371,7 +382,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
               <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? 'Processing & Distributing...' : 'Save & Distribute Instruction'}
+                {isPending ? 'Saving...' : 'Save Instruction Changes'}
               </Button>
             </DialogFooter>
           </form>

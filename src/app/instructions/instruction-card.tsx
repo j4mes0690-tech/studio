@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useState } from 'react';
-import type { Instruction, Project, Photo } from '@/lib/types';
+import type { Instruction, Project, Photo, DistributionUser, SubContractor } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -46,15 +45,20 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { ImageLightbox } from '@/components/image-lightbox';
+import { EditInstruction } from './edit-instruction';
 
 type InstructionCardProps = {
   instruction: Instruction;
   projects: Project[];
+  distributionUsers: DistributionUser[];
+  subContractors: SubContractor[];
 };
 
 export function InstructionCard({
   instruction,
   projects,
+  distributionUsers,
+  subContractors
 }: InstructionCardProps) {
   const project = projects.find((p) => p.id === instruction.projectId);
   const db = useFirestore();
@@ -101,6 +105,13 @@ export function InstructionCard({
             <div className="flex items-center gap-2">
               <Badge variant="secondary">Site Instruction</Badge>
               
+              <EditInstruction 
+                item={instruction} 
+                projects={projects} 
+                distributionUsers={distributionUsers} 
+                subContractors={subContractors} 
+              />
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="ghost" size="icon">
