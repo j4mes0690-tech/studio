@@ -29,10 +29,10 @@ export function DistributeInstructionButton({
   const [isDistributing, setIsDistributing] = useState(false);
   const { toast } = useToast();
 
-  const handleDistribute = async () => {
-    // Identify the primary external recipient (Subcontractor/Designer)
-    const sub = subContractors.find(s => instruction.recipients?.includes(s.email));
+  // Identify the primary external recipient (Subcontractor/Designer) at component level
+  const sub = subContractors.find(s => instruction.recipients?.includes(s.email));
 
+  const handleDistribute = async () => {
     if (!sub) {
       toast({
         title: "Distribution Cancelled",
