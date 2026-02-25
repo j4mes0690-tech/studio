@@ -2,6 +2,7 @@
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import type { ClientInstruction, Project, DistributionUser, ChatMessage, Photo, SubContractor, FileAttachment, Instruction, InformationRequest } from '@/lib/types';
 import Image from 'next/image';
 import {
@@ -403,11 +404,26 @@ export function ClientInstructionCard({
   const project = projects.find((p) => p.id === instruction.projectId);
   const db = useFirestore();
   const { toast } = useToast();
+  const router = useRouter();
+  const pathname = usePathname();
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
-  const handleDelete = () => {
+  // Determine if navigation is needed (only if not already on the detail page)
+  const isDetailPage = pathname === `/client-instructions/${instruction.id}`;
+
+  const handleCardClick = () => {
+    if (!isDetailPage) {
+      router.push(`/client-instructions/${instruction.id}`);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
     const docRef = doc(db, 'client-instructions', instruction.id);
-    deleteDoc(docRef).then(() => toast({ title: 'Success', description: 'Record deleted.' }));
+    deleteDoc(docRef).then(() => {
+        toast({ title: 'Success', description: 'Record deleted.' });
+        if (isDetailPage) router.push('/client-instructions');
+    });
   };
 
   const isAccepted = instruction.status === 'accepted';
@@ -415,12 +431,21 @@ export function ClientInstructionCard({
 
   return (
     <>
-      <Card className={cn("border-l-4 transition-all hover:shadow-md", isAccepted ? "border-l-green-500 bg-green-50/10" : "border-l-primary")}>
+      <Card 
+        className={cn(
+            "border-l-4 transition-all", 
+            isAccepted ? "border-l-green-500 bg-green-50/10" : "border-l-primary",
+            !isDetailPage && "cursor-pointer hover:shadow-md hover:border-l-primary/80 group/card"
+        )}
+        onClick={handleCardClick}
+      >
         <CardHeader>
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-xl">{project?.name || 'Unknown'}</CardTitle>
+                <CardTitle className={cn("text-xl transition-colors", !isDetailPage && "group-hover/card:text-primary")}>
+                    {project?.name || 'Unknown'}
+                </CardTitle>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
               </div>
               <CardDescription className="flex items-center gap-2 pt-1">
@@ -429,7 +454,7 @@ export function ClientInstructionCard({
                 </span>
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
               <Badge variant={isAccepted ? "secondary" : "default"} className={cn(isAccepted && "bg-green-100 text-green-800 border-green-200")}>
                   {isAccepted ? "Accepted" : "Open Directive"}
               </Badge>
@@ -461,12 +486,19 @@ export function ClientInstructionCard({
               <div className="bg-background px-4 py-3 rounded-2xl rounded-tl-none border shadow-sm max-w-[95%]">
                   <p className="text-[10px] font-bold mb-1 text-primary uppercase">Initial Client Directive</p>
                   <p className="text-sm leading-relaxed whitespace-pre-wrap">{instruction.originalText}</p>
+                  
                   {instruction.photos && instruction.photos.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
                       {instruction.photos.map((p, i) => (
-                        <div key={i} className="relative aspect-video rounded-lg overflow-hidden border cursor-pointer group" onClick={() => setViewingPhoto(p)}>
+                        <div 
+                            key={i} 
+                            className="relative aspect-video rounded-lg overflow-hidden border cursor-pointer group/photo" 
+                            onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}
+                        >
                           <Image src={p.url} alt="Site" fill className="object-cover" />
-                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><Maximize2 className="h-5 w-5 text-white" /></div>
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 flex items-center justify-center transition-opacity">
+                            <Maximize2 className="h-5 w-5 text-white" />
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -474,7 +506,13 @@ export function ClientInstructionCard({
                   {instruction.files && instruction.files.length > 0 && (
                     <div className="mt-3 space-y-1">
                       {instruction.files.map((f, i) => (
-                        <a key={i} href={f.url} download={f.name} className="flex items-center gap-2 p-2 rounded text-[10px] bg-muted border text-primary hover:bg-accent">
+                        <a 
+                            key={i} 
+                            href={f.url} 
+                            download={f.name} 
+                            className="flex items-center gap-2 p-2 rounded text-[10px] bg-muted border text-primary hover:bg-accent"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                           <FileText className="h-3.5 w-3.5" /> <span className="truncate flex-1 font-medium">{f.name}</span> <Download className="h-3 w-3" />
                         </a>
                       ))}
@@ -491,12 +529,23 @@ export function ClientInstructionCard({
                               {!isMe && <p className="text-[10px] font-bold mb-1 text-primary">{msg.sender}</p>}
                               <p className="text-sm leading-snug whitespace-pre-wrap">{msg.message}</p>
                               {msg.photos?.map((p, i) => (
-                                <div key={i} className="relative aspect-video rounded-lg overflow-hidden border bg-background mt-2 cursor-pointer" onClick={() => setViewingPhoto(p)}>
+                                <div 
+                                    key={i} 
+                                    className="relative aspect-video rounded-lg overflow-hidden border bg-background mt-2 cursor-pointer group/photo" 
+                                    onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}
+                                >
                                   <Image src={p.url} alt="Update photo" fill className="object-cover" />
+                                  <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/photo:opacity-100 transition-opacity" />
                                 </div>
                               ))}
                               {msg.files?.map((f, i) => (
-                                <a key={i} href={f.url} download={f.name} className={cn("flex items-center gap-2 p-1.5 rounded text-[9px] mt-2 border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-background border-border text-primary")}>
+                                <a 
+                                    key={i} 
+                                    href={f.url} 
+                                    download={f.name} 
+                                    className={cn("flex items-center gap-2 p-1.5 rounded text-[9px] mt-2 border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-background border-border text-primary")}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
                                   <FileText className="h-3 w-3" />
                                   <span className="truncate max-w-[150px]">{f.name}</span>
                                 </a>
