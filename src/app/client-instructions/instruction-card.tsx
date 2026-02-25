@@ -102,6 +102,13 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
 
     const project = useMemo(() => projects.find(p => p.id === instruction.projectId), [projects, instruction.projectId]);
     
+    // PROJECT-RESTRICTED FILTERS
+    const projectStaff = useMemo(() => {
+        if (!allUsers || !project) return [];
+        const assignedEmails = project.assignedUsers || [];
+        return allUsers.filter(u => assignedEmails.some(e => e.toLowerCase().trim() === u.email.toLowerCase().trim()));
+    }, [allUsers, project]);
+
     const projectSubs = useMemo(() => {
         if (!allSubs || !project) return [];
         const projectSubIds = project.assignedSubContractors || [];
@@ -210,7 +217,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                 <DialogHeader className="p-6 pb-0 flex-none">
                     <DialogTitle>Action Workspace: {instruction.reference}</DialogTitle>
                     <DialogDescription>
-                        Generate linked technical queries (CRFI/RFI) or Site Instructions.
+                        Only project-assigned staff and designers are available for technical queries.
                     </DialogDescription>
                 </DialogHeader>
                 
@@ -250,18 +257,27 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                                                 />
                                             </div>
                                             <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Assignee (Internal Staff or Designer)</Label>
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Project Assignee</Label>
                                                 <Select 
                                                     onValueChange={(val) => setRfis(rfis.map((r, i) => i === idx ? { ...r, assignedTo: [val] } : r))}
                                                 >
                                                     <SelectTrigger className="h-8 text-xs">
-                                                        <SelectValue placeholder="Select Recipient" />
+                                                        <SelectValue placeholder="Select Project Recipient" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> Internal staff (CRFI)</div>
-                                                        {allUsers?.map(u => <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>)}
-                                                        <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase mt-2 flex items-center gap-1 border-t"><Ruler className="h-3 w-3" /> Designers (RFI)</div>
-                                                        {projectDesigners.map(d => <SelectItem key={d.id} value={d.email}>{d.name} ({d.email})</SelectItem>)}
+                                                        <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> Project Staff (CRFI)</div>
+                                                        {projectStaff.length === 0 ? (
+                                                            <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to project</div>
+                                                        ) : projectStaff.map(u => (
+                                                            <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>
+                                                        ))}
+                                                        
+                                                        <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase mt-2 flex items-center gap-1 border-t"><Ruler className="h-3 w-3" /> Project Designers (RFI)</div>
+                                                        {projectDesigners.length === 0 ? (
+                                                            <div className="p-2 text-[10px] text-muted-foreground italic">No designers assigned to project</div>
+                                                        ) : projectDesigners.map(d => (
+                                                            <SelectItem key={d.id} value={d.email}>{d.name} ({d.email})</SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -305,7 +321,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                                                 />
                                             </div>
                                             <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Sub-contractor</Label>
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Assigned Trade</Label>
                                                 <Select 
                                                     onValueChange={(val) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, subcontractorId: val } : s))}
                                                 >
@@ -313,7 +329,11 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                                                         <SelectValue placeholder="Assign trade" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                                        {projectSubs.length === 0 ? (
+                                                            <div className="p-2 text-[10px] text-muted-foreground italic">No sub-contractors assigned to project</div>
+                                                        ) : projectSubs.map(s => (
+                                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                             </div>

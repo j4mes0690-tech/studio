@@ -35,7 +35,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler } from 'lucide-react';
 import type { Project, InformationRequest, DistributionUser, Photo, SubContractor } from '@/lib/types';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -81,10 +80,6 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
   const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
   const { data: subContractors } = useCollection<SubContractor>(subsQuery);
 
-  const designers = useMemo(() => {
-    return (subContractors || []).filter(sub => sub.isDesigner);
-  }, [subContractors]);
-
   const form = useForm<EditInformationRequestFormValues>({
     resolver: zodResolver(EditInformationRequestSchema),
     defaultValues: {
@@ -95,6 +90,26 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
       requiredBy: item.requiredBy,
     },
   });
+
+  const selectedProjectId = form.watch('projectId');
+
+  const selectedProject = useMemo(() => {
+    return projects.find(p => p.id === selectedProjectId);
+  }, [projects, selectedProjectId]);
+
+  const availableInternalUsers = useMemo(() => {
+    if (!selectedProject) return [];
+    const assignedEmails = selectedProject.assignedUsers || [];
+    return distributionUsers.filter(u => 
+      assignedEmails.some(email => email.toLowerCase().trim() === u.email.toLowerCase().trim())
+    );
+  }, [selectedProject, distributionUsers]);
+
+  const availableDesigners = useMemo(() => {
+    if (!selectedProject || !subContractors) return [];
+    const assignedSubIds = selectedProject.assignedSubContractors || [];
+    return subContractors.filter(sub => sub.isDesigner && assignedSubIds.includes(sub.id));
+  }, [selectedProject, subContractors]);
 
   const onSubmit = (values: EditInformationRequestFormValues) => {
     startTransition(async () => {
@@ -230,7 +245,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Information Request</DialogTitle>
-          <DialogDescription>Update metadata and assignments.</DialogDescription>
+          <DialogDescription>Only assigned project members can be recipients.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -242,7 +257,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Project</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); }} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
@@ -274,10 +289,12 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
                 <FormItem>
                     <div className='flex items-center gap-2 mb-2'>
                         <ShieldCheck className='h-4 w-4 text-primary' />
-                        <FormLabel>Internal Contacts (CRFI)</FormLabel>
+                        <FormLabel>Project Internal Contacts (CRFI)</FormLabel>
                     </div>
                     <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {distributionUsers.map((u) => (
+                        {availableInternalUsers.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">No staff members assigned to this project.</p>
+                        ) : availableInternalUsers.map((u) => (
                         <FormField
                             key={u.id}
                             control={form.control}
@@ -307,10 +324,12 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
                 <FormItem>
                     <div className='flex items-center gap-2 mb-2'>
                         <Ruler className='h-4 w-4 text-accent' />
-                        <FormLabel>External Designers (RFI)</FormLabel>
+                        <FormLabel>Project Designers (RFI)</FormLabel>
                     </div>
                     <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {designers.map((sub) => (
+                        {availableDesigners.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">No designers assigned to this project.</p>
+                        ) : availableDesigners.map((sub) => (
                         <FormField
                             key={sub.id}
                             control={form.control}

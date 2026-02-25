@@ -90,9 +90,23 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
 
   const selectedProjectId = form.watch('projectId');
 
-  const designers = useMemo(() => {
-    return subContractors.filter(sub => sub.isDesigner);
-  }, [subContractors]);
+  const selectedProject = useMemo(() => {
+    return projects.find(p => p.id === selectedProjectId);
+  }, [projects, selectedProjectId]);
+
+  const availableInternalUsers = useMemo(() => {
+    if (!selectedProject) return [];
+    const assignedEmails = selectedProject.assignedUsers || [];
+    return distributionUsers.filter(u => 
+      assignedEmails.some(email => email.toLowerCase().trim() === u.email.toLowerCase().trim())
+    );
+  }, [selectedProject, distributionUsers]);
+
+  const availableDesigners = useMemo(() => {
+    if (!selectedProject) return [];
+    const assignedSubIds = selectedProject.assignedSubContractors || [];
+    return subContractors.filter(sub => sub.isDesigner && assignedSubIds.includes(sub.id));
+  }, [selectedProject, subContractors]);
 
   const onSubmit = (values: NewInformationRequestFormValues) => {
     startTransition(async () => {
@@ -111,9 +125,9 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           })
         );
 
-        // Determine Prefix: CRFI for internal client, RFI for external designer
+        // Determine Prefix: CRFI for internal client staff, RFI for external designer
         // Check if any assignee is an external designer
-        const hasExternalDesigner = designers.some(d => values.assignedTo.includes(d.email.toLowerCase().trim()));
+        const hasExternalDesigner = availableDesigners.some(d => values.assignedTo.includes(d.email.toLowerCase().trim()));
         const prefix = hasExternalDesigner ? 'RFI' : 'CRFI';
 
         const requestData = {
@@ -206,7 +220,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         <DialogHeader>
           <DialogTitle>Log Information Request (CRFI / RFI)</DialogTitle>
           <DialogDescription>
-            Record a technical query. Internal assignments generate a CRFI, while Designers generate an RFI.
+            Only assigned project team members and designers are available for assignment.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -217,7 +231,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Project</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); }} value={field.value}>
                     <FormControl>
                       <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
                     </FormControl>
@@ -259,10 +273,14 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 <FormItem>
                     <div className='flex items-center gap-2 mb-2'>
                         <ShieldCheck className='h-4 w-4 text-primary' />
-                        <FormLabel>Internal Contacts (CRFI)</FormLabel>
+                        <FormLabel>Project Internal Contacts (CRFI)</FormLabel>
                     </div>
                     <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {distributionUsers.map((u) => (
+                        {!selectedProjectId ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to see assigned staff.</p>
+                        ) : availableInternalUsers.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">No staff members assigned to this project.</p>
+                        ) : availableInternalUsers.map((u) => (
                         <FormField
                             key={u.id}
                             control={form.control}
@@ -292,10 +310,14 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 <FormItem>
                     <div className='flex items-center gap-2 mb-2'>
                         <Ruler className='h-4 w-4 text-accent' />
-                        <FormLabel>External Designers (RFI)</FormLabel>
+                        <FormLabel>Project Designers (RFI)</FormLabel>
                     </div>
                     <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {designers.map((sub) => (
+                        {!selectedProjectId ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to see designers.</p>
+                        ) : availableDesigners.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">No designers assigned to this project.</p>
+                        ) : availableDesigners.map((sub) => (
                         <FormField
                             key={sub.id}
                             control={form.control}
@@ -319,7 +341,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                             )}
                         />
                         ))}
-                        {designers.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8">No Designers registered in system.</p>}
                     </ScrollArea>
                 </FormItem>
             </div>
