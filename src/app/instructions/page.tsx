@@ -123,6 +123,7 @@ function InstructionsContent() {
               projects={allowedProjects} 
               distributionUsers={distributionUsers || []} 
               subContractors={subContractors || []}
+              allInstructions={allInstructions || []}
             />
           </div>
         </div>

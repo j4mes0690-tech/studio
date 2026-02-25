@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useRef, useTransition } from 'react';
+import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,7 +34,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText } from 'lucide-react';
-import type { Project, DistributionUser, Photo, FileAttachment } from '@/lib/types';
+import type { Project, DistributionUser, Photo, FileAttachment, ClientInstruction } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -47,7 +46,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { generateReference } from '@/lib/utils';
+import { getProjectInitials, getNextReference } from '@/lib/utils';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -62,9 +61,10 @@ type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
 type NewInstructionProps = {
   projects: Project[];
   distributionUsers: DistributionUser[];
+  allInstructions: ClientInstruction[];
 };
 
-export function NewClientInstruction({ projects, distributionUsers }: NewInstructionProps) {
+export function NewClientInstruction({ projects, distributionUsers, allInstructions }: NewInstructionProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -89,6 +89,9 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
       recipients: [],
     },
   });
+
+  const selectedProjectId = form.watch('projectId');
+  const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
 
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
@@ -122,8 +125,11 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
           extractInstructionActionItems({ instructionText: values.originalText }),
         ]);
 
+        const initials = getProjectInitials(selectedProject?.name || 'PRJ');
+        const reference = getNextReference(allInstructions, values.projectId, 'CI', initials);
+
         const instructionData = {
-          reference: generateReference('CI'),
+          reference,
           projectId: values.projectId,
           originalText: values.originalText,
           summary: summaryResult.summary,
@@ -195,10 +201,6 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
-  };
-
-  const toggleCamera = () => {
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,7 +285,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
                       {photos.map((p, i) => (
                         <div key={`p-${i}`} className="relative group">
                           <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                          <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                          <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-3 w-3" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
                             <X className="h-3 w-3" />
                           </Button>
                         </div>
@@ -310,7 +312,7 @@ export function NewClientInstruction({ projects, distributionUsers }: NewInstruc
                     <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                     <div className="flex gap-2">
                       <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={toggleCamera} title="Switch Camera">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')} title="Switch Camera">
                         <RefreshCw className="h-4 w-4" />
                       </Button>
                       <Button type="button" variant="secondary" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>

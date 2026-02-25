@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
-import type { ClientInstruction, Project, DistributionUser, ChatMessage, Photo, SubContractor, FileAttachment } from '@/lib/types';
+import type { ClientInstruction, Project, DistributionUser, ChatMessage, Photo, SubContractor, FileAttachment, Instruction, InformationRequest } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -66,14 +66,26 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RespondToInstruction } from './respond-to-instruction';
-import { cn, generateReference } from '@/lib/utils';
+import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-function AcceptInstructionButton({ instruction, currentUser, projects }: { instruction: ClientInstruction, currentUser: DistributionUser, projects: Project[] }) {
+function AcceptInstructionButton({ 
+    instruction, 
+    currentUser, 
+    projects,
+    allSiteInstructions,
+    allRfis
+}: { 
+    instruction: ClientInstruction, 
+    currentUser: DistributionUser, 
+    projects: Project[],
+    allSiteInstructions: Instruction[],
+    allRfis: InformationRequest[]
+}) {
     const [open, setOpen] = useState(false);
     const { toast } = useToast();
     const db = useFirestore();
@@ -102,6 +114,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
     const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
     const project = useMemo(() => projects.find(p => p.id === instruction.projectId), [projects, instruction.projectId]);
+    const initials = useMemo(() => getProjectInitials(project?.name || 'PRJ'), [project]);
     
     // PROJECT-RESTRICTED FILTERS
     const projectStaff = useMemo(() => {
@@ -149,13 +162,17 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     }));
                 });
 
+                // Track local counts to avoid collisions within the same batch
+                let currentRfis = [...allRfis];
+                let currentSis = [...allSiteInstructions];
+
                 rfis.forEach(rfi => {
-                    // Determine Prefix: CRFI for internal staff, RFI for External Partners (Designers/Subs)
                     const isInternal = projectStaff.some(u => rfi.assignedTo.includes(u.email.toLowerCase().trim()));
                     const prefix = isInternal ? 'CRFI' : 'RFI';
+                    const reference = getNextReference(currentRfis, instruction.projectId, prefix, initials);
 
                     const rfiData = {
-                        reference: generateReference(prefix),
+                        reference,
                         projectId: instruction.projectId,
                         clientInstructionId: instruction.id,
                         description: rfi.description,
@@ -165,8 +182,12 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                         status: 'open',
                         messages: [],
                         photos: instruction.photos || [],
-                        files: instruction.files || [] // Inherit files
+                        files: instruction.files || []
                     };
+                    
+                    // Add to local list to correctly calculate next number if multiple RFIs added
+                    currentRfis.push(rfiData as any);
+
                     addDoc(collection(db, 'information-requests'), rfiData).catch(err => {
                         errorEmitter.emit('permission-error', new FirestorePermissionError({
                             path: 'information-requests',
@@ -178,8 +199,10 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
 
                 siteInsts.forEach(si => {
                     const sub = allSubs?.find(s => s.id === si.subcontractorId);
+                    const reference = getNextReference(currentSis, instruction.projectId, 'SI', initials);
+
                     const siData = {
-                        reference: generateReference('SI'),
+                        reference,
                         projectId: instruction.projectId,
                         clientInstructionId: instruction.id,
                         originalText: instruction.originalText,
@@ -189,6 +212,9 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                         photos: instruction.photos || [],
                         recipients: sub ? [sub.email] : []
                     };
+
+                    currentSis.push(siData as any);
+
                     addDoc(collection(db, 'instructions'), siData).catch(err => {
                         errorEmitter.emit('permission-error', new FirestorePermissionError({
                             path: 'instructions',
@@ -359,7 +385,19 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
     );
 }
 
-export function ClientInstructionCard({ instruction, projects, currentUser }: { instruction: ClientInstruction, projects: Project[], currentUser: DistributionUser }) {
+export function ClientInstructionCard({ 
+    instruction, 
+    projects, 
+    currentUser,
+    allSiteInstructions,
+    allRfis
+}: { 
+    instruction: ClientInstruction, 
+    projects: Project[], 
+    currentUser: DistributionUser,
+    allSiteInstructions: Instruction[],
+    allRfis: InformationRequest[]
+}) {
   const project = projects.find((p) => p.id === instruction.projectId);
   const db = useFirestore();
   const { toast } = useToast();
@@ -393,7 +431,15 @@ export function ClientInstructionCard({ instruction, projects, currentUser }: { 
               <Badge variant={isAccepted ? "secondary" : "default"} className={cn(isAccepted && "bg-green-100 text-green-800 border-green-200")}>
                   {isAccepted ? "Accepted" : "Open Directive"}
               </Badge>
-              {!isAccepted && <AcceptInstructionButton instruction={instruction} currentUser={currentUser} projects={projects} />}
+              {!isAccepted && (
+                <AcceptInstructionButton 
+                    instruction={instruction} 
+                    currentUser={currentUser} 
+                    projects={projects} 
+                    allSiteInstructions={allSiteInstructions}
+                    allRfis={allRfis}
+                />
+              )}
               <RespondToInstruction instruction={instruction} currentUser={currentUser} />
               <AlertDialog>
                 <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>

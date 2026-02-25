@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -35,7 +34,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText, Users2, Shield } from 'lucide-react';
-import type { Project, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
+import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -47,7 +46,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { generateReference } from '@/lib/utils';
+import { getProjectInitials, getNextReference } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -64,9 +63,10 @@ type NewInstructionProps = {
   projects: Project[];
   distributionUsers: DistributionUser[];
   subContractors: SubContractor[];
+  allInstructions: Instruction[];
 };
 
-export function NewInstruction({ projects, distributionUsers, subContractors }: NewInstructionProps) {
+export function NewInstruction({ projects, distributionUsers, subContractors, allInstructions }: NewInstructionProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -95,23 +95,23 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
 
   const selectedProjectId = form.watch('projectId');
 
+  const selectedProject = useMemo(() => {
+    return projects.find(p => p.id === selectedProjectId);
+  }, [selectedProjectId, projects]);
+
   const availableSubContractors = useMemo(() => {
-    if (!selectedProjectId) return [];
-    const project = projects.find(p => p.id === selectedProjectId);
-    if (!project) return [];
-    const assignedIds = project.assignedSubContractors || [];
+    if (!selectedProject) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
     return subContractors.filter(sub => assignedIds.includes(sub.id));
-  }, [selectedProjectId, projects, subContractors]);
+  }, [selectedProject, subContractors]);
 
   const availableInternalUsers = useMemo(() => {
-    if (!selectedProjectId) return [];
-    const project = projects.find(p => p.id === selectedProjectId);
-    if (!project) return [];
-    const assignedEmails = project.assignedUsers || [];
+    if (!selectedProject) return [];
+    const assignedEmails = selectedProject.assignedUsers || [];
     return distributionUsers.filter(u => 
       assignedEmails.some(email => email.toLowerCase().trim() === u.email.toLowerCase().trim())
     );
-  }, [selectedProjectId, projects, distributionUsers]);
+  }, [selectedProject, distributionUsers]);
 
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
@@ -150,8 +150,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
             ...(values.internalRecipients || [])
         ].filter(Boolean);
 
+        const initials = getProjectInitials(selectedProject?.name || 'PRJ');
+        const reference = getNextReference(allInstructions, values.projectId, 'SI', initials);
+
         const instructionData = {
-          reference: generateReference('SI'),
+          reference,
           projectId: values.projectId,
           originalText: values.originalText,
           summary: summaryResult.summary,
@@ -355,7 +358,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
                     <div className='flex flex-col gap-1'>
                         <div className="flex items-center gap-2">
                             <Users2 className="h-4 w-4 text-accent" />
-                            <FormLabel className="font-bold">Primary Recipient (External)</FormLabel>
+                            <FormLabel className="font-bold">Primary Recipient (Project Team)</FormLabel>
                         </div>
                         <p className='text-[10px] text-muted-foreground'>Select exactly one partner to issue this SI to.</p>
                     </div>

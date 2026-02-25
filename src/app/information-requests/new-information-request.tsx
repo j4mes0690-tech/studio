@@ -34,7 +34,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText, Loader2, Users2 } from 'lucide-react';
-import type { Project, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
+import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, InformationRequest } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/date-picker';
@@ -44,7 +44,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { generateReference } from '@/lib/utils';
+import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -63,9 +63,10 @@ type NewInformationRequestProps = {
   distributionUsers: DistributionUser[];
   subContractors: SubContractor[];
   currentUser: DistributionUser;
+  allRequests: InformationRequest[];
 };
 
-export function NewInformationRequest({ projects, distributionUsers, subContractors, currentUser }: NewInformationRequestProps) {
+export function NewInformationRequest({ projects, distributionUsers, subContractors, currentUser, allRequests }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -143,9 +144,11 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
 
         const hasExternalPartner = availableExternalPartners.some(d => values.assignedTo.includes(d.email.toLowerCase().trim()));
         const prefix = hasExternalPartner ? 'RFI' : 'CRFI';
+        const initials = getProjectInitials(selectedProject?.name || 'PRJ');
+        const reference = getNextReference(allRequests, values.projectId, prefix, initials);
 
         const requestData = {
-          reference: generateReference(prefix),
+          reference,
           projectId: values.projectId,
           description: values.description,
           assignedTo: values.assignedTo.map(e => e.toLowerCase().trim()),

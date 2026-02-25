@@ -7,7 +7,7 @@ import { InstructionFilters } from './instruction-filters';
 import { ExportButton } from './export-button';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, Suspense } from 'react';
-import type { ClientInstruction, Project, DistributionUser } from '@/lib/types';
+import type { ClientInstruction, Project, DistributionUser, Instruction, InformationRequest } from '@/lib/types';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
@@ -37,6 +37,13 @@ function InstructionsContent() {
     return collection(db, 'projects');
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
+
+  // REFERENCES DATA: Fetch site instructions and RFIs to calculate sequential references in Accept Workspace
+  const siteInstructionsQuery = useMemo(() => db ? collection(db, 'instructions') : null, [db]);
+  const { data: allSiteInstructions } = useCollection<Instruction>(siteInstructionsQuery);
+
+  const rfisQuery = useMemo(() => db ? collection(db, 'information-requests') : null, [db]);
+  const { data: allRfis } = useCollection<InformationRequest>(rfisQuery);
 
   // STABLE QUERY: Fetch all by date to avoid composite index requirements
   const instructionsQuery = useMemo(() => {
@@ -110,7 +117,11 @@ function InstructionsContent() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            <NewClientInstruction projects={allowedProjects} distributionUsers={distributionUsers || []} />
+            <NewClientInstruction 
+              projects={allowedProjects} 
+              distributionUsers={distributionUsers || []} 
+              allInstructions={allInstructions || []}
+            />
           </div>
         </div>
         <InstructionFilters projects={allowedProjects} />
@@ -122,6 +133,8 @@ function InstructionsContent() {
                 instruction={instruction}
                 projects={allProjects || []}
                 currentUser={profile!}
+                allSiteInstructions={allSiteInstructions || []}
+                allRfis={allRfis || []}
               />
             ))
           ) : (

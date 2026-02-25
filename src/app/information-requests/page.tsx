@@ -159,6 +159,7 @@ function InfoRequestsContent() {
                 distributionUsers={distributionUsers || []} 
                 subContractors={subContractors || []}
                 currentUser={currentUser}
+                allRequests={allItems || []}
               />
             )}
           </div>
