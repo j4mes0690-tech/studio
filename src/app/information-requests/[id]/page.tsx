@@ -59,7 +59,7 @@ function RequestDetailContent() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center">
-        <Button variant="ghost" onClick={() => router.back()} className="gap-2">
+        <Button variant="ghost" onClick={() => router.push('/information-requests')} className="gap-2">
           <ChevronLeft className="h-4 w-4" /> Back to Log
         </Button>
       </div>
@@ -67,7 +67,8 @@ function RequestDetailContent() {
         item={item} 
         projects={allProjects || []} 
         distributionUsers={distributionUsers || []} 
-        currentUser={currentUser} 
+        currentUser={currentUser}
+        onDelete={() => router.push('/information-requests')}
       />
     </div>
   );

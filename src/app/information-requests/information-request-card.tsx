@@ -101,14 +101,45 @@ function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: 
     );
 }
 
-export function InformationRequestCard({ item, projects, distributionUsers, currentUser }: { item: InformationRequest, projects: Project[], distributionUsers: DistributionUser[], currentUser: DistributionUser }) {
+export function InformationRequestCard({ 
+  item, 
+  projects, 
+  distributionUsers, 
+  currentUser,
+  onDelete 
+}: { 
+  item: InformationRequest, 
+  projects: Project[], 
+  distributionUsers: DistributionUser[], 
+  currentUser: DistributionUser,
+  onDelete?: () => void
+}) {
   const project = projects.find((p) => p.id === item.projectId);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
   const db = useFirestore();
   const { toast } = useToast();
+  const [isDeleting, startDeleteTransition] = useTransition();
 
   const assignedToArray = useMemo(() => Array.isArray(item.assignedTo) ? item.assignedTo : (item.assignedTo ? [item.assignedTo] : []), [item.assignedTo]);
-  const sortedMessages = [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const sortedMessages = useMemo(() => [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [item.messages]);
+
+  const handleDelete = () => {
+    startDeleteTransition(async () => {
+      const docRef = doc(db, 'information-requests', item.id);
+      deleteDoc(docRef)
+        .then(() => {
+          toast({ title: 'Deleted', description: 'Information request removed.' });
+          if (onDelete) onDelete();
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+    });
+  };
 
   return (
     <>
@@ -132,7 +163,29 @@ export function InformationRequestCard({ item, projects, distributionUsers, curr
               {item.status === 'open' ? <RespondToRequest item={item} distributionUsers={distributionUsers} currentUser={currentUser} /> : null}
               <UpdateStatusButton requestId={item.id} newStatus={item.status === 'open' ? 'closed' : 'open'} currentUser={currentUser} />
               <EditInformationRequest item={item} projects={projects} distributionUsers={distributionUsers} />
-              <Button variant="ghost" size="icon" onClick={() => deleteDoc(doc(db, 'information-requests', item.id)).then(() => toast({ title: 'Deleted' }))}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+              
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <span className="sr-only">Delete Request</span>
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Information Request?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove this RFI record and its message history. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
+                      {isDeleting ? 'Deleting...' : 'Delete'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </CardHeader>
