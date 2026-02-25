@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -9,7 +8,7 @@ import { ExportButton } from './export-button';
 import { InformationRequestTable } from './information-request-table';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, Suspense } from 'react';
-import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
+import type { InformationRequest, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
 import { collection, query, where, orderBy, doc } from 'firebase/firestore';
@@ -48,6 +47,12 @@ function InfoRequestsContent() {
     return collection(db, 'users');
   }, [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
+
+  const subsQuery = useMemo(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
+  const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
   // STABLE QUERY: Listen to the entire collection (or URL filter) persistently.
   const itemsQuery = useMemo(() => {
@@ -91,7 +96,7 @@ function InfoRequestsContent() {
     });
   }, [filteredItems]);
 
-  const loading = usersLoading || projectsLoading || itemsLoading || profileLoading;
+  const loading = usersLoading || projectsLoading || itemsLoading || profileLoading || subsLoading;
 
   if (loading && !allItems) {
     return (
@@ -154,6 +159,7 @@ function InfoRequestsContent() {
               <NewInformationRequest 
                 projects={allowedProjects} 
                 distributionUsers={distributionUsers || []} 
+                subContractors={subContractors || []}
                 currentUser={currentUser}
               />
             )}

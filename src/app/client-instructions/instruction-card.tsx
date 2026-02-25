@@ -31,7 +31,9 @@ import {
   Plus,
   User,
   HardHat,
-  X
+  X,
+  ShieldCheck,
+  Ruler
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ClientDate } from '../../components/client-date';
@@ -106,8 +108,14 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
         return allSubs.filter(s => projectSubIds.includes(s.id));
     }, [allSubs, project]);
 
-    const handleAddRfi = () => setRfis([...rfis, { description: `Technical clarification for ${instruction.reference}`, assignedTo: [] }]);
-    const handleAddInst = () => setSiteInsts([...siteInsts, { description: `Site implementation of ${instruction.reference}`, subcontractorId: '' }]);
+    const projectDesigners = useMemo(() => {
+        if (!allSubs || !project) return [];
+        const projectSubIds = project.assignedSubContractors || [];
+        return allSubs.filter(s => s.isDesigner && projectSubIds.includes(s.id));
+    }, [allSubs, project]);
+
+    const handleAddRfi = () => setRfis([...rfis, { description: `Clarification for ${instruction.reference}`, assignedTo: [] }]);
+    const handleAddInst = () => setSiteInsts([...siteInsts, { description: `Implementation of ${instruction.reference}`, subcontractorId: '' }]);
 
     const handleAccept = () => {
         startTransition(async () => {
@@ -118,7 +126,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     id: `system-${Date.now()}`,
                     sender: 'System',
                     senderEmail: 'system@sitecommand.internal',
-                    message: `Directive ACCEPTED. Triggered ${rfis.length} RFIs and ${siteInsts.length} Instructions.`,
+                    message: `Directive ACCEPTED. Generated ${rfis.length} RFIs and ${siteInsts.length} Instructions.`,
                     createdAt: new Date().toISOString()
                 };
 
@@ -134,12 +142,16 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                 });
 
                 rfis.forEach(rfi => {
+                    // Determine Prefix: CRFI for internal client staff, RFI for Designers
+                    const isDesigner = projectDesigners.some(d => rfi.assignedTo.includes(d.email.toLowerCase().trim()));
+                    const prefix = isDesigner ? 'RFI' : 'CRFI';
+
                     const rfiData = {
-                        reference: generateReference('RFI'),
+                        reference: generateReference(prefix),
                         projectId: instruction.projectId,
                         clientInstructionId: instruction.id,
                         description: rfi.description,
-                        assignedTo: rfi.assignedTo,
+                        assignedTo: rfi.assignedTo.map(e => e.toLowerCase().trim()),
                         raisedBy: currentUser.email.toLowerCase().trim(),
                         createdAt: new Date().toISOString(),
                         status: 'open',
@@ -194,33 +206,33 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                     Accept Directive
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-2xl h-[85vh] flex flex-col p-0 overflow-hidden">
+            <DialogContent className="sm:max-w-3xl h-[85vh] flex flex-col p-0 overflow-hidden">
                 <DialogHeader className="p-6 pb-0 flex-none">
                     <DialogTitle>Action Workspace: {instruction.reference}</DialogTitle>
                     <DialogDescription>
-                        Generate linked RFIs or Instructions to implement this directive.
+                        Generate linked technical queries (CRFI/RFI) or Site Instructions.
                     </DialogDescription>
                 </DialogHeader>
                 
                 <ScrollArea className="flex-1 p-6">
-                    <div className="space-y-8 pb-4">
+                    <div className="space-y-8 pb-10">
                         <div className="space-y-4">
                             <div className="flex items-center justify-between border-b pb-2">
                                 <div className="flex items-center gap-2">
                                     <HelpCircle className="h-5 w-5 text-primary" />
-                                    <h3 className="font-bold">Requests for Information</h3>
+                                    <h3 className="font-bold">Information Requests (CRFI / RFI)</h3>
                                 </div>
                                 <Button type="button" variant="outline" size="sm" onClick={handleAddRfi} className="h-7 px-2">
-                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add RFI
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Inquiry
                                 </Button>
                             </div>
                             
                             {rfis.length === 0 ? (
                                 <p className="text-xs text-muted-foreground italic py-2">No technical queries added.</p>
                             ) : (
-                                <div className="space-y-4">
+                                <div className="grid gap-4">
                                     {rfis.map((rfi, idx) => (
-                                        <div key={idx} className="p-3 border rounded-lg bg-muted/10 space-y-3 relative group">
+                                        <div key={idx} className="p-4 border rounded-lg bg-muted/10 space-y-4 relative group">
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
@@ -230,7 +242,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                                                 <X className="h-3.5 w-3.5" />
                                             </Button>
                                             <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Query</Label>
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Inquiry Details</Label>
                                                 <Input 
                                                     value={rfi.description} 
                                                     onChange={(e) => setRfis(rfis.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
@@ -238,15 +250,18 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                                                 />
                                             </div>
                                             <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Recipient</Label>
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Assignee (Internal Staff or Designer)</Label>
                                                 <Select 
                                                     onValueChange={(val) => setRfis(rfis.map((r, i) => i === idx ? { ...r, assignedTo: [val] } : r))}
                                                 >
                                                     <SelectTrigger className="h-8 text-xs">
-                                                        <SelectValue placeholder="Select member" />
+                                                        <SelectValue placeholder="Select Recipient" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {allUsers?.map(u => <SelectItem key={u.id} value={u.email}>{u.name}</SelectItem>)}
+                                                        <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> Internal staff (CRFI)</div>
+                                                        {allUsers?.map(u => <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>)}
+                                                        <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase mt-2 flex items-center gap-1 border-t"><Ruler className="h-3 w-3" /> Designers (RFI)</div>
+                                                        {projectDesigners.map(d => <SelectItem key={d.id} value={d.email}>{d.name} ({d.email})</SelectItem>)}
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -260,7 +275,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                             <div className="flex items-center justify-between border-b pb-2">
                                 <div className="flex items-center gap-2">
                                     <ClipboardList className="h-5 w-5 text-accent" />
-                                    <h3 className="font-bold">Internal Instructions</h3>
+                                    <h3 className="font-bold">Internal Site Instructions</h3>
                                 </div>
                                 <Button type="button" variant="outline" size="sm" onClick={handleAddInst} className="h-7 px-2">
                                     <Plus className="h-3.5 w-3.5 mr-1" /> Add Instruction
@@ -270,9 +285,9 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                             {siteInsts.length === 0 ? (
                                 <p className="text-xs text-muted-foreground italic py-2">No instructions drafted.</p>
                             ) : (
-                                <div className="space-y-4">
+                                <div className="grid gap-4">
                                     {siteInsts.map((si, idx) => (
-                                        <div key={idx} className="p-3 border rounded-lg bg-muted/10 space-y-3 relative group">
+                                        <div key={idx} className="p-4 border rounded-lg bg-muted/10 space-y-4 relative group">
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
@@ -282,7 +297,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                                                 <X className="h-3.5 w-3.5" />
                                             </Button>
                                             <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Instruction</Label>
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Trade Instruction</Label>
                                                 <Input 
                                                     value={si.description} 
                                                     onChange={(e) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, description: e.target.value } : s))}

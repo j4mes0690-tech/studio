@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useRef, useTransition } from 'react';
+import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,8 +33,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw } from 'lucide-react';
-import type { Project, DistributionUser, Photo } from '@/lib/types';
+import { PlusCircle, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler } from 'lucide-react';
+import type { Project, DistributionUser, Photo, SubContractor } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DatePicker } from '@/components/date-picker';
@@ -46,6 +45,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { generateReference } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -59,10 +59,11 @@ type NewInformationRequestFormValues = z.infer<typeof NewInformationRequestSchem
 type NewInformationRequestProps = {
   projects: Project[];
   distributionUsers: DistributionUser[];
+  subContractors: SubContractor[];
   currentUser: DistributionUser;
 };
 
-export function NewInformationRequest({ projects, distributionUsers, currentUser }: NewInformationRequestProps) {
+export function NewInformationRequest({ projects, distributionUsers, subContractors, currentUser }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -87,6 +88,12 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
     },
   });
 
+  const selectedProjectId = form.watch('projectId');
+
+  const designers = useMemo(() => {
+    return subContractors.filter(sub => sub.isDesigner);
+  }, [subContractors]);
+
   const onSubmit = (values: NewInformationRequestFormValues) => {
     startTransition(async () => {
       try {
@@ -104,15 +111,16 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
           })
         );
 
-        const assignedEmails = distributionUsers
-          .filter(u => values.assignedTo.includes(u.id))
-          .map(u => u.email.toLowerCase().trim());
+        // Determine Prefix: CRFI for internal client, RFI for external designer
+        // Check if any assignee is an external designer
+        const hasExternalDesigner = designers.some(d => values.assignedTo.includes(d.email.toLowerCase().trim()));
+        const prefix = hasExternalDesigner ? 'RFI' : 'CRFI';
 
         const requestData = {
-          reference: generateReference('RFI'),
+          reference: generateReference(prefix),
           projectId: values.projectId,
           description: values.description,
-          assignedTo: assignedEmails,
+          assignedTo: values.assignedTo.map(e => e.toLowerCase().trim()),
           raisedBy: currentUser.email.toLowerCase().trim(),
           photos: uploadedPhotos,
           requiredBy: values.requiredBy || null,
@@ -124,7 +132,7 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
         const colRef = collection(db, 'information-requests');
         addDoc(colRef, requestData)
           .then(() => {
-            toast({ title: 'Success', description: 'Information request logged.' });
+            toast({ title: 'Success', description: `${prefix} logged successfully.` });
             setOpen(false);
           })
           .catch((error) => {
@@ -164,11 +172,7 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
       }
     };
     if (isCameraOpen) getCameraPermission();
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
+    return () => stream?.getTracks().forEach((track) => track.stop());
   }, [isCameraOpen, facingMode]);
 
   const takePhoto = () => {
@@ -198,11 +202,11 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
           New Request
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Log New Information Request</DialogTitle>
+          <DialogTitle>Log Information Request (CRFI / RFI)</DialogTitle>
           <DialogDescription>
-            Record a request for information and assign it to a team member.
+            Record a technical query. Internal assignments generate a CRFI, while Designers generate an RFI.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -231,15 +235,11 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
               render={({ field }) => (
                 <FormItem>
                   <div className="flex items-center justify-between">
-                    <FormLabel>Information Requested</FormLabel>
-                    <VoiceInput 
-                      onResult={(text) => {
-                        form.setValue('description', text);
-                      }} 
-                    />
+                    <FormLabel>Inquiry Details</FormLabel>
+                    <VoiceInput onResult={(text) => form.setValue('description', text)} />
                   </div>
                   <FormControl>
-                    <Textarea placeholder="e.g., Updated floor plans for level 3..." className="min-h-[120px]" {...field} />
+                    <Textarea placeholder="What information is required? Be specific." className="min-h-[120px]" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -253,35 +253,79 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
               )}
             />
 
-            <FormItem>
-              <FormLabel>Assign To</FormLabel>
-              <ScrollArea className="h-40 rounded-md border p-4">
-                {distributionUsers.map((u) => (
-                  <FormField
-                    key={u.id}
-                    control={form.control}
-                    name="assignedTo"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value?.includes(u.id)}
-                            onCheckedChange={(c) => {
-                              const curr = field.value || [];
-                              field.onChange(c ? [...curr, u.id] : curr.filter(v => v !== u.id));
-                            }}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal">{u.name}</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                ))}
-              </ScrollArea>
-            </FormItem>
+            <Separator />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormItem>
+                    <div className='flex items-center gap-2 mb-2'>
+                        <ShieldCheck className='h-4 w-4 text-primary' />
+                        <FormLabel>Internal Contacts (CRFI)</FormLabel>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                        {distributionUsers.map((u) => (
+                        <FormField
+                            key={u.id}
+                            control={form.control}
+                            name="assignedTo"
+                            render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                <FormControl>
+                                <Checkbox
+                                    checked={field.value?.includes(u.email)}
+                                    onCheckedChange={(c) => {
+                                    const curr = field.value || [];
+                                    field.onChange(c ? [...curr, u.email] : curr.filter(v => v !== u.email));
+                                    }}
+                                />
+                                </FormControl>
+                                <div className="flex flex-col leading-none">
+                                    <FormLabel className="text-xs font-semibold">{u.name}</FormLabel>
+                                    <span className="text-[10px] text-muted-foreground">{u.email}</span>
+                                </div>
+                            </FormItem>
+                            )}
+                        />
+                        ))}
+                    </ScrollArea>
+                </FormItem>
+
+                <FormItem>
+                    <div className='flex items-center gap-2 mb-2'>
+                        <Ruler className='h-4 w-4 text-accent' />
+                        <FormLabel>External Designers (RFI)</FormLabel>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                        {designers.map((sub) => (
+                        <FormField
+                            key={sub.id}
+                            control={form.control}
+                            name="assignedTo"
+                            render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                <FormControl>
+                                <Checkbox
+                                    checked={field.value?.includes(sub.email)}
+                                    onCheckedChange={(c) => {
+                                    const curr = field.value || [];
+                                    field.onChange(c ? [...curr, sub.email] : curr.filter(v => v !== sub.email));
+                                    }}
+                                />
+                                </FormControl>
+                                <div className="flex flex-col leading-none">
+                                    <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
+                                    <span className="text-[10px] text-muted-foreground">{sub.email}</span>
+                                </div>
+                            </FormItem>
+                            )}
+                        />
+                        ))}
+                        {designers.length === 0 && <p className="text-[10px] text-muted-foreground text-center py-8">No Designers registered in system.</p>}
+                    </ScrollArea>
+                </FormItem>
+            </div>
 
             <div className="space-y-4">
-              <FormLabel>Photos</FormLabel>
+              <FormLabel>Visual Context</FormLabel>
               {photos.length > 0 && (
                 <div className="grid grid-cols-3 gap-4">
                   {photos.map((p, i) => (
@@ -299,9 +343,7 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
                   <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
                     <Button type="button" onClick={takePhoto}>Capture</Button>
-                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera}>
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
+                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera}><RefreshCw className="h-4 w-4" /></Button>
                     <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                   </div>
                 </div>
@@ -324,7 +366,9 @@ export function NewInformationRequest({ projects, distributionUsers, currentUser
             
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
-              <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : 'Save Request'}</Button>
+              <Button type="submit" disabled={isPending} className="w-full">
+                {isPending ? 'Processing...' : 'Save & Log Request'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

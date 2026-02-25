@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useRef, useTransition } from 'react';
+import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -34,18 +33,19 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, RefreshCw } from 'lucide-react';
-import type { Project, InformationRequest, DistributionUser, Photo } from '@/lib/types';
+import { Pencil, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler } from 'lucide-react';
+import type { Project, InformationRequest, DistributionUser, Photo, SubContractor } from '@/lib/types';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DatePicker } from '@/components/date-picker';
-import { useFirestore, useStorage } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useFirestore, useStorage, useCollection } from '@/firebase';
+import { doc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { Separator } from '@/components/ui/separator';
 
 const EditInformationRequestSchema = z.object({
   id: z.string().min(1),
@@ -67,9 +67,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [hasCameraPermission, setHasCameraPermission] = useState<
-    boolean | undefined
-  >();
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
@@ -80,10 +78,12 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
 
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
 
-  const assignedToEmails = Array.isArray(item.assignedTo)
-    ? item.assignedTo
-    : item.assignedTo ? [item.assignedTo] : [];
-  const assignedUserIds = distributionUsers.filter(u => assignedToEmails.includes(u.email)).map(u => u.id);
+  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const { data: subContractors } = useCollection<SubContractor>(subsQuery);
+
+  const designers = useMemo(() => {
+    return (subContractors || []).filter(sub => sub.isDesigner);
+  }, [subContractors]);
 
   const form = useForm<EditInformationRequestFormValues>({
     resolver: zodResolver(EditInformationRequestSchema),
@@ -91,7 +91,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
       id: item.id,
       projectId: item.projectId,
       description: item.description,
-      assignedTo: assignedUserIds,
+      assignedTo: item.assignedTo || [],
       requiredBy: item.requiredBy,
     },
   });
@@ -113,14 +113,10 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
           })
         );
 
-        const assignedEmails = distributionUsers
-          .filter(u => values.assignedTo.includes(u.id))
-          .map(u => u.email);
-
         const updates = {
           projectId: values.projectId,
           description: values.description,
-          assignedTo: assignedEmails,
+          assignedTo: values.assignedTo.map(e => e.toLowerCase().trim()),
           photos: uploadedPhotos,
           requiredBy: values.requiredBy || null,
         };
@@ -149,64 +145,44 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
 
   useEffect(() => {
     if (open) {
-        const assignedToEmailsOnReset = Array.isArray(item.assignedTo)
-        ? item.assignedTo
-        : item.assignedTo ? [item.assignedTo] : [];
-      const assignedUserIdsOnReset = distributionUsers.filter(u => assignedToEmailsOnReset.includes(u.email)).map(u => u.id);
-
       form.reset({
         id: item.id,
         projectId: item.projectId,
         description: item.description,
-        assignedTo: assignedUserIdsOnReset,
+        assignedTo: item.assignedTo || [],
         requiredBy: item.requiredBy,
       });
       setPhotos(item.photos || []);
     } else {
       setIsCameraOpen(false);
     }
-  }, [open, form, item, distributionUsers]);
+  }, [open, form, item]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode } 
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
         setHasCameraPermission(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
+        if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
         setHasCameraPermission(false);
       }
     };
-
-    if (isCameraOpen) {
-      getCameraPermission();
-    }
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
+    if (isCameraOpen) getCameraPermission();
+    return () => stream?.getTracks().forEach((track) => track.stop());
   }, [isCameraOpen, facingMode]);
 
   const takePhoto = () => {
     if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
       const canvas = canvasRef.current;
+      const video = videoRef.current;
       const context = canvas.getContext('2d');
-      
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 1200;
       canvas.height = 1200 / aspectRatio;
-
       context?.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
@@ -223,7 +199,6 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files) return;
-
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const reader = new FileReader();
@@ -252,18 +227,13 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Information Request</DialogTitle>
-          <DialogDescription>
-            Update the details for this information request.
-          </DialogDescription>
+          <DialogDescription>Update metadata and assignments.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4"
-          >
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <input type="hidden" {...form.register('id')} />
             
             <FormField
@@ -272,22 +242,9 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Project</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a project" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          {project.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
@@ -298,14 +255,8 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Information Requested</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="e.g., Client requires updated floor plans for level 3..."
-                      className="min-h-[150px]"
-                      {...field}
-                    />
-                  </FormControl>
+                  <FormLabel>Inquiry</FormLabel>
+                  <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -314,169 +265,111 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
             <FormField
               control={form.control}
               name="requiredBy"
-              render={({ field }) => (
-                <DatePicker field={field} label="Required By (Optional)" />
-              )}
+              render={({ field }) => <DatePicker field={field} label="Required By" />}
             />
 
-            <FormItem>
-              <div className="mb-4">
-                <FormLabel>Assign To</FormLabel>
-                <p className="text-sm text-muted-foreground">
-                  Select who to assign this request to.
-                </p>
-              </div>
-              <ScrollArea className="h-40 rounded-md border">
-                <div className="p-4 space-y-2">
-                  {distributionUsers.map((user) => (
-                    <FormField
-                      key={user.id}
-                      control={form.control}
-                      name="assignedTo"
-                      render={({ field }) => {
-                        return (
-                          <FormItem
-                            key={user.id}
-                            className="flex flex-row items-center space-x-3 space-y-0"
-                          >
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(user.id)}
-                                onCheckedChange={(checked) => {
-                                  return checked
-                                    ? field.onChange([...(field.value || []), user.id])
-                                    : field.onChange(
-                                        (field.value || []).filter(
-                                          (value) => value !== user.id
-                                        )
-                                      );
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="font-normal">
-                              {user.name} <span className="text-muted-foreground">({user.email})</span>
-                            </FormLabel>
-                          </FormItem>
-                        );
-                      }}
-                    />
+            <Separator />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormItem>
+                    <div className='flex items-center gap-2 mb-2'>
+                        <ShieldCheck className='h-4 w-4 text-primary' />
+                        <FormLabel>Internal Contacts (CRFI)</FormLabel>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                        {distributionUsers.map((u) => (
+                        <FormField
+                            key={u.id}
+                            control={form.control}
+                            name="assignedTo"
+                            render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                <FormControl>
+                                <Checkbox
+                                    checked={field.value?.includes(u.email)}
+                                    onCheckedChange={(c) => {
+                                    const curr = field.value || [];
+                                    field.onChange(c ? [...curr, u.email] : curr.filter(v => v !== u.email));
+                                    }}
+                                />
+                                </FormControl>
+                                <div className="flex flex-col leading-none">
+                                    <FormLabel className="text-xs font-semibold">{u.name}</FormLabel>
+                                    <span className="text-[10px] text-muted-foreground">{u.email}</span>
+                                </div>
+                            </FormItem>
+                            )}
+                        />
+                        ))}
+                    </ScrollArea>
+                </FormItem>
+
+                <FormItem>
+                    <div className='flex items-center gap-2 mb-2'>
+                        <Ruler className='h-4 w-4 text-accent' />
+                        <FormLabel>External Designers (RFI)</FormLabel>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                        {designers.map((sub) => (
+                        <FormField
+                            key={sub.id}
+                            control={form.control}
+                            name="assignedTo"
+                            render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                <FormControl>
+                                <Checkbox
+                                    checked={field.value?.includes(sub.email)}
+                                    onCheckedChange={(c) => {
+                                    const curr = field.value || [];
+                                    field.onChange(c ? [...curr, sub.email] : curr.filter(v => v !== sub.email));
+                                    }}
+                                />
+                                </FormControl>
+                                <div className="flex flex-col leading-none">
+                                    <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
+                                    <span className="text-[10px] text-muted-foreground">{sub.email}</span>
+                                </div>
+                            </FormItem>
+                            )}
+                        />
+                        ))}
+                    </ScrollArea>
+                </FormItem>
+            </div>
+
+            <div className="space-y-4">
+              <FormLabel>Photos</FormLabel>
+              {photos.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {photos.map((photo, index) => (
+                    <div key={index} className="relative group">
+                      <Image src={photo.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
+                      <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => removePhoto(index)}><X className="h-4 w-4" /></Button>
+                    </div>
                   ))}
                 </div>
-              </ScrollArea>
-              <FormMessage />
-            </FormItem>
-
-            <FormItem>
-              <FormLabel>Photos</FormLabel>
-              <div className="space-y-4">
-                {photos.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {photos.map((photo, index) => (
-                      <div key={index} className="relative group">
-                        <Image
-                          src={photo.url}
-                          alt={`Photo ${index + 1}`}
-                          width={200}
-                          height={150}
-                          className="rounded-md border object-cover aspect-video"
-                        />
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100"
-                          onClick={() => removePhoto(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              
-                {isCameraOpen ? (
-                  <div className="space-y-2">
-                    {hasCameraPermission === false ? (
-                      <Alert variant="destructive">
-                        <AlertTitle>Camera Access Required</AlertTitle>
-                        <AlertDescription>
-                          Please allow camera access to use this feature.
-                        </AlertDescription>
-                      </Alert>
-                    ) : (
-                      <>
-                        <div className="relative w-full aspect-video bg-muted rounded-md overflow-hidden">
-                          <video
-                            ref={videoRef}
-                            className="w-full h-full object-cover"
-                            autoPlay
-                            muted
-                            playsInline
-                          />
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            onClick={takePhoto}
-                            disabled={hasCameraPermission === undefined}
-                          >
-                            <Camera className="mr-2 h-4 w-4" />
-                            Take Photo
-                          </Button>
-                          <Button type="button" variant="outline" size="icon" onClick={toggleCamera} title="Switch Camera">
-                            <RefreshCw className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setIsCameraOpen(false)}
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                ) : (
+              )}
+              {isCameraOpen ? (
+                <div className="space-y-2">
+                  <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsCameraOpen(true)}
-                    >
-                      <Camera className="mr-2 h-4 w-4" />
-                      Take Photo
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="mr-2 h-4 w-4" />
-                      Upload
-                    </Button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      className="hidden"
-                      accept="image/*"
-                      multiple
-                      onChange={handleFileSelect}
-                    />
+                    <Button type="button" onClick={takePhoto}>Capture</Button>
+                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera}><RefreshCw className="h-4 w-4" /></Button>
+                    <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                   </div>
-                )}
-              </div>
-            </FormItem>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
+                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileSelect} />
+                </div>
+              )}
+            </div>
             
             <canvas ref={canvasRef} className="hidden" />
-
-            <DialogFooter>
-              <Button type="submit" disabled={isPending}>
-                {isPending
-                  ? 'Saving...'
-                  : 'Save Changes'}
-              </Button>
-            </DialogFooter>
+            <DialogFooter><Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : 'Save Changes'}</Button></DialogFooter>
           </form>
         </Form>
       </DialogContent>
