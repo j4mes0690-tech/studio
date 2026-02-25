@@ -86,8 +86,8 @@ export function InstructionCard({
     return subContractors.find(s => instruction.recipients?.includes(s.email));
   }, [subContractors, instruction.recipients]);
 
-  // Identify the internal team CCs
-  const internalCCs = useMemo(() => {
+  // Identify the internal distribution list
+  const internalDistribution = useMemo(() => {
     return distributionUsers.filter(u => instruction.recipients?.includes(u.email));
   }, [distributionUsers, instruction.recipients]);
 
@@ -178,19 +178,19 @@ export function InstructionCard({
           )}
 
           <Accordion type="single" collapsible className="w-full">
-            {internalCCs.length > 0 && (
+            {internalDistribution.length > 0 && (
                <AccordionItem value="recipients">
                <AccordionTrigger className="text-sm font-semibold">
                  <div className="flex items-center gap-2">
                    <Users className="h-4 w-4" />
                    <span>
-                     Internal Team CC ({internalCCs.length})
+                     Internal Distribution ({internalDistribution.length})
                    </span>
                  </div>
                </AccordionTrigger>
                <AccordionContent>
                 <div className="flex flex-wrap gap-1">
-                  {internalCCs.map((user, index) => (
+                  {internalDistribution.map((user, index) => (
                     <Badge key={index} variant="outline" className="bg-background">{user.name} ({user.email})</Badge>
                   ))}
                 </div>
