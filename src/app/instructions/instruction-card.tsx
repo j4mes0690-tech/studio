@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import type { Instruction, Project, Photo, DistributionUser, SubContractor } from '@/lib/types';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -16,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler } from 'lucide-react';
+import { Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -52,13 +53,15 @@ type InstructionCardProps = {
   projects: Project[];
   distributionUsers: DistributionUser[];
   subContractors: SubContractor[];
+  onDelete?: () => void;
 };
 
 export function InstructionCard({
   instruction,
   projects,
   distributionUsers,
-  subContractors
+  subContractors,
+  onDelete
 }: InstructionCardProps) {
   const project = projects.find((p) => p.id === instruction.projectId);
   const db = useFirestore();
@@ -70,7 +73,10 @@ export function InstructionCard({
     startTransition(async () => {
       const docRef = doc(db, 'instructions', instruction.id);
       deleteDoc(docRef)
-        .then(() => toast({ title: 'Success', description: 'Instruction deleted.' }))
+        .then(() => {
+          toast({ title: 'Success', description: 'Instruction deleted.' });
+          if (onDelete) onDelete();
+        })
         .catch((error) => {
           const permissionError = new FirestorePermissionError({
             path: docRef.path,
@@ -96,14 +102,17 @@ export function InstructionCard({
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
-            <div className="space-y-1">
+            <div className="space-y-1 flex-1">
               <div className="flex items-center gap-2">
-                <CardTitle className="text-lg">{project?.name || 'Unknown Project'}</CardTitle>
+                <Link href={`/instructions/${instruction.id}`} className="group flex items-center gap-2">
+                  <CardTitle className="text-lg group-hover:text-primary transition-colors">{project?.name || 'Unknown Project'}</CardTitle>
+                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </Link>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
               </div>
               <CardDescription className="flex items-center gap-2 pt-1">
                 <span className="text-xs text-muted-foreground/80">
-                  <ClientDate date={instruction.createdAt} />
+                  Logged <ClientDate date={instruction.createdAt} />
                 </span>
                 {instruction.clientInstructionId && (
                     <Badge variant="secondary" className="text-[9px] gap-1 h-4 px-1.5 font-normal">
