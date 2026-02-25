@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { CheckSquare, MessageCircle, Camera, Users, Trash2, Maximize2, Link as LinkIcon } from 'lucide-react';
+import { CheckSquare, MessageCircle, Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -128,6 +128,22 @@ export function InstructionCard({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-foreground mb-4">{instruction.summary}</p>
+          
+          {instruction.files && instruction.files.length > 0 && (
+            <div className="mb-4 space-y-1 border rounded-lg p-3 bg-muted/10">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
+                <FileText className="h-3 w-3" /> Attached Documentation
+              </p>
+              {instruction.files.map((f, i) => (
+                <a key={i} href={f.url} download={f.name} className="flex items-center gap-2 p-2 rounded text-[10px] bg-background border text-primary hover:bg-accent group">
+                  <FileText className="h-3.5 w-3.5" /> 
+                  <span className="truncate flex-1 font-medium">{f.name}</span> 
+                  <Download className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </a>
+              ))}
+            </div>
+          )}
+
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="action-items">
               <AccordionTrigger className="text-sm font-semibold">

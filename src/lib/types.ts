@@ -34,6 +34,7 @@ export type Instruction = {
   actionItems: string[];
   createdAt: string;
   photos?: Photo[];
+  files?: FileAttachment[];
   recipients?: string[];
 };
 

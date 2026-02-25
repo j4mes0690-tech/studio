@@ -67,7 +67,8 @@
         "actionItems": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "format": "date-time" },
         "recipients": { "type": "array", "items": { "type": "string" } },
-        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
+        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } },
+        "files": { "type": "array", "items": { "$ref": "#/entities/FileAttachment" } }
       }
     },
     "ClientInstruction": {

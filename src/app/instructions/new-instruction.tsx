@@ -35,8 +35,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck } from 'lucide-react';
-import type { Project, DistributionUser, Photo, SubContractor } from '@/lib/types';
+import { PlusCircle, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText } from 'lucide-react';
+import type { Project, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -49,6 +49,8 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { generateReference } from '@/lib/utils';
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -77,9 +79,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [files, setFiles] = useState<FileAttachment[]>([]);
 
   const form = useForm<NewInstructionFormValues>({
     resolver: zodResolver(NewInstructionSchema),
@@ -103,7 +107,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Uploading photos and running AI analysis...' });
+        toast({ title: 'Processing', description: 'Uploading photos/files and running AI analysis...' });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -113,6 +117,17 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
               return { ...p, url };
             }
             return p;
+          })
+        );
+
+        const uploadedFiles = await Promise.all(
+          files.map(async (f, i) => {
+            if (f.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(f.url);
+              const url = await uploadFile(storage, `internal-instructions/files/${Date.now()}-${i}-${f.name}`, blob);
+              return { ...f, url };
+            }
+            return f;
           })
         );
 
@@ -130,6 +145,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
           recipients: values.recipients || [],
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
+          files: uploadedFiles,
         };
 
         const colRef = collection(db, 'instructions');
@@ -158,6 +174,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
     if (!open) {
       setIsCameraOpen(false);
       setPhotos([]);
+      setFiles([]);
       form.reset();
     }
   }, [open, form]);
@@ -194,6 +211,27 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
 
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles) return;
+    Array.from(selectedFiles).forEach(f => {
+      if (f.size > MAX_FILE_SIZE) {
+        toast({ title: 'File Too Large', description: `${f.name} exceeds 10MB limit.`, variant: 'destructive' });
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        setFiles(prev => [...prev, {
+          name: f.name,
+          type: f.type,
+          size: f.size,
+          url: re.target?.result as string
+        }]);
+      };
+      reader.readAsDataURL(f);
+    });
   };
 
   return (
@@ -240,43 +278,64 @@ export function NewInstruction({ projects, distributionUsers, subContractors }: 
             />
 
             <div className="space-y-4">
-              <FormLabel>Photos</FormLabel>
-              {photos.length > 0 && (
-                <div className="grid grid-cols-3 gap-4">
-                  {photos.map((p, i) => (
-                    <div key={i} className="relative group">
-                      <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                      <button type="button" className="absolute top-1 right-1 h-6 w-6 bg-destructive text-white rounded-full flex items-center justify-center" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
-                        <X className="h-4 w-4" />
-                      </button>
+              <FormLabel>Reference Documentation</FormLabel>
+              <div className="space-y-4">
+                {(photos.length > 0 || files.length > 0) && (
+                  <div className="space-y-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      {photos.map((p, i) => (
+                        <div key={`p-${i}`} className="relative group">
+                          <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
+                          <button type="button" className="absolute top-1 right-1 h-6 w-6 bg-destructive text-white rounded-full flex items-center justify-center" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              )}
-              {isCameraOpen ? (
-                <div className="space-y-2">
-                  <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
-                  <div className="flex gap-2">
-                    <Button type="button" onClick={takePhoto}>Capture</Button>
-                    <Button type="button" variant="outline" size="icon" onClick={toggleCamera}><RefreshCw className="h-4 w-4" /></Button>
-                    <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                    <div className="space-y-1">
+                      {files.map((f, i) => (
+                        <div key={`f-${i}`} className="flex items-center justify-between p-2 rounded-md border bg-muted/30 group">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span className="text-xs truncate font-medium">{f.name}</span>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
-                  <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                    const files = e.target.files;
-                    if (!files) return;
-                    Array.from(files).forEach(f => {
-                      const reader = new FileReader();
-                      reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                      reader.readAsDataURL(f);
-                    });
-                  }} />
-                </div>
-              )}
+                )}
+
+                {isCameraOpen ? (
+                  <div className="space-y-2">
+                    <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
+                    <div className="flex gap-2">
+                      <Button type="button" onClick={takePhoto}>Capture</Button>
+                      <Button type="button" variant="outline" size="icon" onClick={toggleCamera}><RefreshCw className="h-4 w-4" /></Button>
+                      <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 flex-wrap">
+                    <Button type="button" variant="outline" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
+                    <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                    <Button type="button" variant="outline" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files (Max 10MB)</Button>
+                    
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                      const selected = e.target.files;
+                      if (!selected) return;
+                      Array.from(selected).forEach(f => {
+                        const reader = new FileReader();
+                        reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                        reader.readAsDataURL(f);
+                      });
+                    }} />
+                    <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
+                  </div>
+                )}
+              </div>
             </div>
 
             <Separator />
