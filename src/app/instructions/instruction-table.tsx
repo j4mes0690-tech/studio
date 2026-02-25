@@ -10,6 +10,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import type { Instruction, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { EditInstruction } from './edit-instruction';
@@ -227,9 +233,6 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
                 <AlertDialogDescription>Permanently delete this site instruction record.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <Accordion type="single" collapsible className="w-full">
-                    {/* Spacer for dialog padding */}
-                </Accordion>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
                     {isDeleting ? 'Deleting...' : 'Delete'}
