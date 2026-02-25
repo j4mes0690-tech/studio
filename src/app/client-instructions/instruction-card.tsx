@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -34,7 +33,8 @@ import {
   HardHat,
   X,
   ShieldCheck,
-  Ruler
+  Ruler,
+  Users2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ClientDate } from '../../components/client-date';
@@ -116,10 +116,10 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
         return allSubs.filter(s => projectSubIds.includes(s.id));
     }, [allSubs, project]);
 
-    const projectDesigners = useMemo(() => {
+    const projectExternalPartners = useMemo(() => {
         if (!allSubs || !project) return [];
         const projectSubIds = project.assignedSubContractors || [];
-        return allSubs.filter(s => s.isDesigner && projectSubIds.includes(s.id));
+        return allSubs.filter(s => projectSubIds.includes(s.id));
     }, [allSubs, project]);
 
     const handleAddRfi = () => setRfis([...rfis, { description: `Clarification for ${instruction.reference}`, assignedTo: [] }]);
@@ -150,9 +150,9 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                 });
 
                 rfis.forEach(rfi => {
-                    // Determine Prefix: CRFI for internal client staff, RFI for Designers
-                    const isDesigner = projectDesigners.some(d => rfi.assignedTo.includes(d.email.toLowerCase().trim()));
-                    const prefix = isDesigner ? 'RFI' : 'CRFI';
+                    // Determine Prefix: CRFI for internal staff, RFI for External Partners (Designers/Subs)
+                    const isInternal = projectStaff.some(u => rfi.assignedTo.includes(u.email.toLowerCase().trim()));
+                    const prefix = isInternal ? 'CRFI' : 'RFI';
 
                     const rfiData = {
                         reference: generateReference(prefix),
@@ -219,7 +219,7 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                 <DialogHeader className="p-6 pb-0 flex-none">
                     <DialogTitle>Action Workspace: {instruction.reference}</DialogTitle>
                     <DialogDescription>
-                        Only project-assigned staff and designers are available for technical queries.
+                        Assign follow-up tasks to project members and partners.
                     </DialogDescription>
                 </DialogHeader>
                 
@@ -274,11 +274,11 @@ function AcceptInstructionButton({ instruction, currentUser, projects }: { instr
                                                             <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>
                                                         ))}
                                                         
-                                                        <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase mt-2 flex items-center gap-1 border-t"><Ruler className="h-3 w-3" /> Project Designers (RFI)</div>
-                                                        {projectDesigners.length === 0 ? (
-                                                            <div className="p-2 text-[10px] text-muted-foreground italic">No designers assigned to project</div>
-                                                        ) : projectDesigners.map(d => (
-                                                            <SelectItem key={d.id} value={d.email}>{d.name} ({d.email})</SelectItem>
+                                                        <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase mt-2 flex items-center gap-1 border-t"><Users2 className="h-3 w-3" /> Sub-contractors / Designers (RFI)</div>
+                                                        {projectExternalPartners.length === 0 ? (
+                                                            <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to project</div>
+                                                        ) : projectExternalPartners.map(p => (
+                                                            <SelectItem key={p.id} value={p.email}>{p.name} ({p.email})</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>

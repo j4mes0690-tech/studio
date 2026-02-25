@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -34,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText } from 'lucide-react';
+import { Pencil, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText, Users2 } from 'lucide-react';
 import type { Project, InformationRequest, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -110,10 +109,10 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
     );
   }, [selectedProject, distributionUsers]);
 
-  const availableDesigners = useMemo(() => {
+  const availableExternalPartners = useMemo(() => {
     if (!selectedProject || !subContractors) return [];
     const assignedSubIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => sub.isDesigner && assignedSubIds.includes(sub.id));
+    return subContractors.filter(sub => assignedSubIds.includes(sub.id));
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: EditInformationRequestFormValues) => {
@@ -268,7 +267,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Information Request</DialogTitle>
-          <DialogDescription>Only assigned project members can be recipients.</DialogDescription>
+          <DialogDescription>Only assigned project members and partners can be recipients.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -346,13 +345,13 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
 
                 <FormItem>
                     <div className='flex items-center gap-2 mb-2'>
-                        <Ruler className='h-4 w-4 text-accent' />
-                        <FormLabel>Project Designers (RFI)</FormLabel>
+                        <Users2 className='h-4 w-4 text-accent' />
+                        <FormLabel>Sub-contractors / Designers (RFI)</FormLabel>
                     </div>
                     <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {availableDesigners.length === 0 ? (
-                            <p className="text-[10px] text-muted-foreground text-center py-8">No designers assigned to this project.</p>
-                        ) : availableDesigners.map((sub) => (
+                        {availableExternalPartners.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">No partners assigned to this project.</p>
+                        ) : availableExternalPartners.map((sub) => (
                         <FormField
                             key={sub.id}
                             control={form.control}
@@ -369,7 +368,13 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
                                 />
                                 </FormControl>
                                 <div className="flex flex-col leading-none">
-                                    <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
+                                    <div className="flex items-center gap-2">
+                                        <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
+                                        <div className="flex gap-1">
+                                            {sub.isDesigner && <span className="text-[8px] px-1 bg-primary/10 text-primary rounded">D</span>}
+                                            {sub.isSubContractor && <span className="text-[8px] px-1 bg-accent/10 text-accent rounded">S</span>}
+                                        </div>
+                                    </div>
                                     <span className="text-[10px] text-muted-foreground">{sub.email}</span>
                                 </div>
                             </FormItem>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -34,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText, Loader2 } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText, Loader2, Users2 } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -107,10 +106,10 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
     );
   }, [selectedProject, distributionUsers]);
 
-  const availableDesigners = useMemo(() => {
+  const availableExternalPartners = useMemo(() => {
     if (!selectedProject) return [];
     const assignedSubIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => sub.isDesigner && assignedSubIds.includes(sub.id));
+    return subContractors.filter(sub => assignedSubIds.includes(sub.id));
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: NewInformationRequestFormValues) => {
@@ -142,8 +141,8 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           })
         );
 
-        const hasExternalDesigner = availableDesigners.some(d => values.assignedTo.includes(d.email.toLowerCase().trim()));
-        const prefix = hasExternalDesigner ? 'RFI' : 'CRFI';
+        const hasExternalPartner = availableExternalPartners.some(d => values.assignedTo.includes(d.email.toLowerCase().trim()));
+        const prefix = hasExternalPartner ? 'RFI' : 'CRFI';
 
         const requestData = {
           reference: generateReference(prefix),
@@ -225,8 +224,16 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         setHasCameraPermission(false);
       }
     };
-    if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
+
+    if (isCameraOpen) {
+      getCameraPermission();
+    }
+
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
   }, [isCameraOpen, facingMode]);
 
   const takePhoto = () => {
@@ -260,7 +267,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         <DialogHeader>
           <DialogTitle>Log Information Request (CRFI / RFI)</DialogTitle>
           <DialogDescription>
-            Only assigned project team members and designers are available for assignment.
+            Only assigned project team members and partners are available for assignment.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -349,15 +356,15 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
 
                 <FormItem>
                     <div className='flex items-center gap-2 mb-2'>
-                        <Ruler className='h-4 w-4 text-accent' />
-                        <FormLabel>Project Designers (RFI)</FormLabel>
+                        <Users2 className='h-4 w-4 text-accent' />
+                        <FormLabel>Sub-contractors / Designers (RFI)</FormLabel>
                     </div>
                     <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
                         {!selectedProjectId ? (
-                            <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to see designers.</p>
-                        ) : availableDesigners.length === 0 ? (
-                            <p className="text-[10px] text-muted-foreground text-center py-8">No designers assigned to this project.</p>
-                        ) : availableDesigners.map((sub) => (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">Select a project to see external partners.</p>
+                        ) : availableExternalPartners.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-8">No partners assigned to this project.</p>
+                        ) : availableExternalPartners.map((sub) => (
                         <FormField
                             key={sub.id}
                             control={form.control}
@@ -374,7 +381,13 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                                 />
                                 </FormControl>
                                 <div className="flex flex-col leading-none">
-                                    <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
+                                    <div className="flex items-center gap-2">
+                                        <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
+                                        <div className="flex gap-1">
+                                            {sub.isDesigner && <span className="text-[8px] px-1 bg-primary/10 text-primary rounded">D</span>}
+                                            {sub.isSubContractor && <span className="text-[8px] px-1 bg-accent/10 text-accent rounded">S</span>}
+                                        </div>
+                                    </div>
                                     <span className="text-[10px] text-muted-foreground">{sub.email}</span>
                                 </div>
                             </FormItem>
