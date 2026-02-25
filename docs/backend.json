@@ -40,7 +40,7 @@
         "assignedSubContractors": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "IDs of sub-contractors assigned to this project."
+          "description": "IDs of external contacts (sub-contractors/designers) assigned to this project."
         },
         "areas": {
           "type": "array",
@@ -106,10 +106,13 @@
     },
     "SubContractor": {
       "title": "SubContractor",
+      "description": "An external partner (Sub-contractor or Designer).",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "email": { "type": "string" }
+        "email": { "type": "string" },
+        "isSubContractor": { "type": "boolean" },
+        "isDesigner": { "type": "boolean" }
       }
     },
     "CleanUpNotice": {
@@ -201,7 +204,7 @@
     },
     "/sub-contractors/{id}": {
       "schema": "SubContractor",
-      "description": "Registered sub-contractors."
+      "description": "External partners (Sub-contractors / Designers)."
     },
     "/instructions/{id}": {
       "schema": "Instruction",

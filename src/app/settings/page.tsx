@@ -44,7 +44,7 @@ export default function SettingsPage() {
   const usersQuery = useMemo(() => collection(db, 'users'), [db]);
   const { data: users, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  // Fetch Subcontractors
+  // Fetch Subcontractors / Designers
   const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
@@ -104,7 +104,7 @@ export default function SettingsPage() {
           {permissions.canManageUsers && (
             <Card>
                 <AccordionItem value="users" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Users</AccordionTrigger>
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Internal Users</AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
@@ -124,15 +124,15 @@ export default function SettingsPage() {
           {permissions.canManageSubcontractors && (
             <Card>
                 <AccordionItem value="subcontractors" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Sub-Contractors</AccordionTrigger>
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts (Sub-contractors / Designers)</AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
-                                <h3 className="text-lg font-medium">Add New Sub-Contractor</h3>
+                                <h3 className="text-lg font-medium">Add New External Contact</h3>
                                 <AddSubcontractorForm />
                             </div>
                             <div className="space-y-4">
-                                <h3 className="text-lg font-medium">Existing Sub-Contractors</h3>
+                                <h3 className="text-lg font-medium">Existing Partners</h3>
                                 <SubcontractorsList subContractors={subContractors || []} />
                             </div>
                         </div>

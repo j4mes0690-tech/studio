@@ -1,8 +1,9 @@
+
 'use client';
 
 import type { SubContractor } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, HardHat, Ruler } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -21,6 +22,7 @@ import { doc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 type SubcontractorsListProps = {
   subContractors: SubContractor[];
@@ -35,7 +37,7 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
     startTransition(async () => {
       const docRef = doc(db, 'sub-contractors', id);
       deleteDoc(docRef)
-        .then(() => toast({ title: 'Success', description: 'Sub-contractor removed.' }))
+        .then(() => toast({ title: 'Success', description: 'Contact removed from system.' }))
         .catch((error) => {
           const permissionError = new FirestorePermissionError({
             path: docRef.path,
@@ -48,14 +50,28 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
   
   return (
     <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-      {subContractors.map((user) => (
-        <div key={user.id} className="flex items-center justify-between p-3 rounded-lg border">
-          <div>
-            <p className="font-medium">{user.name}</p>
-            <p className="text-sm text-muted-foreground">{user.email}</p>
+      {subContractors.map((contact) => (
+        <div key={contact.id} className="flex items-start justify-between p-3 rounded-lg border bg-muted/5">
+          <div className="space-y-2">
+            <div>
+              <p className="font-semibold text-sm">{contact.name}</p>
+              <p className="text-xs text-muted-foreground">{contact.email}</p>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {contact.isSubContractor && (
+                <Badge variant="secondary" className="text-[9px] h-4 gap-1">
+                  <HardHat className="h-2 w-2" /> Sub-contractor
+                </Badge>
+              )}
+              {contact.isDesigner && (
+                <Badge variant="outline" className="text-[9px] h-4 gap-1 border-primary/30 text-primary">
+                  <Ruler className="h-2 w-2" /> Designer
+                </Badge>
+              )}
+            </div>
           </div>
           <div className="flex items-center">
-            <EditSubcontractorForm subContractor={user} />
+            <EditSubcontractorForm subContractor={contact} />
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="icon" disabled={isPending}>
@@ -64,15 +80,15 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogTitle>Remove Contact?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        This will remove {user.name} from the system.
+                        This will remove {contact.name} from the system. They will no longer appear in project distribution lists.
                     </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleRemove(user.id)} className="bg-destructive hover:bg-destructive/90">
-                        {isPending ? 'Deleting...' : 'Delete'}
+                    <AlertDialogAction onClick={() => handleRemove(contact.id)} className="bg-destructive hover:bg-destructive/90">
+                        {isPending ? 'Removing...' : 'Delete'}
                     </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
@@ -81,7 +97,7 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
         </div>
       ))}
       {subContractors.length === 0 && (
-          <p className="text-muted-foreground text-center py-4">No sub-contractors listed.</p>
+          <p className="text-muted-foreground text-center py-8 text-sm italic">No external contacts listed.</p>
       )}
     </div>
   );

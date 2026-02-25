@@ -31,14 +31,21 @@ import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Separator } from '@/components/ui/separator';
 
-const EditSubcontractorSchema = z.object({
+const EditContactSchema = z.object({
   id: z.string().min(1),
-  name: z.string().min(1, 'Company Name is required.'),
+  name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
+  isSubContractor: z.boolean().default(false),
+  isDesigner: z.boolean().default(false),
+}).refine(data => data.isSubContractor || data.isDesigner, {
+  message: "Select at least one category",
+  path: ["isSubContractor"]
 });
 
-type EditSubcontractorFormValues = z.infer<typeof EditSubcontractorSchema>;
+type EditContactFormValues = z.infer<typeof EditContactSchema>;
 
 type EditSubcontractorFormProps = {
   subContractor: SubContractor;
@@ -50,12 +57,14 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  const form = useForm<EditSubcontractorFormValues>({
-    resolver: zodResolver(EditSubcontractorSchema),
+  const form = useForm<EditContactFormValues>({
+    resolver: zodResolver(EditContactSchema),
     defaultValues: {
       id: subContractor.id,
       name: subContractor.name,
       email: subContractor.email,
+      isSubContractor: !!subContractor.isSubContractor,
+      isDesigner: !!subContractor.isDesigner,
     },
   });
 
@@ -65,21 +74,25 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
         id: subContractor.id,
         name: subContractor.name,
         email: subContractor.email,
+        isSubContractor: !!subContractor.isSubContractor,
+        isDesigner: !!subContractor.isDesigner,
       });
     }
   }, [open, subContractor, form]);
 
-  const onSubmit = (values: EditSubcontractorFormValues) => {
+  const onSubmit = (values: EditContactFormValues) => {
     startTransition(async () => {
       const docRef = doc(db, 'sub-contractors', values.id);
       const updates = {
         name: values.name,
         email: values.email,
+        isSubContractor: values.isSubContractor,
+        isDesigner: values.isDesigner,
       };
 
       updateDoc(docRef, updates)
         .then(() => {
-          toast({ title: 'Success', description: 'Sub-contractor updated.' });
+          toast({ title: 'Success', description: 'Contact information updated.' });
           setOpen(false);
         })
         .catch((error) => {
@@ -98,14 +111,14 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon">
           <Pencil className="h-4 w-4" />
-          <span className="sr-only">Edit Sub-contractor</span>
+          <span className="sr-only">Edit Contact</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Sub-contractor</DialogTitle>
+          <DialogTitle>Edit External Contact</DialogTitle>
           <DialogDescription>
-            Update the sub-contractor's name and email address.
+            Update credentials and classification for this partner.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -119,7 +132,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Company Name</FormLabel>
+                  <FormLabel>Name / Company Name</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -140,7 +153,51 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
                 </FormItem>
               )}
             />
-            <DialogFooter>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <FormLabel>Contact Category</FormLabel>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="isSubContractor"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Sub-contractor</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="isDesigner"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <Checkbox
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Designer</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormMessage />
+            </div>
+
+            <DialogFooter className="pt-4 border-t">
               <Button type="submit" disabled={isPending}>
                 {isPending ? 'Saving...' : 'Save Changes'}
               </Button>
