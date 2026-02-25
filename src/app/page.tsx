@@ -42,7 +42,7 @@ export default async function Dashboard() {
               </CardHeader>
               <CardContent className="p-0 mt-2">
                 <p className="text-muted-foreground">
-                  Record, summarize, and distribute internal instructions to your team.
+                  Record, summarize, and distribute instructions to sub-contractors and the design team
                 </p>
               </CardContent>
             </Card>
