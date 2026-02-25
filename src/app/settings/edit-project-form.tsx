@@ -25,7 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, X, UserPlus, Shield, HardHat } from 'lucide-react';
+import { Pencil, X, Shield, HardHat, Ruler, Users2 } from 'lucide-react';
 import type { Project, Area, DistributionUser, SubContractor } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useCollection } from '@/firebase';
@@ -33,7 +33,7 @@ import { doc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const EditProjectSchema = z.object({
@@ -59,7 +59,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
   const [areas, setAreas] = useState<Area[]>(project.areas || []);
   const [currentArea, setCurrentArea] = useState('');
 
-  // Fetch all subcontractors for assignment
+  // Fetch all external contacts (Subcontractors & Designers) for assignment
   const subsQuery = collection(db, 'sub-contractors');
   const { data: allSubContractors } = useCollection<SubContractor>(subsQuery);
 
@@ -146,7 +146,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
         <DialogHeader>
           <DialogTitle>Project Configuration</DialogTitle>
           <DialogDescription>
-            Update project metadata, manage site areas, and control user access.
+            Update project metadata, manage site areas, and control user/partner access.
           </DialogDescription>
         </DialogHeader>
         
@@ -171,8 +171,8 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
             <Tabs defaultValue="areas" className="w-full">
                 <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="areas">Site Areas</TabsTrigger>
-                    <TabsTrigger value="access">User Access</TabsTrigger>
-                    <TabsTrigger value="subs">Sub-contractors</TabsTrigger>
+                    <TabsTrigger value="access">Internal Staff</TabsTrigger>
+                    <TabsTrigger value="subs">External Partners</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="areas" className="space-y-4 py-4">
@@ -209,8 +209,8 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                     <div className="bg-primary/5 p-3 rounded-lg border border-primary/10 mb-4 flex items-start gap-3">
                         <Shield className="h-5 w-5 text-primary mt-0.5" />
                         <div>
-                            <p className="text-xs font-semibold text-primary uppercase">Project Visibility</p>
-                            <p className="text-xs text-muted-foreground">Only users selected below can see this project and its related records. Admins with project management permissions see all projects.</p>
+                            <p className="text-xs font-semibold text-primary uppercase">Staff Visibility</p>
+                            <p className="text-xs text-muted-foreground">Only users selected below will see this project in their logs. Unassigned users will have no access unless they have Administrative Visibility.</p>
                         </div>
                     </div>
 
@@ -254,10 +254,10 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
 
                 <TabsContent value="subs" className="space-y-4 py-4">
                     <div className="bg-accent/5 p-3 rounded-lg border border-accent/10 mb-4 flex items-start gap-3">
-                        <HardHat className="h-5 w-5 text-accent mt-0.5" />
+                        <Users2 className="h-5 w-5 text-accent mt-0.5" />
                         <div>
                             <p className="text-xs font-semibold text-accent uppercase">Site Distribution List</p>
-                            <p className="text-xs text-muted-foreground">Assign sub-contractors to this project to allow their selection in Site Instructions and Quality Control modules.</p>
+                            <p className="text-xs text-muted-foreground">Assign Designers and Sub-contractors to enable their selection in RFIs, Site Instructions, and Snagging modules.</p>
                         </div>
                     </div>
 
@@ -285,9 +285,15 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                                                     />
                                                 </FormControl>
                                                 <div className="flex-1 overflow-hidden">
-                                                    <FormLabel className="text-sm font-medium block truncate">
-                                                        {sub.name}
-                                                    </FormLabel>
+                                                    <div className="flex items-center gap-2">
+                                                        <FormLabel className="text-sm font-medium block truncate">
+                                                            {sub.name}
+                                                        </FormLabel>
+                                                        <div className="flex gap-1">
+                                                            {sub.isDesigner && <Badge variant="outline" className="text-[8px] h-3 px-1 border-primary/30 text-primary">Designer</Badge>}
+                                                            {sub.isSubContractor && <Badge variant="secondary" className="text-[8px] h-3 px-1">Sub</Badge>}
+                                                        </div>
+                                                    </div>
                                                     <p className="text-[10px] text-muted-foreground truncate">{sub.email}</p>
                                                 </div>
                                             </FormItem>
@@ -296,7 +302,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                                 />
                             ))}
                             {allSubContractors?.length === 0 && (
-                                <p className="text-center py-8 text-xs text-muted-foreground">No sub-contractors registered in the system yet.</p>
+                                <p className="text-center py-8 text-xs text-muted-foreground">No external contacts registered in the system yet.</p>
                             )}
                         </div>
                     </ScrollArea>
