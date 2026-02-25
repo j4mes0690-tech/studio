@@ -5,18 +5,28 @@ import { ClientInstructionCard } from './instruction-card';
 import { NewClientInstruction } from './new-instruction';
 import { InstructionFilters } from './instruction-filters';
 import { ExportButton } from './export-button';
+import { InstructionTable } from './instruction-table';
 import { useSearchParams } from 'next/navigation';
-import { useMemo, Suspense } from 'react';
+import { useMemo, useState, Suspense } from 'react';
 import type { ClientInstruction, Project, DistributionUser, Instruction, InformationRequest } from '@/lib/types';
-import { Loader2, ShieldCheck } from 'lucide-react';
+import { Loader2, ShieldCheck, LayoutGrid, List } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 function InstructionsContent() {
   const searchParams = useSearchParams();
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
+  
+  const [isCompact, setIsCompact] = useState(false);
 
   // Fetch profile for permission check
   const profileRef = useMemo(() => {
@@ -117,6 +127,24 @@ function InstructionsContent() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setIsCompact(!isCompact)}
+                    className="flex"
+                  >
+                    {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Switch to {isCompact ? 'Card' : 'Compact'} View</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
             <NewClientInstruction 
               projects={allowedProjects} 
               distributionUsers={distributionUsers || []} 
@@ -125,25 +153,38 @@ function InstructionsContent() {
           </div>
         </div>
         <InstructionFilters projects={allowedProjects} />
-        <div className="grid gap-4 md:gap-6">
-          {filteredInstructions.length > 0 ? (
-            filteredInstructions.map((instruction) => (
-              <ClientInstructionCard
-                key={instruction.id}
-                instruction={instruction}
-                projects={allProjects || []}
-                currentUser={profile!}
-                allSiteInstructions={allSiteInstructions || []}
-                allRfis={allRfis || []}
-              />
-            ))
+        
+        {filteredInstructions.length > 0 ? (
+          isCompact ? (
+            <InstructionTable 
+              items={filteredInstructions}
+              projects={allProjects || []}
+              distributionUsers={distributionUsers || []}
+              currentUser={profile!}
+              allSiteInstructions={allSiteInstructions || []}
+              allRfis={allRfis || []}
+            />
           ) : (
-            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg bg-muted/10">
-              <p className="text-lg font-semibold">No directives recorded</p>
-              <p className="text-sm">Log requests directly from the client to ensure clear implementation.</p>
+            <div className="grid gap-4 md:gap-6">
+              {filteredInstructions.map((instruction) => (
+                <ClientInstructionCard
+                  key={instruction.id}
+                  instruction={instruction}
+                  projects={allProjects || []}
+                  currentUser={profile!}
+                  allSiteInstructions={allSiteInstructions || []}
+                  allRfis={allRfis || []}
+                />
+              ))}
             </div>
-          )}
-        </div>
+          )
+        ) : (
+          <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg bg-muted/10">
+            <p className="text-lg font-semibold">No directives recorded</p>
+            <p className="text-sm">Log requests directly from the client to ensure clear implementation.</p>
+          </div>
+        )}
+
         {filteredInstructions.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
             <ExportButton instructions={filteredInstructions} projects={allProjects || []} />
