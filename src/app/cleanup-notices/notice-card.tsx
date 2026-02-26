@@ -28,8 +28,8 @@ import {
 } from '@/components/ui/carousel';
 import { ClientDate } from '../../components/client-date';
 import { useTransition, useMemo } from 'react';
-import { useFirestore, useCollection } from '@/firebase';
-import { doc, deleteDoc, updateDoc, collection } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
@@ -48,24 +48,25 @@ import { Button } from '@/components/ui/button';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { cn } from '@/lib/utils';
 import { sendCleanUpNoticeEmailAction } from './actions';
+import { EditCleanUpNotice } from './edit-notice';
 
 type NoticeCardProps = {
   notice: CleanUpNotice;
   projects: Project[];
+  subContractors: SubContractor[];
 };
 
 export function NoticeCard({
   notice,
   projects,
+  subContractors,
 }: NoticeCardProps) {
   const project = projects.find((p) => p.id === notice.projectId);
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
-
-  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
-  const { data: allSubs } = useCollection<SubContractor>(subsQuery);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const isDraft = notice.status === 'draft';
 
@@ -94,6 +95,7 @@ export function NoticeCard({
         description: "A full description (min 10 chars) and assigned subcontractors are required to formally issue this notice.", 
         variant: "destructive" 
       });
+      setIsEditDialogOpen(true);
       return;
     }
 
@@ -146,8 +148,8 @@ export function NoticeCard({
 
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-        if (allSubs && notice.recipients) {
-          const contacts = allSubs.filter(s => notice.recipients?.includes(s.email));
+        if (subContractors && notice.recipients) {
+          const contacts = subContractors.filter(s => notice.recipients?.includes(s.email));
           for (const sub of contacts) {
             await sendCleanUpNoticeEmailAction({
               email: sub.email,
@@ -211,6 +213,14 @@ export function NoticeCard({
                 <Badge variant="destructive">Clean Up Notice</Badge>
               )}
               
+              <EditCleanUpNotice 
+                notice={notice} 
+                projects={projects} 
+                subContractors={subContractors} 
+                open={isEditDialogOpen} 
+                onOpenChange={setIsEditDialogOpen} 
+              />
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="ghost" size="icon">

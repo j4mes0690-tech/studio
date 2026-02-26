@@ -97,6 +97,7 @@ function CleanUpContent() {
                 key={notice.id}
                 notice={notice}
                 projects={allowedProjects}
+                subContractors={subContractors || []}
               />
             ))
           ) : (
