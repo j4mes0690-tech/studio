@@ -150,13 +150,24 @@ export function SnaggingItemCard({
 
   const updateItemOnServer = (itemId: string, status: 'open' | 'closed', photos: Photo[]) => {
     startTransition(async () => {
-      const updatedItems = item.items.map(i => 
-        i.id === itemId ? { 
-          ...i, 
-          status, 
-          completionPhotos: status === 'closed' ? photos : [] 
-        } : i
-      );
+      const updatedItems = item.items.map(i => {
+        if (i.id === itemId) {
+          return { 
+            ...i, 
+            status, 
+            completionPhotos: status === 'closed' ? photos : [],
+            subContractorId: i.subContractorId || null,
+            photos: i.photos || []
+          };
+        }
+        return {
+          ...i,
+          subContractorId: i.subContractorId || null,
+          photos: i.photos || [],
+          completionPhotos: i.completionPhotos || []
+        };
+      });
+      
       const docRef = doc(db, 'snagging-items', item.id);
       updateDoc(docRef, { items: updatedItems })
         .catch((error) => {

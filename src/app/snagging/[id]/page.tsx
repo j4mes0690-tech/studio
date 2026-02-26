@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -236,14 +235,27 @@ function EditSnaggingContent() {
 
         const updates = { 
           title, 
-          description, 
+          description: description || null, 
           projectId, 
-          areaId, 
-          items: uploadedItems, 
+          areaId: areaId || null, 
+          items: uploadedItems.map(i => ({
+            ...i,
+            subContractorId: i.subContractorId || null,
+            photos: i.photos || [],
+            completionPhotos: i.completionPhotos || []
+          })), 
           photos: uploadedGeneralPhotos 
         };
 
-        await updateDoc(snagRef, updates);
+        await updateDoc(snagRef, updates).catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: snagRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          }));
+          throw error;
+        });
+
         toast({ title: 'Success', description: 'Snagging list saved.' });
         router.push('/snagging');
 

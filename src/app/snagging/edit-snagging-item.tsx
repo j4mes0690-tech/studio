@@ -228,12 +228,32 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
             }
             return p;
           }));
-          return { ...itm, photos: pDefects, completionPhotos: pFixed };
+          return { 
+            ...itm, 
+            photos: pDefects, 
+            completionPhotos: pFixed,
+            subContractorId: itm.subContractorId || null
+          };
         }));
 
         const docRef = doc(db, 'snagging-items', item.id);
-        const updates = { ...values, items: upItems, photos: upGeneral };
-        await updateDoc(docRef, updates);
+        const updates = { 
+          projectId: values.projectId,
+          areaId: values.areaId || null,
+          title: values.title,
+          description: values.description || null,
+          items: upItems, 
+          photos: upGeneral 
+        };
+        await updateDoc(docRef, updates).catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          }));
+          throw error;
+        });
+
         toast({ title: 'Success', description: 'Snagging list updated.' });
         setOpen(false);
       } catch (err: any) {
@@ -335,7 +355,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                 <Button type="button" variant="outline" size="icon" className="w-20 h-20" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6" /></Button>
               </div>
               {(isCameraOpen || itemPhotoTargetId) && (
-                <div className="space-y-2 border rounded-md p-2 bg-muted/30">
+                <div className="space-y-2 border rounded-md p-2 bg-muted/30 mt-2">
                   <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
                   <div className="flex gap-2">
                     <Button type="button" size="sm" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto}>Capture</Button>

@@ -264,14 +264,30 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
         );
 
         const data = {
-          ...values,
+          projectId: values.projectId,
+          areaId: values.areaId || null,
+          title: values.title,
+          description: values.description || null,
           createdAt: new Date().toISOString(),
           photos: uploadedGeneralPhotos,
-          items: uploadedItems,
+          items: uploadedItems.map(i => ({
+            ...i,
+            subContractorId: i.subContractorId || null,
+            photos: i.photos || [],
+            completionPhotos: i.completionPhotos || []
+          })),
         };
         
         const colRef = collection(db, 'snagging-items');
-        await addDoc(colRef, data);
+        await addDoc(colRef, data).catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: data,
+          }));
+          throw error;
+        });
+
         toast({ title: 'Success', description: 'Snagging list recorded.' });
         setOpen(false);
 
