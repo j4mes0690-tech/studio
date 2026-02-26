@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -33,7 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, Loader2, Send } from 'lucide-react';
 import type { Project, SubContractor, Photo, CleanUpNotice } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -45,6 +46,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
+import { sendCleanUpNoticeEmailAction } from './actions';
 
 const NewNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -72,6 +74,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
+  const [isDistributing, setIsDistributing] = useState(false);
 
   const [photos, setPhotos] = useState<Photo[]>([]);
 
@@ -90,19 +93,13 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    
-    /**
-     * FILTER LOGIC:
-     * - Include: isSubContractor: true (This covers both "Sub only" and "Both Sub & Designer")
-     * - Exclude: isSubContractor: false (This handles "Designer only")
-     */
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const onSubmit = (values: NewNoticeFormValues) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Uploading', description: 'Persisting photos to cloud storage...' });
+        toast({ title: 'Processing', description: 'Persisting documentation and media...' });
 
         // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
@@ -116,9 +113,8 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
           })
         );
 
-        const recipientEmails = subContractors
-          .filter(sub => values.recipients?.includes(sub.id))
-          .map(sub => sub.email);
+        const recipientContacts = subContractors.filter(sub => values.recipients?.includes(sub.id));
+        const recipientEmails = recipientContacts.map(sub => sub.email);
 
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const reference = getNextReference(allNotices, values.projectId, 'CN', initials);
@@ -132,23 +128,108 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
           createdAt: new Date().toISOString(),
         };
 
+        // 2. Save to Firestore
         const colRef = collection(db, 'cleanup-notices');
-        addDoc(colRef, noticeData)
-          .then(() => {
-            toast({ title: 'Success', description: 'Clean up notice recorded.' });
-            setOpen(false);
-          })
-          .catch((error) => {
-            const permissionError = new FirestorePermissionError({
-              path: colRef.path,
-              operation: 'create',
-              requestResourceData: noticeData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-          });
+        await addDoc(colRef, noticeData).catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: noticeData,
+          }));
+          throw error;
+        });
+
+        // 3. Automated Distribution via PDF
+        if (recipientContacts.length > 0) {
+          setIsDistributing(true);
+          try {
+            const { jsPDF } = await import('jspdf');
+            const html2canvas = (await import('html2canvas')).default;
+
+            const reportElement = document.createElement('div');
+            reportElement.style.position = 'absolute';
+            reportElement.style.left = '-9999px';
+            reportElement.style.padding = '40px';
+            reportElement.style.width = '800px';
+            reportElement.style.background = 'white';
+            reportElement.style.color = 'black';
+            reportElement.style.fontFamily = 'sans-serif';
+
+            reportElement.innerHTML = `
+              <div style="border-bottom: 2px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="margin: 0; color: #1e40af; font-size: 28px;">Clean Up Notice</h1>
+                <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Reference: ${reference}</p>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
+                <div>
+                  <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project</p>
+                  <p style="margin: 2px 0 0 0; font-size: 16px;">${selectedProject?.name || 'Project'}</p>
+                </div>
+                <div>
+                  <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Date Issued</p>
+                  <p style="margin: 2px 0 0 0; font-size: 16px;">${new Date().toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px;">
+                <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b;">Issue Description</h2>
+                <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${values.description}</p>
+              </div>
+
+              ${uploadedPhotos.length > 0 ? `
+                <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                  ${uploadedPhotos.map(p => `
+                    <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; padding: 10px;">
+                      <img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" />
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+
+              <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+                <p style="font-size: 12px; color: #64748b;">This notice was generated via SiteCommand.</p>
+              </div>
+            `;
+
+            document.body.appendChild(reportElement);
+            const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            document.body.removeChild(reportElement);
+
+            const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
+            // Distribute to each selected subcontractor
+            for (const sub of recipientContacts) {
+              await sendCleanUpNoticeEmailAction({
+                email: sub.email,
+                name: sub.name,
+                projectName: selectedProject?.name || 'Project',
+                reference,
+                pdfBase64,
+                fileName: `CleanUpNotice-${reference}.pdf`
+              });
+            }
+            toast({ title: 'Success', description: 'Notice recorded and distributed to trade partners.' });
+          } catch (err) {
+            console.error('PDF Distribution Error:', err);
+            toast({ title: 'Record Saved', description: 'Notice saved, but email distribution encountered an error.', variant: 'destructive' });
+          } finally {
+            setIsDistributing(false);
+          }
+        } else {
+          toast({ title: 'Success', description: 'Clean up notice recorded.' });
+        }
+
+        setOpen(false);
       } catch (err) {
         console.error(err);
-        toast({ title: 'Error', description: 'Failed to upload photos.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to process notice.', variant: 'destructive' });
       }
     });
   };
@@ -213,7 +294,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
         <DialogHeader>
           <DialogTitle>Record New Clean Up Notice</DialogTitle>
           <DialogDescription>
-            Capture an issue that requires cleaning and assign it to a sub-contractor.
+            Capture an issue that requires cleaning. A PDF report will be automatically distributed to selected subcontractors.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -308,7 +389,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
             <Separator />
             
             <FormItem>
-              <FormLabel>Notify Assigned Sub-Contractors</FormLabel>
+              <FormLabel>Automatically Distribute to Partners</FormLabel>
               <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
                 {projectSubs.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-8">
@@ -343,7 +424,19 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
 
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
-              <Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : 'Save Notice'}</Button>
+              <Button type="submit" disabled={isPending || isDistributing} className="w-full">
+                {isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : isDistributing ? (
+                  <>
+                    <Send className="mr-2 h-4 w-4 animate-spin" />
+                    Distributing Reports...
+                  </>
+                ) : 'Save & Distribute Notice'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>
