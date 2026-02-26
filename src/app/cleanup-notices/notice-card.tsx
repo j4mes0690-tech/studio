@@ -2,7 +2,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { CleanUpNotice, Project, Photo } from '@/lib/types';
+import type { CleanUpNotice, Project, Photo, SubContractor } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, Trash2, Maximize2 } from 'lucide-react';
+import { Camera, Users, Trash2, Maximize2, CheckCircle2, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -27,9 +27,9 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import { ClientDate } from '../../components/client-date';
-import { useTransition } from 'react';
-import { useFirestore } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { useTransition, useMemo } from 'react';
+import { useFirestore, useCollection } from '@/firebase';
+import { doc, deleteDoc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
@@ -46,6 +46,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { ImageLightbox } from '@/components/image-lightbox';
+import { cn } from '@/lib/utils';
+import { sendCleanUpNoticeEmailAction } from './actions';
 
 type NoticeCardProps = {
   notice: CleanUpNotice;
@@ -62,6 +64,11 @@ export function NoticeCard({
   const [isPending, startTransition] = useTransition();
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
+  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const { data: allSubs } = useCollection<SubContractor>(subsQuery);
+
+  const isDraft = notice.status === 'draft';
+
   const handleDelete = () => {
     startTransition(async () => {
       const docRef = doc(db, 'cleanup-notices', notice.id);
@@ -77,9 +84,97 @@ export function NoticeCard({
     });
   };
 
+  const handleIssue = () => {
+    const hasText = notice.description && notice.description.trim().length >= 10;
+    const hasRecipients = notice.recipients && notice.recipients.length > 0;
+
+    if (!hasText || !hasRecipients) {
+      toast({ 
+        title: "Requirements Not Met", 
+        description: "A full description (min 10 chars) and assigned subcontractors are required to formally issue this notice.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        toast({ title: 'Processing', description: 'Generating report and distributing...' });
+
+        // 1. Generate PDF & Distribute
+        const { jsPDF } = await import('jspdf');
+        const html2canvas = (await import('html2canvas')).default;
+
+        const reportElement = document.createElement('div');
+        reportElement.style.position = 'absolute';
+        reportElement.style.left = '-9999px';
+        reportElement.style.padding = '40px';
+        reportElement.style.width = '800px';
+        reportElement.style.background = 'white';
+        reportElement.style.color = 'black';
+        reportElement.style.fontFamily = 'sans-serif';
+
+        reportElement.innerHTML = `
+          <div style="border-bottom: 2px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
+            <h1 style="margin: 0; color: #1e40af; font-size: 28px;">Clean Up Notice</h1>
+            <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Reference: ${notice.reference}</p>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
+            <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project</p><p style="margin: 2px 0 0 0; font-size: 16px;">${project?.name || 'Project'}</p></div>
+            <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Date Issued</p><p style="margin: 2px 0 0 0; font-size: 16px;">${new Date().toLocaleDateString()}</p></div>
+          </div>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px;">
+            <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b;">Issue Description</h2>
+            <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${notice.description}</p>
+          </div>
+          ${notice.photos && notice.photos.length > 0 ? `
+            <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+              ${notice.photos.map(p => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; padding: 10px;"><img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" /></div>`).join('')}
+            </div>
+          ` : ''}
+        `;
+
+        document.body.appendChild(reportElement);
+        const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        document.body.removeChild(reportElement);
+
+        const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
+        if (allSubs && notice.recipients) {
+          const contacts = allSubs.filter(s => notice.recipients?.includes(s.email));
+          for (const sub of contacts) {
+            await sendCleanUpNoticeEmailAction({
+              email: sub.email,
+              name: sub.name,
+              projectName: project?.name || 'Project',
+              reference: notice.reference,
+              pdfBase64,
+              fileName: `CleanUpNotice-${notice.reference}.pdf`
+            });
+          }
+        }
+
+        // 2. Update Status in Firestore
+        const docRef = doc(db, 'cleanup-notices', notice.id);
+        await updateDoc(docRef, { status: 'issued' });
+        
+        toast({ title: 'Success', description: 'Clean up notice issued and distributed.' });
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Error', description: 'Failed to issue notice.', variant: 'destructive' });
+      }
+    });
+  };
+
   return (
     <>
-      <Card>
+      <Card className={cn(isDraft && "border-orange-200 bg-orange-50/10")}>
         <CardHeader>
           <div className="flex justify-between items-start">
             <div className="space-y-1">
@@ -98,7 +193,23 @@ export function NoticeCard({
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant="destructive">Clean Up Notice</Badge>
+              {isDraft ? (
+                <>
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50"
+                    onClick={handleIssue}
+                    disabled={isPending}
+                  >
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Issue & Distribute
+                  </Button>
+                </>
+              ) : (
+                <Badge variant="destructive">Clean Up Notice</Badge>
+              )}
               
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -126,7 +237,7 @@ export function NoticeCard({
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-foreground mb-4">{notice.description}</p>
+          <p className="text-sm text-foreground mb-4">{notice.description || <span className="italic text-muted-foreground">No description provided</span>}</p>
           <Accordion type="single" collapsible className="w-full">
             {notice.recipients && notice.recipients.length > 0 && (
                <AccordionItem value="recipients">

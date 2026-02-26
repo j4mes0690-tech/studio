@@ -132,7 +132,8 @@
         "description": { "type": "string" },
         "createdAt": { "type": "string" },
         "recipients": { "type": "array", "items": { "type": "string" } },
-        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
+        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } },
+        "status": { "type": "string", "enum": ["draft", "issued"] }
       }
     },
     "SnaggingItem": {

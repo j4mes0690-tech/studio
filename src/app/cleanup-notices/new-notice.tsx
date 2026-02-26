@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, Loader2, Send } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, Loader2, Send, Save } from 'lucide-react';
 import type { Project, SubContractor, Photo, CleanUpNotice } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -50,7 +50,7 @@ import { sendCleanUpNoticeEmailAction } from './actions';
 
 const NewNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  description: z.string().min(10, 'Description must be at least 10 characters.'),
+  description: z.string().optional().default(''),
   recipients: z.array(z.string()).optional(),
 });
 
@@ -74,7 +74,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [isDistributing, setIsDistributing] = useState(false);
+  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'issued'>('issued');
 
   const [photos, setPhotos] = useState<Photo[]>([]);
 
@@ -97,6 +97,20 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const onSubmit = (values: NewNoticeFormValues) => {
+    // Contextual Validation for Issuing
+    if (submissionStatus === 'issued') {
+      let hasError = false;
+      if (!values.description || values.description.trim().length < 10) {
+        form.setError('description', { message: 'Description must be at least 10 characters to formally issue.' });
+        hasError = true;
+      }
+      if (!values.recipients || values.recipients.length === 0) {
+        form.setError('recipients', { message: 'At least one subcontractor must be selected to issue this notice.' });
+        hasError = true;
+      }
+      if (hasError) return;
+    }
+
     startTransition(async () => {
       try {
         toast({ title: 'Processing', description: 'Persisting documentation and media...' });
@@ -122,15 +136,16 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
         const noticeData = {
           reference,
           projectId: values.projectId,
-          description: values.description,
+          description: values.description || '',
           recipients: recipientEmails,
           photos: uploadedPhotos,
           createdAt: new Date().toISOString(),
+          status: submissionStatus,
         };
 
         // 2. Save to Firestore
         const colRef = collection(db, 'cleanup-notices');
-        await addDoc(colRef, noticeData).catch((error) => {
+        const docRef = await addDoc(colRef, noticeData).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: colRef.path,
             operation: 'create',
@@ -139,9 +154,8 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
           throw error;
         });
 
-        // 3. Automated Distribution via PDF
-        if (recipientContacts.length > 0) {
-          setIsDistributing(true);
+        // 3. Automated Distribution via PDF (Only if issued)
+        if (submissionStatus === 'issued' && recipientContacts.length > 0) {
           try {
             const { jsPDF } = await import('jspdf');
             const html2canvas = (await import('html2canvas')).default;
@@ -215,15 +229,13 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
                 fileName: `CleanUpNotice-${reference}.pdf`
               });
             }
-            toast({ title: 'Success', description: 'Notice recorded and distributed to trade partners.' });
+            toast({ title: 'Success', description: 'Notice issued and distributed to trade partners.' });
           } catch (err) {
             console.error('PDF Distribution Error:', err);
             toast({ title: 'Record Saved', description: 'Notice saved, but email distribution encountered an error.', variant: 'destructive' });
-          } finally {
-            setIsDistributing(false);
           }
         } else {
-          toast({ title: 'Success', description: 'Clean up notice recorded.' });
+          toast({ title: 'Success', description: submissionStatus === 'draft' ? 'Notice saved as draft.' : 'Clean up notice recorded.' });
         }
 
         setOpen(false);
@@ -294,7 +306,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
         <DialogHeader>
           <DialogTitle>Record New Clean Up Notice</DialogTitle>
           <DialogDescription>
-            Capture an issue that requires cleaning. A PDF report will be automatically distributed to selected subcontractors.
+            Capture an issue that requires cleaning. Formal issuing triggers a PDF report distribution.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -389,7 +401,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
             <Separator />
             
             <FormItem>
-              <FormLabel>Automatically Distribute to Partners</FormLabel>
+              <FormLabel>Primary Recipients (Project Partners)</FormLabel>
               <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
                 {projectSubs.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-8">
@@ -420,22 +432,29 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
                   />
                 ))}
               </ScrollArea>
+              <FormField control={form.control} name="recipients" render={() => <FormMessage />} />
             </FormItem>
 
             <canvas ref={canvasRef} className="hidden" />
-            <DialogFooter>
-              <Button type="submit" disabled={isPending || isDistributing} className="w-full">
-                {isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : isDistributing ? (
-                  <>
-                    <Send className="mr-2 h-4 w-4 animate-spin" />
-                    Distributing Reports...
-                  </>
-                ) : 'Save & Distribute Notice'}
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <Button 
+                type="submit" 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                disabled={isPending}
+                onClick={() => setSubmissionStatus('draft')}
+              >
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save as Draft
+              </Button>
+              <Button 
+                type="submit" 
+                className="w-full sm:flex-1" 
+                disabled={isPending}
+                onClick={() => setSubmissionStatus('issued')}
+              >
+                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Save & Distribute Notice
               </Button>
             </DialogFooter>
           </form>

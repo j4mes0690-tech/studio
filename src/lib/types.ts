@@ -62,6 +62,7 @@ export type CleanUpNotice = {
   createdAt: string;
   photos?: Photo[];
   recipients?: string[];
+  status?: 'draft' | 'issued';
 };
 
 export type SnaggingListItem = {
