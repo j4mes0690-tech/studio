@@ -90,7 +90,12 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    // Only show contacts assigned to the project who are classified as Sub-contractors (Excludes Designers-only)
+    
+    /**
+     * FILTER LOGIC:
+     * - Include: isSubContractor: true (This covers both "Sub only" and "Both Sub & Designer")
+     * - Exclude: isSubContractor: false (This handles "Designer only")
+     */
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
