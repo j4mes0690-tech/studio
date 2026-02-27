@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTransition, useState, useEffect } from 'react';
+import { useTransition, useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -25,8 +25,8 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, X } from 'lucide-react';
-import type { QualityChecklist } from '@/lib/types';
+import { Pencil, X, Loader2 } from 'lucide-react';
+import type { QualityChecklist, Trade } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     Select,
@@ -35,12 +35,10 @@ import {
     SelectTrigger,
     SelectValue,
   } from '@/components/ui/select';
-import { useFirestore } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useFirestore, useCollection } from '@/firebase';
+import { doc, updateDoc, collection, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-
-const trades = ['Plumbing', 'Electrical', 'HVAC', 'Drywall', 'Painting', 'Concrete', 'General'];
 
 const EditChecklistTemplateSchema = z.object({
   id: z.string().min(1),
@@ -60,6 +58,9 @@ export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFo
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
+
+  const tradesQuery = useMemo(() => query(collection(db, 'trades'), orderBy('name', 'asc')), [db]);
+  const { data: trades, isLoading: tradesLoading } = useCollection<Trade>(tradesQuery);
 
   const [items, setItems] = useState<string[]>(checklist.items.map(i => i.text));
   const [currentItem, setCurrentItem] = useState('');
@@ -183,12 +184,17 @@ export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFo
                     <FormLabel>Trade</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select a trade" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder={tradesLoading ? "Loading trades..." : "Select a trade"} />
+                        </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {trades.map((trade) => (
-                            <SelectItem key={trade} value={trade}>{trade}</SelectItem>
+                        {trades?.map((trade) => (
+                            <SelectItem key={trade.id} value={trade.name}>{trade.name}</SelectItem>
                         ))}
+                        {(trades?.length || 0) === 0 && !tradesLoading && (
+                          <div className="p-2 text-xs text-muted-foreground text-center">No trades defined.</div>
+                        )}
                         </SelectContent>
                     </Select>
                     <FormMessage />
@@ -233,7 +239,8 @@ export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFo
 
             <DialogFooter className="mt-auto pt-4">
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Saving...' : 'Save Changes'}
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Save Changes
               </Button>
             </DialogFooter>
           </form>

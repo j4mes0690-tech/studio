@@ -158,3 +158,8 @@ export type QualityChecklist = {
   isTemplate?: boolean;
   photos?: Photo[];
 };
+
+export type Trade = {
+  id: string;
+  name: string;
+};

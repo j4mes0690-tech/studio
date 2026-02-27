@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,14 +32,13 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, X } from 'lucide-react';
+import { PlusCircle, X, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { useFirestore, useCollection } from '@/firebase';
+import { collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-
-const trades = ['Plumbing', 'Electrical', 'HVAC', 'Drywall', 'Painting', 'Concrete', 'General'];
+import type { Trade } from '@/lib/types';
 
 const NewChecklistSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -52,6 +52,9 @@ export function NewChecklist() {
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
+
+  const tradesQuery = useMemo(() => query(collection(db, 'trades'), orderBy('name', 'asc')), [db]);
+  const { data: trades, isLoading: tradesLoading } = useCollection<Trade>(tradesQuery);
 
   const [items, setItems] = useState<string[]>([]);
   const [currentItem, setCurrentItem] = useState('');
@@ -158,12 +161,17 @@ export function NewChecklist() {
                     <FormLabel>Trade</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select a trade" /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue placeholder={tradesLoading ? "Loading trades..." : "Select a trade"} />
+                        </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                        {trades.map((trade) => (
-                            <SelectItem key={trade} value={trade}>{trade}</SelectItem>
+                        {trades?.map((trade) => (
+                            <SelectItem key={trade.id} value={trade.name}>{trade.name}</SelectItem>
                         ))}
+                        {(trades?.length || 0) === 0 && !tradesLoading && (
+                          <div className="p-2 text-xs text-muted-foreground text-center">No trades defined in Settings.</div>
+                        )}
                         </SelectContent>
                     </Select>
                     <FormMessage />
@@ -201,7 +209,8 @@ export function NewChecklist() {
 
             <DialogFooter className="mt-auto pt-4">
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Creating...' : 'Create Checklist'}
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Create Checklist
               </Button>
             </DialogFooter>
           </form>
