@@ -117,6 +117,7 @@ export type UserPermissions = {
   canManageSubcontractors: boolean;
   canManageProjects: boolean;
   canManageChecklists: boolean;
+  canManageTrades: boolean;
   hasFullVisibility: boolean;
 };
 
@@ -134,6 +135,12 @@ export type SubContractor = {
   email: string;
   isSubContractor?: boolean;
   isDesigner?: boolean;
+  trades?: string[];
+};
+
+export type Trade = {
+  id: string;
+  name: string;
 };
 
 export type ChecklistItemStatus = 'pending' | 'yes' | 'no' | 'na';

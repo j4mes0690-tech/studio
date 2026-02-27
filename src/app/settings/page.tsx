@@ -22,6 +22,7 @@ import { AddProjectForm } from './add-project-form';
 import { ProjectsList } from './projects-list';
 import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
+import { ManageTrades } from './manage-trades';
 import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
@@ -74,8 +75,9 @@ export default function SettingsPage() {
   const canManageSubcontractors = !!permissions?.canManageSubcontractors || isAdmin;
   const canManageProjects = !!permissions?.canManageProjects || isAdmin;
   const canManageChecklists = !!permissions?.canManageChecklists || isAdmin;
+  const canManageTrades = !!permissions?.canManageTrades || isAdmin;
 
-  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists;
+  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManageTrades;
 
   if (!hasAnyAdminPermission) {
     return (
@@ -124,19 +126,27 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {canManageSubcontractors && (
+          {(canManageSubcontractors || canManageTrades) && (
             <Card>
                 <AccordionItem value="subcontractors" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts</AccordionTrigger>
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts & Trades</AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
-                        <div className="grid gap-8 lg:grid-cols-2">
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-medium">Add New External Contact</h3>
-                                <AddSubcontractorForm />
-                            </div>
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-medium">Existing Partners</h3>
-                                <SubcontractorsList subContractors={subContractors || []} />
+                        <div className="space-y-12">
+                            {canManageTrades && (
+                                <div className="space-y-4 border-b pb-12">
+                                    <h3 className="text-lg font-medium">Trade Categories</h3>
+                                    <ManageTrades />
+                                </div>
+                            )}
+                            <div className="grid gap-8 lg:grid-cols-2">
+                                <div className="space-y-4">
+                                    <h3 className="text-lg font-medium">Add New External Contact</h3>
+                                    <AddSubcontractorForm canManageTrades={canManageTrades} />
+                                </div>
+                                <div className="space-y-4">
+                                    <h3 className="text-lg font-medium">Existing Partners</h3>
+                                    <SubcontractorsList subContractors={subContractors || []} canManageTrades={canManageTrades} />
+                                </div>
                             </div>
                         </div>
                     </AccordionContent>
@@ -172,11 +182,11 @@ export default function SettingsPage() {
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Add New Template</h3>
-                                <NewChecklist />
+                                <NewChecklist canManageTrades={canManageTrades} />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Templates</h3>
-                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
+                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} canManageTrades={canManageTrades} />
                             </div>
                         </div>
                     </AccordionContent>

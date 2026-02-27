@@ -22,6 +22,7 @@
         "canManageSubcontractors": { "type": "boolean" },
         "canManageProjects": { "type": "boolean" },
         "canManageChecklists": { "type": "boolean" },
+        "canManageTrades": { "type": "boolean" },
         "hasFullVisibility": { "type": "boolean", "description": "Whether the user can see all data across all projects." }
       }
     },
@@ -119,7 +120,16 @@
         "name": { "type": "string" },
         "email": { "type": "string" },
         "isSubContractor": { "type": "boolean" },
-        "isDesigner": { "type": "boolean" }
+        "isDesigner": { "type": "boolean" },
+        "trades": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "Trade": {
+      "title": "Trade",
+      "description": "A trade category category.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" }
       }
     },
     "CleanUpNotice": {
@@ -221,6 +231,10 @@
     "/sub-contractors/{id}": {
       "schema": "SubContractor",
       "description": "External partners (Sub-contractors / Designers)."
+    },
+    "/trades/{id}": {
+      "schema": "Trade",
+      "description": "Master list of trade categories."
     },
     "/instructions/{id}": {
       "schema": "Instruction",
