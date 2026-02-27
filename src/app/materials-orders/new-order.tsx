@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -34,7 +33,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { getProjectInitials, getNextReference } from '@/lib/utils';
+import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
 import { addWeeks } from 'date-fns';
 
 const NewOrderSchema = z.object({
