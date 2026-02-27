@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SubContractor } from '@/lib/types';
@@ -26,10 +25,9 @@ import { Badge } from '@/components/ui/badge';
 
 type SubcontractorsListProps = {
   subContractors: SubContractor[];
-  canManageTrades?: boolean;
 };
 
-export function SubcontractorsList({ subContractors, canManageTrades = false }: SubcontractorsListProps) {
+export function SubcontractorsList({ subContractors }: SubcontractorsListProps) {
   const [isPending, startTransition] = useTransition();
   const db = useFirestore();
   const { toast } = useToast();
@@ -75,15 +73,10 @@ export function SubcontractorsList({ subContractors, canManageTrades = false }: 
                   <Truck className="h-2 w-2" /> Supplier
                 </Badge>
               )}
-              {contact.trades?.map(trade => (
-                <Badge key={trade} variant="outline" className="text-[9px] h-4 bg-background/50 border-dashed">
-                  {trade}
-                </Badge>
-              ))}
             </div>
           </div>
           <div className="flex items-center">
-            <EditSubcontractorForm subContractor={contact} canManageTrades={canManageTrades} />
+            <EditSubcontractorForm subContractor={contact} />
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="icon" disabled={isPending}>

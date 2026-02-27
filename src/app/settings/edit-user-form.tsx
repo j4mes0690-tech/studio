@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTransition, useState, useEffect } from 'react';
+import { useTransition, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -44,6 +43,7 @@ const EditUserSchema = z.object({
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
+  canManageMaterials: z.boolean().default(false),
   hasFullVisibility: z.boolean().default(false),
 });
 
@@ -70,6 +70,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
       canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
       canManageProjects: user.permissions?.canManageProjects || false,
       canManageChecklists: user.permissions?.canManageChecklists || false,
+      canManageMaterials: user.permissions?.canManageMaterials || false,
       hasFullVisibility: user.permissions?.hasFullVisibility || false,
     },
   });
@@ -85,6 +86,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
         canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
         canManageProjects: user.permissions?.canManageProjects || false,
         canManageChecklists: user.permissions?.canManageChecklists || false,
+        canManageMaterials: user.permissions?.canManageMaterials || false,
         hasFullVisibility: user.permissions?.hasFullVisibility || false,
       });
     }
@@ -102,6 +104,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
           canManageSubcontractors: values.canManageSubcontractors,
           canManageProjects: values.canManageProjects,
           canManageChecklists: values.canManageChecklists,
+          canManageMaterials: values.canManageMaterials,
           hasFullVisibility: values.hasFullVisibility,
         }
       };
@@ -257,6 +260,26 @@ export function EditUserForm({ user }: EditUserFormProps) {
                             <FormLabel>Manage Projects</FormLabel>
                             <FormDescription>
                                Access to project setup, site areas, and staff assignment.
+                            </FormDescription>
+                        </div>
+                        <FormControl>
+                            <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                            />
+                        </FormControl>
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="canManageMaterials"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <FormLabel>Manage Procurement</FormLabel>
+                            <FormDescription>
+                               Manage suppliers and material catalog definitions.
                             </FormDescription>
                         </div>
                         <FormControl>

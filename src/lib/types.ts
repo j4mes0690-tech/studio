@@ -1,4 +1,3 @@
-
 export type Area = {
   id: string;
   name: string;
@@ -6,7 +5,7 @@ export type Area = {
 
 export type Project = {
   id: string;
-  name:string;
+  name: string;
   areas?: Area[];
   assignedUsers?: string[];
   assignedSubContractors?: string[];
@@ -117,7 +116,6 @@ export type UserPermissions = {
   canManageSubcontractors: boolean;
   canManageProjects: boolean;
   canManageChecklists: boolean;
-  canManageTrades: boolean;
   canManageMaterials: boolean;
   hasFullVisibility: boolean;
 };
@@ -137,17 +135,11 @@ export type SubContractor = {
   isSubContractor?: boolean;
   isDesigner?: boolean;
   isSupplier?: boolean;
-  trades?: string[];
-};
-
-export type Trade = {
-  id: string;
-  name: string;
 };
 
 export type ChecklistItemStatus = 'pending' | 'yes' | 'no' | 'na';
 
-export ChecklistItem = {
+export type ChecklistItem = {
   id: string;
   text: string;
   status: ChecklistItemStatus;

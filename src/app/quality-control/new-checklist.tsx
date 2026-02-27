@@ -24,16 +24,12 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, X, Loader2, ChevronsUpDown, Check } from 'lucide-react';
+import { PlusCircle, X, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, query, orderBy } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import type { Trade } from '@/lib/types';
-import { ManageTradesDialog } from '../settings/manage-trades-dialog';
 
 const NewChecklistSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -42,17 +38,11 @@ const NewChecklistSchema = z.object({
 
 type NewChecklistFormValues = z.infer<typeof NewChecklistSchema>;
 
-export function NewChecklist({ canManageTrades = false }: { canManageTrades?: boolean }) {
+export function NewChecklist() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
-
-  const tradesQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'trades'), orderBy('name', 'asc'));
-  }, [db]);
-  const { data: allTrades } = useCollection<Trade>(tradesQuery);
 
   const [items, setItems] = useState<string[]>([]);
   const [currentItem, setCurrentItem] = useState('');
@@ -156,52 +146,11 @@ export function NewChecklist({ canManageTrades = false }: { canManageTrades?: bo
                   control={form.control}
                   name="trade"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <div className="flex items-center justify-between mb-1">
-                        <FormLabel>Trade / Discipline</FormLabel>
-                        {canManageTrades && <ManageTradesDialog showLabel />}
-                      </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              className={cn(
-                                "w-full justify-between font-normal",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              {field.value || "Select trade..."}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                          <ScrollArea className="h-64">
-                            <div className="p-1 space-y-1">
-                              {allTrades?.map((trade) => (
-                                <div
-                                  key={trade.id}
-                                  className={cn(
-                                    "flex items-center gap-2 px-2 py-1.5 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground text-sm",
-                                    field.value === trade.name && "bg-primary text-primary-foreground font-medium"
-                                  )}
-                                  onClick={() => {
-                                    field.onChange(trade.name);
-                                  }}
-                                >
-                                  {trade.name}
-                                  {field.value === trade.name && <Check className="ml-auto h-4 w-4" />}
-                                </div>
-                              ))}
-                              {(allTrades?.length || 0) === 0 && (
-                                <p className="text-xs text-center py-4 text-muted-foreground">No trades defined.</p>
-                              )}
-                            </div>
-                          </ScrollArea>
-                        </PopoverContent>
-                      </Popover>
+                    <FormItem>
+                      <FormLabel>Trade / Discipline</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Electrical" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

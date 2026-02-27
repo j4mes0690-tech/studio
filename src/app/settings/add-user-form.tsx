@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -32,7 +31,6 @@ const AddUserSchema = z.object({
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
-  canManageTrades: z.boolean().default(false),
   canManageMaterials: z.boolean().default(false),
   hasFullVisibility: z.boolean().default(false),
 });
@@ -54,7 +52,6 @@ export function AddUserForm() {
       canManageSubcontractors: false,
       canManageProjects: false,
       canManageChecklists: false,
-      canManageTrades: false,
       canManageMaterials: false,
       hasFullVisibility: false,
     },
@@ -73,7 +70,6 @@ export function AddUserForm() {
           canManageSubcontractors: values.canManageSubcontractors,
           canManageProjects: values.canManageProjects,
           canManageChecklists: values.canManageChecklists,
-          canManageTrades: values.canManageTrades,
           canManageMaterials: values.canManageMaterials,
           hasFullVisibility: values.hasFullVisibility,
         }
