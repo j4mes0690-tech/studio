@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -23,9 +22,8 @@ import { ProjectsList } from './projects-list';
 import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
 import { ManageTrades } from './manage-trades';
-import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
+import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
-import { useMemo } from 'react';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, Supplier, Material } from '@/lib/types';
 import { Loader2, ShieldAlert, Truck, Package } from 'lucide-react';
 import { ManageSuppliers } from './manage-suppliers';
@@ -36,7 +34,7 @@ export default function SettingsPage() {
   const { user: sessionUser } = useUser();
   
   // Fetch current user's profile to check permissions
-  const currentUserRef = useMemo(() => {
+  const currentUserRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
@@ -44,19 +42,31 @@ export default function SettingsPage() {
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(currentUserRef);
 
   // Fetch all users list
-  const usersQuery = useMemo(() => collection(db, 'users'), [db]);
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
   const { data: users, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
   // Fetch Subcontractors / Designers
-  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const subsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
   // Fetch Projects
-  const projsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const projsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'projects');
+  }, [db]);
   const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projsQuery);
 
   // Fetch Checklist Templates
-  const templatesQuery = useMemo(() => query(collection(db, 'quality-checklists'), where('isTemplate', '==', true)), [db]);
+  const templatesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'quality-checklists'), where('isTemplate', '==', true));
+  }, [db]);
   const { data: checklistTemplates, isLoading: templatesLoading } = useCollection<QualityChecklist>(templatesQuery);
 
   const isLoading = profileLoading || usersLoading || subsLoading || projectsLoading || templatesLoading;

@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,11 +26,10 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, X, Loader2, ChevronsUpDown, Check } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import type { Trade } from '@/lib/types';
@@ -50,7 +48,10 @@ export function NewChecklist({ canManageTrades = false }: { canManageTrades?: bo
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  const tradesQuery = useMemo(() => query(collection(db, 'trades'), orderBy('name', 'asc')), [db]);
+  const tradesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'trades'), orderBy('name', 'asc'));
+  }, [db]);
   const { data: allTrades } = useCollection<Trade>(tradesQuery);
 
   const [items, setItems] = useState<string[]>([]);

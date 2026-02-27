@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTransition, useMemo } from 'react';
+import { useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,7 +15,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -48,7 +47,10 @@ export function AddSubcontractorForm({ canManageTrades = false }: { canManageTra
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  const tradesQuery = useMemo(() => query(collection(db, 'trades'), orderBy('name', 'asc')), [db]);
+  const tradesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'trades'), orderBy('name', 'asc'));
+  }, [db]);
   const { data: allTrades } = useCollection<Trade>(tradesQuery);
 
   const form = useForm<AddContactFormValues>({
