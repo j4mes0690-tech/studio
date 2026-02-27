@@ -44,6 +44,16 @@ const NewOrderSchema = z.object({
 
 type NewOrderFormValues = z.infer<typeof NewOrderSchema>;
 
+const UNIT_OPTIONS = [
+  'Item',
+  'lengths',
+  'lm',
+  'm2',
+  'm3',
+  'Nr',
+  'ton'
+];
+
 export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: { 
   projects: Project[]; 
   suppliers: SubContractor[]; 
@@ -92,7 +102,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
     setOrderItems([...orderItems, {
       description: pendingDescription,
       quantity: qty,
-      unit: pendingUnit || 'pcs',
+      unit: pendingUnit || 'Item',
       rate: finalRate,
       deliveryDate: pendingDeliveryDate,
       total: qty * finalRate
@@ -289,12 +299,14 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Unit</Label>
-                    <Input 
-                      placeholder="pcs, m3, ton..." 
-                      className="h-9 bg-background"
-                      value={pendingUnit} 
-                      onChange={e => setPendingUnit(e.target.value)} 
-                    />
+                    <Select value={pendingUnit} onValueChange={setPendingUnit}>
+                      <SelectTrigger className="h-9 bg-background"><SelectValue placeholder="Select unit" /></SelectTrigger>
+                      <SelectContent>
+                        {UNIT_OPTIONS.map(unit => (
+                          <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label className="text-xs">Rate (£)</Label>

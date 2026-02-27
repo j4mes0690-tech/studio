@@ -22,6 +22,16 @@ const MaterialSchema = z.object({
   defaultPrice: z.coerce.number().min(0, 'Price must be positive.'),
 });
 
+const UNIT_OPTIONS = [
+  'Item',
+  'lengths',
+  'lm',
+  'm2',
+  'm3',
+  'Nr',
+  'ton'
+];
+
 export function ManageMaterials() {
   const { toast } = useToast();
   const db = useFirestore();
@@ -32,7 +42,7 @@ export function ManageMaterials() {
 
   const form = useForm({
     resolver: zodResolver(MaterialSchema),
-    defaultValues: { name: '', unit: 'pcs', defaultPrice: 0 },
+    defaultValues: { name: '', unit: 'Item', defaultPrice: 0 },
   });
 
   const onSubmit = (values: any) => {
@@ -64,12 +74,9 @@ export function ManageMaterials() {
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger></FormControl>
                   <SelectContent>
-                    <SelectItem value="pcs">Pieces (pcs)</SelectItem>
-                    <SelectItem value="m3">Cubic Metres (m3)</SelectItem>
-                    <SelectItem value="ton">Tonnes (ton)</SelectItem>
-                    <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                    <SelectItem value="m">Metres (m)</SelectItem>
-                    <SelectItem value="sqm">Square Metres (m2)</SelectItem>
+                    {UNIT_OPTIONS.map(unit => (
+                      <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </FormItem>
