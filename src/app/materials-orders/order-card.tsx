@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -10,7 +9,8 @@ import {
   Trash2, 
   Calendar, 
   Loader2, 
-  FileDown
+  FileDown,
+  ChevronDown
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useTransition } from 'react';
@@ -29,12 +29,18 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; project?: Project; supplier?: SubContractor }) {
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -78,7 +84,7 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
             <p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Delivery Details</p>
             <p style="margin: 0; font-size: 14px;"><strong>Project:</strong> ${project?.name || 'Project'}</p>
             <p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Order Date:</strong> ${new Date(order.orderDate).toLocaleDateString()}</p>
-            <p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Req. Delivery:</strong> ${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : 'ASAP'}</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Global Delivery:</strong> ${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : 'See line items'}</p>
           </div>
         </div>
 
@@ -86,24 +92,28 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
           <thead>
             <tr style="background: #f8fafc; border-bottom: 2px solid #336AB6;">
               <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b;">Description</th>
-              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b; width: 100px;">Qty</th>
-              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b; width: 120px;">Unit Price</th>
-              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b; width: 120px;">Subtotal</th>
+              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b; width: 60px;">Qty</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b; width: 60px;">Unit</th>
+              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b; width: 90px;">Rate</th>
+              <th style="padding: 12px; text-align: center; font-size: 10px; text-transform: uppercase; color: #64748b; width: 100px;">Delivery</th>
+              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b; width: 100px;">Subtotal</th>
             </tr>
           </thead>
           <tbody>
             ${order.items.map(item => `
               <tr style="border-bottom: 1px solid #e2e8f0;">
-                <td style="padding: 12px; font-size: 13px; font-weight: 500;">${item.materialName}</td>
-                <td style="padding: 12px; text-align: right; font-size: 13px;">${item.quantity}</td>
-                <td style="padding: 12px; text-align: right; font-size: 13px;">$${item.unitPrice.toFixed(2)}</td>
-                <td style="padding: 12px; text-align: right; font-size: 13px; font-weight: bold;">$${item.total.toFixed(2)}</td>
+                <td style="padding: 12px; font-size: 12px; font-weight: 500;">${item.description}</td>
+                <td style="padding: 12px; text-align: right; font-size: 12px;">${item.quantity}</td>
+                <td style="padding: 12px; text-align: left; font-size: 12px; color: #64748b;">${item.unit}</td>
+                <td style="padding: 12px; text-align: right; font-size: 12px;">$${item.rate.toFixed(2)}</td>
+                <td style="padding: 12px; text-align: center; font-size: 11px; color: #475569;">${item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString() : 'ASAP'}</td>
+                <td style="padding: 12px; text-align: right; font-size: 12px; font-weight: bold;">$${item.total.toFixed(2)}</td>
               </tr>
             `).join('')}
           </tbody>
           <tfoot>
             <tr style="background: #f8fafc;">
-              <td colspan="3" style="padding: 15px; text-align: right; font-size: 14px; font-weight: bold; color: #336AB6;">ORDER TOTAL (USD)</td>
+              <td colspan="5" style="padding: 15px; text-align: right; font-size: 14px; font-weight: bold; color: #336AB6;">ORDER TOTAL (USD)</td>
               <td style="padding: 15px; text-align: right; font-size: 18px; font-weight: bold; color: #336AB6; border-top: 2px solid #336AB6;">$${order.totalAmount.toFixed(2)}</td>
             </tr>
           </tfoot>
@@ -131,7 +141,7 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       document.body.removeChild(reportElement);
       pdf.save(`PO-${order.orderNumber}-${order.supplierName.replace(/\s+/g, '-')}.pdf`);
-      toast({ title: 'PDF Ready', description: 'Your purchase order has been generated.' });
+      toast({ title: 'PDF Ready', description: 'Your detailed purchase order has been generated.' });
     } catch (err) {
       console.error(err);
       toast({ title: 'Error', description: 'Failed to generate PDF form.', variant: 'destructive' });
@@ -186,22 +196,49 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex flex-col sm:flex-row justify-between items-end gap-4 mt-2 bg-muted/20 p-3 rounded-lg border border-dashed">
-          <div className="space-y-1 w-full sm:w-auto">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Order Summary</p>
-            <p className="text-sm font-medium">{order.items.length} materials requested</p>
-            <div className="flex gap-1 flex-wrap">
-              {order.items.slice(0, 3).map((item, idx) => (
-                <Badge key={idx} variant="secondary" className="text-[9px] font-normal">{item.materialName}</Badge>
-              ))}
-              {order.items.length > 3 && <Badge variant="secondary" className="text-[9px] font-normal">+{order.items.length - 3} more</Badge>}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-end gap-4 bg-muted/20 p-3 rounded-lg border border-dashed">
+            <div className="space-y-1 w-full sm:w-auto">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Order Summary</p>
+              <p className="text-sm font-medium">{order.items.length} line items defined</p>
+              <div className="flex gap-1 flex-wrap">
+                {order.items.slice(0, 3).map((item, idx) => (
+                  <Badge key={idx} variant="secondary" className="text-[9px] font-normal">{item.description}</Badge>
+                ))}
+                {order.items.length > 3 && <Badge variant="secondary" className="text-[9px] font-normal">+{order.items.length - 3} more</Badge>}
+              </div>
+            </div>
+            
+            <div className="text-right">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Total Amount</p>
+              <p className="text-2xl font-bold text-primary">${order.totalAmount.toFixed(2)}</p>
             </div>
           </div>
-          
-          <div className="text-right">
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Total Amount</p>
-            <p className="text-2xl font-bold text-primary">${order.totalAmount.toFixed(2)}</p>
-          </div>
+
+          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground">
+                <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
+                {isExpanded ? "Hide Line Details" : "View Detailed Line Items"}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-2">
+              <div className="space-y-2">
+                {order.items.map((item, i) => (
+                  <div key={i} className="flex items-start justify-between p-2 rounded border text-[11px] bg-muted/5">
+                    <div className="flex-1 min-w-0 pr-4">
+                      <p className="font-bold text-primary truncate">{item.description}</p>
+                      <p className="text-muted-foreground">{item.quantity} {item.unit} @ ${item.rate.toFixed(2)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="font-bold">${item.total.toFixed(2)}</p>
+                      {item.deliveryDate && <p className="text-[9px] text-destructive">Due: {new Date(item.deliveryDate).toLocaleDateString()}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </CardContent>
     </Card>

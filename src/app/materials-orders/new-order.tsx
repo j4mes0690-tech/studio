@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useMemo, useTransition } from 'react';
+import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus } from 'lucide-react';
+import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar } from 'lucide-react';
 import type { Project, Material, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -40,7 +39,7 @@ import { DatePicker } from '@/components/date-picker';
 const NewOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
-  deliveryDate: z.string().optional(),
+  deliveryDate: z.string().optional().nullable(),
   notes: z.string().optional(),
 });
 
@@ -60,32 +59,59 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
 
   // Order Items State
   const [orderItems, setOrderItems] = useState<Omit<PurchaseOrderItem, 'id'>[]>([]);
+  
+  // Pending Item State
   const [pendingMaterialId, setPendingMaterialId] = useState<string>('');
+  const [pendingDescription, setPendingDescription] = useState<string>('');
   const [pendingQty, setPendingQuantity] = useState<number>(1);
+  const [pendingUnit, setPendingUnit] = useState<string>('');
+  const [pendingRate, setPendingRate] = useState<number>(0);
+  const [pendingDeliveryDate, setPendingDeliveryDate] = useState<string | null>(null);
 
   const form = useForm<NewOrderFormValues>({
     resolver: zodResolver(NewOrderSchema),
-    defaultValues: { projectId: '', supplierId: '', notes: '' },
+    defaultValues: { projectId: '', supplierId: '', notes: '', deliveryDate: null },
   });
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
   const orderTotal = useMemo(() => orderItems.reduce((sum, item) => sum + item.total, 0), [orderItems]);
 
-  const handleAddItem = () => {
-    const material = materials.find(m => m.id === pendingMaterialId);
-    if (!material) return;
+  // Sync pending fields when a material is selected from catalog
+  useEffect(() => {
+    if (pendingMaterialId) {
+      const material = materials.find(m => m.id === pendingMaterialId);
+      if (material) {
+        setPendingDescription(material.name);
+        setPendingUnit(material.unit);
+        setPendingRate(material.defaultPrice || 0);
+      }
+    }
+  }, [pendingMaterialId, materials]);
 
-    const unitPrice = material.defaultPrice || 0;
+  const handleAddItem = () => {
+    if (!pendingDescription || pendingQty <= 0) {
+      toast({ title: 'Invalid Item', description: 'Description and quantity are required.', variant: 'destructive' });
+      return;
+    }
+
     setOrderItems([...orderItems, {
-      materialId: material.id,
-      materialName: material.name,
+      materialId: pendingMaterialId || undefined,
+      description: pendingDescription,
       quantity: pendingQty,
-      unitPrice: unitPrice,
-      total: pendingQty * unitPrice
+      unit: pendingUnit || 'pcs',
+      rate: pendingRate,
+      deliveryDate: pendingDeliveryDate,
+      total: pendingQty * pendingRate
     }]);
+
+    // Reset pending
     setPendingMaterialId('');
+    setPendingDescription('');
     setPendingQuantity(1);
+    setPendingUnit('');
+    setPendingRate(0);
+    setPendingDeliveryDate(null);
   };
 
   const removeItem = (idx: number) => setOrderItems(orderItems.filter((_, i) => i !== idx));
@@ -137,10 +163,10 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
           New Order
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Create Purchase Order</DialogTitle>
-          <DialogDescription>Generate a formal material request for a specific supplier.</DialogDescription>
+          <DialogDescription>Generate a formal material request with detailed line items and delivery dates.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -179,61 +205,135 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
             <FormField
               control={form.control}
               name="deliveryDate"
-              render={({ field }) => <DatePicker field={field} label="Required Delivery Date" />}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Global Required Delivery Date (Default)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="date" 
+                      value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''} 
+                      onChange={e => field.onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
             />
 
             <Separator />
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <FormLabel className="text-base font-bold">Order Items</FormLabel>
-                <div className="flex items-center gap-2 text-primary font-bold text-sm">
+                <FormLabel className="text-base font-bold text-primary">Order Line Items</FormLabel>
+                <div className="flex items-center gap-2 text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full">
                   <Calculator className="h-4 w-4" />
-                  Total: ${orderTotal.toFixed(2)}
+                  Order Total: ${orderTotal.toFixed(2)}
                 </div>
               </div>
 
-              <div className="flex gap-2 items-end bg-muted/30 p-3 rounded-lg border">
-                <div className="flex-1 space-y-2">
-                  <Label className="text-xs">Material</Label>
-                  <Select value={pendingMaterialId} onValueChange={setPendingMaterialId}>
-                    <SelectTrigger className="bg-background h-9"><SelectValue placeholder="Select material" /></SelectTrigger>
-                    <SelectContent>
-                      {materials.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+              {/* Add Item Panel */}
+              <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Pick from Catalog (Optional)</Label>
+                    <Select value={pendingMaterialId} onValueChange={setPendingMaterialId}>
+                      <SelectTrigger className="bg-background h-9"><SelectValue placeholder="Select from standard materials" /></SelectTrigger>
+                      <SelectContent>
+                        {materials.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Description / Specification</Label>
+                    <Input 
+                      placeholder="Enter description..." 
+                      className="h-9 bg-background"
+                      value={pendingDescription} 
+                      onChange={e => setPendingDescription(e.target.value)} 
+                    />
+                  </div>
                 </div>
-                <div className="w-24 space-y-2">
-                  <Label className="text-xs">Quantity</Label>
-                  <Input 
-                    type="number" 
-                    min="1" 
-                    step="0.1" 
-                    className="h-9"
-                    value={pendingQty} 
-                    onChange={e => setPendingQuantity(parseFloat(e.target.value) || 0)} 
-                  />
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Quantity</Label>
+                    <Input 
+                      type="number" 
+                      min="0.1" 
+                      step="0.1" 
+                      className="h-9 bg-background"
+                      value={pendingQty} 
+                      onChange={e => setPendingQuantity(parseFloat(e.target.value) || 0)} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Unit</Label>
+                    <Input 
+                      placeholder="pcs, m3, ton..." 
+                      className="h-9 bg-background"
+                      value={pendingUnit} 
+                      onChange={e => setPendingUnit(e.target.value)} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Rate ($)</Label>
+                    <Input 
+                      type="number" 
+                      min="0" 
+                      step="0.01" 
+                      className="h-9 bg-background"
+                      value={pendingRate} 
+                      onChange={e => setPendingRate(parseFloat(e.target.value) || 0)} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Required Date</Label>
+                    <Input 
+                      type="date" 
+                      className="h-9 bg-background"
+                      value={pendingDeliveryDate ? new Date(pendingDeliveryDate).toISOString().split('T')[0] : ''} 
+                      onChange={e => setPendingDeliveryDate(e.target.value ? new Date(e.target.value).toISOString() : null)}
+                    />
+                  </div>
                 </div>
-                <Button type="button" size="sm" onClick={handleAddItem} disabled={!pendingMaterialId}>Add</Button>
+                
+                <Button type="button" onClick={handleAddItem} disabled={!pendingDescription} className="w-full">
+                  <Plus className="h-4 w-4 mr-2" /> Add Line Item
+                </Button>
               </div>
 
-              <ScrollArea className="h-48 border rounded-md">
+              <ScrollArea className="h-64 border rounded-md bg-muted/5">
                 <div className="p-3 space-y-2">
                   {orderItems.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 rounded border bg-background group">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{item.materialName}</p>
-                        <p className="text-[10px] text-muted-foreground">{item.quantity} units @ ${item.unitPrice.toFixed(2)}</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm font-bold text-primary">${item.total.toFixed(2)}</span>
-                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100" onClick={() => removeItem(idx)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                    <div key={idx} className="flex flex-col p-3 rounded border bg-background group gap-2 shadow-sm">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-primary truncate">{item.description}</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <ShoppingCart className="h-2 w-2" /> {item.quantity} {item.unit} @ ${item.rate.toFixed(2)}
+                            </span>
+                            {item.deliveryDate && (
+                              <span className="text-[10px] text-destructive flex items-center gap-1 font-semibold">
+                                <Calendar className="h-2 w-2" /> Delivery: {new Date(item.deliveryDate).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm font-bold text-foreground">${item.total.toFixed(2)}</span>
+                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeItem(idx)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
-                  {orderItems.length === 0 && <p className="text-center py-10 text-xs text-muted-foreground italic">Add materials to generate order totals.</p>}
+                  {orderItems.length === 0 && (
+                    <div className="text-center py-16 text-muted-foreground italic flex flex-col items-center gap-2">
+                      <ShoppingCart className="h-8 w-8 opacity-20" />
+                      <p className="text-xs">Add materials to generate order line items.</p>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </div>
@@ -243,8 +343,8 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
               name="notes"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Delivery Instructions / Notes</FormLabel>
-                  <FormControl><Textarea placeholder="e.g., Deliver to site entrance B, before 10 AM..." {...field} /></FormControl>
+                  <FormLabel>Delivery Instructions / Project Notes</FormLabel>
+                  <FormControl><Textarea placeholder="e.g., Deliver to site entrance B, contact site manager 1 hour before arrival..." {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -252,10 +352,10 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
           </form>
         </Form>
 
-        <DialogFooter className="pt-4 border-t">
-          <Button type="submit" disabled={isPending} onClick={form.handleSubmit(onSubmit)} className="w-full">
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShoppingCart className="h-4 w-4 mr-2" />}
-            Confirm & Issue Order
+        <DialogFooter className="pt-4 border-t px-6 pb-6">
+          <Button type="submit" disabled={isPending} onClick={form.handleSubmit(onSubmit)} className="w-full h-12 text-lg font-bold">
+            {isPending ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
+            Issue Purchase Order
           </Button>
         </DialogFooter>
       </DialogContent>

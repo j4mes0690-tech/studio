@@ -180,10 +180,12 @@ export type Material = {
 
 export type PurchaseOrderItem = {
   id: string;
-  materialId: string;
-  materialName: string;
+  materialId?: string;
+  description: string;
   quantity: number;
-  unitPrice: number;
+  unit: string;
+  rate: number;
+  deliveryDate?: string | null;
   total: number;
 };
 
@@ -194,7 +196,7 @@ export type PurchaseOrder = {
   supplierId: string;
   supplierName: string;
   orderDate: string;
-  deliveryDate?: string;
+  deliveryDate?: string | null;
   items: PurchaseOrderItem[];
   totalAmount: number;
   status: 'draft' | 'issued' | 'received' | 'cancelled';
