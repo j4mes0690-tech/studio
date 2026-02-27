@@ -25,6 +25,9 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Trade } from '@/lib/types';
 import { ManageTradesDialog } from './manage-trades-dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { ChevronsUpDown } from 'lucide-react';
 
 const AddContactSchema = z.object({
   name: z.string().min(1, 'Name or company name is required.'),
@@ -149,48 +152,65 @@ export function AddSubcontractorForm({ canManageTrades }: { canManageTrades?: bo
         <Separator />
 
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <FormLabel>Assigned Trades</FormLabel>
-            {canManageTrades && <ManageTradesDialog showLabel />}
-          </div>
-          <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
-            {allTrades?.map((trade) => (
-              <FormField
-                key={trade.id}
-                control={form.control}
-                name="trades"
-                render={({ field }) => {
-                  return (
-                    <FormItem
-                      key={trade.id}
-                      className="flex flex-row items-start space-x-3 space-y-0 mb-2"
-                    >
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value?.includes(trade.name)}
-                          onCheckedChange={(checked) => {
-                            return checked
-                              ? field.onChange([...field.value, trade.name])
-                              : field.onChange(
-                                  field.value?.filter(
-                                    (value) => value !== trade.name
-                                  )
-                                )
-                          }}
-                        />
-                      </FormControl>
-                      <FormLabel className="font-normal text-xs cursor-pointer">
-                        {trade.name}
-                      </FormLabel>
-                    </FormItem>
-                  )
-                }}
-              />
-            ))}
-            {(allTrades?.length || 0) === 0 && (
-              <p className="text-[10px] text-muted-foreground text-center py-8 italic">No trades defined. Add trades above.</p>
+          <FormField
+            control={form.control}
+            name="trades"
+            render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <FormLabel>Assigned Trades</FormLabel>
+                  {canManageTrades && <ManageTradesDialog showLabel />}
+                </div>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                          "w-full justify-between font-normal",
+                          !field.value?.length && "text-muted-foreground"
+                        )}
+                      >
+                        {field.value?.length > 0
+                          ? `${field.value.length} trades selected`
+                          : "Select trades..."}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                    <ScrollArea className="h-64">
+                      <div className="p-2 space-y-1">
+                        {allTrades?.map((trade) => (
+                          <div
+                            key={trade.id}
+                            className="flex items-center space-x-2 rounded-sm px-2 py-1.5 hover:bg-accent cursor-pointer"
+                            onClick={() => {
+                              const newValue = field.value?.includes(trade.name)
+                                ? field.value.filter((v: string) => v !== trade.name)
+                                : [...(field.value || []), trade.name];
+                              field.onChange(newValue);
+                            }}
+                          >
+                            <Checkbox
+                              checked={field.value?.includes(trade.name)}
+                              onCheckedChange={() => {}} 
+                            />
+                            <span className="text-sm">{trade.name}</span>
+                          </div>
+                        ))}
+                        {(allTrades?.length || 0) === 0 && (
+                          <p className="p-4 text-xs text-center text-muted-foreground italic">No trades defined. Add trades above.</p>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
             )}
-          </ScrollArea>
+          />
         </div>
 
         <Button type="submit" className="w-full" disabled={isPending}>Add External Contact</Button>
