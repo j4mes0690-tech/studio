@@ -3,12 +3,11 @@
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Home, Loader2, Settings } from 'lucide-react';
-import Link from 'next/link';
-import { useUser, useFirestore, useDoc } from '@/firebase';
+import Link from 'next/navigation';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { UserMenu } from './user-menu';
 import { NotificationsMenu } from './notifications-menu';
 import { usePathname } from 'next/navigation';
-import { useMemo } from 'react';
 import { doc } from 'firebase/firestore';
 import type { DistributionUser } from '@/lib/types';
 
@@ -18,7 +17,7 @@ export function Header({ title }: { title: string }) {
   const pathname = usePathname();
 
   // Fetch the full user profile from Firestore using the session email
-  const profileRef = useMemo(() => {
+  const profileRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);

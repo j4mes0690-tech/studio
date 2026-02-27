@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -21,24 +20,30 @@ import { Badge } from '@/components/ui/badge';
 import { useMemo } from 'react';
 import type { Project, Instruction, DistributionUser } from '@/lib/types';
 import { Loader2, ShieldCheck } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
 export default function ProjectsPage() {
   const db = useFirestore();
   const { user: sessionUser } = useUser();
 
-  const userProfileRef = useMemo(() => {
+  const userProfileRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
 
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(userProfileRef);
 
-  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const projectsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'projects');
+  }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const instructionsQuery = useMemo(() => collection(db, 'instructions'), [db]);
+  const instructionsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'instructions');
+  }, [db]);
   const { data: instructions, isLoading: instructionsLoading } = useCollection<Instruction>(instructionsQuery);
 
   const allowedProjects = useMemo(() => {

@@ -10,7 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { InformationRequest, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
-import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,33 +43,33 @@ function InfoRequestsContent() {
   };
 
   // Fetch current user profile
-  const currentUserRef = useMemo(() => {
+  const currentUserRef = useMemoFirebase(() => {
     if (!db || !firebaseUser?.email) return null;
     return doc(db, 'users', firebaseUser.email.toLowerCase().trim());
   }, [db, firebaseUser?.email]);
   const { data: currentUser, isLoading: profileLoading } = useDoc<DistributionUser>(currentUserRef);
 
   // Fetch lookups
-  const projectsQuery = useMemo(() => {
+  const projectsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'projects');
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const usersQuery = useMemo(() => {
+  const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'users');
   }, [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  const subsQuery = useMemo(() => {
+  const subsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'sub-contractors');
   }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
   // STABLE QUERY: We fetch all items ordered by date to avoid composite index requirements
-  const itemsQuery = useMemo(() => {
+  const itemsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'information-requests'), orderBy('createdAt', 'desc'));
   }, [db]);

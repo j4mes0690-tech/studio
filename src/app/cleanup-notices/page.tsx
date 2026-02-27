@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -10,7 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import { useMemo, Suspense } from 'react';
 import type { CleanUpNotice, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 
 function CleanUpContent() {
@@ -20,17 +19,23 @@ function CleanUpContent() {
   const projectId = searchParams.get('project') || undefined;
 
   // Profile check
-  const profileRef = useMemo(() => {
+  const profileRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Real-time data from Firestore
-  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const projectsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'projects');
+  }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const subsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
   // Visibility logic
@@ -48,7 +53,7 @@ function CleanUpContent() {
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
   // STABLE QUERY: Fetch all by date to avoid composite index requirements
-  const noticesQuery = useMemo(() => {
+  const noticesQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'cleanup-notices'), orderBy('createdAt', 'desc'));
   }, [db]);

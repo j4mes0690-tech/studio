@@ -10,7 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { ClientInstruction, Project, DistributionUser, Instruction, InformationRequest } from '@/lib/types';
 import { Loader2, ShieldCheck, LayoutGrid, List } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,34 +43,40 @@ function InstructionsContent() {
   };
 
   // Fetch profile for permission check
-  const profileRef = useMemo(() => {
+  const profileRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Fetch static lookups
-  const usersQuery = useMemo(() => {
+  const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'users');
   }, [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  const projectsQuery = useMemo(() => {
+  const projectsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'projects');
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
   // REFERENCES DATA: Fetch site instructions and RFIs to calculate sequential references in Accept Workspace
-  const siteInstructionsQuery = useMemo(() => db ? collection(db, 'instructions') : null, [db]);
+  const siteInstructionsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'instructions');
+  }, [db]);
   const { data: allSiteInstructions } = useCollection<Instruction>(siteInstructionsQuery);
 
-  const rfisQuery = useMemo(() => db ? collection(db, 'information-requests') : null, [db]);
+  const rfisQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'information-requests');
+  }, [db]);
   const { data: allRfis } = useCollection<InformationRequest>(rfisQuery);
 
   // STABLE QUERY: Fetch all by date to avoid composite index requirements
-  const instructionsQuery = useMemo(() => {
+  const instructionsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'client-instructions'), orderBy('createdAt', 'desc'));
   }, [db]);

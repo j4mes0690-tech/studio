@@ -10,7 +10,7 @@ import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { Instruction, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { Loader2, LayoutGrid, List } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
@@ -50,20 +50,29 @@ function InstructionsContent() {
   };
 
   // Fetch profile for permission check
-  const profileRef = useMemo(() => {
+  const profileRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Fetch static lookups
-  const usersQuery = useMemo(() => collection(db, 'users'), [db]);
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const projectsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'projects');
+  }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const subsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
   // Visibility logic for projects
@@ -81,7 +90,7 @@ function InstructionsContent() {
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
   // STABLE QUERY: Fetch all by date to avoid composite index requirements
-  const instructionsQuery = useMemo(() => {
+  const instructionsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'instructions'), orderBy('createdAt', 'desc'));
   }, [db]);

@@ -1,8 +1,7 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
-import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, Suspense } from 'react';
 import type { PurchaseOrder, Project, Supplier, DistributionUser, Material } from '@/lib/types';
@@ -20,19 +19,19 @@ function MaterialsOrdersContent() {
   const [projectFilter, setProjectFilter] = useState<string>('all');
 
   // Load Data
-  const profileRef = useMemo(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
+  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
-  const projectsQuery = useMemo(() => (db ? collection(db, 'projects') : null), [db]);
+  const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
   const { data: allProjects } = useCollection<Project>(projectsQuery);
 
-  const suppliersQuery = useMemo(() => (db ? collection(db, 'suppliers') : null), [db]);
+  const suppliersQuery = useMemoFirebase(() => (db ? collection(db, 'suppliers') : null), [db]);
   const { data: allSuppliers } = useCollection<Supplier>(suppliersQuery);
 
-  const materialsQuery = useMemo(() => (db ? collection(db, 'materials') : null), [db]);
+  const materialsQuery = useMemoFirebase(() => (db ? collection(db, 'materials') : null), [db]);
   const { data: allMaterials } = useCollection<Material>(materialsQuery);
 
-  const ordersQuery = useMemo(() => (db ? query(collection(db, 'purchase-orders'), orderBy('createdAt', 'desc')) : null), [db]);
+  const ordersQuery = useMemoFirebase(() => (db ? query(collection(db, 'purchase-orders'), orderBy('createdAt', 'desc')) : null), [db]);
   const { data: allOrders, isLoading: ordersLoading } = useCollection<PurchaseOrder>(ordersQuery);
 
   // Security & Filtering

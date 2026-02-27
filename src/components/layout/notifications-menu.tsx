@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Bell, HelpCircle, Loader2, MessageSquareReply, X, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useFirestore, useCollection, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, or, and, doc, updateDoc, arrayUnion, writeBatch } from 'firebase/firestore';
 import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,14 +27,14 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
   const [isClearingAll, setIsClearingAll] = useState(false);
 
   // Fetch current user profile for permission check
-  const profileRef = useMemo(() => {
+  const profileRef = useMemoFirebase(() => {
     if (!db || !normalizedEmail) return null;
     return doc(db, 'users', normalizedEmail);
   }, [db, normalizedEmail]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   // Fetch projects to determine authorized project IDs
-  const projectsQuery = useMemo(() => {
+  const projectsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'projects');
   }, [db]);
@@ -56,7 +56,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
   }, [allProjects, profile, normalizedEmail]);
 
   // Query for open requests that involve the current user
-  const notificationsQuery = useMemo(() => {
+  const notificationsQuery = useMemoFirebase(() => {
     if (!db || !normalizedEmail) return null;
     return query(
       collection(db, 'information-requests'),

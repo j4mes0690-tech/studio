@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -7,7 +6,7 @@ import { AddChecklistToProject } from './add-checklist-to-project';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { QualityChecklist, Project, SubContractor, DistributionUser, Area } from '@/lib/types';
 import { Loader2, ChevronRight, LayoutGrid, ClipboardCheck, Building2, MapPin, ArrowLeft, CheckCircle2, List, FileCheck } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
+import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -57,22 +56,29 @@ function QualityControlContent() {
   };
 
   // Profile check
-  const profileRef = useMemo(() => {
+  const profileRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Real-time data from Firestore
-  const projectsQuery = useMemo(() => collection(db, 'projects'), [db]);
+  const projectsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'projects');
+  }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const subsQuery = useMemo(() => collection(db, 'sub-contractors'), [db]);
+  const subsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
-  const checklistsQuery = useMemo(() => 
-    query(collection(db, 'quality-checklists'), orderBy('createdAt', 'desc'))
-  , [db]);
+  const checklistsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'quality-checklists'), orderBy('createdAt', 'desc'));
+  }, [db]);
   const { data: allChecklists, isLoading: checklistsLoading } = useCollection<QualityChecklist>(checklistsQuery);
 
   // Visibility logic
