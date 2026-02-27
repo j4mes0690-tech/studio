@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -5,7 +6,7 @@ import { ChecklistCard } from './checklist-card';
 import { AddChecklistToProject } from './add-checklist-to-project';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { QualityChecklist, Project, SubContractor, DistributionUser, Area } from '@/lib/types';
-import { Loader2, ChevronRight, LayoutGrid, ClipboardCheck, Building2, MapPin, ArrowLeft, CheckCircle2, List } from 'lucide-react';
+import { Loader2, ChevronRight, LayoutGrid, ClipboardCheck, Building2, MapPin, ArrowLeft, CheckCircle2, List, FileCheck } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,6 +38,7 @@ function QualityControlContent() {
 
   const activeProjectId = searchParams.get('project');
   const activeAreaId = searchParams.get('area');
+  const activeChecklistId = searchParams.get('checklist');
 
   const [isCompact, setIsCompact] = useState(false);
 
@@ -136,10 +138,19 @@ function QualityControlContent() {
     );
   }, [allChecklists, activeProjectId, activeAreaId]);
 
+  const focusedChecklist = useMemo(() => {
+    if (!activeChecklistId || !allChecklists) return null;
+    return allChecklists.find(c => c.id === activeChecklistId);
+  }, [activeChecklistId, allChecklists]);
+
+  // Navigation Helpers
   const navigateToProject = (id: string) => router.push(`/quality-control?project=${id}`);
   const navigateToArea = (id: string) => router.push(`/quality-control?project=${activeProjectId}&area=${id}`);
+  const navigateToChecklist = (id: string) => router.push(`/quality-control?project=${activeProjectId}&area=${activeAreaId}&checklist=${id}`);
+  
   const clearSelection = () => router.push('/quality-control');
   const clearArea = () => router.push(`/quality-control?project=${activeProjectId}`);
+  const clearChecklist = () => router.push(`/quality-control?project=${activeProjectId}&area=${activeAreaId}`);
 
   const isLoading = projectsLoading || subsLoading || checklistsLoading || profileLoading;
 
@@ -147,6 +158,40 @@ function QualityControlContent() {
     return (
         <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    );
+  }
+
+  // LEVEL 4: Focused Checklist Detail View
+  if (activeProjectId && activeAreaId && focusedChecklist) {
+    const project = allowedProjects.find(p => p.id === activeProjectId);
+    const area = project?.areas?.find(a => a.id === activeAreaId);
+    
+    return (
+        <div className="max-w-4xl mx-auto space-y-6">
+            <div className="flex items-center">
+                <Button variant="ghost" size="sm" onClick={clearChecklist} className="text-muted-foreground gap-1.5">
+                    <ArrowLeft className="h-4 w-4" /> Back to {area?.name || 'Area'}
+                </Button>
+            </div>
+            
+            <div className="flex flex-col gap-1">
+                <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                    <FileCheck className="h-6 w-6 text-primary" />
+                    {focusedChecklist.title}
+                </h2>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+                    <span>{project?.name}</span>
+                    <span>&gt;</span>
+                    <span>{area?.name}</span>
+                </div>
+            </div>
+
+            <ChecklistCard 
+                checklist={focusedChecklist} 
+                projects={allowedProjects} 
+                subContractors={subContractors || []} 
+            />
         </div>
     );
   }
@@ -208,7 +253,7 @@ function QualityControlContent() {
                                     <TableRow 
                                         key={checklist.id} 
                                         className="group cursor-pointer"
-                                        onClick={() => toggleView()} // Open up the checklists by switching to grid view
+                                        onClick={() => navigateToChecklist(checklist.id)}
                                     >
                                         <TableCell><Badge variant={hasFail ? "destructive" : "outline"}>{checklist.trade}</Badge></TableCell>
                                         <TableCell className="font-medium group-hover:text-primary transition-colors">{checklist.title}</TableCell>
@@ -239,12 +284,17 @@ function QualityControlContent() {
                 <div className="grid gap-4 md:gap-6">
                     {filteredChecklists.length > 0 ? (
                         filteredChecklists.map((checklist) => (
-                            <ChecklistCard
-                                key={checklist.id}
-                                checklist={checklist}
-                                projects={allowedProjects}
-                                subContractors={subContractors || []}
-                            />
+                            <div 
+                                key={checklist.id} 
+                                className="cursor-pointer transition-transform active:scale-[0.99]"
+                                onClick={() => navigateToChecklist(checklist.id)}
+                            >
+                                <ChecklistCard
+                                    checklist={checklist}
+                                    projects={allowedProjects}
+                                    subContractors={subContractors || []}
+                                />
+                            </div>
                         ))
                     ) : (
                         <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg bg-muted/10">
