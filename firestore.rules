@@ -3,90 +3,30 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * CORE PHILOSOPHY:
-     * This ruleset implements a strict authorization model designed for a construction management 
-     * environment, prioritizing "Authorization Independence" through data denormalization.
+     * PROTOTYPE SECURITY RULES:
+     * These rules allow authenticated users (including anonymous ones) to access
+     * all collections. This is necessary for the current architecture where
+     * identity is managed via custom fields in the 'users' collection rather
+     * than strict Firebase Auth UID mapping.
      */
-
-    // --- Helper Functions ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
-
-    function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Administrator';
-    }
-
-    // --- Collection Rules ---
-
-    match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isAdmin() || isSignedIn(); // Standard users need to see list for assignments
-      allow create: if isSignedIn();
-      allow update, delete: if isExistingOwner(userId) || isAdmin();
-    }
-
-    match /trades/{tradeId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    match /projects/{projectId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    match /sub-contractors/{subId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    match /client-instructions/{id} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /instructions/{id} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /cleanup-notices/{id} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /snagging-items/{id} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /information-requests/{id} {
-      allow read, write: if isSignedIn();
-    }
-
-    match /quality-checklists/{id} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Procurement Module Rules
-    match /suppliers/{supplierId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    match /materials/{materialId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    match /purchase-orders/{orderId} {
-      allow read, write: if isSignedIn();
-    }
+    // Allow all authenticated access to core collections for prototype development
+    match /users/{userId} { allow read, write: if isSignedIn(); }
+    match /projects/{projectId} { allow read, write: if isSignedIn(); }
+    match /sub-contractors/{subId} { allow read, write: if isSignedIn(); }
+    match /client-instructions/{id} { allow read, write: if isSignedIn(); }
+    match /instructions/{id} { allow read, write: if isSignedIn(); }
+    match /cleanup-notices/{id} { allow read, write: if isSignedIn(); }
+    match /snagging-items/{id} { allow read, write: if isSignedIn(); }
+    match /information-requests/{id} { allow read, write: if isSignedIn(); }
+    match /quality-checklists/{id} { allow read, write: if isSignedIn(); }
+    match /suppliers/{supplierId} { allow read, write: if isSignedIn(); }
+    match /materials/{materialId} { allow read, write: if isSignedIn(); }
+    match /purchase-orders/{orderId} { allow read, write: if isSignedIn(); }
+    match /trades/{tradeId} { allow read, write: if isSignedIn(); }
   }
 }
