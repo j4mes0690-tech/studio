@@ -161,6 +161,9 @@ export function OrderCard({
               <td colspan="5" style="padding: 15px; text-align: right; font-size: 14px; font-weight: bold; color: #336AB6;">ORDER TOTAL (GBP)</td>
               <td style="padding: 15px; text-align: right; font-size: 18px; font-weight: bold; color: #336AB6; border-top: 2px solid #336AB6;">£${order.totalAmount.toFixed(2)}</td>
             </tr>
+            <tr>
+              <td colspan="6" style="padding: 10px 15px; text-align: right; font-size: 10px; color: #64748b; font-style: italic;">* All costs exclude VAT</td>
+            </tr>
           </tfoot>
         </table>
 
