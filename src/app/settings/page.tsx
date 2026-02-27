@@ -23,6 +23,7 @@ import { ProjectsList } from './projects-list';
 import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
 import { ManageTradesDialog } from './manage-trades-dialog';
+import { ManageTrades } from './manage-trades';
 import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
@@ -142,6 +143,16 @@ export default function SettingsPage() {
                                 <SubcontractorsList subContractors={subContractors || []} />
                             </div>
                         </div>
+
+                        {permissions.canManageTrades && (
+                          <div className="mt-12 space-y-6 pt-8 border-t">
+                            <div className="flex flex-col gap-1">
+                              <h3 className="text-xl font-bold tracking-tight">Trade Category Management</h3>
+                              <p className="text-sm text-muted-foreground">Define the trade specialties used for partner assignment and quality checklists.</p>
+                            </div>
+                            <ManageTrades />
+                          </div>
+                        )}
                     </AccordionContent>
                 </AccordionItem>
             </Card>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -29,8 +30,8 @@ export function ManageTradesDialog() {
         <Tooltip>
           <TooltipTrigger asChild>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary transition-colors">
-                <Settings2 className="h-4 w-4" />
+              <Button variant="outline" size="icon" className="h-9 w-9 text-primary hover:bg-primary/5 transition-colors">
+                <Settings2 className="h-5 w-5" />
                 <span className="sr-only">Manage Trades</span>
               </Button>
             </DialogTrigger>
