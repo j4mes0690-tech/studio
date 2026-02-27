@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   DropdownMenu,
@@ -12,18 +11,20 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Bell, HelpCircle, Loader2, MessageSquareReply } from 'lucide-react';
+import { Bell, HelpCircle, Loader2, MessageSquareReply, X, Check } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection, useDoc } from '@/firebase';
-import { collection, query, where, or, and, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, or, and, doc, updateDoc, arrayUnion, writeBatch } from 'firebase/firestore';
 import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { cn } from '@/lib/utils';
 
 export function NotificationsMenu({ userEmail }: { userEmail: string }) {
   const db = useFirestore();
   const normalizedEmail = userEmail.toLowerCase().trim();
+  const [isClearingAll, setIsClearingAll] = useState(false);
 
   // Fetch current user profile for permission check
   const profileRef = useMemo(() => {
@@ -43,7 +44,6 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
     if (!allProjects || !profile) return [];
     
     // Global oversight restricted to hasFullVisibility. 
-    // canManageProjects no longer grants visibility to notification stream.
     if (profile.permissions?.hasFullVisibility) return allProjects.map(p => p.id);
     
     // Standard users only see notifications for projects they are assigned to
@@ -98,10 +98,13 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
           };
       }
       return null;
-    }).filter(Boolean);
+    }).filter((n): n is any => n !== null);
   }, [rawRequests, normalizedEmail, allowedProjectIds, profile]);
 
-  const handleDismiss = (requestId: string) => {
+  const handleDismiss = (e: React.MouseEvent, requestId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     const docRef = doc(db, 'information-requests', requestId);
     updateDoc(docRef, {
       dismissedBy: arrayUnion(normalizedEmail)
@@ -113,6 +116,29 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
       });
       errorEmitter.emit('permission-error', permissionError);
     });
+  };
+
+  const handleDismissAll = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (notifications.length === 0) return;
+    
+    setIsClearingAll(true);
+    try {
+      const batch = writeBatch(db);
+      notifications.forEach(notif => {
+        const docRef = doc(db, 'information-requests', notif.id);
+        batch.update(docRef, {
+          dismissedBy: arrayUnion(normalizedEmail)
+        });
+      });
+      await batch.commit();
+    } catch (error) {
+      console.error('Failed to clear all notifications:', error);
+    } finally {
+      setIsClearingAll(false);
+    }
   };
 
   const pendingCount = notifications.length;
@@ -135,11 +161,21 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between">
-          <span>Pending Actions</span>
+          <div className="flex flex-col">
+            <span>Pending Actions</span>
+            {pendingCount > 0 && <span className="text-[10px] font-normal text-muted-foreground">{pendingCount} unread</span>}
+          </div>
           {pendingCount > 0 && (
-            <Badge variant="secondary" className="text-[10px]">
-              {pendingCount} Updates
-            </Badge>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 text-[10px] uppercase font-bold text-primary hover:text-primary hover:bg-primary/5"
+              onClick={handleDismissAll}
+              disabled={isClearingAll}
+            >
+              {isClearingAll ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+              Clear All
+            </Button>
           )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -151,7 +187,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
         ) : pendingCount === 0 ? (
           <div className="py-8 text-center">
             <p className="text-sm text-muted-foreground">No pending actions found.</p>
-            <p className="text-xs text-muted-foreground mt-1">You're all caught up!</p>
+            <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-tighter">You're all caught up!</p>
           </div>
         ) : (
           <ScrollArea className="h-72">
@@ -160,12 +196,14 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
                 <DropdownMenuItem 
                   key={notif.id} 
                   asChild 
-                  className="cursor-pointer p-3"
-                  onClick={() => handleDismiss(notif.id)}
+                  className="cursor-pointer p-3 relative group focus:bg-muted/50"
                 >
-                  <Link href={`/information-requests?project=${notif.projectId}`}>
-                    <div className="flex gap-3 items-start">
-                      <div className={`mt-1 p-2 rounded-full ${notif.notifType === 'assignment' ? 'bg-primary/10' : 'bg-accent/10'}`}>
+                  <div className="flex gap-3 items-start pr-8">
+                    <Link href={`/information-requests?project=${notif.projectId}`} className="flex-1 flex gap-3 items-start">
+                      <div className={cn(
+                        "mt-1 p-2 rounded-full",
+                        notif.notifType === 'assignment' ? 'bg-primary/10' : 'bg-accent/10'
+                      )}>
                         {notif.notifType === 'assignment' ? (
                             <HelpCircle className="h-4 w-4 text-primary" />
                         ) : (
@@ -173,9 +211,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
                         )}
                       </div>
                       <div className="flex-1 space-y-1 overflow-hidden">
-                        <div className="flex justify-between items-center gap-2">
-                             <p className="text-xs font-semibold text-muted-foreground uppercase">{notif.label}</p>
-                        </div>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase leading-none">{notif.label}</p>
                         <p className="text-sm font-medium leading-tight line-clamp-2">
                           {notif.description}
                         </p>
@@ -183,16 +219,26 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
                           {notif.requiredBy ? `Due ${new Date(notif.requiredBy).toLocaleDateString()}` : 'No deadline'}
                         </p>
                       </div>
-                    </div>
-                  </Link>
+                    </Link>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background hover:text-destructive"
+                      onClick={(e) => handleDismiss(e, notif.id)}
+                      title="Clear Notification"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </DropdownMenuItem>
               ))}
             </div>
           </ScrollArea>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="cursor-pointer text-center justify-center font-semibold">
-          <Link href="/information-requests">View All Requests</Link>
+        <DropdownMenuItem asChild className="cursor-pointer text-center justify-center font-bold text-xs uppercase tracking-widest text-primary">
+          <Link href="/information-requests">View Full Log</Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
