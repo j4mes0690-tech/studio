@@ -144,43 +144,43 @@ function OrderTableRow({
         </TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-            {isDraft && (
-              <TooltipProvider>
+            <TooltipProvider>
+              {isDraft && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="text-orange-600" onClick={handleCommit} disabled={isPending}>
                       {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      <span className="sr-only">Commit Order</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent><p>Commit Order</p></TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
-            )}
-            
-            <AlertDialog>
-              <TooltipProvider>
+              )}
+              
+              <AlertDialog>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <AlertDialogTrigger asChild>
                       <Button variant="ghost" size="icon" className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
                         <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete Order</span>
                       </Button>
                     </AlertDialogTrigger>
                   </TooltipTrigger>
                   <TooltipContent><p>Delete Order</p></TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
-              <AlertDialogContent onClick={e => e.stopPropagation()}>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Order?</AlertDialogTitle>
-                  <AlertDialogDescription>Permanently remove order {order.orderNumber}.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                <AlertDialogContent onClick={e => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Order?</AlertDialogTitle>
+                    <AlertDialogDescription>Permanently remove order {order.orderNumber}.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </TooltipProvider>
           </div>
         </TableCell>
       </TableRow>

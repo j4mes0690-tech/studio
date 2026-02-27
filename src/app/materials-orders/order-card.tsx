@@ -29,6 +29,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
   Collapsible,
@@ -211,48 +217,67 @@ export function OrderCard({
               </CardDescription>
             </div>
             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-              {isDraft ? (
-                <>
-                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    className="h-8 gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50"
-                    onClick={handleCommit}
-                    disabled={isPending}
-                  >
-                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                    Commit Order
-                  </Button>
-                </>
-              ) : (
-                <Badge className={cn(
-                  "capitalize text-[10px]",
-                  order.status === 'issued' ? 'bg-green-100 text-green-800' : 'bg-muted'
-                )}>{order.status}</Badge>
-              )}
-              
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
-                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-              </Button>
+              <TooltipProvider>
+                {isDraft ? (
+                  <>
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-orange-600 hover:bg-orange-50"
+                          onClick={handleCommit}
+                          disabled={isPending}
+                        >
+                          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                          <span className="sr-only">Commit Order</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Commit Order</p></TooltipContent>
+                    </Tooltip>
+                  </>
+                ) : (
+                  <Badge className={cn(
+                    "capitalize text-[10px]",
+                    order.status === 'issued' ? 'bg-green-100 text-green-800' : 'bg-muted'
+                  )}>{order.status}</Badge>
+                )}
+                
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
+                      {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                      <span className="sr-only">Download PDF</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Download PO as PDF</p></TooltipContent>
+                </Tooltip>
 
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Purchase Order?</AlertDialogTitle>
-                    <AlertDialogDescription>This will remove order {order.orderNumber} from the system history. This action is permanent.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                <AlertDialog>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete Order</span>
+                        </Button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Delete Order</p></TooltipContent>
+                  </Tooltip>
+                  <AlertDialogContent onClick={e => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Purchase Order?</AlertDialogTitle>
+                      <AlertDialogDescription>This will remove order {order.orderNumber} from the system history. This action is permanent.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </TooltipProvider>
             </div>
           </div>
         </CardHeader>
