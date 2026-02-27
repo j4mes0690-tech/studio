@@ -24,7 +24,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil } from 'lucide-react';
+import { Pencil, Loader2, Save } from 'lucide-react';
 import type { SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -99,12 +99,11 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
           setOpen(false);
         })
         .catch((error) => {
-          const permissionError = new FirestorePermissionError({
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: docRef.path,
             operation: 'update',
             requestResourceData: updates,
-          });
-          errorEmitter.emit('permission-error', permissionError);
+          }));
         });
     });
   };
@@ -112,114 +111,44 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon">
-          <Pencil className="h-4 w-4" />
-          <span className="sr-only">Edit Contact</span>
-        </Button>
+        <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit External Contact</DialogTitle>
-          <DialogDescription>
-            Update credentials and classification for this partner.
-          </DialogDescription>
+          <DialogDescription>Update details and classification for this partner.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4"
-          >
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <input type="hidden" {...form.register('id')} />
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name / Company Name</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Email</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormField control={form.control} name="name" render={({ field }) => (
+                <FormItem><FormLabel>Name / Company Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem><FormLabel>Contact Email</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
 
             <Separator />
 
             <div className="space-y-3">
               <FormLabel>Contact Categories</FormLabel>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="isSubContractor"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="cursor-pointer text-xs">Sub-contractor</FormLabel>
-                      </div>
+                {['isSubContractor', 'isDesigner', 'isSupplier'].map((cat) => (
+                  <FormField key={cat} control={form.control} name={cat as any} render={({ field }) => (
+                    <FormItem className="flex items-center space-x-3 space-y-0 rounded-md border p-3">
+                      <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                      <FormLabel className="cursor-pointer text-xs capitalize">{cat.replace('is', '').replace('Contractor', '-contractor')}</FormLabel>
                     </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="isDesigner"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="cursor-pointer text-xs">Designer</FormLabel>
-                      </div>
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="isSupplier"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3">
-                      <FormControl>
-                        <Checkbox
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel className="cursor-pointer text-xs">Supplier</FormLabel>
-                      </div>
-                    </FormItem>
-                  )}
-                />
+                  )} />
+                ))}
               </div>
               <FormMessage />
             </div>
 
             <DialogFooter className="pt-4 border-t">
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? 'Saving...' : 'Save Changes'}
+              <Button type="submit" disabled={isPending} className="w-full">
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Changes
               </Button>
             </DialogFooter>
           </form>

@@ -118,16 +118,17 @@ export function NewChecklist() {
           New Checklist Template
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle>Create New Quality Checklist</DialogTitle>
           <DialogDescription>
             Define a new checklist template for specific trade works.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex-1 flex flex-col min-h-0">
-            <div className="space-y-4 overflow-y-auto pr-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+            <ScrollArea className="flex-1 px-6">
+              <div className="space-y-6 py-4">
                 <FormField
                 control={form.control}
                 name="title"
@@ -165,29 +166,30 @@ export function NewChecklist() {
                             placeholder="Add a new checklist item"
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
                         />
-                        <Button type="button" onClick={handleAddItem}>Add</Button>
+                        <Button type="button" variant="secondary" onClick={handleAddItem}>Add</Button>
                     </div>
 
-                    <ScrollArea className="h-40 rounded-md border mt-2">
+                    <ScrollArea className="h-48 rounded-md border mt-2 bg-muted/5">
                         <div className="p-4 space-y-2">
                             {items.map((item, index) => (
-                                <div key={index} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
+                                <div key={index} className="flex items-center justify-between p-2 rounded-md bg-background border">
                                     <span className="text-sm">{item}</span>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
-                                        <X className="h-4 w-4 text-muted-foreground"/>
+                                        <X className="h-4 w-4 text-destructive"/>
                                     </Button>
                                 </div>
                             ))}
-                            {items.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">No items added yet.</p>}
+                            {items.length === 0 && <p className="text-sm text-center text-muted-foreground py-8 italic">No items added yet.</p>}
                         </div>
                     </ScrollArea>
                 </FormItem>
-            </div>
+              </div>
+            </ScrollArea>
 
-            <DialogFooter className="mt-auto pt-4">
-              <Button type="submit" disabled={isPending}>
+            <DialogFooter className="p-6 border-t bg-muted/10">
+              <Button type="submit" disabled={isPending} className="w-full">
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Create Checklist
+                Create Checklist Template
               </Button>
             </DialogFooter>
           </form>

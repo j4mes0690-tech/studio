@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, AlertTriangle, UserPlus, User, RefreshCw } from 'lucide-react';
+import { Pencil, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, AlertTriangle, UserPlus, User, RefreshCw, Loader2, Save } from 'lucide-react';
 import type { Project, SnaggingItem, Photo, Area, SnaggingListItem, SubContractor } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -41,21 +41,9 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { VoiceInput } from '@/components/voice-input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const EditSnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -111,7 +99,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    // Only show contacts assigned to the project who are classified as Sub-contractors (Excludes Designers-only)
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
@@ -161,14 +148,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       canvas.width = 800;
       canvas.height = 800 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const now = new Date();
-      const ts = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-      context.font = 'bold 24px sans-serif';
-      context.fillStyle = 'white';
-      context.shadowColor = 'black';
-      context.shadowBlur = 6;
-      context.fillText(ts, canvas.width - context.measureText(ts).width - 20, canvas.height - 20);
-      return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: now.toISOString() };
+      return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: new Date().toISOString() };
     }
     return null;
   };
@@ -200,8 +180,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   const onSubmit = (values: EditSnaggingListFormValues) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Saving', description: 'Persisting media changes...' });
-
         const upGeneral = await Promise.all(photos.map(async (p, i) => {
           if (p.url.startsWith('data:')) {
             const blob = await dataUriToBlob(p.url);
@@ -228,12 +206,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
             }
             return p;
           }));
-          return { 
-            ...itm, 
-            photos: pDefects, 
-            completionPhotos: pFixed,
-            subContractorId: itm.subContractorId || null
-          };
+          return { ...itm, photos: pDefects, completionPhotos: pFixed, subContractorId: itm.subContractorId || null };
         }));
 
         const docRef = doc(db, 'snagging-items', item.id);
@@ -281,94 +254,107 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /><span className="sr-only">Edit List</span></Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader><DialogTitle>Edit Snagging List</DialogTitle></DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="p-6 pb-0"><DialogTitle>Edit Snagging List</DialogTitle></DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 flex-1 overflow-y-auto pr-2 min-h-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="projectId" render={({ field }) => (
-                    <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+            <ScrollArea className="flex-1 px-6">
+              <div className="space-y-6 py-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="projectId" render={({ field }) => (
+                        <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                    )} />
+                    <FormField control={form.control} name="areaId" render={({ field }) => (
+                        <FormItem><FormLabel>Area</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                    )} />
+                </div>
+                <FormField control={form.control} name="title" render={({ field }) => (
+                    <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                 )} />
-                <FormField control={form.control} name="areaId" render={({ field }) => (
-                    <FormItem><FormLabel>Area</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                )} />
-            </div>
-            <FormField control={form.control} name="title" render={({ field }) => (
-                <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-            )} />
-            
-            <Separator />
-            
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
-                    <VoiceInput onResult={(text) => setNewItemText(text)} />
+                
+                <Separator />
+                
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
+                        <VoiceInput onResult={(text) => setNewItemText(text)} />
+                    </div>
+                    
+                    <div className="flex gap-2 items-end">
+                        <Input 
+                            placeholder="Add new defect..." 
+                            value={newItemText} 
+                            onChange={(e) => setNewItemText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
+                        />
+                        <div className="flex gap-1">
+                          <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
+                              <SelectTrigger className="w-10 px-0 flex justify-center"><UserPlus className="h-4 w-4" /></SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                                  {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                              </SelectContent>
+                          </Select>
+                          <Button type="button" variant="outline" size="icon" onClick={() => setIsCameraOpen(true)}><Camera className="h-4 w-4" /></Button>
+                          <Button type="button" onClick={handleAddItem} size="icon"><Plus className="h-4 w-4" /></Button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        {items.map((listItem, idx) => {
+                            const sub = subContractors.find(s => s.id === listItem.subContractorId);
+                            return (
+                                <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 group">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex flex-col gap-1">
+                                            <span className={cn("text-sm font-medium", listItem.status === 'closed' && "line-through text-muted-foreground")}>{listItem.description}</span>
+                                            {sub && <Badge variant="secondary" className="w-fit text-[10px] gap-1"><User className="h-2 w-2" /> {sub.name}</Badge>}
+                                        </div>
+                                        <div className="flex gap-1 items-center">
+                                            <Button type="button" variant="ghost" size="icon" className="text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                            <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setItems(items.filter(i => i.id !== listItem.id))}><Trash2 className="h-4 w-4" /></Button>
+                                        </div>
+                                    </div>
+                                    {(listItem.photos?.length || 0) > 0 && <div className="flex gap-2 mt-2">{listItem.photos?.map((p, pIdx) => <div key={pIdx} className="relative w-10 h-10"><Image src={p.url} alt="D" fill className="rounded object-cover border" /></div>)}</div>}
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
                 
-                <div className="flex gap-2 items-end">
-                    <Input 
-                        placeholder="Add new defect..." 
-                        value={newItemText} 
-                        onChange={(e) => setNewItemText(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
-                    />
-                    <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
-                        <SelectTrigger className="w-10 px-0 flex justify-center"><UserPlus className="h-4 w-4" title="Assign sub-contractor" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                            {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <Button type="button" onClick={handleAddItem} size="icon"><Plus className="h-4 w-4" /></Button>
-                </div>
-
-                <div className="space-y-3">
-                    {items.map(listItem => {
-                        const sub = subContractors.find(s => s.id === listItem.subContractorId);
-                        return (
-                            <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 group">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex flex-col gap-1">
-                                        <span className={cn("text-sm font-medium", listItem.status === 'closed' && "line-through text-muted-foreground")}>{listItem.description}</span>
-                                        {sub && <Badge variant="secondary" className="w-fit text-[10px] gap-1"><User className="h-2 w-2" /> {sub.name}</Badge>}
-                                    </div>
-                                    <div className="flex gap-1 items-center">
-                                        <Button type="button" variant="ghost" size="icon" className="text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                        <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setItems(items.filter(i => i.id !== listItem.id))}><Trash2 className="h-4 w-4" /></Button>
-                                    </div>
-                                </div>
-                                {(listItem.photos?.length || 0) > 0 && <div className="flex gap-2 mt-2">{listItem.photos?.map((p, idx) => <div key={idx} className="relative w-10 h-10"><Image src={p.url} alt="D" fill className="rounded object-cover border" /></div>)}</div>}
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-            
-            <Separator />
-            
-            <div className="space-y-2">
-              <FormLabel>Reference Photos</FormLabel>
-              <div className="flex flex-wrap gap-2">
-                {photos.map((p, i) => (
-                  <div key={i} className="relative w-20 h-20"><Image src={p.url} alt="S" fill className="rounded-md object-cover" /><Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button></div>
-                ))}
-                <Button type="button" variant="outline" size="icon" className="w-20 h-20" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6" /></Button>
-              </div>
-              {(isCameraOpen || itemPhotoTargetId) && (
-                <div className="space-y-2 border rounded-md p-2 bg-muted/30 mt-2">
-                  <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
-                  <div className="flex gap-2">
-                    <Button type="button" size="sm" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto}>Capture</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={toggleCamera}><RefreshCw className="h-4 w-4" /></Button>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }}>Cancel</Button>
+                <Separator />
+                
+                <div className="space-y-2">
+                  <FormLabel>Reference Photos</FormLabel>
+                  <div className="flex flex-wrap gap-2">
+                    {photos.map((p, i) => (
+                      <div key={i} className="relative w-20 h-20"><Image src={p.url} alt="S" fill className="rounded-md object-cover" /><Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button></div>
+                    ))}
+                    <Button type="button" variant="outline" size="icon" className="w-20 h-20" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6" /></Button>
                   </div>
+                  {(isCameraOpen || itemPhotoTargetId) && (
+                    <div className="space-y-2 border rounded-md p-2 bg-muted/30 mt-2">
+                      <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto}>Capture</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={toggleCamera}><RefreshCw className="h-4 w-4" /></Button>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              </div>
+            </ScrollArea>
+
+            <DialogFooter className="p-6 border-t bg-muted/10">
+              <Button type="submit" disabled={isPending} className="w-full h-12 text-lg font-bold">
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
             <canvas ref={canvasRef} className="hidden" />
           </form>
         </Form>
-        <DialogFooter className="mt-4 pt-4 border-t"><Button type="submit" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>{isPending ? 'Processing...' : 'Save Changes'}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
