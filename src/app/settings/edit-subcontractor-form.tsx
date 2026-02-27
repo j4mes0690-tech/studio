@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTransition, useState, useEffect } from 'react';
+import { useTransition, useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -26,13 +26,14 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil } from 'lucide-react';
-import type { SubContractor } from '@/lib/types';
-import { useFirestore } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import type { SubContractor, Trade } from '@/lib/types';
+import { useFirestore, useCollection } from '@/firebase';
+import { doc, updateDoc, collection, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const EditContactSchema = z.object({
   id: z.string().min(1),
@@ -40,6 +41,7 @@ const EditContactSchema = z.object({
   email: z.string().email('Invalid email address.'),
   isSubContractor: z.boolean().default(false),
   isDesigner: z.boolean().default(false),
+  trades: z.array(z.string()).default([]),
 }).refine(data => data.isSubContractor || data.isDesigner, {
   message: "Select at least one category",
   path: ["isSubContractor"]
@@ -57,6 +59,9 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
+  const tradesQuery = useMemo(() => query(collection(db, 'trades'), orderBy('name', 'asc')), [db]);
+  const { data: allTrades } = useCollection<Trade>(tradesQuery);
+
   const form = useForm<EditContactFormValues>({
     resolver: zodResolver(EditContactSchema),
     defaultValues: {
@@ -65,6 +70,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
       email: subContractor.email,
       isSubContractor: !!subContractor.isSubContractor,
       isDesigner: !!subContractor.isDesigner,
+      trades: subContractor.trades || [],
     },
   });
 
@@ -76,6 +82,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
         email: subContractor.email,
         isSubContractor: !!subContractor.isSubContractor,
         isDesigner: !!subContractor.isDesigner,
+        trades: subContractor.trades || [],
       });
     }
   }, [open, subContractor, form]);
@@ -88,6 +95,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
         email: values.email,
         isSubContractor: values.isSubContractor,
         isDesigner: values.isDesigner,
+        trades: values.trades,
       };
 
       updateDoc(docRef, updates)
@@ -195,6 +203,50 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
                 />
               </div>
               <FormMessage />
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <FormLabel>Assigned Trades</FormLabel>
+              <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
+                {allTrades?.map((trade) => (
+                  <FormField
+                    key={trade.id}
+                    control={form.control}
+                    name="trades"
+                    render={({ field }) => {
+                      return (
+                        <FormItem
+                          key={trade.id}
+                          className="flex flex-row items-start space-x-3 space-y-0 mb-2"
+                        >
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value?.includes(trade.name)}
+                              onCheckedChange={(checked) => {
+                                return checked
+                                  ? field.onChange([...field.value, trade.name])
+                                  : field.onChange(
+                                      field.value?.filter(
+                                        (value) => value !== trade.name
+                                      )
+                                    )
+                              }}
+                            />
+                          </FormControl>
+                          <FormLabel className="font-normal text-xs cursor-pointer">
+                            {trade.name}
+                          </FormLabel>
+                        </FormItem>
+                      )
+                    }}
+                  />
+                ))}
+                {(allTrades?.length || 0) === 0 && (
+                  <p className="text-[10px] text-muted-foreground text-center py-8 italic">No trades defined in the system.</p>
+                )}
+              </ScrollArea>
             </div>
 
             <DialogFooter className="pt-4 border-t">

@@ -28,6 +28,7 @@ import { collection, doc, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
 import type { DistributionUser, SubContractor, Project, QualityChecklist } from '@/lib/types';
 import { Loader2, ShieldAlert } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -126,8 +127,8 @@ export default function SettingsPage() {
           {permissions.canManageSubcontractors && (
             <Card>
                 <AccordionItem value="subcontractors" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts (Sub-contractors / Designers)</AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts & Trades</AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0 space-y-12">
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Add New External Contact</h3>
@@ -138,6 +139,19 @@ export default function SettingsPage() {
                                 <SubcontractorsList subContractors={subContractors || []} />
                             </div>
                         </div>
+
+                        {permissions.canManageTrades && (
+                          <>
+                            <Separator />
+                            <div className="space-y-6">
+                              <div className="space-y-1">
+                                <h3 className="text-lg font-bold">Manage Trade Categories</h3>
+                                <p className="text-sm text-muted-foreground">Define trade specialties used for partner classification and quality checklists.</p>
+                              </div>
+                              <ManageTrades />
+                            </div>
+                          </>
+                        )}
                     </AccordionContent>
                 </AccordionItem>
             </Card>
@@ -158,17 +172,6 @@ export default function SettingsPage() {
                                 <ProjectsList projects={projects || []} users={users || []} />
                             </div>
                         </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Card>
-          )}
-
-          {permissions.canManageTrades && (
-            <Card>
-                <AccordionItem value="trades" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Trade Categories</AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
-                        <ManageTrades />
                     </AccordionContent>
                 </AccordionItem>
             </Card>

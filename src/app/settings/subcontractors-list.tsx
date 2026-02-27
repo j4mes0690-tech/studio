@@ -3,7 +3,7 @@
 
 import type { SubContractor } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, HardHat, Ruler } from 'lucide-react';
+import { Trash2, HardHat, Ruler, Tag } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -49,14 +49,15 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
   };
   
   return (
-    <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
       {subContractors.map((contact) => (
         <div key={contact.id} className="flex items-start justify-between p-3 rounded-lg border bg-muted/5">
-          <div className="space-y-2">
+          <div className="space-y-3 flex-1 overflow-hidden">
             <div>
               <p className="font-semibold text-sm">{contact.name}</p>
-              <p className="text-xs text-muted-foreground">{contact.email}</p>
+              <p className="text-xs text-muted-foreground truncate">{contact.email}</p>
             </div>
+            
             <div className="flex flex-wrap gap-1">
               {contact.isSubContractor && (
                 <Badge variant="secondary" className="text-[9px] h-4 gap-1">
@@ -69,6 +70,17 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
                 </Badge>
               )}
             </div>
+
+            {contact.trades && contact.trades.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {contact.trades.map((trade, idx) => (
+                  <Badge key={idx} variant="outline" className="text-[8px] h-3.5 px-1 bg-background flex items-center gap-1 font-normal border-muted-foreground/20">
+                    <Tag className="h-2 w-2 text-muted-foreground" />
+                    {trade}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex items-center">
             <EditSubcontractorForm subContractor={contact} />

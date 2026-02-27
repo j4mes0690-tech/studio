@@ -120,7 +120,8 @@
         "name": { "type": "string" },
         "email": { "type": "string" },
         "isSubContractor": { "type": "boolean" },
-        "isDesigner": { "type": "boolean" }
+        "isDesigner": { "type": "boolean" },
+        "trades": { "type": "array", "items": { "type": "string" } }
       }
     },
     "CleanUpNotice": {

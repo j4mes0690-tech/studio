@@ -135,6 +135,7 @@ export type SubContractor = {
   email: string;
   isSubContractor?: boolean;
   isDesigner?: boolean;
+  trades?: string[];
 };
 
 export type ChecklistItemStatus = 'pending' | 'yes' | 'no' | 'na';
