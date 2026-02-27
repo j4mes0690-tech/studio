@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -11,12 +10,13 @@ import {
   Calendar, 
   Loader2, 
   FileDown,
-  ChevronDown
+  ChevronDown,
+  CheckCircle2
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useTransition } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -42,6 +42,20 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
   const [isPending, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  const isDraft = order.status === 'draft';
+
+  const handleCommit = () => {
+    startTransition(async () => {
+      try {
+        const docRef = doc(db, 'purchase-orders', order.id);
+        await updateDoc(docRef, { status: 'issued' });
+        toast({ title: 'Success', description: 'Purchase order committed.' });
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to commit order.', variant: 'destructive' });
+      }
+    });
+  };
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -151,12 +165,18 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
   };
 
   return (
-    <Card className="hover:border-primary/50 transition-colors shadow-sm group">
+    <Card className={cn(
+      "hover:border-primary/50 transition-colors shadow-sm group",
+      isDraft && "border-orange-200 bg-orange-50/10"
+    )}>
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="font-mono text-[10px] bg-background text-primary border-primary/20">{order.orderNumber}</Badge>
+              <Badge variant="outline" className={cn(
+                "font-mono text-[10px] bg-background text-primary border-primary/20",
+                isDraft && "border-orange-200 text-orange-600"
+              )}>{order.orderNumber}</Badge>
               <CardTitle className="text-lg">{order.supplierName}</CardTitle>
             </div>
             <CardDescription className="flex items-center gap-3">
@@ -166,10 +186,26 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className={cn(
-              "capitalize text-[10px]",
-              order.status === 'issued' ? 'bg-green-100 text-green-800' : 'bg-muted'
-            )}>{order.status}</Badge>
+            {isDraft ? (
+              <>
+                <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50"
+                  onClick={handleCommit}
+                  disabled={isPending}
+                >
+                  {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                  Commit Order
+                </Button>
+              </>
+            ) : (
+              <Badge className={cn(
+                "capitalize text-[10px]",
+                order.status === 'issued' ? 'bg-green-100 text-green-800' : 'bg-muted'
+              )}>{order.status}</Badge>
+            )}
             
             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
               {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}

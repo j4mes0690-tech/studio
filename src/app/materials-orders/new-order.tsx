@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar, Pencil } from 'lucide-react';
+import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar, Pencil, Save } from 'lucide-react';
 import type { Project, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -64,6 +64,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
+  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'issued'>('issued');
 
   // Order Items State
   const [orderItems, setOrderItems] = useState<Omit<PurchaseOrderItem, 'id'>[]>([]);
@@ -152,13 +153,16 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
           notes: values.notes || '',
           items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
           totalAmount: orderTotal,
-          status: 'issued',
+          status: submissionStatus,
           createdAt: new Date().toISOString(),
           createdByEmail: currentUser.email.toLowerCase().trim()
         };
 
         await addDoc(collection(db, 'purchase-orders'), orderData);
-        toast({ title: 'Success', description: 'Purchase order created and logged.' });
+        toast({ 
+          title: 'Success', 
+          description: submissionStatus === 'draft' ? 'Order saved as draft.' : 'Purchase order committed and logged.' 
+        });
         setOpen(false);
         setOrderItems([]);
         form.reset();
@@ -400,10 +404,25 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
           </form>
         </Form>
 
-        <DialogFooter className="pt-4 border-t px-6 pb-6">
-          <Button type="submit" disabled={isPending} onClick={form.handleSubmit(onSubmit)} className="w-full h-12 text-lg font-bold">
-            {isPending ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <ShoppingCart className="h-5 w-5 mr-2" />}
-            Issue Purchase Order
+        <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t px-6 pb-6">
+          <Button 
+            type="submit" 
+            variant="outline" 
+            className="w-full sm:w-auto h-12"
+            disabled={isPending}
+            onClick={() => setSubmissionStatus('draft')}
+          >
+            {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Save as Draft
+          </Button>
+          <Button 
+            type="submit" 
+            className="w-full sm:flex-1 h-12 text-lg font-bold" 
+            disabled={isPending}
+            onClick={() => setSubmissionStatus('issued')}
+          >
+            {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-5 w-5" />}
+            Commit Order
           </Button>
         </DialogFooter>
       </DialogContent>
