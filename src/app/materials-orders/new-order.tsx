@@ -301,11 +301,13 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                               <ShoppingCart className="h-2 w-2" /> {item.quantity} {item.unit} @ £{item.rate.toFixed(2)}
                             </span>
-                            {item.deliveryDate && (
-                              <span className="text-[10px] text-destructive flex items-center gap-1 font-semibold">
-                                <Calendar className="h-2 w-2" /> Delivery: {new Date(item.deliveryDate).toLocaleDateString()}
-                              </span>
-                            )}
+                            <span className={cn(
+                              "text-[10px] flex items-center gap-1 font-semibold",
+                              item.deliveryDate ? "text-destructive" : "text-primary"
+                            )}>
+                              <Calendar className="h-2 w-2" /> 
+                              Req. Date: {item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString() : 'ASAP'}
+                            </span>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">

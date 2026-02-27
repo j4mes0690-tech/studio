@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -231,7 +232,12 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-bold">£{item.total.toFixed(2)}</p>
-                      {item.deliveryDate && <p className="text-[9px] text-destructive">Due: {new Date(item.deliveryDate).toLocaleDateString()}</p>}
+                      <p className={cn(
+                        "text-[9px] font-semibold",
+                        item.deliveryDate ? "text-destructive" : "text-muted-foreground"
+                      )}>
+                        {item.deliveryDate ? `Due: ${new Date(item.deliveryDate).toLocaleDateString()}` : 'ASAP'}
+                      </p>
                     </div>
                   </div>
                 ))}
