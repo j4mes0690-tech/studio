@@ -163,6 +163,8 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
           title: 'Success', 
           description: submissionStatus === 'draft' ? 'Order saved as draft.' : 'Purchase order committed and logged.' 
         });
+        
+        // Ensure dialog closes and state is reset
         setOpen(false);
         setOrderItems([]);
         form.reset();
