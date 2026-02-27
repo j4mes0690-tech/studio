@@ -51,6 +51,7 @@ const NewNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().optional().default(''),
   recipients: z.array(z.string()).optional(),
+  status: z.enum(['draft', 'issued']).default('issued'),
 });
 
 type NewNoticeFormValues = z.infer<typeof NewNoticeSchema>;
@@ -73,7 +74,6 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'issued'>('issued');
 
   const [photos, setPhotos] = useState<Photo[]>([]);
 
@@ -83,6 +83,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
       projectId: '',
       description: '',
       recipients: [],
+      status: 'issued',
     },
   });
 
@@ -97,7 +98,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
 
   const onSubmit = (values: NewNoticeFormValues) => {
     // Contextual Validation for Issuing
-    if (submissionStatus === 'issued') {
+    if (values.status === 'issued') {
       let hasError = false;
       if (!values.description || values.description.trim().length < 10) {
         form.setError('description', { message: 'Description must be at least 10 characters to formally issue.' });
@@ -139,12 +140,12 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
           recipients: recipientEmails,
           photos: uploadedPhotos,
           createdAt: new Date().toISOString(),
-          status: submissionStatus,
+          status: values.status,
         };
 
         // 2. Save to Firestore
         const colRef = collection(db, 'cleanup-notices');
-        const docRef = await addDoc(colRef, noticeData).catch((error) => {
+        await addDoc(colRef, noticeData).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: colRef.path,
             operation: 'create',
@@ -154,7 +155,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
         });
 
         // 3. Automated Distribution via PDF (Only if issued)
-        if (submissionStatus === 'issued' && recipientContacts.length > 0) {
+        if (values.status === 'issued' && recipientContacts.length > 0) {
           try {
             const { jsPDF } = await import('jspdf');
             const html2canvas = (await import('html2canvas')).default;
@@ -234,7 +235,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
             toast({ title: 'Record Saved', description: 'Notice saved, but email distribution encountered an error.', variant: 'destructive' });
           }
         } else {
-          toast({ title: 'Success', description: submissionStatus === 'draft' ? 'Notice saved as draft.' : 'Clean up notice recorded.' });
+          toast({ title: 'Success', description: values.status === 'draft' ? 'Notice saved as draft.' : 'Clean up notice recorded.' });
         }
 
         setOpen(false);
@@ -292,6 +293,8 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
+
+  const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -445,7 +448,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
                 variant="outline" 
                 className="w-full sm:w-auto"
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('draft')}
+                onClick={() => form.setValue('status', 'draft')}
               >
                 {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save as Draft
@@ -454,7 +457,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
                 type="submit" 
                 className="w-full sm:flex-1" 
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('issued')}
+                onClick={() => form.setValue('status', 'issued')}
               >
                 {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Save & Distribute Notice

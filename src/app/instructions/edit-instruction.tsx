@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, RefreshCw, HardHat, ShieldCheck, FileIcon, FileText, Users2, Shield, Loader2 } from 'lucide-react';
+import { Pencil, Camera, Upload, X, RefreshCw, Loader2, Send, Save, Users2, FileText, FileIcon } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -51,6 +51,7 @@ const EditInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   originalText: z.string().optional().default(''),
   externalRecipient: z.string().optional().default(''),
+  status: z.enum(['draft', 'issued']).default('issued'),
 });
 
 type EditInstructionFormValues = z.infer<typeof EditInstructionSchema>;
@@ -84,7 +85,6 @@ export function EditInstruction({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'issued'>('issued');
 
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
@@ -97,6 +97,7 @@ export function EditInstruction({
       projectId: item.projectId,
       originalText: item.originalText,
       externalRecipient: '',
+      status: item.status === 'issued' ? 'issued' : 'draft',
     },
   });
 
@@ -119,16 +120,16 @@ export function EditInstruction({
         projectId: item.projectId,
         originalText: item.originalText,
         externalRecipient: external,
+        status: item.status === 'issued' ? 'issued' : 'draft',
       });
       setPhotos(item.photos || []);
       setFiles(item.files || []);
-      setSubmissionStatus(item.status === 'issued' ? 'issued' : 'draft');
     }
   }, [open, item, form, subContractors]);
 
   const onSubmit = (values: EditInstructionFormValues) => {
     // Contextual Validation for Issuing
-    if (submissionStatus === 'issued') {
+    if (values.status === 'issued') {
       let hasError = false;
       if (!values.originalText || values.originalText.trim().length < 10) {
         form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' });
@@ -167,7 +168,6 @@ export function EditInstruction({
           })
         );
 
-        // Automate staff notification based on project assignment
         const internalStaffEmails = selectedProject?.assignedUsers || [];
         const combinedRecipients = [
             values.externalRecipient,
@@ -183,23 +183,21 @@ export function EditInstruction({
           recipients: combinedRecipients,
           photos: uploadedPhotos,
           files: uploadedFiles,
-          status: submissionStatus
+          status: values.status
         };
 
         const docRef = doc(db, 'instructions', item.id);
-        updateDoc(docRef, updates)
-          .then(() => {
-            toast({ title: 'Success', description: 'Instruction updated.' });
-            setOpen(false);
-          })
-          .catch((error) => {
-            const permissionError = new FirestorePermissionError({
-              path: docRef.path,
-              operation: 'update',
-              requestResourceData: updates,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-          });
+        await updateDoc(docRef, updates).catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          }));
+          throw error;
+        });
+
+        toast({ title: 'Success', description: values.status === 'draft' ? 'Instruction updated as draft.' : 'Instruction updated and issued.' });
+        setOpen(false);
 
       } catch (err) {
         console.error(err);
@@ -219,7 +217,11 @@ export function EditInstruction({
       }
     };
     if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
   }, [isCameraOpen, facingMode]);
 
   const takePhoto = () => {
@@ -246,17 +248,17 @@ export function EditInstruction({
         return;
       }
       const reader = new FileReader();
-      reader.onload = (re) => {
-        setFiles(prev => [...prev, {
-          name: f.name,
-          type: f.type,
-          size: f.size,
-          url: re.target?.result as string
-        }]);
-      };
+      reader.onload = (re) => setFiles(prev => [...prev, {
+        name: f.name,
+        type: f.type,
+        size: f.size,
+        url: re.target?.result as string
+      }]);
       reader.readAsDataURL(f);
     });
   };
+
+  const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -275,6 +277,8 @@ export function EditInstruction({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <input type="hidden" {...form.register('id')} />
+            
             <FormField
               control={form.control}
               name="projectId"
@@ -411,18 +415,18 @@ export function EditInstruction({
                 variant="outline" 
                 className="w-full sm:w-auto"
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('draft')}
+                onClick={() => form.setValue('status', 'draft')}
               >
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save as Draft
               </Button>
               <Button 
                 type="submit" 
                 className="w-full sm:flex-1" 
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('issued')}
+                onClick={() => form.setValue('status', 'issued')}
               >
-                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Save & Issue Instruction
               </Button>
             </DialogFooter>

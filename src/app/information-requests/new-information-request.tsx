@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -50,12 +49,12 @@ import { Separator } from '@/components/ui/separator';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-// Validation relaxed for Drafts, strictly enforced manually on "Issue"
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().optional().default(''),
   assignedTo: z.array(z.string()).optional().default([]),
   requiredBy: z.string().optional(),
+  status: z.enum(['draft', 'open']).default('open'),
 });
 
 type NewInformationRequestFormValues = z.infer<typeof NewInformationRequestSchema>;
@@ -81,7 +80,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'open'>('open');
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
@@ -93,6 +91,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
       description: '',
       assignedTo: [],
       requiredBy: undefined,
+      status: 'open',
     },
   });
 
@@ -117,8 +116,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: NewInformationRequestFormValues) => {
-    // Contextual Validation for Issuing
-    if (submissionStatus === 'open') {
+    if (values.status === 'open') {
       let hasError = false;
       if (!values.description || values.description.trim().length < 10) {
         form.setError('description', { message: 'Inquiry details must be at least 10 characters to formally log.' });
@@ -173,25 +171,23 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           photos: uploadedPhotos,
           files: uploadedFiles,
           requiredBy: values.requiredBy || null,
-          status: submissionStatus,
+          status: values.status,
           messages: [],
           createdAt: new Date().toISOString(),
         };
 
         const colRef = collection(db, 'information-requests');
-        addDoc(colRef, requestData)
-          .then(() => {
-            toast({ title: 'Success', description: submissionStatus === 'draft' ? 'Request saved as draft.' : `${prefix} logged successfully.` });
-            setOpen(false);
-          })
-          .catch((error) => {
-            const permissionError = new FirestorePermissionError({
-              path: colRef.path,
-              operation: 'create',
-              requestResourceData: requestData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-          });
+        await addDoc(colRef, requestData).catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: requestData,
+          }));
+          throw error;
+        });
+
+        toast({ title: 'Success', description: values.status === 'draft' ? 'Request saved as draft.' : `${prefix} logged successfully.` });
+        setOpen(false);
       } catch (err) {
         console.error(err);
         toast({ title: 'Error', description: 'Failed to process request.', variant: 'destructive' });
@@ -274,6 +270,8 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
+
+  const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -453,7 +451,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                   <div className="space-y-2">
                     <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
                     <div className="flex gap-2">
-                      <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
+                      <Button type="button" size="sm" onClick={takePhoto}>Capture Photo</Button>
                       <Button type="button" variant="outline" size="sm" onClick={toggleCamera} title="Switch Camera">
                         <RefreshCw className="h-4 w-4" />
                       </Button>
@@ -488,7 +486,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 variant="outline" 
                 className="w-full sm:w-auto"
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('draft')}
+                onClick={() => form.setValue('status', 'draft')}
               >
                 {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save as Draft
@@ -497,7 +495,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 type="submit" 
                 className="w-full sm:flex-1" 
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('open')}
+                onClick={() => form.setValue('status', 'open')}
               >
                 {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Save & Log Request

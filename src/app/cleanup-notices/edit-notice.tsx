@@ -50,6 +50,7 @@ const EditNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().optional().default(''),
   recipients: z.array(z.string()).optional(),
+  status: z.enum(['draft', 'issued']).default('issued'),
 });
 
 type EditNoticeFormValues = z.infer<typeof EditNoticeSchema>;
@@ -76,7 +77,6 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'issued'>('issued');
 
   const [photos, setPhotos] = useState<Photo[]>(notice.photos || []);
 
@@ -86,12 +86,12 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
       projectId: notice.projectId,
       description: notice.description || '',
       recipients: [],
+      status: notice.status === 'issued' ? 'issued' : 'draft',
     },
   });
 
   useEffect(() => {
     if (open && notice) {
-      // Find recipient IDs from emails
       const recipientIds = subContractors
         .filter(sub => (notice.recipients || []).includes(sub.email))
         .map(sub => sub.id);
@@ -100,9 +100,9 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
         projectId: notice.projectId,
         description: notice.description || '',
         recipients: recipientIds,
+        status: notice.status === 'issued' ? 'issued' : 'draft',
       });
       setPhotos(notice.photos || []);
-      setSubmissionStatus(notice.status === 'issued' ? 'issued' : 'draft');
     }
   }, [open, notice, form, subContractors]);
 
@@ -112,12 +112,11 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    // Only show contacts assigned to the project who are classified as Sub-contractors (Excludes Designers-only)
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const onSubmit = (values: EditNoticeFormValues) => {
-    if (submissionStatus === 'issued') {
+    if (values.status === 'issued') {
       let hasError = false;
       if (!values.description || values.description.trim().length < 10) {
         form.setError('description', { message: 'Description must be at least 10 characters to formally issue.' });
@@ -154,7 +153,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
           description: values.description || '',
           recipients: recipientEmails,
           photos: uploadedPhotos,
-          status: submissionStatus,
+          status: values.status,
         };
 
         const docRef = doc(db, 'cleanup-notices', notice.id);
@@ -168,7 +167,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
         });
 
         // 2. Automated Distribution via PDF (Only if issued)
-        if (submissionStatus === 'issued' && recipientContacts.length > 0) {
+        if (values.status === 'issued' && recipientContacts.length > 0) {
           try {
             const { jsPDF } = await import('jspdf');
             const html2canvas = (await import('html2canvas')).default;
@@ -231,7 +230,6 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
 
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-            // Distribute to each selected sub-contractor
             for (const sub of recipientContacts) {
               await sendCleanUpNoticeEmailAction({
                 email: sub.email,
@@ -248,7 +246,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
             toast({ title: 'Record Saved', description: 'Notice saved, but email distribution encountered an error.', variant: 'destructive' });
           }
         } else {
-          toast({ title: 'Success', description: submissionStatus === 'draft' ? 'Notice updated as draft.' : 'Clean up notice recorded.' });
+          toast({ title: 'Success', description: values.status === 'draft' ? 'Notice updated as draft.' : 'Clean up notice recorded.' });
         }
 
         setOpen(false);
@@ -285,6 +283,8 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
       setIsCameraOpen(false);
     }
   };
+
+  const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -434,7 +434,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
                 variant="outline" 
                 className="w-full sm:w-auto"
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('draft')}
+                onClick={() => form.setValue('status', 'draft')}
               >
                 {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save as Draft
@@ -443,7 +443,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
                 type="submit" 
                 className="w-full sm:flex-1" 
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('issued')}
+                onClick={() => form.setValue('status', 'issued')}
               >
                 {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Save & Distribute Notice

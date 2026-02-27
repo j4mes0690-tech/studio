@@ -30,6 +30,8 @@ import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar, 
 import type { Project, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -40,6 +42,7 @@ const NewOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
   notes: z.string().optional(),
+  status: z.enum(['draft', 'issued']).default('issued'),
 });
 
 type NewOrderFormValues = z.infer<typeof NewOrderSchema>;
@@ -64,7 +67,6 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
-  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'issued'>('issued');
 
   // Order Items State
   const [orderItems, setOrderItems] = useState<Omit<PurchaseOrderItem, 'id'>[]>([]);
@@ -79,7 +81,12 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
 
   const form = useForm<NewOrderFormValues>({
     resolver: zodResolver(NewOrderSchema),
-    defaultValues: { projectId: '', supplierId: '', notes: '' },
+    defaultValues: { 
+      projectId: '', 
+      supplierId: '', 
+      notes: '', 
+      status: 'issued' 
+    },
   });
 
   const selectedProjectId = form.watch('projectId');
@@ -140,7 +147,9 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
     startTransition(async () => {
       try {
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
-        const orderNumber = getNextReference(allOrders as any[], values.projectId, 'PO', initials);
+        // Map orderNumber to reference for getNextReference utility
+        const existingRefs = allOrders.map(o => ({ reference: o.orderNumber, projectId: o.projectId }));
+        const orderNumber = getNextReference(existingRefs, values.projectId, 'PO', initials);
         const supplier = suppliers.find(s => s.id === values.supplierId);
 
         const orderData = {
@@ -153,27 +162,42 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
           notes: values.notes || '',
           items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
           totalAmount: orderTotal,
-          status: submissionStatus,
+          status: values.status,
           createdAt: new Date().toISOString(),
           createdByEmail: currentUser.email.toLowerCase().trim()
         };
 
-        await addDoc(collection(db, 'purchase-orders'), orderData);
+        const colRef = collection(db, 'purchase-orders');
+        await addDoc(colRef, orderData).catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: orderData,
+          }));
+          throw error;
+        });
+
         toast({ 
           title: 'Success', 
-          description: submissionStatus === 'draft' ? 'Order saved as draft.' : 'Purchase order committed and logged.' 
+          description: values.status === 'draft' ? 'Order saved as draft.' : 'Purchase order committed and logged.' 
         });
         
-        // Ensure dialog closes and state is reset
         setOpen(false);
-        setOrderItems([]);
-        form.reset();
       } catch (err) {
         console.error(err);
         toast({ title: 'Error', description: 'Failed to save purchase order.', variant: 'destructive' });
       }
     });
   };
+
+  useEffect(() => {
+    if (!open) {
+      setOrderItems([]);
+      form.reset();
+    }
+  }, [open, form]);
+
+  const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -412,7 +436,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
             variant="outline" 
             className="w-full sm:w-auto h-12"
             disabled={isPending}
-            onClick={() => setSubmissionStatus('draft')}
+            onClick={() => form.setValue('status', 'draft')}
           >
             {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Save as Draft
@@ -421,7 +445,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
             type="submit" 
             className="w-full sm:flex-1 h-12 text-lg font-bold" 
             disabled={isPending}
-            onClick={() => setSubmissionStatus('issued')}
+            onClick={() => form.setValue('status', 'issued')}
           >
             {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-5 w-5" />}
             Commit Order

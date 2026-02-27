@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -56,6 +55,7 @@ const EditInformationRequestSchema = z.object({
   description: z.string().optional().default(''),
   assignedTo: z.array(z.string()).optional().default([]),
   requiredBy: z.string().optional(),
+  status: z.enum(['draft', 'open', 'closed']).default('open'),
 });
 
 type EditInformationRequestFormValues = z.infer<typeof EditInformationRequestSchema>;
@@ -84,7 +84,6 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'open'>('open');
 
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
@@ -100,6 +99,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
       description: item.description || '',
       assignedTo: item.assignedTo || [],
       requiredBy: item.requiredBy,
+      status: item.status,
     },
   });
 
@@ -124,7 +124,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: EditInformationRequestFormValues) => {
-    if (submissionStatus === 'open') {
+    if (values.status === 'open') {
       let hasError = false;
       if (!values.description || values.description.trim().length < 10) {
         form.setError('description', { message: 'Inquiry details must be at least 10 characters to formally log.' });
@@ -172,12 +172,12 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
           photos: uploadedPhotos,
           files: uploadedFiles,
           requiredBy: values.requiredBy || null,
-          status: submissionStatus,
+          status: values.status,
         };
 
         const docRef = doc(db, 'information-requests', values.id);
         
-        updateDoc(docRef, updates)
+        await updateDoc(docRef, updates)
           .then(() => {
             toast({ title: 'Success', description: 'Information request updated.' });
             setOpen(false);
@@ -189,6 +189,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
               requestResourceData: updates,
             });
             errorEmitter.emit('permission-error', permissionError);
+            throw error;
           });
       } catch (err) {
         console.error(err);
@@ -227,10 +228,10 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         description: item.description || '',
         assignedTo: item.assignedTo || [],
         requiredBy: item.requiredBy,
+        status: item.status,
       });
       setPhotos(item.photos || []);
       setFiles(item.files || []);
-      setSubmissionStatus(item.status === 'open' ? 'open' : 'draft');
     } else {
       setIsCameraOpen(false);
     }
@@ -269,6 +270,8 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
+
+  const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -477,7 +480,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 variant="outline" 
                 className="w-full sm:w-auto"
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('draft')}
+                onClick={() => form.setValue('status', 'draft')}
               >
                 {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save as Draft
@@ -486,7 +489,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 type="submit" 
                 className="w-full sm:flex-1" 
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('open')}
+                onClick={() => form.setValue('status', 'open')}
               >
                 {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Save & Log Request

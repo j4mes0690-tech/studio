@@ -52,6 +52,7 @@ const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   originalText: z.string().optional().default(''),
   externalRecipient: z.string().optional().default(''),
+  status: z.enum(['draft', 'issued']).default('issued'),
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
@@ -76,7 +77,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
-  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'issued'>('issued');
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
@@ -87,6 +87,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
       projectId: '',
       originalText: '',
       externalRecipient: '',
+      status: 'issued',
     },
   });
 
@@ -104,7 +105,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
 
   const onSubmit = (values: NewInstructionFormValues) => {
     // Contextual Validation for Issuing
-    if (submissionStatus === 'issued') {
+    if (values.status === 'issued') {
       let hasError = false;
       if (!values.originalText || values.originalText.trim().length < 10) {
         form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' });
@@ -143,7 +144,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           })
         );
 
-        // Automatically include all project-assigned staff
         const internalStaffEmails = selectedProject?.assignedUsers || [];
         const combinedRecipients = [
             values.externalRecipient,
@@ -165,28 +165,26 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
           files: uploadedFiles,
-          status: submissionStatus
+          status: values.status
         };
 
         const colRef = collection(db, 'instructions');
-        addDoc(colRef, instructionData)
-          .then(() => {
-            toast({ 
-              title: 'Success', 
-              description: submissionStatus === 'draft' 
-                ? 'Instruction saved as draft.' 
-                : 'Instruction recorded and issued.' 
-            });
-            setOpen(false);
-          })
-          .catch((error) => {
-            const permissionError = new FirestorePermissionError({
-              path: colRef.path,
-              operation: 'create',
-              requestResourceData: instructionData,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-          });
+        await addDoc(colRef, instructionData).catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: instructionData,
+          }));
+          throw error;
+        });
+
+        toast({ 
+          title: 'Success', 
+          description: values.status === 'draft' 
+            ? 'Instruction saved as draft.' 
+            : 'Instruction recorded and issued.' 
+        });
+        setOpen(false);
 
       } catch (err) {
         console.error(err);
@@ -216,7 +214,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
       }
     };
     if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
   }, [isCameraOpen, facingMode]);
 
   const takePhoto = () => {
@@ -243,17 +245,17 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         return;
       }
       const reader = new FileReader();
-      reader.onload = (re) => {
-        setFiles(prev => [...prev, {
-          name: f.name,
-          type: f.type,
-          size: f.size,
-          url: re.target?.result as string
-        }]);
-      };
+      reader.onload = (re) => setFiles(prev => [...prev, {
+        name: f.name,
+        type: f.type,
+        size: f.size,
+        url: re.target?.result as string
+      }]);
       reader.readAsDataURL(f);
     });
   };
+
+  const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -411,18 +413,18 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                 variant="outline" 
                 className="w-full sm:w-auto"
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('draft')}
+                onClick={() => form.setValue('status', 'draft')}
               >
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save as Draft
               </Button>
               <Button 
                 type="submit" 
                 className="w-full sm:flex-1" 
                 disabled={isPending}
-                onClick={() => setSubmissionStatus('issued')}
+                onClick={() => form.setValue('status', 'issued')}
               >
-                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Save & Issue Instruction
               </Button>
             </DialogFooter>
