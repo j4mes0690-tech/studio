@@ -35,8 +35,8 @@ export function ManageTradesDialog({ showLabel = false }: { showLabel?: boolean 
                 variant="outline" 
                 size={showLabel ? "sm" : "icon"} 
                 className={cn(
-                    "text-primary hover:bg-primary/5 transition-colors",
-                    showLabel ? "h-8 gap-2 px-3" : "h-9 w-9"
+                    "text-primary hover:bg-primary/5 transition-colors shrink-0",
+                    showLabel && "h-8 gap-2 px-3"
                 )}
               >
                 <Settings2 className="h-4 w-4" />
