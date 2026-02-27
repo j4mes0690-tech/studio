@@ -14,7 +14,7 @@ import {
 import { sendSubcontractorReportAction } from './actions';
 
 /**
- * DistributeReportsButton - Handles generating individual PDFs and 
+ * DistributeReportsButton - Handles generating high-resolution individual PDFs and 
  * calling the Server Action to send them via Resend.
  */
 export function DistributeReportsButton({
@@ -104,14 +104,14 @@ export function DistributeReportsButton({
                   
                   <div style="padding: 12px;">
                     ${hasIssuePhotos ? `
-                      <p style="margin: 0 0 5px 0; font-size: 8px; color: #64748b; font-weight: bold; text-transform: uppercase;">Defect Reference</p>
+                      <p style="margin: 0; font-size: 8px; color: #64748b; font-weight: bold; text-transform: uppercase;">Defect Reference</p>
                       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
                         ${listItem.photos!.map(p => `<img src="${p.url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px;" />`).join('')}
                       </div>
                     ` : ''}
 
                     ${hasCompletionPhotos ? `
-                      <p style="margin: 0 0 5px 0; font-size: 8px; color: #16a34a; font-weight: bold; text-transform: uppercase;">Completion Visual</p>
+                      <p style="margin: 0; font-size: 8px; color: #16a34a; font-weight: bold; text-transform: uppercase;">Completion Visual</p>
                       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
                         ${listItem.completionPhotos!.map(p => `<img src="${p.url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid #dcfce7;" />`).join('')}
                       </div>
@@ -128,8 +128,8 @@ export function DistributeReportsButton({
         `;
 
         document.body.appendChild(reportElement);
-        const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
-        const imgData = canvas.toDataURL('image/jpeg', 0.9);
+        const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (canvas.height * pdfWidth) / canvas.width;

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -15,7 +14,7 @@ import {
 import { sendChecklistEmailAction } from './actions';
 
 /**
- * DistributeChecklistButton - Generates a comprehensive PDF of the QC checklist
+ * DistributeChecklistButton - Generates a high-resolution PDF of the QC checklist
  * and emails it to all recipients in the distribution list.
  */
 export function DistributeChecklistButton({
@@ -142,7 +141,7 @@ export function DistributeChecklistButton({
       `;
 
       document.body.appendChild(reportElement);
-      const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+      const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();

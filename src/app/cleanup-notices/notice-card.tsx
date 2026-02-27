@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -138,7 +137,7 @@ export function NoticeCard({
         `;
 
         document.body.appendChild(reportElement);
-        const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+        const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pdfWidth = pdf.internal.pageSize.getWidth();
