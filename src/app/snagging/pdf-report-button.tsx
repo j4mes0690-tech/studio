@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -85,7 +86,7 @@ export function PdfReportButton({
                 
                 <div style="padding: 12px;">
                   ${hasIssuePhotos ? `
-                    <p style="margin: 0 0 8px 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">Issue Photos</p>
+                    <p style="margin: 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Issue Photos</p>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px;">
                       ${listItem.photos!.map(p => `
                         <div style="border: 1px solid #f1f5f9; border-radius: 4px; overflow: hidden;">
@@ -96,7 +97,7 @@ export function PdfReportButton({
                   ` : ''}
 
                   ${hasCompletionPhotos ? `
-                    <p style="margin: 0 0 8px 0; font-size: 9px; font-weight: bold; color: #16a34a; text-transform: uppercase;">Completion Evidence</p>
+                    <p style="margin: 0; font-size: 9px; font-weight: bold; color: #16a34a; text-transform: uppercase; margin-bottom: 8px;">Completion Evidence</p>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
                       ${listItem.completionPhotos!.map(p => `
                         <div style="border: 2px solid #dcfce7; border-radius: 4px; overflow: hidden;">
