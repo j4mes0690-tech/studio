@@ -156,4 +156,5 @@ export type QualityChecklist = {
   areaId?: string;
   recipients?: string[];
   isTemplate?: boolean;
+  photos?: Photo[];
 };

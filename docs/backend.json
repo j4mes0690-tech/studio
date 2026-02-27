@@ -190,7 +190,8 @@
         "trade": { "type": "string" },
         "createdAt": { "type": "string" },
         "items": { "type": "array", "items": { "$ref": "#/entities/ChecklistItem" } },
-        "recipients": { "type": "array", "items": { "type": "string" } }
+        "recipients": { "type": "array", "items": { "type": "string" } },
+        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
       }
     },
     "ChecklistItem": {

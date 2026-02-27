@@ -64,9 +64,11 @@ export function ChecklistCard({
   const storage = useStorage();
   const [isPending, startTransition] = useTransition();
   const [items, setItems] = useState<ChecklistItem[]>(checklist.items);
+  const [generalPhotos, setGeneralPhotos] = useState<Photo[]>(checklist.photos || []);
   
   // Camera & Media State
   const [activeItemForPhoto, setActiveItemForPhoto] = useState<string | null>(null);
+  const [isCapturingGeneral, setIsCapturingGeneral] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
@@ -74,15 +76,16 @@ export function ChecklistCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const generalFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setItems(checklist.items);
-  }, [checklist.items]);
+    setGeneralPhotos(checklist.photos || []);
+  }, [checklist.items, checklist.photos]);
 
-  const updateItemsOnServer = (newItems: ChecklistItem[]) => {
+  const updateChecklistOnServer = (updates: Partial<QualityChecklist>) => {
     startTransition(async () => {
         const docRef = doc(db, 'quality-checklists', checklist.id);
-        const updates = { items: newItems };
         
         updateDoc(docRef, updates)
           .catch((error) => {
@@ -92,7 +95,9 @@ export function ChecklistCard({
               requestResourceData: updates,
             });
             errorEmitter.emit('permission-error', permissionError);
-            setItems(checklist.items); // Revert UI
+            // Revert local states on error
+            if (updates.items) setItems(checklist.items);
+            if (updates.photos) setGeneralPhotos(checklist.photos || []);
           });
     });
   }
@@ -117,7 +122,7 @@ export function ChecklistCard({
       item.id === itemId ? { ...item, status } : item
     );
     setItems(newItems);
-    updateItemsOnServer(newItems);
+    updateChecklistOnServer({ items: newItems });
   };
   
   const handleCommentChange = (itemId: string, comment: string) => {
@@ -132,7 +137,7 @@ export function ChecklistCard({
     const originalItem = checklist.items.find(i => i.id === itemId);
 
     if (currentItem?.comment !== originalItem?.comment) {
-      updateItemsOnServer(items);
+      updateChecklistOnServer({ items: items });
     }
   }
 
@@ -150,7 +155,7 @@ export function ChecklistCard({
   }, [isCameraOpen, facingMode]);
 
   const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current && activeItemForPhoto) {
+    if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
       const context = canvas.getContext('2d');
@@ -164,16 +169,48 @@ export function ChecklistCard({
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       const newPhoto = { url: dataUrl, takenAt: new Date().toISOString() };
       
-      handlePhotoUpdate(activeItemForPhoto, newPhoto);
+      if (isCapturingGeneral) {
+        handleGeneralPhotoUpdate(newPhoto);
+      } else if (activeItemForPhoto) {
+        handlePhotoUpdate(activeItemForPhoto, newPhoto);
+      }
+      
       setIsCameraOpen(false);
       setActiveItemForPhoto(null);
+      setIsCapturingGeneral(false);
     }
   };
+
+  const handleGeneralPhotoUpdate = (photo: Photo) => {
+    startTransition(async () => {
+      try {
+        toast({ title: 'Uploading', description: 'Persisting general documentation...' });
+        
+        let url = photo.url;
+        if (photo.url.startsWith('data:')) {
+          const blob = await dataUriToBlob(photo.url);
+          url = await uploadFile(storage, `quality-control/${checklist.id}/general-${Date.now()}.jpg`, blob);
+        }
+
+        const newPhotos = [...generalPhotos, { ...photo, url }];
+        setGeneralPhotos(newPhotos);
+        updateChecklistOnServer({ photos: newPhotos });
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to save photo.', variant: 'destructive' });
+      }
+    });
+  }
+
+  const removeGeneralPhoto = (photoIdx: number) => {
+    const newPhotos = generalPhotos.filter((_, i) => i !== photoIdx);
+    setGeneralPhotos(newPhotos);
+    updateChecklistOnServer({ photos: newPhotos });
+  }
 
   const handlePhotoUpdate = (itemId: string, photo: Photo) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Uploading', description: 'Persisting documentation...' });
+        toast({ title: 'Uploading', description: 'Persisting item documentation...' });
         
         let url = photo.url;
         if (photo.url.startsWith('data:')) {
@@ -189,7 +226,7 @@ export function ChecklistCard({
         });
 
         setItems(newItems);
-        updateItemsOnServer(newItems);
+        updateChecklistOnServer({ items: newItems });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to save photo.', variant: 'destructive' });
       }
@@ -204,7 +241,7 @@ export function ChecklistCard({
       return item;
     });
     setItems(newItems);
-    updateItemsOnServer(newItems);
+    updateChecklistOnServer({ items: newItems });
   };
 
   const project = projects.find((p) => p.id === checklist.projectId);
@@ -270,7 +307,7 @@ export function ChecklistCard({
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <div className="space-y-2">
               <div className='flex justify-between items-center text-sm'>
                   <p className="text-muted-foreground">Verification Progress</p>
@@ -278,10 +315,11 @@ export function ChecklistCard({
               </div>
             <Progress value={progress} indicatorClassName={hasFailure ? 'bg-destructive' : ''} />
           </div>
-          <Accordion type="single" collapsible className="w-full mt-4" defaultValue={defaultExpanded ? "items" : undefined}>
+
+          <Accordion type="single" collapsible className="w-full" defaultValue={defaultExpanded ? "items" : undefined}>
             <AccordionItem value="items">
               <AccordionTrigger className="text-sm font-semibold">
-                Verification Items
+                Compliance Points
               </AccordionTrigger>
               <AccordionContent className="pt-2">
                 <div className="space-y-6">
@@ -316,7 +354,7 @@ export function ChecklistCard({
                             variant="outline" 
                             size="icon" 
                             className="h-8 w-8"
-                            onClick={() => { setActiveItemForPhoto(item.id); setIsCameraOpen(true); }}
+                            onClick={() => { setActiveItemForPhoto(item.id); setIsCapturingGeneral(false); setIsCameraOpen(true); }}
                             title="Take photo"
                           >
                             <Camera className="h-4 w-4" />
@@ -327,7 +365,7 @@ export function ChecklistCard({
                             variant="outline" 
                             size="icon" 
                             className="h-8 w-8"
-                            onClick={() => { setActiveItemForPhoto(item.id); fileInputRef.current?.click(); }}
+                            onClick={() => { setActiveItemForPhoto(item.id); setIsCapturingGeneral(false); fileInputRef.current?.click(); }}
                             title="Upload photo"
                           >
                             <Upload className="h-4 w-4" />
@@ -373,15 +411,65 @@ export function ChecklistCard({
                 </div>
               </AccordionContent>
             </AccordionItem>
+
+            <AccordionItem value="general-photos">
+              <AccordionTrigger className="text-sm font-semibold">
+                General Site Photos
+              </AccordionTrigger>
+              <AccordionContent className="pt-4 space-y-4">
+                <div className="flex gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2"
+                    onClick={() => { setIsCapturingGeneral(true); setActiveItemForPhoto(null); setIsCameraOpen(true); }}
+                  >
+                    <Camera className="h-4 w-4" /> Take Photo
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2"
+                    onClick={() => { setIsCapturingGeneral(true); setActiveItemForPhoto(null); generalFileInputRef.current?.click(); }}
+                  >
+                    <Upload className="h-4 w-4" /> Upload
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                  {generalPhotos.map((p, idx) => (
+                    <div key={idx} className="relative aspect-video rounded-md border overflow-hidden group bg-muted">
+                      <Image 
+                        src={p.url} 
+                        alt="General site view" 
+                        fill 
+                        className="object-cover cursor-pointer" 
+                        onClick={() => setViewingPhoto(p)}
+                      />
+                      <button 
+                        type="button" 
+                        className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => removeGeneralPhoto(idx)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  {generalPhotos.length === 0 && (
+                    <div className="col-span-full py-8 text-center border-2 border-dashed rounded-lg text-muted-foreground">
+                      <p className="text-xs">No general documentation photos captured.</p>
+                    </div>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+
             {checklist.recipients && checklist.recipients.length > 0 && (
                <AccordionItem value="recipients">
                <AccordionTrigger className="text-sm font-semibold">
-                 <div className="flex items-center gap-2">
-                   <Users className="h-4 w-4" />
-                   <span>
-                     Distribution List ({checklist.recipients.length})
-                   </span>
-                 </div>
+                 Distribution List ({checklist.recipients.length})
                </AccordionTrigger>
                <AccordionContent>
                 <div className="flex flex-wrap gap-1">
@@ -396,7 +484,7 @@ export function ChecklistCard({
         </CardContent>
       </Card>
 
-      {/* Item Camera Modal */}
+      {/* Camera Modal */}
       {isCameraOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
           <div className="w-full max-w-lg space-y-4">
@@ -410,7 +498,7 @@ export function ChecklistCard({
               <Button variant="outline" size="icon" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')} className="rounded-full h-12 w-12 text-white border-white/40 hover:bg-white/20">
                 <RefreshCw className="h-6 w-6" />
               </Button>
-              <Button variant="outline" onClick={() => { setIsCameraOpen(false); setActiveItemForPhoto(null); }} className="rounded-full h-12 px-6 border-white/40 text-white hover:bg-white/20">
+              <Button variant="outline" onClick={() => { setIsCameraOpen(false); setActiveItemForPhoto(null); setIsCapturingGeneral(false); }} className="rounded-full h-12 px-6 border-white/40 text-white hover:bg-white/20">
                 Cancel
               </Button>
             </div>
@@ -418,7 +506,7 @@ export function ChecklistCard({
         </div>
       )}
 
-      {/* Shared Upload Input */}
+      {/* Hidden File Inputs */}
       <input 
         type="file" 
         ref={fileInputRef} 
@@ -439,6 +527,29 @@ export function ChecklistCard({
             reader.readAsDataURL(f);
           });
           setActiveItemForPhoto(null);
+        }} 
+      />
+
+      <input 
+        type="file" 
+        ref={generalFileInputRef} 
+        className="hidden" 
+        accept="image/*" 
+        multiple 
+        onChange={(e) => {
+          const files = e.target.files;
+          if (!files) return;
+          Array.from(files).forEach(f => {
+            const reader = new FileReader();
+            reader.onload = (re) => {
+              handleGeneralPhotoUpdate({ 
+                url: re.target?.result as string, 
+                takenAt: new Date().toISOString() 
+              });
+            };
+            reader.readAsDataURL(f);
+          });
+          setIsCapturingGeneral(false);
         }} 
       />
 

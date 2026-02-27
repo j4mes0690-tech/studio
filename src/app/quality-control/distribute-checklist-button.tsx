@@ -124,6 +124,18 @@ export function DistributeChecklistButton({
           }).join('')}
         </div>
 
+        ${checklist.photos && checklist.photos.length > 0 ? `
+          <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">General Site Documentation</h2>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 40px;">
+            ${checklist.photos.map(p => `
+              <div style="border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px;">
+                <img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" />
+                <p style="margin: 8px 0 0 0; font-size: 10px; color: #64748b; text-align: center;">Captured: ${new Date(p.takenAt).toLocaleString()}</p>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
+
         <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
           <p style="font-size: 12px; color: #64748b;">This report was generated via SiteCommand.</p>
         </div>
