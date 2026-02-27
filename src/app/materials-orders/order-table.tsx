@@ -293,7 +293,7 @@ function OrderTableRow({
                         <span className="sr-only">Delete Order</span>
                       </Button>
                     </AlertDialogTrigger>
-                  </Tooltip>
+                  </TooltipTrigger>
                   <TooltipContent><p>Delete Order</p></TooltipContent>
                 </Tooltip>
                 <AlertDialogContent onClick={e => e.stopPropagation()}>
