@@ -217,7 +217,15 @@ export function EditOrderDialog({
               <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2"><Label className="text-xs">Description</Label><Input value={pendingDescription} onChange={e => setPendingDescription(e.target.value)} className="bg-background" /></div>
-                  <div className="space-y-2"><Label className="text-xs">Required Date</Label><Input type={(pendingDeliveryDate || isDateInputFocused) ? "date" : "text"} value={(pendingDeliveryDate || isDateInputFocused) ? (pendingDeliveryDate ? new Date(pendingDeliveryDate).toISOString().split('T')[0] : '') : 'ASAP'} onChange={e => setPendingDeliveryDate(e.target.value && e.target.value !== 'ASAP' ? new Date(e.target.value).toISOString() : null)} onFocus={() => setIsDateInputFocused(true)} onBlur={() => setIsDateInputFocused(false)} className="bg-background" /></div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Required Date</Label>
+                    <div className="flex gap-1 mb-1">
+                      <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setPendingDeliveryDate(null)}>ASAP</Button>
+                      <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setPendingDeliveryDate(addWeeks(new Date(), 1).toISOString())}>+1w</Button>
+                      <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setPendingDeliveryDate(addWeeks(new Date(), 2).toISOString())}>+2w</Button>
+                    </div>
+                    <Input type={(pendingDeliveryDate || isDateInputFocused) ? "date" : "text"} value={(pendingDeliveryDate || isDateInputFocused) ? (pendingDeliveryDate ? new Date(pendingDeliveryDate).toISOString().split('T')[0] : '') : 'ASAP'} onChange={e => setPendingDeliveryDate(e.target.value && e.target.value !== 'ASAP' ? new Date(e.target.value).toISOString() : null)} onFocus={() => setIsDateInputFocused(true)} onBlur={() => setIsDateInputFocused(false)} className="bg-background" />
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <Input type="number" placeholder="Qty" value={pendingQty} onChange={e => setPendingQuantity(e.target.value)} onFocus={() => setPendingQuantity('')} className="bg-background" />
