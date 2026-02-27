@@ -81,10 +81,9 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
             <p style="margin: 5px 0 0 0; font-size: 12px; color: #475569;">${supplier?.email || ''}</p>
           </div>
           <div>
-            <p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Delivery Details</p>
+            <p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Project Details</p>
             <p style="margin: 0; font-size: 14px;"><strong>Project:</strong> ${project?.name || 'Project'}</p>
             <p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Order Date:</strong> ${new Date(order.orderDate).toLocaleDateString()}</p>
-            <p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Global Delivery:</strong> ${order.deliveryDate ? new Date(order.deliveryDate).toLocaleDateString() : 'See line items'}</p>
           </div>
         </div>
 

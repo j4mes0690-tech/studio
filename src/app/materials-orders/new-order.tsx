@@ -27,28 +27,25 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar } from 'lucide-react';
-import type { Project, Material, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
+import type { Project, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
-import { DatePicker } from '@/components/date-picker';
 
 const NewOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
-  deliveryDate: z.string().optional().nullable(),
   notes: z.string().optional(),
 });
 
 type NewOrderFormValues = z.infer<typeof NewOrderSchema>;
 
-export function NewOrderDialog({ projects, suppliers, materials, allOrders, currentUser }: { 
+export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: { 
   projects: Project[]; 
   suppliers: SubContractor[]; 
-  materials: Material[];
   allOrders: PurchaseOrder[];
   currentUser: DistributionUser;
 }) {
@@ -61,7 +58,6 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
   const [orderItems, setOrderItems] = useState<Omit<PurchaseOrderItem, 'id'>[]>([]);
   
   // Pending Item State
-  const [pendingMaterialId, setPendingMaterialId] = useState<string>('');
   const [pendingDescription, setPendingDescription] = useState<string>('');
   const [pendingQty, setPendingQuantity] = useState<number>(1);
   const [pendingUnit, setPendingUnit] = useState<string>('');
@@ -70,24 +66,12 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
 
   const form = useForm<NewOrderFormValues>({
     resolver: zodResolver(NewOrderSchema),
-    defaultValues: { projectId: '', supplierId: '', notes: '', deliveryDate: null },
+    defaultValues: { projectId: '', supplierId: '', notes: '' },
   });
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
   const orderTotal = useMemo(() => orderItems.reduce((sum, item) => sum + item.total, 0), [orderItems]);
-
-  // Sync pending fields when a material is selected from catalog
-  useEffect(() => {
-    if (pendingMaterialId) {
-      const material = materials.find(m => m.id === pendingMaterialId);
-      if (material) {
-        setPendingDescription(material.name);
-        setPendingUnit(material.unit);
-        setPendingRate(material.defaultPrice || 0);
-      }
-    }
-  }, [pendingMaterialId, materials]);
 
   const handleAddItem = () => {
     if (!pendingDescription || pendingQty <= 0) {
@@ -96,7 +80,6 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
     }
 
     setOrderItems([...orderItems, {
-      materialId: pendingMaterialId || undefined,
       description: pendingDescription,
       quantity: pendingQty,
       unit: pendingUnit || 'pcs',
@@ -106,7 +89,6 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
     }]);
 
     // Reset pending
-    setPendingMaterialId('');
     setPendingDescription('');
     setPendingQuantity(1);
     setPendingUnit('');
@@ -118,7 +100,7 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
 
   const onSubmit = (values: NewOrderFormValues) => {
     if (orderItems.length === 0) {
-      toast({ title: 'Order is empty', description: 'Add at least one material to the order.', variant: 'destructive' });
+      toast({ title: 'Order is empty', description: 'Add at least one material item to the order.', variant: 'destructive' });
       return;
     }
 
@@ -134,7 +116,7 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
           supplierId: values.supplierId,
           supplierName: supplier?.name || 'Unknown',
           orderDate: new Date().toISOString(),
-          deliveryDate: values.deliveryDate || null,
+          deliveryDate: null,
           notes: values.notes || '',
           items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
           totalAmount: orderTotal,
@@ -166,7 +148,7 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
       <DialogContent className="sm:max-w-3xl max-h-[95vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Create Purchase Order</DialogTitle>
-          <DialogDescription>Generate a formal material request with detailed line items and delivery dates.</DialogDescription>
+          <DialogDescription>Generate a formal material request with detailed line items and specific delivery dates.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -202,23 +184,6 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="deliveryDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Global Required Delivery Date (Default)</FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="date" 
-                      value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''} 
-                      onChange={e => field.onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-
             <Separator />
 
             <div className="space-y-4">
@@ -234,26 +199,26 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
               <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-xs">Pick from Catalog (Optional)</Label>
-                    <Select value={pendingMaterialId} onValueChange={setPendingMaterialId}>
-                      <SelectTrigger className="bg-background h-9"><SelectValue placeholder="Select from standard materials" /></SelectTrigger>
-                      <SelectContent>
-                        {materials.map(m => <SelectItem key={m.id} value={m.id}>{m.name} ({m.unit})</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
                     <Label className="text-xs">Description / Specification</Label>
                     <Input 
-                      placeholder="Enter description..." 
+                      placeholder="e.g. 20mm Reinforcement Bars" 
                       className="h-9 bg-background"
                       value={pendingDescription} 
                       onChange={e => setPendingDescription(e.target.value)} 
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Required Date</Label>
+                    <Input 
+                      type="date" 
+                      className="h-9 bg-background"
+                      value={pendingDeliveryDate ? new Date(pendingDeliveryDate).toISOString().split('T')[0] : ''} 
+                      onChange={e => setPendingDeliveryDate(e.target.value ? new Date(e.target.value).toISOString() : null)}
+                    />
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label className="text-xs">Quantity</Label>
                     <Input 
@@ -283,15 +248,6 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
                       className="h-9 bg-background"
                       value={pendingRate} 
                       onChange={e => setPendingRate(parseFloat(e.target.value) || 0)} 
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Required Date</Label>
-                    <Input 
-                      type="date" 
-                      className="h-9 bg-background"
-                      value={pendingDeliveryDate ? new Date(pendingDeliveryDate).toISOString().split('T')[0] : ''} 
-                      onChange={e => setPendingDeliveryDate(e.target.value ? new Date(e.target.value).toISOString() : null)}
                     />
                   </div>
                 </div>
@@ -331,7 +287,7 @@ export function NewOrderDialog({ projects, suppliers, materials, allOrders, curr
                   {orderItems.length === 0 && (
                     <div className="text-center py-16 text-muted-foreground italic flex flex-col items-center gap-2">
                       <ShoppingCart className="h-8 w-8 opacity-20" />
-                      <p className="text-xs">Add materials to generate order line items.</p>
+                      <p className="text-xs">Add items to generate order line items.</p>
                     </div>
                   )}
                 </div>
