@@ -40,6 +40,7 @@ import { addWeeks } from 'date-fns';
 const EditOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
+  description: z.string().min(3, 'Order description is required.'),
   notes: z.string().optional(),
   status: z.enum(['draft', 'issued']).default('issued'),
 });
@@ -93,6 +94,7 @@ export function EditOrderDialog({
     defaultValues: { 
       projectId: order.projectId, 
       supplierId: order.supplierId, 
+      description: order.description || '',
       notes: order.notes || '', 
       status: order.status === 'issued' ? 'issued' : 'draft' 
     },
@@ -103,6 +105,7 @@ export function EditOrderDialog({
       form.reset({
         projectId: order.projectId,
         supplierId: order.supplierId,
+        description: order.description || '',
         notes: order.notes || '',
         status: order.status === 'issued' ? 'issued' : 'draft',
       });
@@ -169,6 +172,7 @@ export function EditOrderDialog({
           projectId: values.projectId,
           supplierId: values.supplierId,
           supplierName: supplier?.name || order.supplierName,
+          description: values.description,
           notes: values.notes || '',
           items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
           totalAmount: orderTotal,
@@ -242,6 +246,20 @@ export function EditOrderDialog({
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Overall Order Identification</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Identifying name for this order" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <Separator />
 

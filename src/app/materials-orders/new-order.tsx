@@ -41,6 +41,7 @@ import { addWeeks } from 'date-fns';
 const NewOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
+  description: z.string().min(3, 'Order description is required for identification.'),
   notes: z.string().optional(),
   status: z.enum(['draft', 'issued']).default('issued'),
 });
@@ -84,6 +85,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
     defaultValues: { 
       projectId: '', 
       supplierId: '', 
+      description: '',
       notes: '', 
       status: 'issued' 
     },
@@ -156,7 +158,8 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
           projectId: values.projectId,
           supplierId: values.supplierId,
           supplierName: supplier?.name || 'Unknown',
-          orderDate: new Date().toISOString(),
+          description: values.description,
+          orderDate: values.status === 'issued' ? new Date().toISOString() : new Date().toISOString(), // Keep track of creation
           deliveryDate: null,
           notes: values.notes || '',
           items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
@@ -254,6 +257,20 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                     )}
                   />
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Overall Order Identification</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Ground Floor Drainage Pipework" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <Separator />
 
@@ -444,7 +461,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                 disabled={isPending}
                 onClick={() => form.setValue('status', 'draft')}
               >
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Save as Draft
               </Button>
               <Button 

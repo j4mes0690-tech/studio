@@ -111,7 +111,8 @@ export function OrderCard({
       reportElement.innerHTML = `
         <div style="border-bottom: 3px solid #336AB6; padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
           <div>
-            <h1 style="margin: 0; color: #336AB6; font-size: 32px; letter-spacing: -1px;">PURCHASE ORDER</h1>
+            <h1 style="margin: 0; color: #336AB6; font-size: 28px; letter-spacing: -1px;">PURCHASE ORDER</h1>
+            <p style="margin: 5px 0 0 0; color: #1e293b; font-size: 18px; font-weight: bold;">${order.description}</p>
             <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Ref: ${order.orderNumber}</p>
           </div>
           <div style="text-align: right;">
@@ -211,9 +212,10 @@ export function OrderCard({
                   "font-mono text-[10px] bg-background text-primary border-primary/20",
                   isDraft && "border-orange-200 text-orange-600"
                 )}>{order.orderNumber}</Badge>
-                <CardTitle className="text-lg group-hover:text-primary transition-colors">{order.supplierName}</CardTitle>
+                <CardTitle className="text-lg group-hover:text-primary transition-colors">{order.description}</CardTitle>
               </div>
               <CardDescription className="flex items-center gap-3">
+                <span className="font-bold text-foreground uppercase tracking-tighter text-[10px] bg-muted px-1.5 rounded">{order.supplierName}</span>
                 <span className="font-semibold text-foreground">{project?.name || 'Unknown Project'}</span>
                 {!isDraft && (
                   <>

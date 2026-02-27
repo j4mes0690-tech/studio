@@ -195,6 +195,7 @@ export type PurchaseOrder = {
   projectId: string;
   supplierId: string;
   supplierName: string;
+  description: string;
   orderDate: string;
   deliveryDate?: string | null;
   items: PurchaseOrderItem[];

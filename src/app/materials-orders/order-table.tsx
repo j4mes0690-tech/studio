@@ -14,7 +14,7 @@ import { ClientDate } from '@/components/client-date';
 import { useState, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { 
   Trash2, 
   CheckCircle2, 
@@ -56,8 +56,9 @@ export function OrderTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[120px]">Order Ref</TableHead>
+            <TableHead>Description</TableHead>
             <TableHead className="w-[150px]">Project</TableHead>
-            <TableHead>Supplier</TableHead>
+            <TableHead className="w-[150px]">Supplier</TableHead>
             <TableHead className="w-[100px] text-right">Amount</TableHead>
             <TableHead className="w-[100px]">Status</TableHead>
             <TableHead className="w-[120px]">Date</TableHead>
@@ -130,8 +131,9 @@ function OrderTableRow({
         onClick={() => setIsEditDialogOpen(true)}
       >
         <TableCell className="font-mono text-[10px]">{order.orderNumber}</TableCell>
-        <TableCell className="font-medium truncate max-w-[150px]">{project?.name || 'Unknown'}</TableCell>
-        <TableCell className="truncate max-w-[200px]">{order.supplierName}</TableCell>
+        <TableCell className="font-medium truncate max-w-[250px]">{order.description}</TableCell>
+        <TableCell className="truncate max-w-[150px] text-muted-foreground text-xs">{project?.name || 'Unknown'}</TableCell>
+        <TableCell className="truncate max-w-[150px] text-xs">{order.supplierName}</TableCell>
         <TableCell className="text-right font-bold">£{order.totalAmount.toFixed(2)}</TableCell>
         <TableCell>
           {isDraft ? (
