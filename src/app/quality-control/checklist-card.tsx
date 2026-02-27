@@ -310,26 +310,28 @@ export function ChecklistCard({
                             </div>
                         </RadioGroup>
 
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <Button 
                             type="button" 
                             variant="outline" 
-                            size="sm" 
-                            className="h-8 gap-1.5"
+                            size="icon" 
+                            className="h-8 w-8"
                             onClick={() => { setActiveItemForPhoto(item.id); setIsCameraOpen(true); }}
+                            title="Take photo"
                           >
-                            <Camera className="h-3.5 w-3.5" />
-                            Camera
+                            <Camera className="h-4 w-4" />
+                            <span className="sr-only">Take photo</span>
                           </Button>
                           <Button 
                             type="button" 
                             variant="outline" 
-                            size="sm" 
-                            className="h-8 gap-1.5"
+                            size="icon" 
+                            className="h-8 w-8"
                             onClick={() => { setActiveItemForPhoto(item.id); fileInputRef.current?.click(); }}
+                            title="Upload photo"
                           >
-                            <Upload className="h-3.5 w-3.5" />
-                            Upload
+                            <Upload className="h-4 w-4" />
+                            <span className="sr-only">Upload photo</span>
                           </Button>
                         </div>
                       </div>
