@@ -126,18 +126,12 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {(canManageSubcontractors || canManageTrades) && (
+          {canManageSubcontractors && (
             <Card>
                 <AccordionItem value="subcontractors" className="border-b-0">
                     <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts & Trades</AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
-                        <div className="space-y-12">
-                            {canManageTrades && (
-                                <div className="space-y-4 border-b pb-12">
-                                    <h3 className="text-lg font-medium">Trade Categories</h3>
-                                    <ManageTrades />
-                                </div>
-                            )}
+                        <div className="space-y-8">
                             <div className="grid gap-8 lg:grid-cols-2">
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-medium">Add New External Contact</h3>
@@ -148,6 +142,16 @@ export default function SettingsPage() {
                                     <SubcontractorsList subContractors={subContractors || []} canManageTrades={canManageTrades} />
                                 </div>
                             </div>
+                            {canManageTrades && (
+                                <div className="space-y-4 border-t pt-8">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-lg font-medium">Global Trade Categories</h3>
+                                    </div>
+                                    <div className="max-w-2xl">
+                                        <ManageTrades />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </AccordionContent>
                 </AccordionItem>
@@ -186,7 +190,7 @@ export default function SettingsPage() {
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Templates</h3>
-                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} canManageTrades={canManageTrades} />
+                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
                             </div>
                         </div>
                     </AccordionContent>

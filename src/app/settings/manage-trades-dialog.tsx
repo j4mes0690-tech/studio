@@ -10,7 +10,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Settings2 } from 'lucide-react';
+import { Settings2, Tag } from 'lucide-react';
 import { ManageTrades } from './manage-trades';
 import {
   Tooltip,
@@ -21,8 +21,8 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * ManageTradesDialog - Wraps the Trade Management interface in a Dialog
- * to provide a discrete entry point from other administration modules.
+ * ManageTradesDialog - Wraps the Trade Management interface in a Dialog.
+ * Providing a discrete entry point for configuring global trade categories.
  */
 export function ManageTradesDialog({ showLabel = false }: { showLabel?: boolean }) {
   return (
@@ -36,7 +36,7 @@ export function ManageTradesDialog({ showLabel = false }: { showLabel?: boolean 
                 size={showLabel ? "sm" : "icon"} 
                 className={cn(
                     "text-primary hover:bg-primary/5 transition-colors shrink-0",
-                    showLabel && "h-8 gap-2 px-3"
+                    showLabel ? "h-8 gap-2 px-3" : "h-10 w-10"
                 )}
               >
                 <Settings2 className="h-4 w-4" />
@@ -50,11 +50,14 @@ export function ManageTradesDialog({ showLabel = false }: { showLabel?: boolean 
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Trade Category Management</DialogTitle>
+          <div className="flex items-center gap-2">
+            <Tag className="h-5 w-5 text-primary" />
+            <DialogTitle>System Trade Categories</DialogTitle>
+          </div>
           <DialogDescription>
-            Add or remove trade specialties used across all site quality checklists.
+            Add or remove trade disciplines used across SiteCommand for partner classification and quality checklists.
           </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto py-4">
