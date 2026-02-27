@@ -26,8 +26,10 @@ import { ManageTrades } from './manage-trades';
 import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
-import type { DistributionUser, SubContractor, Project, QualityChecklist } from '@/lib/types';
-import { Loader2, ShieldAlert } from 'lucide-react';
+import type { DistributionUser, SubContractor, Project, QualityChecklist, Supplier, Material } from '@/lib/types';
+import { Loader2, ShieldAlert, Truck, Package } from 'lucide-react';
+import { ManageSuppliers } from './manage-suppliers';
+import { ManageMaterials } from './manage-materials';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -76,8 +78,9 @@ export default function SettingsPage() {
   const canManageProjects = !!permissions?.canManageProjects || isAdmin;
   const canManageChecklists = !!permissions?.canManageChecklists || isAdmin;
   const canManageTrades = !!permissions?.canManageTrades || isAdmin;
+  const canManageMaterials = !!permissions?.canManageMaterials || isAdmin;
 
-  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManageTrades;
+  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManageTrades || canManageMaterials;
 
   if (!hasAnyAdminPermission) {
     return (
@@ -152,6 +155,32 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
+          )}
+
+          {canManageMaterials && (
+            <Card>
+                <AccordionItem value="materials" className="border-b-0">
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Procurement: Suppliers & Materials</AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <div className="grid gap-8 lg:grid-cols-2">
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-primary font-bold">
+                                    <Truck className="h-5 w-5" />
+                                    <h3>Suppliers Directory</h3>
+                                </div>
+                                <ManageSuppliers />
+                            </div>
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-primary font-bold">
+                                    <Package className="h-5 w-5" />
+                                    <h3>Material Catalog</h3>
+                                </div>
+                                <ManageMaterials />
+                            </div>
                         </div>
                     </AccordionContent>
                 </AccordionItem>

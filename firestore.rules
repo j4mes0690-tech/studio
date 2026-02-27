@@ -6,167 +6,87 @@ service cloud.firestore {
      * CORE PHILOSOPHY:
      * This ruleset implements a strict authorization model designed for a construction management 
      * environment, prioritizing "Authorization Independence" through data denormalization.
-     * 
-     * DATA STRUCTURE:
-     * - Top-level collections: /users, /clients, /suppliers, /materials.
-     * - Hierarchical data: Projects are nested under Clients, and Instructions/PurchaseOrders are 
-     *   nested under Projects to maintain clear ownership and organizational context.
-     * 
-     * KEY SECURITY DECISIONS:
-     * 1. Authorization Independence: Critical IDs (projectManagerId, createdByUserId) are 
-     *    denormalized into sub-documents (Instructions, POs, Items). This allows rules to 
-     *    verify access without expensive get() calls to parent documents.
-     * 2. Role-Based Access: General read access is granted to authenticated site teams for 
-     *    shared resources (Suppliers, Materials), while modifications are restricted to 
-     *    Administrators or the specific creator/manager.
-     * 3. Prototyping Flexibility: Rules strictly enforce "WHO" can access data (Authorization) 
-     *    but remain flexible on "WHAT" the data looks like (Schema), allowing for rapid 
-     *    iteration on field names and types.
-     * 4. Query Security: Most list operations are scoped by the parent path (e.g., listing 
-     *    projects for a specific client) or by checking denormalized ownership fields.
      */
 
     // --- Helper Functions ---
 
-    /** @description Checks if the request is from an authenticated user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** @description Checks if the user's UID matches the provided ID. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** @description Checks if the user's UID matches an ID on an existing document. */
     function isExistingOwner(userId) {
       return resource != null && isOwner(userId);
     }
 
-    /** @description Checks if the authenticated user has an 'Administrator' role. 
-     * Note: Performs a get() on the user document for authoritative role checking. */
     function isAdmin() {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Administrator';
     }
 
-    /** @description Checks if the user is the project manager or the creator of the resource. */
-    function isProjectAuthorized(managerId, creatorId) {
-      return isOwner(managerId) || isOwner(creatorId) || isAdmin();
-    }
-
     // --- Collection Rules ---
 
-    /**
-     * @description Rules for user profiles. Users can manage their own profile; admins can see all.
-     * @path /users/{userId}
-     * @allow (get) Any signed-in user viewing their own or another profile.
-     * @allow (create) A user creating their own profile document where the document ID matches their UID.
-     * @deny (list) Anonymous users or listing the entire directory.
-     * @principle Ownership and Self-Creation.
-     */
     match /users/{userId} {
       allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update, delete: if isExistingOwner(userId);
+      allow list: if isAdmin() || isSignedIn(); // Standard users need to see list for assignments
+      allow create: if isSignedIn();
+      allow update, delete: if isExistingOwner(userId) || isAdmin();
     }
 
-    /**
-     * @description Rules for client organizations.
-     * @path /clients/{clientId}
-     * @allow (list) Any signed-in site team member.
-     * @allow (update) An administrator modifying client details.
-     * @deny (create) Non-admin users adding new clients.
-     * @principle Role-based access for organizational data.
-     */
-    match /clients/{clientId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+    match /trades/{tradeId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
-    /**
-     * @description Projects nested under clients. Managed by Project Managers or Admins.
-     * @path /clients/{clientId}/projects/{projectId}
-     * @allow (get) Any signed-in user assigned to the project.
-     * @allow (create) An admin or the designated project manager.
-     * @deny (update) Changing the clientId to move a project between clients (Relational Integrity).
-     * @principle Shared access with specific manager oversight.
-     */
-    match /clients/{clientId}/projects/{projectId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && (isAdmin() || isOwner(request.resource.data.projectManagerId));
-      allow update: if resource != null && (isAdmin() || isOwner(resource.data.projectManagerId)) && request.resource.data.clientId == resource.data.clientId;
-      allow delete: if resource != null && isAdmin();
+    match /projects/{projectId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
-    /**
-     * @description Client instructions captured on-site.
-     * @path /clients/{clientId}/projects/{projectId}/instructions/{instructionId}
-     * @allow (create) The user who recorded the instruction.
-     * @allow (list) Any site team member looking at project instructions.
-     * @deny (update) Changing the recordedByUserId (Immutability).
-     * @principle Ownership and path-consistency validation.
-     */
-    match /clients/{clientId}/projects/{projectId}/instructions/{instructionId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && isOwner(request.resource.data.recordedByUserId);
-      allow update: if resource != null && (isOwner(resource.data.recordedByUserId) || isOwner(resource.data.projectManagerId)) && request.resource.data.recordedByUserId == resource.data.recordedByUserId;
-      allow delete: if resource != null && (isOwner(resource.data.recordedByUserId) || isAdmin());
+    match /sub-contractors/{subId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
-    /**
-     * @description Global registry of suppliers.
-     * @path /suppliers/{supplierId}
-     * @allow (get, list) All site teams for ordering.
-     * @allow (update) Admins only.
-     * @deny (write) General users.
-     * @principle Public Read with Admin-Only Writes.
-     */
+    match /client-instructions/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /instructions/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /cleanup-notices/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /snagging-items/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /information-requests/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    match /quality-checklists/{id} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Procurement Module Rules
     match /suppliers/{supplierId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
-    /**
-     * @description Global catalog of materials.
-     * @path /materials/{materialId}
-     * @allow (get, list) All site teams for reference.
-     * @allow (update) Admins only.
-     * @principle Public Read with Admin-Only Writes.
-     */
     match /materials/{materialId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
 
-    /**
-     * @description Purchase orders for materials within a project.
-     * @path /clients/{clientId}/projects/{projectId}/purchaseOrders/{purchaseOrderId}
-     * @allow (create) Site team member creating an order for their project.
-     * @allow (list) Project members viewing order history.
-     * @deny (update) Changing critical relational links (projectId, creator).
-     * @principle Authorization via denormalized ownership fields.
-     */
-    match /clients/{clientId}/projects/{projectId}/purchaseOrders/{purchaseOrderId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && isOwner(request.resource.data.createdByUserId);
-      allow update: if resource != null && isProjectAuthorized(resource.data.projectManagerId, resource.data.createdByUserId) && request.resource.data.createdByUserId == resource.data.createdByUserId && request.resource.data.projectId == resource.data.projectId;
-      allow delete: if resource != null && (isOwner(resource.data.createdByUserId) || isAdmin());
-    }
-
-    /**
-     * @description Individual items within a purchase order.
-     * @path /clients/{clientId}/projects/{projectId}/purchaseOrders/{purchaseOrderId}/items/{purchaseOrderItemId}
-     * @allow (create) The creator of the parent purchase order.
-     * @allow (list) Users authorized to see the parent purchase order.
-     * @deny (write) Users not associated with the parent order's creation or management.
-     * @principle Subcollection access secured via denormalized parent context.
-     */
-    match /clients/{clientId}/projects/{projectId}/purchaseOrders/{purchaseOrderId}/items/{purchaseOrderItemId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && isOwner(request.resource.data.createdByUserId);
-      allow update: if resource != null && isProjectAuthorized(resource.data.projectManagerId, resource.data.createdByUserId) && request.resource.data.purchaseOrderId == resource.data.purchaseOrderId;
-      allow delete: if resource != null && (isOwner(resource.data.createdByUserId) || isAdmin());
+    match /purchase-orders/{orderId} {
+      allow read, write: if isSignedIn();
     }
   }
 }

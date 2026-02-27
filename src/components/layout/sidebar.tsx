@@ -23,11 +23,13 @@ import {
   ClipboardCheck,
   CircleUser,
   MessageCircle,
+  ShoppingCart,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
+  { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart },
   { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle },
   { href: '/instructions', label: 'Site Instructions', icon: MessageSquare },
   { href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles },

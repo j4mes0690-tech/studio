@@ -118,6 +118,7 @@ export type UserPermissions = {
   canManageProjects: boolean;
   canManageChecklists: boolean;
   canManageTrades: boolean;
+  canManageMaterials: boolean; // New
   hasFullVisibility: boolean;
 };
 
@@ -164,4 +165,47 @@ export type QualityChecklist = {
   recipients?: string[];
   isTemplate?: boolean;
   photos?: Photo[];
+};
+
+// --- PROCUREMENT MODULE TYPES ---
+
+export type Supplier = {
+  id: string;
+  name: string;
+  contactPerson: string;
+  email: string;
+  phone?: string;
+  address?: string;
+};
+
+export type Material = {
+  id: string;
+  name: string;
+  unit: string;
+  defaultPrice?: number;
+};
+
+export type PurchaseOrderItem = {
+  id: string;
+  materialId: string;
+  materialName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+};
+
+export type PurchaseOrder = {
+  id: string;
+  orderNumber: string;
+  projectId: string;
+  supplierId: string;
+  supplierName: string;
+  orderDate: string;
+  deliveryDate?: string;
+  items: PurchaseOrderItem[];
+  totalAmount: number;
+  status: 'draft' | 'issued' | 'received' | 'cancelled';
+  notes?: string;
+  createdAt: string;
+  createdByEmail: string;
 };
