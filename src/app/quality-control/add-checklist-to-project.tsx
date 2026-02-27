@@ -41,6 +41,12 @@ import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const AssignChecklistSchema = z.object({
   templateId: z.string().min(1, 'A checklist template is required.'),
@@ -84,7 +90,6 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
   const alreadyAssignedAreaIds = useMemo(() => {
     if (!selectedTemplate || !selectedProjectId || !existingChecklists) return new Set<string>();
     
-    // We identify duplicates by checking if a checklist with the same title exists in the plot
     return new Set(
         existingChecklists
             .filter(c => c.projectId === selectedProjectId && c.title === selectedTemplate.title)
@@ -99,7 +104,6 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
-  // Reset selections when project or template changes
   useEffect(() => {
     form.setValue('areaIds', []);
   }, [selectedProjectId, selectedTemplateId, form]);
@@ -113,17 +117,17 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
           .filter(sub => values.recipients?.includes(sub.id))
           .map(sub => sub.email);
 
-        // CREATE ONE CHECKLIST PER SELECTED AREA
         const creationPromises = values.areaIds.map(areaId => {
             const newChecklist = {
                 projectId: values.projectId,
                 areaId: areaId,
                 title: selectedTemplate.title,
                 trade: selectedTemplate.trade,
-                items: selectedTemplate.items.map(item => ({ ...item, status: 'pending', comment: '' })),
+                items: selectedTemplate.items.map(item => ({ ...item, status: 'pending', comment: '', photos: [] })),
                 recipients: recipientEmails,
                 isTemplate: false,
                 createdAt: new Date().toISOString(),
+                photos: []
             };
 
             const colRef = collection(db, 'quality-checklists');
@@ -142,7 +146,7 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
         setOpen(false);
       } catch (err) {
         console.error(err);
-        toast({ title: 'Error', description: 'Failed to assign checklists to all areas.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to assign checklists.', variant: 'destructive' });
       }
     });
   };
@@ -155,12 +159,21 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Assign Checklists
-        </Button>
-      </DialogTrigger>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" className="h-9 w-9">
+                <PlusCircle className="h-5 w-5" />
+                <span className="sr-only">Assign Checklists</span>
+              </Button>
+            </DialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Assign Trade Checklists</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
       <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Batch Assign Trade Checklists</DialogTitle>

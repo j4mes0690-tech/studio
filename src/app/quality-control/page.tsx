@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -223,12 +224,6 @@ function QualityControlContent() {
                             <TooltipContent><p>Switch to {isCompact ? 'Grid' : 'Compact'} View</p></TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
-                    <AddChecklistToProject 
-                        projects={allowedProjects} 
-                        checklistTemplates={checklistTemplates} 
-                        subContractors={subContractors || []} 
-                        existingChecklists={checklistInstances}
-                    />
                 </div>
             </div>
 
@@ -335,12 +330,6 @@ function QualityControlContent() {
                             <TooltipContent><p>Switch to {isCompact ? 'Grid' : 'Compact'} View</p></TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
-                    <AddChecklistToProject 
-                        projects={allowedProjects} 
-                        checklistTemplates={checklistTemplates} 
-                        subContractors={subContractors || []} 
-                        existingChecklists={checklistInstances}
-                    />
                 </div>
             </div>
 
