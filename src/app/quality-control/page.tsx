@@ -7,7 +7,7 @@ import { useMemo } from 'react';
 import type { QualityChecklist, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc } from '@/firebase';
-import { collection, query, where, orderBy, doc } from 'firebase/firestore';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 
 export default function QualityControlPage() {
   const db = useFirestore();
@@ -41,27 +41,32 @@ export default function QualityControlPage() {
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
-  // STABLE QUERY: Fetch all by date to avoid composite index requirements
-  // Note: We keep the isTemplate filter as it's a simple equality check
+  // STABLE QUERY: Fetch all checklists ordered by date to avoid composite index requirements.
+  // We perform filtering for templates vs project-instances on the client side.
   const checklistsQuery = useMemo(() => 
-    query(collection(db, 'quality-checklists'), where('isTemplate', '==', false), orderBy('createdAt', 'desc'))
+    query(collection(db, 'quality-checklists'), orderBy('createdAt', 'desc'))
   , [db]);
-  const { data: allProjectChecklists, isLoading: checklistsLoading } = useCollection<QualityChecklist>(checklistsQuery);
+  const { data: allChecklists, isLoading: checklistsLoading } = useCollection<QualityChecklist>(checklistsQuery);
 
+  // Filter for project-specific instances
   const filteredChecklists = useMemo(() => {
-    if (!allProjectChecklists) return [];
-    // Strict visibility check done on the client to avoid missing index blockers
-    return allProjectChecklists.filter(c => c.projectId && allowedProjectIds.includes(c.projectId));
-  }, [allProjectChecklists, allowedProjectIds]);
+    if (!allChecklists) return [];
+    return allChecklists.filter(c => 
+        !c.isTemplate && 
+        c.projectId && 
+        allowedProjectIds.includes(c.projectId)
+    );
+  }, [allChecklists, allowedProjectIds]);
 
-  const templatesQuery = useMemo(() => 
-    query(collection(db, 'quality-checklists'), where('isTemplate', '==', true))
-  , [db]);
-  const { data: checklistTemplates, isLoading: templatesLoading } = useCollection<QualityChecklist>(templatesQuery);
+  // Filter for templates to be used in the "Add Checklist" dialog
+  const checklistTemplates = useMemo(() => {
+    if (!allChecklists) return [];
+    return allChecklists.filter(c => !!c.isTemplate);
+  }, [allChecklists]);
 
-  const isLoading = projectsLoading || subsLoading || checklistsLoading || templatesLoading || profileLoading;
+  const isLoading = projectsLoading || subsLoading || checklistsLoading || profileLoading;
 
-  if (isLoading) {
+  if (isLoading && !allChecklists) {
     return (
         <div className="flex flex-col w-full h-screen items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -77,7 +82,7 @@ export default function QualityControlPage() {
           <h2 className="text-2xl font-bold tracking-tight">
             Quality Control Checklists
           </h2>
-           <AddChecklistToProject projects={allowedProjects} checklistTemplates={checklistTemplates || []} subContractors={subContractors || []} />
+           <AddChecklistToProject projects={allowedProjects} checklistTemplates={checklistTemplates} subContractors={subContractors || []} />
         </div>
         
         <div className="grid gap-4 md:gap-6">
@@ -91,7 +96,7 @@ export default function QualityControlPage() {
               />
             ))
           ) : (
-            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg bg-muted/10">
               <p className="text-lg font-semibold">No records found</p>
               <p className="text-sm">You only see checklists for projects you are explicitly assigned to.</p>
             </div>
