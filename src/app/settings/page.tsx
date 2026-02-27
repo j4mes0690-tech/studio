@@ -136,11 +136,11 @@ export default function SettingsPage() {
                                     <h3 className="text-lg font-medium">Add New External Contact</h3>
                                     {permissions.canManageTrades && <ManageTradesDialog />}
                                 </div>
-                                <AddSubcontractorForm />
+                                <AddSubcontractorForm canManageTrades={permissions.canManageTrades} />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Partners</h3>
-                                <SubcontractorsList subContractors={subContractors || []} />
+                                <SubcontractorsList subContractors={subContractors || []} canManageTrades={permissions.canManageTrades} />
                             </div>
                         </div>
 

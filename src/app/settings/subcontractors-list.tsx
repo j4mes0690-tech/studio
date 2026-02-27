@@ -26,9 +26,10 @@ import { Badge } from '@/components/ui/badge';
 
 type SubcontractorsListProps = {
   subContractors: SubContractor[];
+  canManageTrades?: boolean;
 };
 
-export function SubcontractorsList({ subContractors }: SubcontractorsListProps) {
+export function SubcontractorsList({ subContractors, canManageTrades }: SubcontractorsListProps) {
   const [isPending, startTransition] = useTransition();
   const db = useFirestore();
   const { toast } = useToast();
@@ -83,7 +84,7 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
             )}
           </div>
           <div className="flex items-center">
-            <EditSubcontractorForm subContractor={contact} />
+            <EditSubcontractorForm subContractor={contact} canManageTrades={canManageTrades} />
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="icon" disabled={isPending}>

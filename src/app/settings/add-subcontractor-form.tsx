@@ -24,6 +24,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Trade } from '@/lib/types';
+import { ManageTradesDialog } from './manage-trades-dialog';
 
 const AddContactSchema = z.object({
   name: z.string().min(1, 'Name or company name is required.'),
@@ -38,7 +39,7 @@ const AddContactSchema = z.object({
 
 type AddContactFormValues = z.infer<typeof AddContactSchema>;
 
-export function AddSubcontractorForm() {
+export function AddSubcontractorForm({ canManageTrades }: { canManageTrades?: boolean }) {
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
@@ -148,7 +149,10 @@ export function AddSubcontractorForm() {
         <Separator />
 
         <div className="space-y-3">
-          <FormLabel>Assigned Trades</FormLabel>
+          <div className="flex items-center justify-between">
+            <FormLabel>Assigned Trades</FormLabel>
+            {canManageTrades && <ManageTradesDialog />}
+          </div>
           <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
             {allTrades?.map((trade) => (
               <FormField

@@ -34,6 +34,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ManageTradesDialog } from './manage-trades-dialog';
 
 const EditContactSchema = z.object({
   id: z.string().min(1),
@@ -51,9 +52,10 @@ type EditContactFormValues = z.infer<typeof EditContactSchema>;
 
 type EditSubcontractorFormProps = {
   subContractor: SubContractor;
+  canManageTrades?: boolean;
 };
 
-export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormProps) {
+export function EditSubcontractorForm({ subContractor, canManageTrades }: EditSubcontractorFormProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
@@ -208,7 +210,10 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
             <Separator />
 
             <div className="space-y-3">
-              <FormLabel>Assigned Trades</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>Assigned Trades</FormLabel>
+                {canManageTrades && <ManageTradesDialog />}
+              </div>
               <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
                 {allTrades?.map((trade) => (
                   <FormField
