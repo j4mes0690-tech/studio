@@ -46,13 +46,6 @@ export interface FirebaseServicesAndUser {
   userError: Error | null;
 }
 
-// Return type for useUser() - specific to user auth state
-export interface UserHookResult {
-  user: User | null;
-  isUserLoading: boolean;
-  userError: Error | null;
-}
-
 // React Context
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
@@ -176,11 +169,3 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
   
   return memoized;
 }
-
-/**
- * Hook specifically for accessing the authenticated user's state.
- */
-export const useUser = (): UserHookResult => {
-  const { user, isUserLoading, userError } = useFirebase();
-  return { user, isUserLoading, userError };
-};

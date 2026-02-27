@@ -21,9 +21,9 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
 
-export function NotificationsMenu({ userEmail }: { userEmail: string }) {
+export function NotificationsMenu({ userEmail }: { userEmail: string | null | undefined }) {
   const db = useFirestore();
-  const normalizedEmail = userEmail.toLowerCase().trim();
+  const normalizedEmail = userEmail?.toLowerCase().trim() || '';
   const [isClearingAll, setIsClearingAll] = useState(false);
 
   // Fetch current user profile for permission check
@@ -73,7 +73,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
   const { data: rawRequests, isLoading } = useCollection<InformationRequest>(notificationsQuery);
 
   const notifications = useMemo(() => {
-    if (!rawRequests || !profile) return [];
+    if (!rawRequests || !profile || !normalizedEmail) return [];
 
     return rawRequests.map(request => {
       // 0. Verify Project Assignment (Primary Security Gate)
@@ -105,6 +105,8 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
     e.preventDefault();
     e.stopPropagation();
     
+    if (!normalizedEmail) return;
+
     const docRef = doc(db, 'information-requests', requestId);
     updateDoc(docRef, {
       dismissedBy: arrayUnion(normalizedEmail)
@@ -122,7 +124,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string }) {
     e.preventDefault();
     e.stopPropagation();
     
-    if (notifications.length === 0) return;
+    if (notifications.length === 0 || !normalizedEmail) return;
     
     setIsClearingAll(true);
     try {
