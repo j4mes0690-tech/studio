@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTransition, useState, useEffect, useMemo } from 'react';
+import { useTransition, useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -25,20 +26,12 @@ import {
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, X, Loader2 } from 'lucide-react';
-import type { QualityChecklist, Trade } from '@/lib/types';
+import type { QualityChecklist } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-  } from '@/components/ui/select';
-import { useFirestore, useCollection } from '@/firebase';
-import { doc, updateDoc, collection, query, orderBy } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { ManageTradesDialog } from './manage-trades-dialog';
 
 const EditChecklistTemplateSchema = z.object({
   id: z.string().min(1),
@@ -51,17 +44,13 @@ type EditChecklistTemplateFormValues = z.infer<typeof EditChecklistTemplateSchem
 
 type EditChecklistTemplateFormProps = {
   checklist: QualityChecklist;
-  canManageTrades?: boolean;
 };
 
-export function EditChecklistTemplateForm({ checklist, canManageTrades }: EditChecklistTemplateFormProps) {
+export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFormProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
-
-  const tradesQuery = useMemo(() => query(collection(db, 'trades'), orderBy('name', 'asc')), [db]);
-  const { data: trades, isLoading: tradesLoading } = useCollection<Trade>(tradesQuery);
 
   const [items, setItems] = useState<string[]>(checklist.items.map(i => i.text));
   const [currentItem, setCurrentItem] = useState('');
@@ -182,25 +171,10 @@ export function EditChecklistTemplateForm({ checklist, canManageTrades }: EditCh
                 name="trade"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Trade</FormLabel>
-                    <div className="flex items-center gap-2">
-                      <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={tradesLoading ? "Loading trades..." : "Select a trade"} />
-                          </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                          {trades?.map((trade) => (
-                              <SelectItem key={trade.id} value={trade.name}>{trade.name}</SelectItem>
-                          ))}
-                          {(trades?.length || 0) === 0 && !tradesLoading && (
-                            <div className="p-2 text-xs text-muted-foreground text-center">No trades defined.</div>
-                          )}
-                          </SelectContent>
-                      </Select>
-                      {canManageTrades && <ManageTradesDialog />}
-                    </div>
+                    <FormLabel>Trade / Discipline</FormLabel>
+                    <FormControl>
+                        <Input {...field} />
+                    </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}

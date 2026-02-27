@@ -46,7 +46,6 @@ export function LoginForm() {
               canManageUsers: true,
               canManageSubcontractors: true,
               canManageProjects: true,
-              canManageTrades: true,
               canManageChecklists: true,
               hasFullVisibility: true,
             }

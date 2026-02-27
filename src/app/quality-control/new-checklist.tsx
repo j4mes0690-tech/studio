@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useEffect, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,39 +23,27 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, X, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore, useCollection } from '@/firebase';
-import { collection, addDoc, query, orderBy } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import type { Trade } from '@/lib/types';
-import { ManageTradesDialog } from '../settings/manage-trades-dialog';
 
 const NewChecklistSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
-  trade: z.string().min(1, 'Trade is required.'),
+  trade: z.string().min(1, 'Trade identification is required.'),
 });
 
 type NewChecklistFormValues = z.infer<typeof NewChecklistSchema>;
 
-export function NewChecklist({ canManageTrades }: { canManageTrades?: boolean }) {
+export function NewChecklist() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
-
-  const tradesQuery = useMemo(() => query(collection(db, 'trades'), orderBy('name', 'asc')), [db]);
-  const { data: trades, isLoading: tradesLoading } = useCollection<Trade>(tradesQuery);
 
   const [items, setItems] = useState<string[]>([]);
   const [currentItem, setCurrentItem] = useState('');
@@ -134,7 +123,7 @@ export function NewChecklist({ canManageTrades }: { canManageTrades?: boolean })
         <DialogHeader>
           <DialogTitle>Create New Quality Checklist</DialogTitle>
           <DialogDescription>
-            Define a new checklist template for a specific trade.
+            Define a new checklist template for specific trade works.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -158,25 +147,10 @@ export function NewChecklist({ canManageTrades }: { canManageTrades?: boolean })
                 name="trade"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Trade</FormLabel>
-                    <div className="flex items-center gap-2">
-                      <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder={tradesLoading ? "Loading trades..." : "Select a trade"} />
-                          </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                          {trades?.map((trade) => (
-                              <SelectItem key={trade.id} value={trade.name}>{trade.name}</SelectItem>
-                          ))}
-                          {(trades?.length || 0) === 0 && !tradesLoading && (
-                            <div className="p-2 text-xs text-muted-foreground text-center">No trades defined in Settings.</div>
-                          )}
-                          </SelectContent>
-                      </Select>
-                      {canManageTrades && <ManageTradesDialog />}
-                    </div>
+                    <FormLabel>Trade / Discipline</FormLabel>
+                    <FormControl>
+                        <Input placeholder="e.g. Electrical, Carpentry" {...field} />
+                    </FormControl>
                     <FormMessage />
                     </FormItem>
                 )}

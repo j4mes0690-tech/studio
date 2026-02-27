@@ -21,7 +21,6 @@
         "canManageUsers": { "type": "boolean" },
         "canManageSubcontractors": { "type": "boolean" },
         "canManageProjects": { "type": "boolean" },
-        "canManageTrades": { "type": "boolean" },
         "canManageChecklists": { "type": "boolean" },
         "hasFullVisibility": { "type": "boolean", "description": "Whether the user can see all data across all projects." }
       }
@@ -120,8 +119,7 @@
         "name": { "type": "string" },
         "email": { "type": "string" },
         "isSubContractor": { "type": "boolean" },
-        "isDesigner": { "type": "boolean" },
-        "trades": { "type": "array", "items": { "type": "string" } }
+        "isDesigner": { "type": "boolean" }
       }
     },
     "CleanUpNotice": {
@@ -206,15 +204,6 @@
         "comment": { "type": "string" },
         "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
       }
-    },
-    "Trade": {
-      "title": "Trade",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" }
-      },
-      "required": ["name"]
     }
   },
   "auth": {
@@ -256,10 +245,6 @@
     "/quality-checklists/{id}": {
       "schema": "QualityChecklist",
       "description": "Trade checklists and templates."
-    },
-    "/trades/{id}": {
-      "schema": "Trade",
-      "description": "System trade categories."
     }
   }
 }

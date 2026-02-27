@@ -3,7 +3,7 @@
 
 import type { SubContractor } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, HardHat, Ruler, Tag } from 'lucide-react';
+import { Trash2, HardHat, Ruler } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -26,10 +26,9 @@ import { Badge } from '@/components/ui/badge';
 
 type SubcontractorsListProps = {
   subContractors: SubContractor[];
-  canManageTrades?: boolean;
 };
 
-export function SubcontractorsList({ subContractors, canManageTrades }: SubcontractorsListProps) {
+export function SubcontractorsList({ subContractors }: SubcontractorsListProps) {
   const [isPending, startTransition] = useTransition();
   const db = useFirestore();
   const { toast } = useToast();
@@ -71,20 +70,9 @@ export function SubcontractorsList({ subContractors, canManageTrades }: Subcontr
                 </Badge>
               )}
             </div>
-
-            {contact.trades && contact.trades.length > 0 && (
-              <div className="flex flex-wrap gap-1 pt-1">
-                {contact.trades.map((trade, idx) => (
-                  <Badge key={idx} variant="outline" className="text-[8px] h-3.5 px-1 bg-background flex items-center gap-1 font-normal border-muted-foreground/20">
-                    <Tag className="h-2 w-2 text-muted-foreground" />
-                    {trade}
-                  </Badge>
-                ))}
-              </div>
-            )}
           </div>
           <div className="flex items-center">
-            <EditSubcontractorForm subContractor={contact} canManageTrades={canManageTrades} />
+            <EditSubcontractorForm subContractor={contact} />
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="icon" disabled={isPending}>

@@ -31,7 +31,6 @@ const AddUserSchema = z.object({
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
-  canManageTrades: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
   hasFullVisibility: z.boolean().default(false),
 });
@@ -52,7 +51,6 @@ export function AddUserForm() {
       canManageUsers: false,
       canManageSubcontractors: false,
       canManageProjects: false,
-      canManageTrades: false,
       canManageChecklists: false,
       hasFullVisibility: false,
     },
@@ -70,7 +68,6 @@ export function AddUserForm() {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,
           canManageProjects: values.canManageProjects,
-          canManageTrades: values.canManageTrades,
           canManageChecklists: values.canManageChecklists,
           hasFullVisibility: values.hasFullVisibility,
         }
@@ -80,7 +77,7 @@ export function AddUserForm() {
       
       setDoc(docRef, profile)
         .then(() => {
-          toast({ title: 'Success', description: 'User profile and credentials created.' });
+          toast({ title: 'Success', description: 'User profile created.' });
           form.reset();
         })
         .catch(async (error) => {
@@ -212,26 +209,6 @@ export function AddUserForm() {
                         <FormLabel>Manage Projects</FormLabel>
                         <FormDescription>
                            Access to project setup, site areas, and staff assignment.
-                        </FormDescription>
-                    </div>
-                    <FormControl>
-                        <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
-                </FormItem>
-                )}
-            />
-            <FormField
-                control={form.control}
-                name="canManageTrades"
-                render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <FormLabel>Manage Trade Categories</FormLabel>
-                        <FormDescription>
-                            Access to define and edit trade specialties.
                         </FormDescription>
                     </div>
                     <FormControl>

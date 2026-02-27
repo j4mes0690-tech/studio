@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -21,14 +22,11 @@ import { AddProjectForm } from './add-project-form';
 import { ProjectsList } from './projects-list';
 import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
-import { ManageTradesDialog } from './manage-trades-dialog';
-import { ManageTrades } from './manage-trades';
 import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
 import type { DistributionUser, SubContractor, Project, QualityChecklist } from '@/lib/types';
 import { Loader2, ShieldAlert } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -70,15 +68,14 @@ export default function SettingsPage() {
 
   const permissions = profile?.permissions;
   
-  // Resilient permission check: Admin always has access even if the field is missing in Firestore
+  // Resilient permission check
   const isAdmin = profile?.email.toLowerCase().trim() === 'admin@example.com';
   const canManageUsers = !!permissions?.canManageUsers || isAdmin;
   const canManageSubcontractors = !!permissions?.canManageSubcontractors || isAdmin;
   const canManageProjects = !!permissions?.canManageProjects || isAdmin;
-  const canManageTrades = !!permissions?.canManageTrades || isAdmin;
   const canManageChecklists = !!permissions?.canManageChecklists || isAdmin;
 
-  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageTrades || canManageChecklists;
+  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists;
 
   if (!hasAnyAdminPermission) {
     return (
@@ -130,31 +127,18 @@ export default function SettingsPage() {
           {canManageSubcontractors && (
             <Card>
                 <AccordionItem value="subcontractors" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts & Trades</AccordionTrigger>
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts</AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-medium">Add New External Contact</h3>
-                                    {canManageTrades && <ManageTradesDialog showLabel />}
-                                </div>
-                                <AddSubcontractorForm canManageTrades={canManageTrades} />
+                                <h3 className="text-lg font-medium">Add New External Contact</h3>
+                                <AddSubcontractorForm />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Partners</h3>
-                                <SubcontractorsList subContractors={subContractors || []} canManageTrades={canManageTrades} />
+                                <SubcontractorsList subContractors={subContractors || []} />
                             </div>
                         </div>
-
-                        {canManageTrades && (
-                          <div className="mt-12 space-y-6 pt-8 border-t">
-                            <div className="flex flex-col gap-1">
-                              <h3 className="text-xl font-bold tracking-tight">Trade Category Management</h3>
-                              <p className="text-sm text-muted-foreground">Define the trade specialties used for partner assignment and quality checklists.</p>
-                            </div>
-                            <ManageTrades />
-                          </div>
-                        )}
                     </AccordionContent>
                 </AccordionItem>
             </Card>
@@ -187,15 +171,12 @@ export default function SettingsPage() {
                     <AccordionContent className="p-6 pt-0">
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-medium">Add New Template</h3>
-                                    {canManageTrades && <ManageTradesDialog showLabel />}
-                                </div>
-                                <NewChecklist canManageTrades={canManageTrades} />
+                                <h3 className="text-lg font-medium">Add New Template</h3>
+                                <NewChecklist />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Templates</h3>
-                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} canManageTrades={canManageTrades} />
+                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
                             </div>
                         </div>
                     </AccordionContent>

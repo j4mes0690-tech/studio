@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { QualityChecklist } from '@/lib/types';
@@ -25,10 +26,9 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 type ChecklistTemplatesListProps = {
   checklistTemplates: QualityChecklist[];
-  canManageTrades?: boolean;
 };
 
-export function ChecklistTemplatesList({ checklistTemplates, canManageTrades }: ChecklistTemplatesListProps) {
+export function ChecklistTemplatesList({ checklistTemplates }: ChecklistTemplatesListProps) {
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
   const db = useFirestore();
@@ -62,7 +62,7 @@ export function ChecklistTemplatesList({ checklistTemplates, canManageTrades }: 
             </div>
           </div>
           <div className="flex items-center flex-shrink-0">
-            <EditChecklistTemplateForm checklist={checklist} canManageTrades={canManageTrades} />
+            <EditChecklistTemplateForm checklist={checklist} />
             <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="icon" disabled={isPending}>
