@@ -195,8 +195,7 @@ function QualityControlContent() {
                                 <TableHead>Trade</TableHead>
                                 <TableHead>Checklist Title</TableHead>
                                 <TableHead>Progress</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-right">Status</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -206,34 +205,32 @@ function QualityControlContent() {
                                 const progress = total > 0 ? (completed / total) * 100 : 0;
                                 const hasFail = checklist.items.some(i => i.status === 'no');
                                 return (
-                                    <TableRow key={checklist.id} className="group">
+                                    <TableRow 
+                                        key={checklist.id} 
+                                        className="group cursor-pointer"
+                                        onClick={() => toggleView()} // Open up the checklists by switching to grid view
+                                    >
                                         <TableCell><Badge variant={hasFail ? "destructive" : "outline"}>{checklist.trade}</Badge></TableCell>
-                                        <TableCell className="font-medium">{checklist.title}</TableCell>
+                                        <TableCell className="font-medium group-hover:text-primary transition-colors">{checklist.title}</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2 min-w-[120px]">
                                                 <Progress value={progress} className="h-1.5" indicatorClassName={hasFail ? "bg-destructive" : ""} />
                                                 <span className="text-[10px] text-muted-foreground whitespace-nowrap">{completed}/{total}</span>
                                             </div>
                                         </TableCell>
-                                        <TableCell>
-                                            {hasFail ? <Badge variant="destructive" className="text-[10px]">FAILED</Badge> : progress === 100 ? <Badge variant="secondary" className="bg-green-100 text-green-800 text-[10px]">COMPLETE</Badge> : <Badge variant="secondary" className="text-[10px]">IN PROGRESS</Badge>}
-                                        </TableCell>
                                         <TableCell className="text-right">
-                                            <AddChecklistToProject 
-                                                projects={allowedProjects} 
-                                                checklistTemplates={checklistTemplates} 
-                                                subContractors={subContractors || []} 
-                                                existingChecklists={checklistInstances}
-                                                // We reuse the card logic for now by just providing the card as a detailed popup or modal trigger if needed
-                                                // but for MVP, cards are preferred for interaction
-                                            />
-                                            {/* Note: In table view, we should probably allow clicking to expand or open the card in a dialog */}
-                                            <span className="text-xs text-muted-foreground italic mr-2">Use Grid View to Update</span>
+                                            {hasFail ? (
+                                                <Badge variant="destructive" className="text-[10px]">FAILED</Badge>
+                                            ) : progress === 100 ? (
+                                                <Badge variant="secondary" className="bg-green-100 text-green-800 text-[10px]">COMPLETE</Badge>
+                                            ) : (
+                                                <Badge variant="secondary" className="text-[10px]">IN PROGRESS</Badge>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 );
                             }) : (
-                                <TableRow><TableCell colSpan={5} className="text-center py-12 text-muted-foreground">No checklists assigned.</TableCell></TableRow>
+                                <TableRow><TableCell colSpan={4} className="text-center py-12 text-muted-foreground">No checklists assigned.</TableCell></TableRow>
                             )}
                         </TableBody>
                     </Table>
@@ -306,7 +303,7 @@ function QualityControlContent() {
                                 <TableHead>Checklists</TableHead>
                                 <TableHead>Verified Points</TableHead>
                                 <TableHead>Global Progress</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableHead className="text-right">Action</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
