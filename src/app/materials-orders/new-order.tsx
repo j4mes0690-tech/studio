@@ -60,9 +60,9 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
   
   // Pending Item State
   const [pendingDescription, setPendingDescription] = useState<string>('');
-  const [pendingQty, setPendingQuantity] = useState<number>(1);
+  const [pendingQty, setPendingQuantity] = useState<number | string>(1);
   const [pendingUnit, setPendingUnit] = useState<string>('');
-  const [pendingRate, setPendingRate] = useState<number>(0);
+  const [pendingRate, setPendingRate] = useState<number | string>(0);
   const [pendingDeliveryDate, setPendingDeliveryDate] = useState<string | null>(null);
 
   const form = useForm<NewOrderFormValues>({
@@ -72,21 +72,29 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
-  const orderTotal = useMemo(() => orderItems.reduce((sum, item) => sum + item.total, 0), [orderItems]);
+  
+  const orderTotal = useMemo(() => {
+    return orderItems.reduce((sum, item) => sum + item.total, 0);
+  }, [orderItems]);
 
   const handleAddItem = () => {
-    if (!pendingDescription || pendingQty <= 0) {
+    const qty = typeof pendingQty === 'string' ? parseFloat(pendingQty) : pendingQty;
+    const rate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
+
+    if (!pendingDescription || isNaN(qty) || qty <= 0) {
       toast({ title: 'Invalid Item', description: 'Description and quantity are required.', variant: 'destructive' });
       return;
     }
 
+    const finalRate = isNaN(rate) ? 0 : rate;
+
     setOrderItems([...orderItems, {
       description: pendingDescription,
-      quantity: pendingQty,
+      quantity: qty,
       unit: pendingUnit || 'pcs',
-      rate: pendingRate,
+      rate: finalRate,
       deliveryDate: pendingDeliveryDate,
-      total: pendingQty * pendingRate
+      total: qty * finalRate
     }]);
 
     // Reset pending
@@ -259,7 +267,9 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                       step="0.1" 
                       className="h-9 bg-background"
                       value={pendingQty} 
-                      onChange={e => setPendingQuantity(parseFloat(e.target.value) || 0)} 
+                      onChange={e => setPendingQuantity(e.target.value)} 
+                      onFocus={() => setPendingQuantity('')}
+                      onBlur={() => { if (pendingQty === '') setPendingQuantity(1); }}
                     />
                   </div>
                   <div className="space-y-2">
@@ -279,7 +289,9 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                       step="0.01" 
                       className="h-9 bg-background"
                       value={pendingRate} 
-                      onChange={e => setPendingRate(parseFloat(e.target.value) || 0)} 
+                      onChange={e => setPendingRate(e.target.value)} 
+                      onFocus={() => setPendingRate('')}
+                      onBlur={() => { if (pendingRate === '') setPendingRate(0); }}
                     />
                   </div>
                 </div>
