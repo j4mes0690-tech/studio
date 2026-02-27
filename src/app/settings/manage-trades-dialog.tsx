@@ -18,21 +18,30 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 /**
  * ManageTradesDialog - Wraps the Trade Management interface in a Dialog
  * to provide a discrete entry point from other administration modules.
  */
-export function ManageTradesDialog() {
+export function ManageTradesDialog({ showLabel = false }: { showLabel?: boolean }) {
   return (
     <Dialog>
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <DialogTrigger asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9 text-primary hover:bg-primary/5 transition-colors">
-                <Settings2 className="h-5 w-5" />
-                <span className="sr-only">Manage Trades</span>
+              <Button 
+                variant="outline" 
+                size={showLabel ? "sm" : "icon"} 
+                className={cn(
+                    "text-primary hover:bg-primary/5 transition-colors",
+                    showLabel ? "h-8 gap-2 px-3" : "h-9 w-9"
+                )}
+              >
+                <Settings2 className="h-4 w-4" />
+                {showLabel && <span className="text-xs font-semibold">Edit Trades</span>}
+                {!showLabel && <span className="sr-only">Manage Trades</span>}
               </Button>
             </DialogTrigger>
           </TooltipTrigger>

@@ -70,13 +70,16 @@ export default function SettingsPage() {
   }
 
   const permissions = profile?.permissions;
-  const hasAnyAdminPermission = permissions && (
-    permissions.canManageUsers || 
-    permissions.canManageSubcontractors || 
-    permissions.canManageProjects || 
-    permissions.canManageTrades ||
-    permissions.canManageChecklists
-  );
+  
+  // Resilient permission check: Admin always has access even if the field is missing in Firestore
+  const isAdmin = profile?.email.toLowerCase().trim() === 'admin@example.com';
+  const canManageUsers = !!permissions?.canManageUsers || isAdmin;
+  const canManageSubcontractors = !!permissions?.canManageSubcontractors || isAdmin;
+  const canManageProjects = !!permissions?.canManageProjects || isAdmin;
+  const canManageTrades = !!permissions?.canManageTrades || isAdmin;
+  const canManageChecklists = !!permissions?.canManageChecklists || isAdmin;
+
+  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageTrades || canManageChecklists;
 
   if (!hasAnyAdminPermission) {
     return (
@@ -105,7 +108,7 @@ export default function SettingsPage() {
       <main className="flex-1 p-4 md:p-8">
         <Accordion type="single" collapsible className="w-full space-y-4">
           
-          {permissions.canManageUsers && (
+          {canManageUsers && (
             <Card>
                 <AccordionItem value="users" className="border-b-0">
                     <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Internal Users</AccordionTrigger>
@@ -125,7 +128,7 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {permissions.canManageSubcontractors && (
+          {canManageSubcontractors && (
             <Card>
                 <AccordionItem value="subcontractors" className="border-b-0">
                     <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts & Trades</AccordionTrigger>
@@ -134,17 +137,17 @@ export default function SettingsPage() {
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <h3 className="text-lg font-medium">Add New External Contact</h3>
-                                    {permissions.canManageTrades && <ManageTradesDialog />}
+                                    {canManageTrades && <ManageTradesDialog showLabel />}
                                 </div>
-                                <AddSubcontractorForm canManageTrades={permissions.canManageTrades} />
+                                <AddSubcontractorForm canManageTrades={canManageTrades} />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Partners</h3>
-                                <SubcontractorsList subContractors={subContractors || []} canManageTrades={permissions.canManageTrades} />
+                                <SubcontractorsList subContractors={subContractors || []} canManageTrades={canManageTrades} />
                             </div>
                         </div>
 
-                        {permissions.canManageTrades && (
+                        {canManageTrades && (
                           <div className="mt-12 space-y-6 pt-8 border-t">
                             <div className="flex flex-col gap-1">
                               <h3 className="text-xl font-bold tracking-tight">Trade Category Management</h3>
@@ -158,7 +161,7 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {permissions.canManageProjects && (
+          {canManageProjects && (
             <Card>
                 <AccordionItem value="projects" className="border-b-0">
                     <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Projects</AccordionTrigger>
@@ -178,14 +181,17 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {permissions.canManageChecklists && (
+          {canManageChecklists && (
             <Card>
                 <AccordionItem value="checklists" className="border-b-0">
                     <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Checklist Templates</AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
-                                <h3 className="text-lg font-medium">Add New Template</h3>
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-medium">Add New Template</h3>
+                                    {canManageTrades && <ManageTradesDialog showLabel />}
+                                </div>
                                 <NewChecklist />
                             </div>
                             <div className="space-y-4">

@@ -151,7 +151,7 @@ export function AddSubcontractorForm({ canManageTrades }: { canManageTrades?: bo
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <FormLabel>Assigned Trades</FormLabel>
-            {canManageTrades && <ManageTradesDialog />}
+            {canManageTrades && <ManageTradesDialog showLabel />}
           </div>
           <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
             {allTrades?.map((trade) => (
@@ -188,7 +188,7 @@ export function AddSubcontractorForm({ canManageTrades }: { canManageTrades?: bo
               />
             ))}
             {(allTrades?.length || 0) === 0 && (
-              <p className="text-[10px] text-muted-foreground text-center py-8 italic">No trades defined. Add trades below.</p>
+              <p className="text-[10px] text-muted-foreground text-center py-8 italic">No trades defined. Add trades above.</p>
             )}
           </ScrollArea>
         </div>

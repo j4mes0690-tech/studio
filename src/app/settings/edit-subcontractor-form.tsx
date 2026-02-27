@@ -212,7 +212,7 @@ export function EditSubcontractorForm({ subContractor, canManageTrades }: EditSu
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <FormLabel>Assigned Trades</FormLabel>
-                {canManageTrades && <ManageTradesDialog />}
+                {canManageTrades && <ManageTradesDialog showLabel />}
               </div>
               <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
                 {allTrades?.map((trade) => (
