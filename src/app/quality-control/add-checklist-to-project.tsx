@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
@@ -30,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, MapPin, Users } from 'lucide-react';
 import type { Project, QualityChecklist, Area, SubContractor } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -43,7 +44,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 const AssignChecklistSchema = z.object({
   templateId: z.string().min(1, 'A checklist template is required.'),
   projectId: z.string().min(1, 'A project is required.'),
-  areaId: z.string().min(1, 'A project area is required.'),
+  areaIds: z.array(z.string()).min(1, 'Select at least one plot or area.'),
   recipients: z.array(z.string()).optional(),
 });
 
@@ -60,71 +61,75 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
-  const [areas, setAreas] = useState<Area[]>([]);
 
   const form = useForm<AssignChecklistFormValues>({
     resolver: zodResolver(AssignChecklistSchema),
     defaultValues: {
       templateId: '',
       projectId: '',
-      areaId: '',
+      areaIds: [],
       recipients: [],
     },
   });
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+  const availableAreas = selectedProject?.areas || [];
 
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    // Only show contacts assigned to the project who are classified as Sub-contractors (Excludes Designers-only)
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   useEffect(() => {
     if (selectedProjectId) {
-      setAreas(selectedProject?.areas || []);
-      form.setValue('areaId', '');
-    } else {
-      setAreas([]);
+      form.setValue('areaIds', []);
+      form.setValue('recipients', []);
     }
-  }, [selectedProjectId, selectedProject, form]);
+  }, [selectedProjectId, form]);
 
   const onSubmit = (values: AssignChecklistFormValues) => {
     startTransition(async () => {
-      const template = checklistTemplates.find(t => t.id === values.templateId);
-      if (!template) return;
+      try {
+        const template = checklistTemplates.find(t => t.id === values.templateId);
+        if (!template) return;
 
-      const recipientEmails = subContractors
-        .filter(sub => values.recipients?.includes(sub.id))
-        .map(sub => sub.email);
+        const recipientEmails = subContractors
+          .filter(sub => values.recipients?.includes(sub.id))
+          .map(sub => sub.email);
 
-      const newChecklist = {
-        projectId: values.projectId,
-        areaId: values.areaId,
-        title: template.title,
-        trade: template.trade,
-        items: template.items.map(item => ({ ...item, status: 'pending', comment: '' })),
-        recipients: recipientEmails,
-        isTemplate: false,
-        createdAt: new Date().toISOString(),
-      };
+        // CREATE ONE CHECKLIST PER SELECTED AREA
+        const creationPromises = values.areaIds.map(areaId => {
+            const newChecklist = {
+                projectId: values.projectId,
+                areaId: areaId,
+                title: template.title,
+                trade: template.trade,
+                items: template.items.map(item => ({ ...item, status: 'pending', comment: '' })),
+                recipients: recipientEmails,
+                isTemplate: false,
+                createdAt: new Date().toISOString(),
+            };
 
-      const colRef = collection(db, 'quality-checklists');
-      addDoc(colRef, newChecklist)
-        .then(() => {
-          toast({ title: 'Success', description: 'Checklist assigned to project.' });
-          setOpen(false);
-        })
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: colRef.path,
-            operation: 'create',
-            requestResourceData: newChecklist,
-          });
-          errorEmitter.emit('permission-error', permissionError);
+            const colRef = collection(db, 'quality-checklists');
+            return addDoc(colRef, newChecklist).catch((error) => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: colRef.path,
+                    operation: 'create',
+                    requestResourceData: newChecklist,
+                }));
+                throw error;
+            });
         });
+
+        await Promise.all(creationPromises);
+        toast({ title: 'Success', description: `Checklist assigned to ${values.areaIds.length} areas.` });
+        setOpen(false);
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Error', description: 'Failed to assign checklists to all areas.', variant: 'destructive' });
+      }
     });
   };
 
@@ -139,18 +144,18 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
       <DialogTrigger asChild>
         <Button>
           <PlusCircle className="mr-2 h-4 w-4" />
-          Add Checklist
+          Assign Checklists
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Assign Checklist to Project</DialogTitle>
+          <DialogTitle>Batch Assign Trade Checklists</DialogTitle>
           <DialogDescription>
-            Select a checklist template and assign it to a project and area.
+            Select a trade template and assign it to multiple plots or areas in a project.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="templateId"
@@ -159,7 +164,7 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
                   <FormLabel>Checklist Template</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select a template" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select trade template" /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {checklistTemplates.map((t) => (
@@ -179,7 +184,7 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
                   <FormLabel>Project</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
+                      <SelectTrigger><SelectValue placeholder="Select target project" /></SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -189,63 +194,85 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
                 </FormItem>
               )}
             />
-             <FormField
-              control={form.control}
-              name="areaId"
-              render={({ field }) => (
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                 <FormItem>
-                  <FormLabel>Project Area</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId || areas.length === 0}>
-                    <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select an area" /></SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        {areas.length > 0 ? areas.map((a) => (
-                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                        )) : <SelectItem value="-" disabled>No areas defined for this project</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
+                    <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="h-4 w-4 text-primary" />
+                        <FormLabel>Select Plots / Areas</FormLabel>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                        {availableAreas.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-8 italic">
+                                {selectedProjectId ? "No areas defined for this project." : "Please select a project first."}
+                            </p>
+                        ) : availableAreas.map((area) => (
+                            <FormField
+                                key={area.id}
+                                control={form.control}
+                                name="areaIds"
+                                render={({ field }) => (
+                                    <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value?.includes(area.id)}
+                                                onCheckedChange={(c) => {
+                                                    const curr = field.value || [];
+                                                    field.onChange(c ? [...curr, area.id] : curr.filter(v => v !== area.id));
+                                                }}
+                                            />
+                                        </FormControl>
+                                        <FormLabel className="text-xs font-medium cursor-pointer">{area.name}</FormLabel>
+                                    </FormItem>
+                                )}
+                            />
+                        ))}
+                    </ScrollArea>
+                    <FormField control={form.control} name="areaIds" render={() => <FormMessage />} />
                 </FormItem>
-              )}
-            />
 
-            <Separator />
-            
-            <FormItem>
-              <FormLabel>Assign to Sub-Contractor (Optional)</FormLabel>
-              <ScrollArea className="h-40 rounded-md border p-4">
-                {projectSubs.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-8">
-                    {selectedProjectId ? "No sub-contractors assigned to this project." : "Please select a project first."}
-                  </p>
-                ) : projectSubs.map((sub) => (
-                  <FormField
-                    key={sub.id}
-                    control={form.control}
-                    name="recipients"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value?.includes(sub.id)}
-                            onCheckedChange={(c) => {
-                              const curr = field.value || [];
-                              field.onChange(c ? [...curr, sub.id] : curr.filter(v => v !== sub.id));
-                            }}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal">{sub.name}</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                ))}
-              </ScrollArea>
-            </FormItem>
+                <FormItem>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Users className="h-4 w-4 text-accent" />
+                        <FormLabel>Notify Trade Partners</FormLabel>
+                    </div>
+                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
+                        {projectSubs.length === 0 ? (
+                            <p className="text-[10px] text-muted-foreground text-center py-8 italic">
+                                {selectedProjectId ? "No sub-contractors assigned to this project." : "Select a project to view partners."}
+                            </p>
+                        ) : projectSubs.map((sub) => (
+                            <FormField
+                                key={sub.id}
+                                control={form.control}
+                                name="recipients"
+                                render={({ field }) => (
+                                    <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value?.includes(sub.id)}
+                                                onCheckedChange={(c) => {
+                                                    const curr = field.value || [];
+                                                    field.onChange(c ? [...curr, sub.id] : curr.filter(v => v !== sub.id));
+                                                }}
+                                            />
+                                        </FormControl>
+                                        <div className="flex flex-col">
+                                            <FormLabel className="text-xs font-medium cursor-pointer">{sub.name}</FormLabel>
+                                            <span className="text-[9px] text-muted-foreground">{sub.email}</span>
+                                        </div>
+                                    </FormItem>
+                                )}
+                            />
+                        ))}
+                    </ScrollArea>
+                </FormItem>
+            </div>
 
-            <DialogFooter>
-              <Button type="submit" disabled={isPending}>
-                {isPending ? 'Assigning...' : 'Assign Checklist'}
+            <DialogFooter className="pt-4 border-t">
+              <Button type="submit" disabled={isPending} className="w-full">
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {isPending ? 'Assigning Checklists...' : `Assign to ${form.watch('areaIds')?.length || 0} Plots`}
               </Button>
             </DialogFooter>
           </form>
