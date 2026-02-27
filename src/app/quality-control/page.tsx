@@ -56,8 +56,6 @@ function QualityControlContent() {
     });
   }, [allProjects, profile]);
 
-  const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
-
   // Derived Data: Project Progress
   const projectProgress = useMemo(() => {
     if (!allChecklists) return new Map();
@@ -95,6 +93,11 @@ function QualityControlContent() {
     return allChecklists.filter(c => !!c.isTemplate);
   }, [allChecklists]);
 
+  const checklistInstances = useMemo(() => {
+    if (!allChecklists) return [];
+    return allChecklists.filter(c => !c.isTemplate);
+  }, [allChecklists]);
+
   const filteredChecklists = useMemo(() => {
     if (!allChecklists) return [];
     return allChecklists.filter(c => 
@@ -119,8 +122,6 @@ function QualityControlContent() {
     );
   }
 
-  // --- RENDERING LOGIC ---
-
   // LEVEL 3: Individual Checklists in an Area
   if (activeProjectId && activeAreaId) {
     const project = allowedProjects.find(p => p.id === activeProjectId);
@@ -137,7 +138,12 @@ function QualityControlContent() {
                         {area?.name || 'Plot View'}
                     </h2>
                 </div>
-                <AddChecklistToProject projects={allowedProjects} checklistTemplates={checklistTemplates} subContractors={subContractors || []} />
+                <AddChecklistToProject 
+                  projects={allowedProjects} 
+                  checklistTemplates={checklistTemplates} 
+                  subContractors={subContractors || []} 
+                  existingChecklists={checklistInstances}
+                />
             </div>
 
             <div className="grid gap-4 md:gap-6">
@@ -177,7 +183,12 @@ function QualityControlContent() {
                         {project?.name || 'Project Overview'}
                     </h2>
                 </div>
-                <AddChecklistToProject projects={allowedProjects} checklistTemplates={checklistTemplates} subContractors={subContractors || []} />
+                <AddChecklistToProject 
+                  projects={allowedProjects} 
+                  checklistTemplates={checklistTemplates} 
+                  subContractors={subContractors || []} 
+                  existingChecklists={checklistInstances}
+                />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -228,7 +239,12 @@ function QualityControlContent() {
             <LayoutGrid className="h-6 w-6 text-primary" />
             Quality Control Directory
           </h2>
-           <AddChecklistToProject projects={allowedProjects} checklistTemplates={checklistTemplates} subContractors={subContractors || []} />
+           <AddChecklistToProject 
+            projects={allowedProjects} 
+            checklistTemplates={checklistTemplates} 
+            subContractors={subContractors || []} 
+            existingChecklists={checklistInstances}
+          />
         </div>
         
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

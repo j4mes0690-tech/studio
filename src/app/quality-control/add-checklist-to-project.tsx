@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, MapPin, Users } from 'lucide-react';
+import { PlusCircle, MapPin, Users, Loader2 } from 'lucide-react';
 import type { Project, QualityChecklist, Area, SubContractor } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -40,6 +40,7 @@ import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { cn } from '@/lib/utils';
 
 const AssignChecklistSchema = z.object({
   templateId: z.string().min(1, 'A checklist template is required.'),
@@ -54,9 +55,10 @@ type AddChecklistToProjectProps = {
   projects: Project[];
   checklistTemplates: QualityChecklist[];
   subContractors: SubContractor[];
+  existingChecklists: QualityChecklist[];
 };
 
-export function AddChecklistToProject({ projects, checklistTemplates, subContractors }: AddChecklistToProjectProps) {
+export function AddChecklistToProject({ projects, checklistTemplates, subContractors, existingChecklists }: AddChecklistToProjectProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
@@ -73,8 +75,23 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
   });
 
   const selectedProjectId = form.watch('projectId');
+  const selectedTemplateId = form.watch('templateId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+  const selectedTemplate = useMemo(() => checklistTemplates.find(t => t.id === selectedTemplateId), [checklistTemplates, selectedTemplateId]);
+  
   const availableAreas = selectedProject?.areas || [];
+
+  const alreadyAssignedAreaIds = useMemo(() => {
+    if (!selectedTemplate || !selectedProjectId || !existingChecklists) return new Set<string>();
+    
+    // We identify duplicates by checking if a checklist with the same title exists in the plot
+    return new Set(
+        existingChecklists
+            .filter(c => c.projectId === selectedProjectId && c.title === selectedTemplate.title)
+            .map(c => c.areaId)
+            .filter((id): id is string => !!id)
+    );
+  }, [selectedTemplate, selectedProjectId, existingChecklists]);
 
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
@@ -82,18 +99,15 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
+  // Reset selections when project or template changes
   useEffect(() => {
-    if (selectedProjectId) {
-      form.setValue('areaIds', []);
-      form.setValue('recipients', []);
-    }
-  }, [selectedProjectId, form]);
+    form.setValue('areaIds', []);
+  }, [selectedProjectId, selectedTemplateId, form]);
 
   const onSubmit = (values: AssignChecklistFormValues) => {
     startTransition(async () => {
       try {
-        const template = checklistTemplates.find(t => t.id === values.templateId);
-        if (!template) return;
+        if (!selectedTemplate) return;
 
         const recipientEmails = subContractors
           .filter(sub => values.recipients?.includes(sub.id))
@@ -104,9 +118,9 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
             const newChecklist = {
                 projectId: values.projectId,
                 areaId: areaId,
-                title: template.title,
-                trade: template.trade,
-                items: template.items.map(item => ({ ...item, status: 'pending', comment: '' })),
+                title: selectedTemplate.title,
+                trade: selectedTemplate.trade,
+                items: selectedTemplate.items.map(item => ({ ...item, status: 'pending', comment: '' })),
                 recipients: recipientEmails,
                 isTemplate: false,
                 createdAt: new Date().toISOString(),
@@ -151,7 +165,7 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
         <DialogHeader>
           <DialogTitle>Batch Assign Trade Checklists</DialogTitle>
           <DialogDescription>
-            Select a trade template and assign it to multiple plots or areas in a project.
+            Select a trade template and assign it to multiple plots. Duplicates are automatically disabled.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -206,27 +220,36 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
                             <p className="text-[10px] text-muted-foreground text-center py-8 italic">
                                 {selectedProjectId ? "No areas defined for this project." : "Please select a project first."}
                             </p>
-                        ) : availableAreas.map((area) => (
-                            <FormField
-                                key={area.id}
-                                control={form.control}
-                                name="areaIds"
-                                render={({ field }) => (
-                                    <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                                        <FormControl>
-                                            <Checkbox
-                                                checked={field.value?.includes(area.id)}
-                                                onCheckedChange={(c) => {
-                                                    const curr = field.value || [];
-                                                    field.onChange(c ? [...curr, area.id] : curr.filter(v => v !== area.id));
-                                                }}
-                                            />
-                                        </FormControl>
-                                        <FormLabel className="text-xs font-medium cursor-pointer">{area.name}</FormLabel>
-                                    </FormItem>
-                                )}
-                            />
-                        ))}
+                        ) : availableAreas.map((area) => {
+                            const isAssigned = alreadyAssignedAreaIds.has(area.id);
+                            return (
+                                <FormField
+                                    key={area.id}
+                                    control={form.control}
+                                    name="areaIds"
+                                    render={({ field }) => (
+                                        <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={field.value?.includes(area.id)}
+                                                    disabled={isAssigned}
+                                                    onCheckedChange={(c) => {
+                                                        const curr = field.value || [];
+                                                        field.onChange(c ? [...curr, area.id] : curr.filter(v => v !== area.id));
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <div className="flex flex-col">
+                                                <FormLabel className={cn("text-xs font-medium cursor-pointer", isAssigned && "text-muted-foreground opacity-50")}>
+                                                    {area.name}
+                                                </FormLabel>
+                                                {isAssigned && <span className="text-[8px] text-primary font-bold uppercase tracking-tighter">Already Assigned</span>}
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
+                            );
+                        })}
                     </ScrollArea>
                     <FormField control={form.control} name="areaIds" render={() => <FormMessage />} />
                 </FormItem>
