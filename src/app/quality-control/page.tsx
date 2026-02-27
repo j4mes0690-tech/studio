@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -191,6 +190,7 @@ function QualityControlContent() {
                 checklist={focusedChecklist} 
                 projects={allowedProjects} 
                 subContractors={subContractors || []} 
+                defaultExpanded={true}
             />
         </div>
     );

@@ -45,12 +45,14 @@ type ChecklistCardProps = {
   checklist: QualityChecklist;
   projects: Project[];
   subContractors: SubContractor[];
+  defaultExpanded?: boolean;
 };
 
 export function ChecklistCard({
   checklist,
   projects,
   subContractors,
+  defaultExpanded = false,
 }: ChecklistCardProps) {
   const { toast } = useToast();
   const db = useFirestore();
@@ -186,7 +188,7 @@ export function ChecklistCard({
             </div>
           <Progress value={progress} indicatorClassName={hasFailure ? 'bg-destructive' : ''} />
         </div>
-        <Accordion type="single" collapsible className="w-full mt-4">
+        <Accordion type="single" collapsible className="w-full mt-4" defaultValue={defaultExpanded ? "items" : undefined}>
           <AccordionItem value="items">
             <AccordionTrigger className="text-sm font-semibold">
               View Checklist Items
