@@ -37,6 +37,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
 import { addWeeks } from 'date-fns';
+import { VoiceInput } from '@/components/voice-input';
 
 const NewOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -263,7 +264,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Overall Order Identification</FormLabel>
+                      <FormLabel>Order Description</FormLabel>
                       <FormControl>
                         <Input placeholder="e.g. Ground Floor Drainage Pipework" {...field} />
                       </FormControl>

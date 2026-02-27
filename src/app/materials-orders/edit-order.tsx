@@ -252,7 +252,7 @@ export function EditOrderDialog({
                   name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Overall Order Identification</FormLabel>
+                      <FormLabel>Order Description</FormLabel>
                       <FormControl>
                         <Input placeholder="Identifying name for this order" {...field} />
                       </FormControl>
