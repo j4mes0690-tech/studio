@@ -107,7 +107,7 @@ export type InformationRequest = {
   photos?: Photo[];
   files?: FileAttachment[];
   requiredBy?: string;
-  status: 'open' | 'closed';
+  status: 'draft' | 'open' | 'closed';
   messages: ChatMessage[];
   dismissedBy?: string[];
 };

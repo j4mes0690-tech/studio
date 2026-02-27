@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -33,7 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText, Loader2, Users2 } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText, Loader2, Users2, Save, Send } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, InformationRequest } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -49,10 +50,11 @@ import { Separator } from '@/components/ui/separator';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
+// Validation relaxed for Drafts, strictly enforced manually on "Issue"
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  description: z.string().min(10, 'Description must be at least 10 characters.'),
-  assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
+  description: z.string().optional().default(''),
+  assignedTo: z.array(z.string()).optional().default([]),
   requiredBy: z.string().optional(),
 });
 
@@ -79,6 +81,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
+  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'open'>('open');
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
@@ -114,9 +117,23 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: NewInformationRequestFormValues) => {
+    // Contextual Validation for Issuing
+    if (submissionStatus === 'open') {
+      let hasError = false;
+      if (!values.description || values.description.trim().length < 10) {
+        form.setError('description', { message: 'Inquiry details must be at least 10 characters to formally log.' });
+        hasError = true;
+      }
+      if (!values.assignedTo || values.assignedTo.length === 0) {
+        form.setError('assignedTo', { message: 'At least one recipient must be assigned to log this request.' });
+        hasError = true;
+      }
+      if (hasError) return;
+    }
+
     startTransition(async () => {
       try {
-        toast({ title: 'Uploading', description: 'Persisting documentation...' });
+        toast({ title: 'Processing', description: 'Uploading documentation and media...' });
 
         // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
@@ -142,7 +159,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           })
         );
 
-        const hasExternalPartner = availableExternalPartners.some(d => values.assignedTo.includes(d.email.toLowerCase().trim()));
+        const hasExternalPartner = availableExternalPartners.some(d => values.assignedTo?.includes(d.email.toLowerCase().trim()));
         const prefix = hasExternalPartner ? 'RFI' : 'CRFI';
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const reference = getNextReference(allRequests, values.projectId, prefix, initials);
@@ -150,13 +167,13 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         const requestData = {
           reference,
           projectId: values.projectId,
-          description: values.description,
-          assignedTo: values.assignedTo.map(e => e.toLowerCase().trim()),
+          description: values.description || '',
+          assignedTo: (values.assignedTo || []).map(e => e.toLowerCase().trim()),
           raisedBy: currentUser.email.toLowerCase().trim(),
           photos: uploadedPhotos,
           files: uploadedFiles,
           requiredBy: values.requiredBy || null,
-          status: 'open',
+          status: submissionStatus,
           messages: [],
           createdAt: new Date().toISOString(),
         };
@@ -164,7 +181,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         const colRef = collection(db, 'information-requests');
         addDoc(colRef, requestData)
           .then(() => {
-            toast({ title: 'Success', description: `${prefix} logged successfully.` });
+            toast({ title: 'Success', description: submissionStatus === 'draft' ? 'Request saved as draft.' : `${prefix} logged successfully.` });
             setOpen(false);
           })
           .catch((error) => {
@@ -177,7 +194,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           });
       } catch (err) {
         console.error(err);
-        toast({ title: 'Error', description: 'Failed to upload documentation.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to process request.', variant: 'destructive' });
       }
     });
   };
@@ -270,7 +287,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         <DialogHeader>
           <DialogTitle>Log Information Request (CRFI / RFI)</DialogTitle>
           <DialogDescription>
-            Only assigned project team members and partners are available for assignment.
+            Record a query for project team members or trade partners. Status can be saved as Draft.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -465,9 +482,25 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
             </div>
             
             <canvas ref={canvasRef} className="hidden" />
-            <DialogFooter>
-              <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? 'Processing...' : 'Save & Log Request'}
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <Button 
+                type="submit" 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                disabled={isPending}
+                onClick={() => setSubmissionStatus('draft')}
+              >
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save as Draft
+              </Button>
+              <Button 
+                type="submit" 
+                className="w-full sm:flex-1" 
+                disabled={isPending}
+                onClick={() => setSubmissionStatus('open')}
+              >
+                {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Save & Log Request
               </Button>
             </DialogFooter>
           </form>

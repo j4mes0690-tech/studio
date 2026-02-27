@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -33,7 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText, Users2 } from 'lucide-react';
+import { Pencil, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText, Users2, Loader2, Save, Send } from 'lucide-react';
 import type { Project, InformationRequest, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -45,14 +46,15 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { Separator } from '@/components/ui/separator';
+import { VoiceInput } from '@/components/voice-input';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const EditInformationRequestSchema = z.object({
   id: z.string().min(1),
   projectId: z.string().min(1, 'Project is required.'),
-  description: z.string().min(10, 'Description must be at least 10 characters.'),
-  assignedTo: z.array(z.string()).min(1, 'Please assign this request to at least one user.'),
+  description: z.string().optional().default(''),
+  assignedTo: z.array(z.string()).optional().default([]),
   requiredBy: z.string().optional(),
 });
 
@@ -62,10 +64,15 @@ type EditInformationRequestProps = {
   item: InformationRequest;
   projects: Project[];
   distributionUsers: DistributionUser[];
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
-export function EditInformationRequest({ item, projects, distributionUsers }: EditInformationRequestProps) {
-  const [open, setOpen] = useState(false);
+export function EditInformationRequest({ item, projects, distributionUsers, open: externalOpen, onOpenChange: setExternalOpen }: EditInformationRequestProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = setExternalOpen !== undefined ? setExternalOpen : setInternalOpen;
+
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
@@ -77,6 +84,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
+  const [submissionStatus, setSubmissionStatus] = useState<'draft' | 'open'>('open');
 
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
@@ -89,7 +97,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
     defaultValues: {
       id: item.id,
       projectId: item.projectId,
-      description: item.description,
+      description: item.description || '',
       assignedTo: item.assignedTo || [],
       requiredBy: item.requiredBy,
     },
@@ -116,9 +124,22 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: EditInformationRequestFormValues) => {
+    if (submissionStatus === 'open') {
+      let hasError = false;
+      if (!values.description || values.description.trim().length < 10) {
+        form.setError('description', { message: 'Inquiry details must be at least 10 characters to formally log.' });
+        hasError = true;
+      }
+      if (!values.assignedTo || values.assignedTo.length === 0) {
+        form.setError('assignedTo', { message: 'At least one recipient must be assigned to log this request.' });
+        hasError = true;
+      }
+      if (hasError) return;
+    }
+
     startTransition(async () => {
       try {
-        toast({ title: 'Saving', description: 'Uploading documentation...' });
+        toast({ title: 'Processing', description: 'Updating documentation and media...' });
 
         // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
@@ -146,11 +167,12 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
 
         const updates = {
           projectId: values.projectId,
-          description: values.description,
-          assignedTo: values.assignedTo.map(e => e.toLowerCase().trim()),
+          description: values.description || '',
+          assignedTo: (values.assignedTo || []).map(e => e.toLowerCase().trim()),
           photos: uploadedPhotos,
           files: uploadedFiles,
           requiredBy: values.requiredBy || null,
+          status: submissionStatus,
         };
 
         const docRef = doc(db, 'information-requests', values.id);
@@ -170,7 +192,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
           });
       } catch (err) {
         console.error(err);
-        toast({ title: 'Error', description: 'Failed to upload documentation.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to process request update.', variant: 'destructive' });
       }
     });
   };
@@ -202,12 +224,13 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
       form.reset({
         id: item.id,
         projectId: item.projectId,
-        description: item.description,
+        description: item.description || '',
         assignedTo: item.assignedTo || [],
         requiredBy: item.requiredBy,
       });
       setPhotos(item.photos || []);
       setFiles(item.files || []);
+      setSubmissionStatus(item.status === 'open' ? 'open' : 'draft');
     } else {
       setIsCameraOpen(false);
     }
@@ -267,7 +290,7 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Information Request</DialogTitle>
-          <DialogDescription>Only assigned project members and partners can be recipients.</DialogDescription>
+          <DialogDescription>Modify inquiry details or assigned recipients.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -292,7 +315,10 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Inquiry</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Inquiry</FormLabel>
+                    <VoiceInput onResult={(text) => form.setValue('description', text)} />
+                  </div>
                   <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -445,7 +471,27 @@ export function EditInformationRequest({ item, projects, distributionUsers }: Ed
             </div>
             
             <canvas ref={canvasRef} className="hidden" />
-            <DialogFooter><Button type="submit" disabled={isPending}>{isPending ? 'Saving...' : 'Save Changes'}</Button></DialogFooter>
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <Button 
+                type="submit" 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                disabled={isPending}
+                onClick={() => setSubmissionStatus('draft')}
+              >
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save as Draft
+              </Button>
+              <Button 
+                type="submit" 
+                className="w-full sm:flex-1" 
+                disabled={isPending}
+                onClick={() => setSubmissionStatus('open')}
+              >
+                {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Save & Log Request
+              </Button>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>

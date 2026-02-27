@@ -18,7 +18,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw, Trash2, Maximize2, Link as LinkIcon, ExternalLink, FileText, Download } from 'lucide-react';
+import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw, Trash2, Maximize2, Link as LinkIcon, ExternalLink, FileText, Download, CheckCircle2, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditInformationRequest } from './edit-information-request';
 import {
@@ -117,15 +117,18 @@ export function InformationRequestCard({
 }) {
   const project = projects.find((p) => p.id === item.projectId);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const db = useFirestore();
   const { toast } = useToast();
-  const [isDeleting, startDeleteTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
 
   const assignedToArray = useMemo(() => Array.isArray(item.assignedTo) ? item.assignedTo : (item.assignedTo ? [item.assignedTo] : []), [item.assignedTo]);
   const sortedMessages = useMemo(() => [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [item.messages]);
 
+  const isDraft = item.status === 'draft';
+
   const handleDelete = () => {
-    startDeleteTransition(async () => {
+    startTransition(async () => {
       const docRef = doc(db, 'information-requests', item.id);
       deleteDoc(docRef)
         .then(() => {
@@ -142,9 +145,38 @@ export function InformationRequestCard({
     });
   };
 
+  const handleIssue = () => {
+    const hasText = item.description && item.description.trim().length >= 10;
+    const hasRecipients = item.assignedTo && item.assignedTo.length > 0;
+
+    if (!hasText || !hasRecipients) {
+      toast({ 
+        title: "Requirements Not Met", 
+        description: "A full description (min 10 chars) and at least one recipient are required to formally log this request.", 
+        variant: "destructive" 
+      });
+      setIsEditDialogOpen(true);
+      return;
+    }
+
+    startTransition(async () => {
+      const docRef = doc(db, 'information-requests', item.id);
+      updateDoc(docRef, { status: 'open' })
+        .then(() => toast({ title: 'Success', description: 'Request formally logged.' }))
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: { status: 'open' }
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+    });
+  };
+
   return (
     <>
-      <Card>
+      <Card className={cn(isDraft && "border-orange-200 bg-orange-50/10")}>
         <CardHeader>
           <div className="flex justify-between items-start border-b pb-4">
             <Link href={`/information-requests/${item.id}`} className="space-y-1 flex-1 group">
@@ -154,16 +186,40 @@ export function InformationRequestCard({
                 <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </div>
               <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
-                  <span className="text-xs text-muted-foreground/80 font-medium">Opened <ClientDate date={item.createdAt} format="date" /></span>
+                  <span className="text-xs text-muted-foreground/80 font-medium">Captured <ClientDate date={item.createdAt} format="date" /></span>
                   {item.clientInstructionId && <Badge variant="outline" className="text-[9px] gap-1 h-4 px-1.5"><LinkIcon className="h-2 w-2" /> Linked to Client Directive</Badge>}
               </CardDescription>
               {item.requiredBy && <div className="flex items-center gap-2 text-xs text-destructive mt-2 font-semibold"><CalendarClock className="h-4 w-4" /><span>Due: <ClientDate date={item.requiredBy} format="date" /></span></div>}
             </Link>
             <div className="flex items-center gap-2">
-              <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className='capitalize'>{item.status}</Badge>
-              {item.status === 'open' ? <RespondToRequest item={item} currentUser={currentUser} /> : null}
-              <UpdateStatusButton requestId={item.id} newStatus={item.status === 'open' ? 'closed' : 'open'} currentUser={currentUser} />
-              <EditInformationRequest item={item} projects={projects} distributionUsers={distributionUsers} />
+              {isDraft ? (
+                <>
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50"
+                    onClick={handleIssue}
+                    disabled={isPending}
+                  >
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Issue Request
+                  </Button>
+                </>
+              ) : (
+                <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className='capitalize'>{item.status}</Badge>
+              )}
+              
+              {!isDraft && item.status === 'open' && <RespondToRequest item={item} currentUser={currentUser} />}
+              {!isDraft && <UpdateStatusButton requestId={item.id} newStatus={item.status === 'open' ? 'closed' : 'open'} currentUser={currentUser} />}
+              
+              <EditInformationRequest 
+                item={item} 
+                projects={projects} 
+                distributionUsers={distributionUsers} 
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+              />
               
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -181,8 +237,8 @@ export function InformationRequestCard({
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isDeleting}>
-                      {isDeleting ? 'Deleting...' : 'Delete'}
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                      {isPending ? 'Deleting...' : 'Delete'}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -193,7 +249,7 @@ export function InformationRequestCard({
         <CardContent className="pt-6">
           <div className="bg-muted/30 p-4 rounded-lg border mb-6">
               <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Inquiry</p>
-              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap mb-4">{item.description}</p>
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap mb-4">{item.description || <span className="italic text-muted-foreground">No description provided</span>}</p>
               
               {/* Request Attachments */}
               {(item.files && item.files.length > 0) && (
@@ -203,48 +259,52 @@ export function InformationRequestCard({
                     <a key={i} href={f.url} download={f.name} className="flex items-center gap-2 p-2 rounded text-[10px] bg-background border text-primary hover:bg-accent group">
                       <FileText className="h-3.5 w-3.5" /> 
                       <span className="truncate flex-1 font-medium">{f.name}</span> 
-                      <Download className="h-3 w-3 opacity-0 group-hover:opacity-100" />
+                      <Download className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </a>
                   ))}
                 </div>
               )}
           </div>
           <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="assigned-to">
-                <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Users className="h-4 w-4" /><span>Assigned To ({assignedToArray.length})</span></div></AccordionTrigger>
-                <AccordionContent><div className="flex flex-wrap gap-1">{assignedToArray.map((email, i) => <Badge key={i} variant="outline" className="bg-background">{email}</Badge>)}</div></AccordionContent>
-            </AccordionItem>
-            <AccordionItem value="conversation">
-                <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><MessageSquareReply className="h-4 w-4" /><span>Thread ({sortedMessages.length})</span></div></AccordionTrigger>
-                <AccordionContent className="pt-4">
-                    <div className="space-y-4">
-                        {sortedMessages.map((msg) => {
-                            const isSystem = msg.senderEmail === 'system@sitecommand.internal';
-                            const isMe = msg.senderEmail === currentUser.email.toLowerCase().trim();
-                            if (isSystem) return <div key={msg.id} className="flex justify-center"><Badge variant="outline" className="text-[10px]">{msg.message}</Badge></div>;
-                            return (
-                                <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                                    <div className={cn("relative px-4 py-2 rounded-2xl max-w-[85%] shadow-sm", isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none border")}>
-                                        {!isMe && <p className="text-[10px] font-bold mb-1 text-primary">{msg.sender}</p>}
-                                        <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                                        
-                                        {/* Message Media */}
-                                        {msg.photos?.map((p, i) => <div key={i} className="relative aspect-video rounded-lg overflow-hidden border mt-2 cursor-pointer" onClick={() => setViewingPhoto(p)}><Image src={p.url} alt="U" fill className="object-cover" /></div>)}
-                                        {msg.files?.map((f, i) => (
-                                          <a key={i} href={f.url} download={f.name} className={cn("flex items-center gap-2 p-1.5 rounded text-[9px] mt-2 border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-background border-border text-primary")}>
-                                            <FileText className="h-3 w-3" />
-                                            <span className="truncate max-w-[150px]">{f.name}</span>
-                                          </a>
-                                        ))}
+            {assignedToArray.length > 0 && (
+              <AccordionItem value="assigned-to">
+                  <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Users className="h-4 w-4" /><span>Assigned To ({assignedToArray.length})</span></div></AccordionTrigger>
+                  <AccordionContent><div className="flex flex-wrap gap-1">{assignedToArray.map((email, i) => <Badge key={i} variant="outline" className="bg-background">{email}</Badge>)}</div></AccordionContent>
+              </AccordionItem>
+            )}
+            {!isDraft && sortedMessages.length > 0 && (
+              <AccordionItem value="conversation">
+                  <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><MessageSquareReply className="h-4 w-4" /><span>Thread ({sortedMessages.length})</span></div></AccordionTrigger>
+                  <AccordionContent className="pt-4">
+                      <div className="space-y-4">
+                          {sortedMessages.map((msg) => {
+                              const isSystem = msg.senderEmail === 'system@sitecommand.internal';
+                              const isMe = msg.senderEmail === currentUser.email.toLowerCase().trim();
+                              if (isSystem) return <div key={msg.id} className="flex justify-center"><Badge variant="outline" className="text-[10px]">{msg.message}</Badge></div>;
+                              return (
+                                  <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
+                                      <div className={cn("relative px-4 py-2 rounded-2xl max-w-[85%] shadow-sm", isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none border")}>
+                                          {!isMe && <p className="text-[10px] font-bold mb-1 text-primary">{msg.sender}</p>}
+                                          <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                                          
+                                          {/* Message Media */}
+                                          {msg.photos?.map((p, i) => <div key={i} className="relative aspect-video rounded-lg overflow-hidden border mt-2 cursor-pointer" onClick={() => setViewingPhoto(p)}><Image src={p.url} alt="U" fill className="object-cover" /></div>)}
+                                          {msg.files?.map((f, i) => (
+                                            <a key={i} href={f.url} download={f.name} className={cn("flex items-center gap-2 p-1.5 rounded text-[9px] mt-2 border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-background border-border text-primary")}>
+                                              <FileText className="h-3 w-3" />
+                                              <span className="truncate max-w-[150px]">{f.name}</span>
+                                            </a>
+                                          ))}
 
-                                        <div className={cn("text-[9px] mt-1 opacity-70")}><ClientDate date={msg.createdAt} /></div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </AccordionContent>
-            </AccordionItem>
+                                          <div className={cn("text-[9px] mt-1 opacity-70")}><ClientDate date={msg.createdAt} /></div>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  </AccordionContent>
+              </AccordionItem>
+            )}
             {item.photos && item.photos.length > 0 && (
               <AccordionItem value="photo">
                 <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Camera className="h-4 w-4" /><span>Visual Assets ({item.photos.length})</span></div></AccordionTrigger>

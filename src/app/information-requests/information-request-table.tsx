@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -13,7 +14,7 @@ import type { InformationRequest, Project, DistributionUser, ChatMessage } from 
 import { ClientDate } from '@/components/client-date';
 import { RespondToRequest } from './respond-to-request';
 import { EditInformationRequest } from './edit-information-request';
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
@@ -32,7 +33,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare } from 'lucide-react';
+import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare, CheckCircle2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type TableProps = {
@@ -78,6 +79,9 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const isDraft = item.status === 'draft';
 
   const handleUpdateStatus = (newStatus: 'open' | 'closed') => {
     startTransition(async () => {
@@ -111,6 +115,36 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
     });
   };
 
+  const handleIssue = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const hasText = item.description && item.description.trim().length >= 10;
+    const hasRecipients = item.assignedTo && item.assignedTo.length > 0;
+
+    if (!hasText || !hasRecipients) {
+      toast({ 
+        title: "Requirements Not Met", 
+        description: "Please complete the inquiry details and assign recipients before issuing.", 
+        variant: "destructive" 
+      });
+      setIsEditDialogOpen(true);
+      return;
+    }
+
+    startTransition(async () => {
+      const docRef = doc(db, 'information-requests', item.id);
+      updateDoc(docRef, { status: 'open' })
+        .then(() => toast({ title: 'Success', description: 'Request formally logged.' }))
+        .catch((err) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: { status: 'open' }
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+    });
+  };
+
   const handleDelete = () => {
     startTransition(async () => {
       const docRef = doc(db, 'information-requests', item.id);
@@ -128,20 +162,24 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
 
   return (
     <TableRow 
-      className={cn("group cursor-pointer", item.status === 'closed' && "opacity-60")}
+      className={cn("group cursor-pointer", item.status === 'closed' && "opacity-60", isDraft && "bg-orange-50/20")}
       href={`/information-requests/${item.id}`}
     >
       <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
       <TableCell className="font-medium">{project?.name || 'Unknown'}</TableCell>
       <TableCell>
         <div className="max-w-[300px] truncate text-sm" title={item.description}>
-          {item.description}
+          {item.description || <span className="italic text-muted-foreground">No description provided</span>}
         </div>
       </TableCell>
       <TableCell>
-        <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className="capitalize">
-          {item.status}
-        </Badge>
+        {isDraft ? (
+          <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
+        ) : (
+          <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className="capitalize text-[10px]">
+            {item.status}
+          </Badge>
+        )}
       </TableCell>
       <TableCell>
         {item.requiredBy ? (
@@ -161,34 +199,40 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          {item.status === 'open' ? (
+          {isDraft ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-orange-600" onClick={handleIssue} disabled={isPending}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Issue Request</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
             <>
               <RespondToRequest item={item} distributionUsers={distributionUsers} currentUser={currentUser} />
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={() => handleUpdateStatus('closed')} disabled={isPending}>
-                      <XCircle className="h-4 w-4" />
+                    <Button variant="ghost" size="icon" onClick={() => handleUpdateStatus(item.status === 'open' ? 'closed' : 'open')} disabled={isPending}>
+                      {item.status === 'open' ? <XCircle className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>Close Request</p></TooltipContent>
+                  <TooltipContent><p>{item.status === 'open' ? 'Close' : 'Reopen'} Request</p></TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </>
-          ) : (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={() => handleUpdateStatus('open')} disabled={isPending}>
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Reopen Request</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
           )}
           
-          <EditInformationRequest item={item} projects={projects} distributionUsers={distributionUsers} />
+          <EditInformationRequest 
+            item={item} 
+            projects={projects} 
+            distributionUsers={distributionUsers} 
+            open={isEditDialogOpen}
+            onOpenChange={setIsEditDialogOpen}
+          />
           
           <AlertDialog>
             <TooltipProvider>
@@ -203,14 +247,16 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                 <TooltipContent><p>Delete Request</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <AlertDialogContent>
+            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>Permanently delete this information request.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                  {isPending ? 'Deleting...' : 'Delete'}
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
