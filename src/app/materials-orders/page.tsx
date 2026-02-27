@@ -46,9 +46,9 @@ function MaterialsOrdersContent() {
   const filteredOrders = useMemo(() => {
     if (!allOrders) return [];
     return allOrders.filter(order => {
-      const isAuthorized = allowedProjectIds.includes(order.projectId);
+      const isAuthorised = allowedProjectIds.includes(order.projectId);
       const matchesFilter = projectFilter === 'all' || order.projectId === projectFilter;
-      return isAuthorized && matchesFilter;
+      return isAuthorised && matchesFilter;
     });
   }, [allOrders, allowedProjectIds, projectFilter]);
 
@@ -91,7 +91,7 @@ function MaterialsOrdersContent() {
               <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Authorized Projects</SelectItem>
+              <SelectItem value="all">All Authorised Projects</SelectItem>
               {allowedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>

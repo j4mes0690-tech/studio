@@ -191,7 +191,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                 <FormLabel className="text-base font-bold text-primary">Order Line Items</FormLabel>
                 <div className="flex items-center gap-2 text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full">
                   <Calculator className="h-4 w-4" />
-                  Order Total: ${orderTotal.toFixed(2)}
+                  Order Total: £{orderTotal.toFixed(2)}
                 </div>
               </div>
 
@@ -240,7 +240,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Rate ($)</Label>
+                    <Label className="text-xs">Rate (£)</Label>
                     <Input 
                       type="number" 
                       min="0" 
@@ -266,7 +266,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                           <p className="text-sm font-bold text-primary truncate">{item.description}</p>
                           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
                             <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                              <ShoppingCart className="h-2 w-2" /> {item.quantity} {item.unit} @ ${item.rate.toFixed(2)}
+                              <ShoppingCart className="h-2 w-2" /> {item.quantity} {item.unit} @ £{item.rate.toFixed(2)}
                             </span>
                             {item.deliveryDate && (
                               <span className="text-[10px] text-destructive flex items-center gap-1 font-semibold">
@@ -276,7 +276,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className="text-sm font-bold text-foreground">${item.total.toFixed(2)}</span>
+                          <span className="text-sm font-bold text-foreground">£{item.total.toFixed(2)}</span>
                           <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeItem(idx)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>

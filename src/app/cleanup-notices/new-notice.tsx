@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -105,7 +104,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
         hasError = true;
       }
       if (!values.recipients || values.recipients.length === 0) {
-        form.setError('recipients', { message: 'At least one subcontractor must be selected to issue this notice.' });
+        form.setError('recipients', { message: 'At least one sub-contractor must be selected to issue this notice.' });
         hasError = true;
       }
       if (hasError) return;
@@ -218,7 +217,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
 
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-            // Distribute to each selected subcontractor
+            // Distribute to each selected sub-contractor
             for (const sub of recipientContacts) {
               await sendCleanUpNoticeEmailAction({
                 email: sub.email,
@@ -387,6 +386,10 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
                   <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
                   <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
                     const files = e.target.files;
+                    if (!selectedProjectId) {
+                      toast({ title: 'Select Project', description: 'Please select a project before uploading photos.', variant: 'destructive' });
+                      return;
+                    }
                     if (!files) return;
                     Array.from(files).forEach(f => {
                       const reader = new FileReader();

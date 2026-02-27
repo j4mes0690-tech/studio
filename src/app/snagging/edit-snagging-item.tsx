@@ -111,7 +111,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    // Filter by project assignment and ensure contact is classified as a Sub-contractor (excludes Designers only)
+    // Only show contacts assigned to the project who are classified as Sub-contractors (Excludes Designers-only)
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
@@ -313,7 +313,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
                     />
                     <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
-                        <SelectTrigger className="w-10 px-0 flex justify-center"><UserPlus className="h-4 w-4" /></SelectTrigger>
+                        <SelectTrigger className="w-10 px-0 flex justify-center"><UserPlus className="h-4 w-4" title="Assign sub-contractor" /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="unassigned">Unassigned</SelectItem>
                             {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}

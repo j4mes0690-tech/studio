@@ -279,7 +279,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
                         <div className="space-y-0.5">
                             <FormLabel>Manage Procurement</FormLabel>
                             <FormDescription>
-                               Manage suppliers and material catalog definitions.
+                               Manage suppliers and material catalogue definitions.
                             </FormDescription>
                         </div>
                         <FormControl>

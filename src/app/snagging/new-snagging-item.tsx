@@ -402,7 +402,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                       
                       <div className="flex gap-1 flex-shrink-0">
                         <Select value={pendingSubId || 'unassigned'} onValueChange={(val) => setPendingSubId(val === 'unassigned' ? undefined : val)}>
-                          <SelectTrigger className="w-10 px-0 flex justify-center hover:bg-accent" title="Assign subcontractor">
+                          <SelectTrigger className="w-10 px-0 flex justify-center hover:bg-accent" title="Assign sub-contractor">
                             <UserPlus className="h-4 w-4" />
                           </SelectTrigger>
                           <SelectContent className="min-w-[200px]">

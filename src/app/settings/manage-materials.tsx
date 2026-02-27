@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -39,7 +38,7 @@ export function ManageMaterials() {
   const onSubmit = (values: any) => {
     startTransition(async () => {
       await addDoc(collection(db, 'materials'), values);
-      toast({ title: 'Success', description: 'Material catalog updated.' });
+      toast({ title: 'Success', description: 'Material catalogue updated.' });
       form.reset();
     });
   };
@@ -66,22 +65,22 @@ export function ManageMaterials() {
                   <FormControl><SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger></FormControl>
                   <SelectContent>
                     <SelectItem value="pcs">Pieces (pcs)</SelectItem>
-                    <SelectItem value="m3">Cubic Meters (m3)</SelectItem>
+                    <SelectItem value="m3">Cubic Metres (m3)</SelectItem>
                     <SelectItem value="ton">Tonnes (ton)</SelectItem>
                     <SelectItem value="kg">Kilograms (kg)</SelectItem>
-                    <SelectItem value="m">Meters (m)</SelectItem>
-                    <SelectItem value="sqm">Square Meters (m2)</SelectItem>
+                    <SelectItem value="m">Metres (m)</SelectItem>
+                    <SelectItem value="sqm">Square Metres (m2)</SelectItem>
                   </SelectContent>
                 </Select>
               </FormItem>
             )} />
             <FormField control={form.control} name="defaultPrice" render={({ field }) => (
-              <FormItem><FormLabel className="text-xs">Std. Price ($)</FormLabel><FormControl><Input type="number" step="0.01" className="h-8 text-xs" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem><FormLabel className="text-xs">Std. Price (£)</FormLabel><FormControl><Input type="number" step="0.01" className="h-8 text-xs" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
           </div>
           <Button type="submit" size="sm" variant="secondary" className="w-full" disabled={isPending}>
             {isPending ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Plus className="h-3 w-3 mr-2" />}
-            Add to Catalog
+            Add to Catalogue
           </Button>
         </form>
       </Form>
@@ -94,7 +93,7 @@ export function ManageMaterials() {
                 <p className="text-sm font-bold truncate">{m.name}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] bg-muted px-1.5 py-0.5 rounded font-mono border">{m.unit}</span>
-                  <span className="text-[10px] text-primary font-bold">${m.defaultPrice?.toFixed(2)}</span>
+                  <span className="text-[10px] text-primary font-bold">£{m.defaultPrice?.toFixed(2)}</span>
                 </div>
               </div>
               <AlertDialog>
@@ -102,7 +101,7 @@ export function ManageMaterials() {
                   <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
-                  <AlertDialogHeader><AlertDialogTitle>Remove Material?</AlertDialogTitle><AlertDialogDescription>This will remove "{m.name}" from the standard catalog.</AlertDialogDescription></AlertDialogHeader>
+                  <AlertDialogHeader><AlertDialogTitle>Remove Material?</AlertDialogTitle><AlertDialogDescription>This will remove "{m.name}" from the standard catalogue.</AlertDialogDescription></AlertDialogHeader>
                   <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => onDelete(m.id)} className="bg-destructive">Remove</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>

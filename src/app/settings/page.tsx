@@ -47,7 +47,7 @@ export default function SettingsPage() {
   }, [db]);
   const { data: users, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  // Fetch Subcontractors / Designers
+  // Fetch Sub-contractors / Designers
   const subsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'sub-contractors');
@@ -175,7 +175,7 @@ export default function SettingsPage() {
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2 text-primary font-bold">
                                     <Package className="h-5 w-5" />
-                                    <h3>Material Catalog</h3>
+                                    <h3>Material Catalogue</h3>
                                 </div>
                                 <ManageMaterials />
                             </div>

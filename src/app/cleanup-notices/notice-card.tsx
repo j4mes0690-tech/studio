@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -92,7 +91,7 @@ export function NoticeCard({
     if (!hasText || !hasRecipients) {
       toast({ 
         title: "Requirements Not Met", 
-        description: "A full description (min 10 chars) and assigned subcontractors are required to formally issue this notice.", 
+        description: "A full description (min 10 chars) and assigned sub-contractors are required to formally issue this notice.", 
         variant: "destructive" 
       });
       setIsEditDialogOpen(true);
@@ -255,7 +254,7 @@ export function NoticeCard({
                  <div className="flex items-center gap-2">
                    <Users className="h-4 w-4" />
                    <span>
-                     Notified Sub-Contractors ({notice.recipients.length})
+                     Notified Sub-contractors ({notice.recipients.length})
                    </span>
                  </div>
                </AccordionTrigger>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -125,7 +124,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
         hasError = true;
       }
       if (!values.recipients || values.recipients.length === 0) {
-        form.setError('recipients', { message: 'At least one subcontractor must be selected to issue this notice.' });
+        form.setError('recipients', { message: 'At least one sub-contractor must be selected to issue this notice.' });
         hasError = true;
       }
       if (hasError) return;
@@ -232,7 +231,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
 
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-            // Distribute to each selected subcontractor
+            // Distribute to each selected sub-contractor
             for (const sub of recipientContacts) {
               await sendCleanUpNoticeEmailAction({
                 email: sub.email,
@@ -394,7 +393,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
             <Separator />
             
             <FormItem>
-              <FormLabel>Recipients (Sub-Contractors)</FormLabel>
+              <FormLabel>Recipients (Sub-contractors)</FormLabel>
               <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
                 {projectSubs.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-8 italic">
