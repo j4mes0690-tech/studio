@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useMemo } from 'react';
@@ -39,6 +38,7 @@ import { collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { Trade } from '@/lib/types';
+import { ManageTradesDialog } from '../settings/manage-trades-dialog';
 
 const NewChecklistSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -47,7 +47,7 @@ const NewChecklistSchema = z.object({
 
 type NewChecklistFormValues = z.infer<typeof NewChecklistSchema>;
 
-export function NewChecklist() {
+export function NewChecklist({ canManageTrades }: { canManageTrades?: boolean }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
@@ -159,21 +159,24 @@ export function NewChecklist() {
                 render={({ field }) => (
                     <FormItem>
                     <FormLabel>Trade</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder={tradesLoading ? "Loading trades..." : "Select a trade"} />
-                        </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                        {trades?.map((trade) => (
-                            <SelectItem key={trade.id} value={trade.name}>{trade.name}</SelectItem>
-                        ))}
-                        {(trades?.length || 0) === 0 && !tradesLoading && (
-                          <div className="p-2 text-xs text-muted-foreground text-center">No trades defined in Settings.</div>
-                        )}
-                        </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2">
+                      <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={tradesLoading ? "Loading trades..." : "Select a trade"} />
+                          </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                          {trades?.map((trade) => (
+                              <SelectItem key={trade.id} value={trade.name}>{trade.name}</SelectItem>
+                          ))}
+                          {(trades?.length || 0) === 0 && !tradesLoading && (
+                            <div className="p-2 text-xs text-muted-foreground text-center">No trades defined in Settings.</div>
+                          )}
+                          </SelectContent>
+                      </Select>
+                      {canManageTrades && <ManageTradesDialog />}
+                    </div>
                     <FormMessage />
                     </FormItem>
                 )}

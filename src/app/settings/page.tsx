@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -192,11 +191,11 @@ export default function SettingsPage() {
                                     <h3 className="text-lg font-medium">Add New Template</h3>
                                     {canManageTrades && <ManageTradesDialog showLabel />}
                                 </div>
-                                <NewChecklist />
+                                <NewChecklist canManageTrades={canManageTrades} />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Templates</h3>
-                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
+                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} canManageTrades={canManageTrades} />
                             </div>
                         </div>
                     </AccordionContent>
