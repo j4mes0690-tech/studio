@@ -3,18 +3,41 @@
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
-import { useMemo, useState, Suspense } from 'react';
+import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { PurchaseOrder, Project, DistributionUser, SubContractor } from '@/lib/types';
-import { Loader2, ShoppingCart, Filter } from 'lucide-react';
+import { Loader2, ShoppingCart, Filter, LayoutGrid, List } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { NewOrderDialog } from './new-order';
 import { OrderCard } from './order-card';
+import { OrderTable } from './order-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 function MaterialsOrdersContent() {
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   const [projectFilter, setProjectFilter] = useState<string>('all');
+  const [isCompact, setIsCompact] = useState(false);
+
+  // Load view preference
+  useEffect(() => {
+    const saved = localStorage.getItem('sitecommand_view_materials_orders');
+    if (saved !== null) {
+      setIsCompact(saved === 'true');
+    }
+  }, []);
+
+  const toggleView = () => {
+    const newVal = !isCompact;
+    setIsCompact(newVal);
+    localStorage.setItem('sitecommand_view_materials_orders', String(newVal));
+  };
 
   // Load Data
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
@@ -71,6 +94,19 @@ function MaterialsOrdersContent() {
           <p className="text-sm text-muted-foreground">Manage material procurement and supplier distributions.</p>
         </div>
         <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={toggleView}>
+                  {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Switch to {isCompact ? 'Card' : 'Compact'} View</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           <NewOrderDialog 
             projects={allowedProjects} 
             suppliers={allSuppliers} 
@@ -100,14 +136,28 @@ function MaterialsOrdersContent() {
 
       <div className="grid gap-4">
         {filteredOrders.length > 0 ? (
-          filteredOrders.map(order => (
-            <OrderCard 
-              key={order.id} 
-              order={order} 
-              project={allProjects?.find(p => p.id === order.projectId)}
-              supplier={allSuppliers?.find(s => s.id === order.supplierId)}
+          isCompact ? (
+            <OrderTable 
+              orders={filteredOrders} 
+              projects={allowedProjects} 
+              suppliers={allSuppliers}
+              allOrders={allOrders || []}
+              currentUser={profile}
             />
-          ))
+          ) : (
+            filteredOrders.map(order => (
+              <OrderCard 
+                key={order.id} 
+                order={order} 
+                project={allProjects?.find(p => p.id === order.projectId)}
+                supplier={allSuppliers?.find(s => s.id === order.supplierId)}
+                projects={allowedProjects}
+                suppliers={allSuppliers}
+                allOrders={allOrders || []}
+                currentUser={profile}
+              />
+            ))
+          )
         ) : (
           <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/10">
             <ShoppingCart className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />

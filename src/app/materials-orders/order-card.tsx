@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { PurchaseOrder, Project, SubContractor } from '@/lib/types';
+import type { PurchaseOrder, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,17 +35,36 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { EditOrderDialog } from './edit-order';
 
-export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; project?: Project; supplier?: SubContractor }) {
+export function OrderCard({ 
+  order, 
+  project, 
+  supplier,
+  projects,
+  suppliers,
+  allOrders,
+  currentUser
+}: { 
+  order: PurchaseOrder; 
+  project?: Project; 
+  supplier?: SubContractor;
+  projects: Project[];
+  suppliers: SubContractor[];
+  allOrders: PurchaseOrder[];
+  currentUser: DistributionUser;
+}) {
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const isDraft = order.status === 'draft';
 
-  const handleCommit = () => {
+  const handleCommit = (e: React.MouseEvent) => {
+    e.stopPropagation();
     startTransition(async () => {
       try {
         const docRef = doc(db, 'purchase-orders', order.id);
@@ -57,7 +76,8 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
     });
   };
 
-  const handleDelete = () => {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
     startTransition(async () => {
       const docRef = doc(db, 'purchase-orders', order.id);
       await deleteDoc(docRef);
@@ -65,7 +85,8 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
     });
   };
 
-  const generatePDF = async () => {
+  const generatePDF = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsGenerating(true);
     try {
       const { jsPDF } = await import('jspdf');
@@ -165,123 +186,138 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
   };
 
   return (
-    <Card className={cn(
-      "hover:border-primary/50 transition-colors shadow-sm group",
-      isDraft && "border-orange-200 bg-orange-50/10"
-    )}>
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className={cn(
-                "font-mono text-[10px] bg-background text-primary border-primary/20",
-                isDraft && "border-orange-200 text-orange-600"
-              )}>{order.orderNumber}</Badge>
-              <CardTitle className="text-lg">{order.supplierName}</CardTitle>
-            </div>
-            <CardDescription className="flex items-center gap-3">
-              <span className="font-semibold text-foreground">{project?.name || 'Unknown Project'}</span>
-              <span className="text-muted-foreground">•</span>
-              <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> <ClientDate date={order.orderDate} format="date" /></span>
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            {isDraft ? (
-              <>
-                <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-8 gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50"
-                  onClick={handleCommit}
-                  disabled={isPending}
-                >
-                  {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                  Commit Order
-                </Button>
-              </>
-            ) : (
-              <Badge className={cn(
-                "capitalize text-[10px]",
-                order.status === 'issued' ? 'bg-green-100 text-green-800' : 'bg-muted'
-              )}>{order.status}</Badge>
-            )}
-            
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
-              {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-            </Button>
-
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Purchase Order?</AlertDialogTitle>
-                  <AlertDialogDescription>This will remove order {order.orderNumber} from the system history. This action is permanent.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-end gap-4 bg-muted/20 p-3 rounded-lg border border-dashed">
-            <div className="space-y-1 w-full sm:w-auto">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Order Summary</p>
-              <p className="text-sm font-medium">{order.items.length} line items defined</p>
-              <div className="flex gap-1 flex-wrap">
-                {order.items.slice(0, 3).map((item, idx) => (
-                  <Badge key={idx} variant="secondary" className="text-[9px] font-normal">{item.description}</Badge>
-                ))}
-                {order.items.length > 3 && <Badge variant="secondary" className="text-[9px] font-normal">+{order.items.length - 3} more</Badge>}
+    <>
+      <Card 
+        className={cn(
+          "hover:border-primary transition-all shadow-sm group cursor-pointer",
+          isDraft && "border-orange-200 bg-orange-50/10"
+        )}
+        onClick={() => setIsEditDialogOpen(true)}
+      >
+        <CardHeader className="pb-3">
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn(
+                  "font-mono text-[10px] bg-background text-primary border-primary/20",
+                  isDraft && "border-orange-200 text-orange-600"
+                )}>{order.orderNumber}</Badge>
+                <CardTitle className="text-lg group-hover:text-primary transition-colors">{order.supplierName}</CardTitle>
               </div>
+              <CardDescription className="flex items-center gap-3">
+                <span className="font-semibold text-foreground">{project?.name || 'Unknown Project'}</span>
+                <span className="text-muted-foreground">•</span>
+                <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> <ClientDate date={order.orderDate} format="date" /></span>
+              </CardDescription>
             </div>
-            
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Total Amount</p>
-              <p className="text-2xl font-bold text-primary">£{order.totalAmount.toFixed(2)}</p>
-            </div>
-          </div>
-
-          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground">
-                <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
-                {isExpanded ? "Hide Line Details" : "View Detailed Line Items"}
+            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+              {isDraft ? (
+                <>
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50"
+                    onClick={handleCommit}
+                    disabled={isPending}
+                  >
+                    {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Commit Order
+                  </Button>
+                </>
+              ) : (
+                <Badge className={cn(
+                  "capitalize text-[10px]",
+                  order.status === 'issued' ? 'bg-green-100 text-green-800' : 'bg-muted'
+                )}>{order.status}</Badge>
+              )}
+              
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
+                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
               </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-2">
-              <div className="space-y-2">
-                {order.items.map((item, i) => (
-                  <div key={i} className="flex items-start justify-between p-2 rounded border text-[11px] bg-muted/5">
-                    <div className="flex-1 min-w-0 pr-4">
-                      <p className="font-bold text-primary truncate">{item.description}</p>
-                      <p className="text-muted-foreground">{item.quantity} {item.unit} @ £{item.rate.toFixed(2)}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="font-bold">£{item.total.toFixed(2)}</p>
-                      <p className={cn(
-                        "text-[9px] font-semibold",
-                        item.deliveryDate ? "text-destructive" : "text-muted-foreground"
-                      )}>
-                        {item.deliveryDate ? `Due: ${new Date(item.deliveryDate).toLocaleDateString()}` : 'ASAP'}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={e => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Purchase Order?</AlertDialogTitle>
+                    <AlertDialogDescription>This will remove order {order.orderNumber} from the system history. This action is permanent.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-end gap-4 bg-muted/20 p-3 rounded-lg border border-dashed">
+              <div className="space-y-1 w-full sm:w-auto">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Order Summary</p>
+                <p className="text-sm font-medium">{order.items.length} line items defined</p>
+                <div className="flex gap-1 flex-wrap">
+                  {order.items.slice(0, 3).map((item, idx) => (
+                    <Badge key={idx} variant="secondary" className="text-[9px] font-normal">{item.description}</Badge>
+                  ))}
+                  {order.items.length > 3 && <Badge variant="secondary" className="text-[9px] font-normal">+{order.items.length - 3} more</Badge>}
+                </div>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
-        </div>
-      </CardContent>
-    </Card>
+              
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Total Amount</p>
+                <p className="text-2xl font-bold text-primary">£{order.totalAmount.toFixed(2)}</p>
+              </div>
+            </div>
+
+            <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+              <CollapsibleTrigger asChild onClick={e => e.stopPropagation()}>
+                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground">
+                  <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
+                  {isExpanded ? "Hide Line Details" : "View Detailed Line Items"}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2">
+                <div className="space-y-2">
+                  {order.items.map((item, i) => (
+                    <div key={i} className="flex items-start justify-between p-2 rounded border text-[11px] bg-muted/5">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <p className="font-bold text-primary truncate">{item.description}</p>
+                        <p className="text-muted-foreground">{item.quantity} {item.unit} @ £{item.rate.toFixed(2)}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold">£{item.total.toFixed(2)}</p>
+                        <p className={cn(
+                          "text-[9px] font-semibold",
+                          item.deliveryDate ? "text-destructive" : "text-muted-foreground"
+                        )}>
+                          {item.deliveryDate ? `Due: ${new Date(item.deliveryDate).toLocaleDateString()}` : 'ASAP'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        </CardContent>
+      </Card>
+
+      <EditOrderDialog 
+        order={order} 
+        projects={projects} 
+        suppliers={suppliers} 
+        allOrders={allOrders}
+        currentUser={currentUser}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+      />
+    </>
   );
 }
