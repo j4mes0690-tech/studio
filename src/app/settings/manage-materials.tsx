@@ -23,12 +23,12 @@ const MaterialSchema = z.object({
 });
 
 const UNIT_OPTIONS = [
-  'Item',
+  'item',
   'lengths',
   'lm',
   'm2',
   'm3',
-  'Nr',
+  'nr',
   'ton'
 ];
 
@@ -42,7 +42,7 @@ export function ManageMaterials() {
 
   const form = useForm({
     resolver: zodResolver(MaterialSchema),
-    defaultValues: { name: '', unit: 'Item', defaultPrice: 0 },
+    defaultValues: { name: '', unit: 'item', defaultPrice: 0 },
   });
 
   const onSubmit = (values: any) => {

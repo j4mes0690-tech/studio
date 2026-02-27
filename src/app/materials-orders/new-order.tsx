@@ -45,12 +45,12 @@ const NewOrderSchema = z.object({
 type NewOrderFormValues = z.infer<typeof NewOrderSchema>;
 
 const UNIT_OPTIONS = [
-  'Item',
+  'item',
   'lengths',
   'lm',
   'm2',
   'm3',
-  'Nr',
+  'nr',
   'ton'
 ];
 
@@ -102,7 +102,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
     setOrderItems([...orderItems, {
       description: pendingDescription,
       quantity: qty,
-      unit: pendingUnit || 'Item',
+      unit: pendingUnit || 'item',
       rate: finalRate,
       deliveryDate: pendingDeliveryDate,
       total: qty * finalRate
