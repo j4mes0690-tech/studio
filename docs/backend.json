@@ -200,7 +200,8 @@
         "id": { "type": "string" },
         "text": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "yes", "no", "na"] },
-        "comment": { "type": "string" }
+        "comment": { "type": "string" },
+        "photos": { "type": "array", "items": { "$ref": "#/entities/Photo" } }
       }
     }
   },

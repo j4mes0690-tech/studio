@@ -143,6 +143,7 @@ export type ChecklistItem = {
   text: string;
   status: ChecklistItemStatus;
   comment?: string;
+  photos?: Photo[];
 };
 
 export type QualityChecklist = {
