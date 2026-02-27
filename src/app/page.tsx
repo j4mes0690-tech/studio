@@ -61,6 +61,19 @@ export default async function Dashboard() {
               </CardContent>
             </Card>
           </Link>
+          <Link href="/information-requests">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
+              <CardHeader className="p-0">
+                <HelpCircle className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">Info Requests</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 mt-2">
+                <p className="text-muted-foreground">
+                  Raise technical queries (RFI/CRFI) and track responses.
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
           <Link href="/cleanup-notices">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
