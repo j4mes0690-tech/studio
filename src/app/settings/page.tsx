@@ -22,7 +22,7 @@ import { AddProjectForm } from './add-project-form';
 import { ProjectsList } from './projects-list';
 import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
-import { ManageTrades } from './manage-trades';
+import { ManageTradesDialog } from './manage-trades-dialog';
 import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
@@ -128,10 +128,13 @@ export default function SettingsPage() {
             <Card>
                 <AccordionItem value="subcontractors" className="border-b-0">
                     <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts & Trades</AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0 space-y-12">
+                    <AccordionContent className="p-6 pt-0">
                         <div className="grid gap-8 lg:grid-cols-2">
                             <div className="space-y-4">
-                                <h3 className="text-lg font-medium">Add New External Contact</h3>
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-medium">Add New External Contact</h3>
+                                    {permissions.canManageTrades && <ManageTradesDialog />}
+                                </div>
                                 <AddSubcontractorForm />
                             </div>
                             <div className="space-y-4">
@@ -139,19 +142,6 @@ export default function SettingsPage() {
                                 <SubcontractorsList subContractors={subContractors || []} />
                             </div>
                         </div>
-
-                        {permissions.canManageTrades && (
-                          <>
-                            <Separator />
-                            <div className="space-y-6">
-                              <div className="space-y-1">
-                                <h3 className="text-lg font-bold">Manage Trade Categories</h3>
-                                <p className="text-sm text-muted-foreground">Define trade specialties used for partner classification and quality checklists.</p>
-                              </div>
-                              <ManageTrades />
-                            </div>
-                          </>
-                        )}
                     </AccordionContent>
                 </AccordionItem>
             </Card>
