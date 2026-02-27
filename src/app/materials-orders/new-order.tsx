@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar } from 'lucide-react';
+import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar, Pencil } from 'lucide-react';
 import type { Project, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -104,6 +104,18 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
     setPendingUnit('');
     setPendingRate(0);
     setPendingDeliveryDate(null);
+  };
+
+  const handleEditItem = (idx: number) => {
+    const item = orderItems[idx];
+    setPendingDescription(item.description);
+    setPendingQuantity(item.quantity);
+    setPendingUnit(item.unit);
+    setPendingRate(item.rate);
+    setPendingDeliveryDate(item.deliveryDate);
+    
+    // Remove it from the list so the user can update and re-add it
+    setOrderItems(orderItems.filter((_, i) => i !== idx));
   };
 
   const removeItem = (idx: number) => setOrderItems(orderItems.filter((_, i) => i !== idx));
@@ -324,12 +336,31 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm font-bold text-foreground">£{item.total.toFixed(2)}</span>
-                          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeItem(idx)}>
+                        <div className="flex items-center gap-1">
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-primary opacity-0 group-hover:opacity-100 transition-opacity" 
+                            onClick={() => handleEditItem(idx)}
+                            title="Edit Item"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" 
+                            onClick={() => removeItem(idx)}
+                            title="Remove Item"
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
+                      </div>
+                      <div className="flex justify-end">
+                        <span className="text-sm font-bold text-foreground">£{item.total.toFixed(2)}</span>
                       </div>
                     </div>
                   ))}
