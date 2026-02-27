@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -22,7 +21,7 @@ import { AddProjectForm } from './add-project-form';
 import { ProjectsList } from './projects-list';
 import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
-import { ManageTrades } from './manage-trades';
+import { ManageTradesDialog } from './manage-trades-dialog';
 import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { useMemo } from 'react';
@@ -163,34 +162,26 @@ export default function SettingsPage() {
           )}
 
           {permissions.canManageChecklists && (
-            <>
-              <Card>
-                  <AccordionItem value="checklists" className="border-b-0">
-                      <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Checklist Templates</AccordionTrigger>
-                      <AccordionContent className="p-6 pt-0">
-                          <div className="grid gap-8 lg:grid-cols-2">
-                              <div className="space-y-4">
-                                  <h3 className="text-lg font-medium">Add New Template</h3>
-                                  <NewChecklist />
-                              </div>
-                              <div className="space-y-4">
-                                  <h3 className="text-lg font-medium">Existing Templates</h3>
-                                  <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
-                              </div>
-                          </div>
-                      </AccordionContent>
-                  </AccordionItem>
-              </Card>
-
-              <Card>
-                  <AccordionItem value="trades" className="border-b-0">
-                      <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Trade Categories</AccordionTrigger>
-                      <AccordionContent className="p-6 pt-0">
-                          <ManageTrades />
-                      </AccordionContent>
-                  </AccordionItem>
-              </Card>
-            </>
+            <Card>
+                <AccordionItem value="checklists" className="border-b-0">
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Checklist Templates</AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <div className="grid gap-8 lg:grid-cols-2">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="text-lg font-medium">Add New Template</h3>
+                                    <ManageTradesDialog />
+                                </div>
+                                <NewChecklist />
+                            </div>
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-medium">Existing Templates</h3>
+                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
           )}
         </Accordion>
       </main>
