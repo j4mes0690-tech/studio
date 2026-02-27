@@ -3,7 +3,7 @@
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Home, Loader2, Settings } from 'lucide-react';
-import Link from 'next/navigation';
+import Link from 'next/link';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { UserMenu } from './user-menu';
 import { NotificationsMenu } from './notifications-menu';
