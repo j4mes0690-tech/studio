@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
@@ -26,8 +27,8 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Trash2, ShoppingCart, Loader2, PlusCircle, Calculator } from 'lucide-react';
-import type { Project, Supplier, Material, DistributionUser, PurchaseOrder, PurchaseOrderItem } from '@/lib/types';
+import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus } from 'lucide-react';
+import type { Project, Material, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -47,7 +48,7 @@ type NewOrderFormValues = z.infer<typeof NewOrderSchema>;
 
 export function NewOrderDialog({ projects, suppliers, materials, allOrders, currentUser }: { 
   projects: Project[]; 
-  suppliers: Supplier[]; 
+  suppliers: SubContractor[]; 
   materials: Material[];
   allOrders: PurchaseOrder[];
   currentUser: DistributionUser;

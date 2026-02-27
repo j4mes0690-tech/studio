@@ -2,20 +2,14 @@
 'use client';
 
 import { useState } from 'react';
-import type { PurchaseOrder, Project, Supplier, Photo } from '@/lib/types';
+import type { PurchaseOrder, Project, SubContractor } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-  FileText, 
   Trash2, 
-  ChevronRight, 
   Calendar, 
-  Truck, 
-  User, 
-  Download, 
   Loader2, 
-  AlertTriangle,
   FileDown
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
@@ -36,7 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
-export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; project?: Project; supplier?: Supplier }) {
+export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; project?: Project; supplier?: SubContractor }) {
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -78,7 +72,6 @@ export function OrderCard({ order, project, supplier }: { order: PurchaseOrder; 
           <div>
             <p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Supplier Information</p>
             <p style="margin: 0; font-size: 16px; font-weight: bold;">${order.supplierName}</p>
-            <p style="margin: 5px 0 0 0; font-size: 12px; color: #475569; line-height: 1.5;">${supplier?.address || 'Address on file'}</p>
             <p style="margin: 5px 0 0 0; font-size: 12px; color: #475569;">${supplier?.email || ''}</p>
           </div>
           <div>

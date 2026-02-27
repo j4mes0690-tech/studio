@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -34,9 +35,10 @@ const AddContactSchema = z.object({
   email: z.string().email('Invalid email address.'),
   isSubContractor: z.boolean().default(false),
   isDesigner: z.boolean().default(false),
+  isSupplier: z.boolean().default(false),
   trades: z.array(z.string()).optional().default([]),
-}).refine(data => data.isSubContractor || data.isDesigner, {
-  message: "Select at least one category (Sub-contractor or Designer)",
+}).refine(data => data.isSubContractor || data.isDesigner || data.isSupplier, {
+  message: "Select at least one category (Sub-contractor, Designer, or Supplier)",
   path: ["isSubContractor"]
 });
 
@@ -60,6 +62,7 @@ export function AddSubcontractorForm({ canManageTrades = false }: { canManageTra
       email: '',
       isSubContractor: true,
       isDesigner: false,
+      isSupplier: false,
       trades: [],
     },
   });
@@ -112,13 +115,13 @@ export function AddSubcontractorForm({ canManageTrades = false }: { canManageTra
         <Separator />
         
         <div className="space-y-3">
-          <FormLabel>Contact Category</FormLabel>
-          <div className="grid grid-cols-2 gap-4">
+          <FormLabel>Contact Categories</FormLabel>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <FormField
               control={form.control}
               name="isSubContractor"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
@@ -126,7 +129,7 @@ export function AddSubcontractorForm({ canManageTrades = false }: { canManageTra
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel className="cursor-pointer">Sub-contractor</FormLabel>
+                    <FormLabel className="cursor-pointer text-xs">Sub-contractor</FormLabel>
                   </div>
                 </FormItem>
               )}
@@ -135,7 +138,7 @@ export function AddSubcontractorForm({ canManageTrades = false }: { canManageTra
               control={form.control}
               name="isDesigner"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
@@ -143,7 +146,24 @@ export function AddSubcontractorForm({ canManageTrades = false }: { canManageTra
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel className="cursor-pointer">Designer</FormLabel>
+                    <FormLabel className="cursor-pointer text-xs">Designer</FormLabel>
+                  </div>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isSupplier"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="cursor-pointer text-xs">Supplier</FormLabel>
                   </div>
                 </FormItem>
               )}

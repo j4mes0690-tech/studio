@@ -1,476 +1,101 @@
+
 {
   "entities": {
     "User": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
       "type": "object",
-      "description": "Represents a user of the application, such as a site team member or administrator. This entity is assumed to exist for referencing who created or recorded certain data.",
+      "description": "Represents a user of the application, such as a site team member or administrator.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the User entity."
-        },
-        "firstName": {
-          "type": "string",
-          "description": "The first name of the user."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The last name of the user."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address of the user, used for communication and identification.",
-          "format": "email"
-        },
-        "role": {
-          "type": "string",
-          "description": "The role of the user within the application or organization (e.g., 'Site Manager', 'Engineer', 'Client Contact')."
-        }
+        "id": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string" }
       },
-      "required": [
-        "id",
-        "firstName",
-        "lastName",
-        "email",
-        "role"
-      ]
+      "required": ["id", "firstName", "lastName", "email", "role"]
     },
     "Client": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Client",
       "type": "object",
-      "description": "Represents a client for whom construction projects are undertaken, central to client and project management.",
+      "description": "Represents a client for whom construction projects are undertaken.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Client entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The full name of the client organization or individual."
-        },
-        "contactPerson": {
-          "type": "string",
-          "description": "The primary contact person at the client organization."
-        },
-        "email": {
-          "type": "string",
-          "description": "The email address for the client's primary contact.",
-          "format": "email"
-        },
-        "phone": {
-          "type": "string",
-          "description": "The phone number for the client's primary contact."
-        },
-        "address": {
-          "type": "string",
-          "description": "The physical address of the client organization."
-        },
-        "description": {
-          "type": "string",
-          "description": "A general description or notes about the client."
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "email": { "type": "string", "format": "email" }
       },
-      "required": [
-        "id",
-        "name",
-        "contactPerson",
-        "email"
-      ]
+      "required": ["id", "name", "contactPerson", "email"]
     },
     "Project": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Project",
       "type": "object",
-      "description": "Represents a construction project, associating it with a specific client and serving as an organizational unit for instructions and orders.",
+      "description": "Represents a construction project.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Project entity."
-        },
-        "clientId": {
-          "type": "string",
-          "description": "Reference to the Client entity. (Relationship: Client 1:N Project)"
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the construction project."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the project scope and objectives."
-        },
-        "startDate": {
-          "type": "string",
-          "description": "The planned start date and time of the project.",
-          "format": "date-time"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "The planned end date and time of the project.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the project (e.g., 'Planning', 'Active', 'Completed', 'On Hold')."
-        },
-        "location": {
-          "type": "string",
-          "description": "The physical location or address of the construction site."
-        }
+        "id": { "type": "string" },
+        "clientId": { "type": "string" },
+        "name": { "type": "string" },
+        "status": { "type": "string" }
       },
-      "required": [
-        "id",
-        "clientId",
-        "name",
-        "startDate",
-        "status"
-      ]
+      "required": ["id", "clientId", "name", "status"]
     },
-    "Instruction": {
+    "SubContractor": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Instruction",
+      "title": "SubContractor",
       "type": "object",
-      "description": "Represents a client instruction captured on a construction site, potentially summarized and parsed for action items.",
+      "description": "Represents an external partner such as a subcontractor, designer, or supplier.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Instruction entity."
-        },
-        "clientId": {
-          "type": "string",
-          "description": "Reference to the Client entity associated with this instruction. (Relationship: Client 1:N Instruction)"
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Reference to the Project entity associated with this instruction. (Relationship: Project 1:N Instruction)"
-        },
-        "recordedByUserId": {
-          "type": "string",
-          "description": "Reference to the User who recorded this instruction. (Relationship: User 1:N Instruction)"
-        },
-        "instructionText": {
-          "type": "string",
-          "description": "The original, unedited text of the client instruction as captured on site."
-        },
-        "recordedAt": {
-          "type": "string",
-          "description": "The date and time when the instruction was recorded.",
-          "format": "date-time"
-        },
-        "summary": {
-          "type": "string",
-          "description": "An AI-generated concise summary of the instruction, condensing lengthy details."
-        },
-        "actionItems": {
-          "type": "array",
-          "description": "An array of AI-extracted specific actionable tasks directly from the recorded instruction.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the instruction (e.g., 'New', 'Under Review', 'Actioned', 'Archived')."
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "isSubContractor": { "type": "boolean" },
+        "isDesigner": { "type": "boolean" },
+        "isSupplier": { "type": "boolean" },
+        "trades": { "type": "array", "items": { "type": "string" } }
       },
-      "required": [
-        "id",
-        "clientId",
-        "projectId",
-        "recordedByUserId",
-        "instructionText",
-        "recordedAt",
-        "status"
-      ]
-    },
-    "Supplier": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Supplier",
-      "type": "object",
-      "description": "Represents a company or entity that supplies materials or services for construction projects.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Supplier entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The official name of the supplier company."
-        },
-        "contactPerson": {
-          "type": "string",
-          "description": "The name of the primary contact person at the supplier."
-        },
-        "email": {
-          "type": "string",
-          "description": "The general contact email address for the supplier.",
-          "format": "email"
-        },
-        "phone": {
-          "type": "string",
-          "description": "The general contact phone number for the supplier."
-        },
-        "address": {
-          "type": "string",
-          "description": "The physical address of the supplier."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Any additional notes or details about the supplier, such as special terms."
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "contactPerson",
-        "email"
-      ]
+      "required": ["id", "name", "email"]
     },
     "Material": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Material",
       "type": "object",
-      "description": "Represents a specific material that can be ordered for construction projects from various suppliers.",
+      "description": "Represents a material that can be ordered.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Material entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The common name of the material (e.g., 'Concrete Mix M20', 'Steel Rebar 12mm')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A detailed description of the material, including specifications or grade if applicable."
-        },
-        "unitOfMeasure": {
-          "type": "string",
-          "description": "The standard unit in which this material is measured and ordered (e.g., 'cubic meter', 'tonne', 'piece', 'meter')."
-        },
-        "standardUnitPrice": {
-          "type": "number",
-          "description": "The typical or standard price per unit of the material, used for estimation and as a default for new orders."
-        },
-        "supplierIds": {
-          "type": "array",
-          "description": "References to Supplier entities that can supply this material. (Relationship: Material N:N Supplier)",
-          "items": {
-            "type": "string"
-          }
-        }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "unit": { "type": "string" },
+        "defaultPrice": { "type": "number" }
       },
-      "required": [
-        "id",
-        "name",
-        "unitOfMeasure"
-      ]
+      "required": ["id", "name", "unit"]
     },
     "PurchaseOrder": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "PurchaseOrder",
       "type": "object",
-      "description": "Represents a formal request from a site team to a supplier for specific materials for a project, including details for generating a PDF order form.",
+      "description": "Represents a formal request for materials from a supplier.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the PurchaseOrder entity."
-        },
-        "projectId": {
-          "type": "string",
-          "description": "Reference to the Project for which these materials are being ordered. (Relationship: Project 1:N PurchaseOrder)"
-        },
-        "supplierId": {
-          "type": "string",
-          "description": "Reference to the Supplier from whom the materials are being ordered. (Relationship: Supplier 1:N PurchaseOrder)"
-        },
-        "orderNumber": {
-          "type": "string",
-          "description": "A unique, user-friendly identifier or reference number for the purchase order (e.g., PO-2023-001)."
-        },
-        "orderDate": {
-          "type": "string",
-          "description": "The date and time when the purchase order was created or placed.",
-          "format": "date-time"
-        },
-        "requiredDeliveryDate": {
-          "type": "string",
-          "description": "The desired date and time for the delivery of the ordered materials.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the purchase order (e.g., 'Draft', 'Submitted', 'Approved', 'Ordered', 'Received', 'Cancelled')."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Any additional general notes or specific instructions for the supplier or delivery."
-        },
-        "totalAmount": {
-          "type": "number",
-          "description": "The calculated total cost of all line items in the purchase order."
-        },
-        "createdByUserId": {
-          "type": "string",
-          "description": "Reference to the User who created this purchase order. (Relationship: User 1:N PurchaseOrder)"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "The timestamp when the purchase order record was first created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "The timestamp when the purchase order record was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "projectId": { "type": "string" },
+        "supplierId": { "type": "string" },
+        "status": { "type": "string" },
+        "totalAmount": { "type": "number" }
       },
-      "required": [
-        "id",
-        "projectId",
-        "supplierId",
-        "orderNumber",
-        "orderDate",
-        "status",
-        "createdByUserId",
-        "createdAt"
-      ]
-    },
-    "PurchaseOrderItem": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PurchaseOrderItem",
-      "type": "object",
-      "description": "Represents a single line item within a Purchase Order, specifying the material, quantity, and agreed-upon price.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the PurchaseOrderItem entity."
-        },
-        "purchaseOrderId": {
-          "type": "string",
-          "description": "Reference to the PurchaseOrder this item belongs to. (Relationship: PurchaseOrder 1:N PurchaseOrderItem)"
-        },
-        "materialId": {
-          "type": "string",
-          "description": "Reference to the Material being ordered in this line item. (Relationship: Material 1:N PurchaseOrderItem)"
-        },
-        "quantity": {
-          "type": "number",
-          "description": "The quantity of the material ordered in this line item."
-        },
-        "unitPrice": {
-          "type": "number",
-          "description": "The agreed-upon price per unit of the material at the time this order item was created."
-        },
-        "lineItemTotal": {
-          "type": "number",
-          "description": "The calculated total cost for this line item (quantity * unitPrice)."
-        },
-        "notes": {
-          "type": "string",
-          "description": "Specific notes or remarks for this particular material item on the order."
-        }
-      },
-      "required": [
-        "id",
-        "purchaseOrderId",
-        "materialId",
-        "quantity",
-        "unitPrice"
-      ]
+      "required": ["id", "orderNumber", "projectId", "supplierId", "status"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Top-level collection for all user profiles. Authorization rules for user-specific data can reference the `request.auth.uid` to match `userId`."
-        }
-      },
-      {
-        "path": "/clients/{clientId}",
-        "definition": {
-          "entityName": "Client",
-          "schema": {
-            "$ref": "#/backend/entities/Client"
-          },
-          "description": "Top-level collection for client organizations. Access typically granted based on authenticated user roles or explicit client association."
-        }
-      },
-      {
-        "path": "/clients/{clientId}/projects/{projectId}",
-        "definition": {
-          "entityName": "Project",
-          "schema": {
-            "$ref": "#/backend/entities/Project"
-          },
-          "description": "Subcollection under a specific client for their projects. Includes denormalized `clientId` and a new `projectManagerId` field to enable authorization checks without traversing to the parent Client document."
-        }
-      },
-      {
-        "path": "/clients/{clientId}/projects/{projectId}/instructions/{instructionId}",
-        "definition": {
-          "entityName": "Instruction",
-          "schema": {
-            "$ref": "#/backend/entities/Instruction"
-          },
-          "description": "Subcollection for client instructions pertaining to a specific project. Includes denormalized `clientId`, `projectId`, and `recordedByUserId` for authorization independence."
-        }
-      },
-      {
-        "path": "/suppliers/{supplierId}",
-        "definition": {
-          "entityName": "Supplier",
-          "schema": {
-            "$ref": "#/backend/entities/Supplier"
-          },
-          "description": "Top-level collection for all material suppliers. Access rules would typically permit general read access for site teams and restricted write access for administrators."
-        }
-      },
-      {
-        "path": "/materials/{materialId}",
-        "definition": {
-          "entityName": "Material",
-          "schema": {
-            "$ref": "#/backend/entities/Material"
-          },
-          "description": "Top-level collection for all available materials. Access rules would typically permit general read access for site teams and restricted write access for administrators."
-        }
-      },
-      {
-        "path": "/clients/{clientId}/projects/{projectId}/purchaseOrders/{purchaseOrderId}",
-        "definition": {
-          "entityName": "PurchaseOrder",
-          "schema": {
-            "$ref": "#/backend/entities/PurchaseOrder"
-          },
-          "description": "Subcollection for purchase orders, nested under a specific project. Documents include denormalized `clientId`, `clientName`, `projectName`, `projectManagerId` (from Project), and `creatorName` (from User) for authorization independence and PDF generation without extra lookups. Authorization rules can directly check `createdByUserId` or `projectManagerId`."
-        }
-      },
-      {
-        "path": "/clients/{clientId}/projects/{projectId}/purchaseOrders/{purchaseOrderId}/items/{purchaseOrderItemId}",
-        "definition": {
-          "entityName": "PurchaseOrderItem",
-          "schema": {
-            "$ref": "#/backend/entities/PurchaseOrderItem"
-          },
-          "description": "Subcollection for individual line items within a purchase order. Documents include denormalized `clientId`, `projectId`, `createdByUserId`, and `projectManagerId` (from the parent PurchaseOrder) to ensure authorization independence without requiring reads of parent documents."
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure is designed to facilitate secure, scalable, and debuggable access to all application data, especially the new materials order module. The core principle of Authorization Independence is met through strategic denormalization. For instance, `PurchaseOrder` documents, located within a project's subcollection, will contain denormalized `clientId`, `clientName`, `projectName`, `projectManagerId`, and `creatorName` fields. This allows Firestore security rules to evaluate access permissions directly on the `PurchaseOrder` document itself, without requiring costly and potentially insecure `get()` operations on parent `Client` or `Project` documents. Similarly, `PurchaseOrderItem` documents will denormalize `clientId`, `projectId`, `createdByUserId`, and `projectManagerId` from their parent `PurchaseOrder`, making them self-authorizing.\n\nThis denormalization directly supports QAPs (Rules are not Filters) by embedding all necessary authorization context within each document. When a user queries for `PurchaseOrder`s within a specific `Project` (e.g., `/clients/{clientId}/projects/{projectId}/purchaseOrders`), the security rules can efficiently check if `request.auth.uid` matches the `createdByUserId` or `projectManagerId` denormalized within *each returned document*. This prevents rules from attempting to filter results, which is inefficient and insecure. Instead, the client-side query specifies the scope (e.g., a specific project), and the rules validate the user's permission for each document within that scope. \n\nStructural segregation is applied by organizing data hierarchically: `Clients` at the top level, `Projects` under `Clients`, and `Instructions`, `PurchaseOrders` under `Projects`. `PurchaseOrderItems` are further nested under `PurchaseOrders`. `Suppliers` and `Materials` are top-level collections as they are likely shared resources. Each collection maintains a homogeneous security posture. The use of clear, descriptive wildcards (e.g., `{clientId}`, `{projectId}`) and explicit state modeling (`status` fields) enhances clarity and debuggability. Global roles are managed via a `role` field on the `User` document, which rules can safely query for user-specific administrative checks."
+      { "path": "/users/{userId}", "definition": { "entityName": "User" } },
+      { "path": "/projects/{projectId}", "definition": { "entityName": "Project" } },
+      { "path": "/sub-contractors/{subId}", "definition": { "entityName": "SubContractor" } },
+      { "path": "/materials/{materialId}", "definition": { "entityName": "Material" } },
+      { "path": "/purchase-orders/{orderId}", "definition": { "entityName": "PurchaseOrder" } }
+    ]
   }
 }

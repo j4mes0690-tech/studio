@@ -3,7 +3,7 @@
 
 import type { SubContractor } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, HardHat, Ruler, Tag } from 'lucide-react';
+import { Trash2, HardHat, Ruler, Truck } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -68,6 +68,11 @@ export function SubcontractorsList({ subContractors, canManageTrades = false }: 
               {contact.isDesigner && (
                 <Badge variant="outline" className="text-[9px] h-4 gap-1 border-primary/30 text-primary">
                   <Ruler className="h-2 w-2" /> Designer
+                </Badge>
+              )}
+              {contact.isSupplier && (
+                <Badge variant="outline" className="text-[9px] h-4 gap-1 border-accent/50 text-accent">
+                  <Truck className="h-2 w-2" /> Supplier
                 </Badge>
               )}
               {contact.trades?.map(trade => (

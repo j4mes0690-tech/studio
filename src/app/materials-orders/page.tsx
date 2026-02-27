@@ -1,14 +1,14 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, Suspense } from 'react';
-import type { PurchaseOrder, Project, Supplier, DistributionUser, Material } from '@/lib/types';
-import { Loader2, ShoppingCart, Plus, Filter, FileText, Download, Trash2, CheckCircle2 } from 'lucide-react';
+import type { PurchaseOrder, Project, Supplier, DistributionUser, Material, SubContractor } from '@/lib/types';
+import { Loader2, ShoppingCart, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { NewOrderDialog } from './new-order';
 import { OrderCard } from './order-card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,8 +25,13 @@ function MaterialsOrdersContent() {
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
   const { data: allProjects } = useCollection<Project>(projectsQuery);
 
-  const suppliersQuery = useMemoFirebase(() => (db ? collection(db, 'suppliers') : null), [db]);
-  const { data: allSuppliers } = useCollection<Supplier>(suppliersQuery);
+  // We now derive suppliers from the sub-contractors collection filtered by isSupplier
+  const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
+  const { data: allSubContractors } = useCollection<SubContractor>(subsQuery);
+  
+  const allSuppliers = useMemo(() => {
+    return (allSubContractors || []).filter(s => !!s.isSupplier);
+  }, [allSubContractors]);
 
   const materialsQuery = useMemoFirebase(() => (db ? collection(db, 'materials') : null), [db]);
   const { data: allMaterials } = useCollection<Material>(materialsQuery);
@@ -74,7 +79,7 @@ function MaterialsOrdersContent() {
         <div className="flex items-center gap-2">
           <NewOrderDialog 
             projects={allowedProjects} 
-            suppliers={allSuppliers || []} 
+            suppliers={allSuppliers} 
             materials={allMaterials || []}
             allOrders={allOrders || []}
             currentUser={profile}
