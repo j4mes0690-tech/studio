@@ -21,6 +21,7 @@
         "canManageUsers": { "type": "boolean" },
         "canManageSubcontractors": { "type": "boolean" },
         "canManageProjects": { "type": "boolean" },
+        "canManageTrades": { "type": "boolean" },
         "canManageChecklists": { "type": "boolean" },
         "hasFullVisibility": { "type": "boolean", "description": "Whether the user can see all data across all projects." }
       }

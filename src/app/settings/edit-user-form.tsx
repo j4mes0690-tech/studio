@@ -43,6 +43,7 @@ const EditUserSchema = z.object({
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
+  canManageTrades: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
   hasFullVisibility: z.boolean().default(false),
 });
@@ -69,6 +70,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
       canManageUsers: user.permissions?.canManageUsers || false,
       canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
       canManageProjects: user.permissions?.canManageProjects || false,
+      canManageTrades: user.permissions?.canManageTrades || false,
       canManageChecklists: user.permissions?.canManageChecklists || false,
       hasFullVisibility: user.permissions?.hasFullVisibility || false,
     },
@@ -84,6 +86,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
         canManageUsers: user.permissions?.canManageUsers || false,
         canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
         canManageProjects: user.permissions?.canManageProjects || false,
+        canManageTrades: user.permissions?.canManageTrades || false,
         canManageChecklists: user.permissions?.canManageChecklists || false,
         hasFullVisibility: user.permissions?.hasFullVisibility || false,
       });
@@ -101,6 +104,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,
           canManageProjects: values.canManageProjects,
+          canManageTrades: values.canManageTrades,
           canManageChecklists: values.canManageChecklists,
           hasFullVisibility: values.hasFullVisibility,
         }
@@ -214,9 +218,9 @@ export function EditUserForm({ user }: EditUserFormProps) {
                     render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                         <div className="space-y-0.5">
-                            <FormLabel>Manage Users</FormLabel>
+                            <FormLabel>Manage Internal Users</FormLabel>
                             <FormDescription>
-                                Can add, edit, and remove users and credentials.
+                                Access to staff directory and system credentials.
                             </FormDescription>
                         </div>
                         <FormControl>
@@ -234,9 +238,9 @@ export function EditUserForm({ user }: EditUserFormProps) {
                     render={({ field }) => (
                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                         <div className="space-y-0.5">
-                            <FormLabel>Manage Sub-contractors</FormLabel>
+                            <FormLabel>Manage External Contacts</FormLabel>
                             <FormDescription>
-                                Can add, edit, and remove sub-contractors.
+                                Access to trade partner and designer directory.
                             </FormDescription>
                         </div>
                         <FormControl>
@@ -256,7 +260,27 @@ export function EditUserForm({ user }: EditUserFormProps) {
                         <div className="space-y-0.5">
                             <FormLabel>Manage Projects</FormLabel>
                             <FormDescription>
-                               Can add, edit, and remove projects and their areas.
+                               Access to project setup, site areas, and staff assignment.
+                            </FormDescription>
+                        </div>
+                        <FormControl>
+                            <Switch
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                            />
+                        </FormControl>
+                    </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="canManageTrades"
+                    render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                            <FormLabel>Manage Trade Categories</FormLabel>
+                            <FormDescription>
+                                Access to define and edit trade specialties.
                             </FormDescription>
                         </div>
                         <FormControl>
@@ -276,7 +300,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
                         <div className="space-y-0.5">
                             <FormLabel>Manage Checklist Templates</FormLabel>
                             <FormDescription>
-                                Can create, edit, and delete checklist templates.
+                                Access to create and edit master inspection templates.
                             </FormDescription>
                         </div>
                         <FormControl>

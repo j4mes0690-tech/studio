@@ -116,6 +116,7 @@ export type UserPermissions = {
   canManageUsers: boolean;
   canManageSubcontractors: boolean;
   canManageProjects: boolean;
+  canManageTrades: boolean;
   canManageChecklists: boolean;
   hasFullVisibility: boolean;
 };

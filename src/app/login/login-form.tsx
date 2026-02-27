@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -45,7 +46,9 @@ export function LoginForm() {
               canManageUsers: true,
               canManageSubcontractors: true,
               canManageProjects: true,
+              canManageTrades: true,
               canManageChecklists: true,
+              hasFullVisibility: true,
             }
           });
         }

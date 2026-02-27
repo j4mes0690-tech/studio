@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -71,6 +72,7 @@ export default function SettingsPage() {
     permissions.canManageUsers || 
     permissions.canManageSubcontractors || 
     permissions.canManageProjects || 
+    permissions.canManageTrades ||
     permissions.canManageChecklists
   );
 
@@ -161,35 +163,35 @@ export default function SettingsPage() {
             </Card>
           )}
 
-          {permissions.canManageChecklists && (
-            <>
-              <Card>
-                  <AccordionItem value="trades" className="border-b-0">
-                      <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Trade Categories</AccordionTrigger>
-                      <AccordionContent className="p-6 pt-0">
-                          <ManageTrades />
-                      </AccordionContent>
-                  </AccordionItem>
-              </Card>
+          {permissions.canManageTrades && (
+            <Card>
+                <AccordionItem value="trades" className="border-b-0">
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Trade Categories</AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <ManageTrades />
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
+          )}
 
-              <Card>
-                  <AccordionItem value="checklists" className="border-b-0">
-                      <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Checklist Templates</AccordionTrigger>
-                      <AccordionContent className="p-6 pt-0">
-                          <div className="grid gap-8 lg:grid-cols-2">
-                              <div className="space-y-4">
-                                  <h3 className="text-lg font-medium">Add New Template</h3>
-                                  <NewChecklist />
-                              </div>
-                              <div className="space-y-4">
-                                  <h3 className="text-lg font-medium">Existing Templates</h3>
-                                  <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
-                              </div>
-                          </div>
-                      </AccordionContent>
-                  </AccordionItem>
-              </Card>
-            </>
+          {permissions.canManageChecklists && (
+            <Card>
+                <AccordionItem value="checklists" className="border-b-0">
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Checklist Templates</AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <div className="grid gap-8 lg:grid-cols-2">
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-medium">Add New Template</h3>
+                                <NewChecklist />
+                            </div>
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-medium">Existing Templates</h3>
+                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
           )}
         </Accordion>
       </main>
