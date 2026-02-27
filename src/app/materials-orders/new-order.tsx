@@ -64,6 +64,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
   const [pendingUnit, setPendingUnit] = useState<string>('');
   const [pendingRate, setPendingRate] = useState<number | string>(0);
   const [pendingDeliveryDate, setPendingDeliveryDate] = useState<string | null>(null);
+  const [isDateInputFocused, setIsDateInputFocused] = useState(false);
 
   const form = useForm<NewOrderFormValues>({
     resolver: zodResolver(NewOrderSchema),
@@ -250,10 +251,12 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                       </div>
                     </div>
                     <Input 
-                      type="date" 
+                      type={(pendingDeliveryDate || isDateInputFocused) ? "date" : "text"}
                       className="h-9 bg-background"
-                      value={pendingDeliveryDate ? new Date(pendingDeliveryDate).toISOString().split('T')[0] : ''} 
-                      onChange={e => setPendingDeliveryDate(e.target.value ? new Date(e.target.value).toISOString() : null)}
+                      value={(pendingDeliveryDate || isDateInputFocused) ? (pendingDeliveryDate ? new Date(pendingDeliveryDate).toISOString().split('T')[0] : '') : 'ASAP'} 
+                      onChange={e => setPendingDeliveryDate(e.target.value && e.target.value !== 'ASAP' ? new Date(e.target.value).toISOString() : null)}
+                      onFocus={() => setIsDateInputFocused(true)}
+                      onBlur={() => setIsDateInputFocused(false)}
                     />
                   </div>
                 </div>
@@ -346,7 +349,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Delivery Instructions / Project Notes</FormLabel>
-                  <FormControl><Textarea placeholder="e.g., Deliver to site entrance B, contact site manager 1 hour before arrival..." {...field} /></FormControl>
+                  <FormControl><Textarea placeholder="e.g. Deliver to site entrance B, contact site manager 1 hour before arrival..." {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
