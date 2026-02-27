@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -34,6 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
+import { addWeeks } from 'date-fns';
 
 const NewOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -208,7 +210,38 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs">Required Date</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Required Date</Label>
+                      <div className="flex gap-1">
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" 
+                          onClick={() => setPendingDeliveryDate(null)}
+                        >
+                          ASAP
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" 
+                          onClick={() => setPendingDeliveryDate(addWeeks(new Date(), 1).toISOString())}
+                        >
+                          +1w
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" 
+                          onClick={() => setPendingDeliveryDate(addWeeks(new Date(), 2).toISOString())}
+                        >
+                          +2w
+                        </Button>
+                      </div>
+                    </div>
                     <Input 
                       type="date" 
                       className="h-9 bg-background"

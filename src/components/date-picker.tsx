@@ -30,9 +30,13 @@ export function DatePicker({ field, label }: DatePickerProps) {
     }
   };
   
-  const setDateFromNow = (weeks: number) => {
-    const newDate = addWeeks(new Date(), weeks);
-    field.onChange(newDate.toISOString());
+  const setQuickDate = (weeks: number | 'asap') => {
+    if (weeks === 'asap') {
+      field.onChange(undefined);
+    } else {
+      const newDate = addWeeks(new Date(), weeks);
+      field.onChange(newDate.toISOString());
+    }
   }
 
   return (
@@ -52,9 +56,9 @@ export function DatePicker({ field, label }: DatePickerProps) {
             ref={field.ref}
             />
         </FormControl>
-        <Button type="button" variant="outline" size="sm" onClick={() => setDateFromNow(1)}>+1w</Button>
-        <Button type="button" variant="outline" size="sm" onClick={() => setDateFromNow(2)}>+2w</Button>
-        <Button type="button" variant="outline" size="sm" onClick={() => setDateFromNow(4)}>+4w</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setQuickDate('asap')}>ASAP</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setQuickDate(1)}>+1w</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => setQuickDate(2)}>+2w</Button>
       </div>
       <FormMessage />
     </FormItem>
