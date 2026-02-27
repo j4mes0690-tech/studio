@@ -23,11 +23,23 @@ import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { Users } from 'lucide-react';
+import { Users, Trash2, Loader2 } from 'lucide-react';
 import { useFirestore } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 type ChecklistCardProps = {
   checklist: QualityChecklist;
@@ -67,6 +79,21 @@ export function ChecklistCard({
     });
   }
 
+  const handleDelete = () => {
+    startTransition(async () => {
+      const docRef = doc(db, 'quality-checklists', checklist.id);
+      deleteDoc(docRef)
+        .then(() => toast({ title: 'Success', description: 'Checklist removed from area.' }))
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+        });
+    });
+  };
+
   const handleStatusChange = (itemId: string, status: ChecklistItemStatus) => {
     const newItems = items.map((item) =>
       item.id === itemId ? { ...item, status } : item
@@ -102,7 +129,7 @@ export function ChecklistCard({
     <Card className={cn(hasFailure && 'border-destructive')}>
       <CardHeader>
         <div className="flex justify-between items-start">
-          <div>
+          <div className="flex-1">
             <CardTitle>{checklist.title}</CardTitle>
             <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
               {project && (
@@ -122,7 +149,33 @@ export function ChecklistCard({
               </span>
             </CardDescription>
           </div>
-          <Badge variant={hasFailure ? 'destructive' : 'secondary'}>{checklist.trade}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant={hasFailure ? 'destructive' : 'secondary'}>{checklist.trade}</Badge>
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">Delete Checklist</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Assigned Checklist?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently remove the "{checklist.title}" checklist and all its recorded answers for this plot. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -188,7 +241,7 @@ export function ChecklistCard({
              <AccordionContent>
               <div className="flex flex-wrap gap-1">
                 {checklist.recipients.map((email, index) => (
-                  <Badge key={index} variant="outline">{email}</Badge>
+                  <Badge key={index} variant="outline" className="bg-background">{email}</Badge>
                 ))}
               </div>
              </AccordionContent>
