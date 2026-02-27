@@ -165,7 +165,7 @@ export function EditOrderDialog({
         const supplier = suppliers.find(s => s.id === values.supplierId);
         const docRef = doc(db, 'purchase-orders', order.id);
 
-        const updates = {
+        const updates: any = {
           projectId: values.projectId,
           supplierId: values.supplierId,
           supplierName: supplier?.name || order.supplierName,
@@ -174,6 +174,11 @@ export function EditOrderDialog({
           totalAmount: orderTotal,
           status: values.status,
         };
+
+        // Update the orderDate if transitioning from draft to issued
+        if (values.status === 'issued' && order.status === 'draft') {
+          updates.orderDate = new Date().toISOString();
+        }
 
         await updateDoc(docRef, updates).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -324,11 +329,11 @@ export function EditOrderDialog({
 
             <DialogFooter className="p-6 border-t bg-muted/10 gap-3">
               <Button type="submit" variant="outline" className="w-full sm:w-auto" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Save Draft
               </Button>
               <Button type="submit" className="w-full sm:flex-1 font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>
-                {isPending && submissionStatus === 'issued' ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShoppingCart className="h-4 w-4 mr-2" />}
+                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <ShoppingCart className="h-4 w-4 mr-2" />}
                 Commit Order
               </Button>
             </DialogFooter>

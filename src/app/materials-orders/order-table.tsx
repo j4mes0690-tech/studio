@@ -106,7 +106,10 @@ function OrderTableRow({
     e.stopPropagation();
     startTransition(async () => {
       const docRef = doc(db, 'purchase-orders', order.id);
-      await updateDoc(docRef, { status: 'issued' });
+      await updateDoc(docRef, { 
+        status: 'issued',
+        orderDate: new Date().toISOString()
+      });
       toast({ title: 'Success', description: 'Order committed.' });
     });
   };
@@ -138,9 +141,13 @@ function OrderTableRow({
           )}
         </TableCell>
         <TableCell>
-          <span className="text-xs text-muted-foreground">
-            <ClientDate date={order.orderDate} format="date" />
-          </span>
+          {!isDraft ? (
+            <span className="text-xs text-muted-foreground">
+              <ClientDate date={order.orderDate} format="date" />
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground italic">Pending</span>
+          )}
         </TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>

@@ -74,7 +74,10 @@ export function OrderCard({
     startTransition(async () => {
       try {
         const docRef = doc(db, 'purchase-orders', order.id);
-        await updateDoc(docRef, { status: 'issued' });
+        await updateDoc(docRef, { 
+          status: 'issued',
+          orderDate: new Date().toISOString() 
+        });
         toast({ title: 'Success', description: 'Purchase order committed.' });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to commit order.', variant: 'destructive' });
@@ -212,8 +215,12 @@ export function OrderCard({
               </div>
               <CardDescription className="flex items-center gap-3">
                 <span className="font-semibold text-foreground">{project?.name || 'Unknown Project'}</span>
-                <span className="text-muted-foreground">•</span>
-                <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> <ClientDate date={order.orderDate} format="date" /></span>
+                {!isDraft && (
+                  <>
+                    <span className="text-muted-foreground">•</span>
+                    <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> <ClientDate date={order.orderDate} format="date" /></span>
+                  </>
+                )}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
