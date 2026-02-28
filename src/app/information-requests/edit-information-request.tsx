@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -39,7 +40,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DatePicker } from '@/components/date-picker';
-import { useFirestore, useStorage, useCollection } from '@/firebase';
+import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -88,7 +89,10 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
 
-  const subsQuery = useMemo(() => (db ? collection(db, 'sub-contractors') : null), [db]);
+  const subsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
   const { data: subContractors } = useCollection<SubContractor>(subsQuery);
 
   const form = useForm<EditInformationRequestFormValues>({

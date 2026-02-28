@@ -27,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Save, Send, ShieldCheck, Clock, Camera, Upload, X, RefreshCw } from 'lucide-react';
 import type { Project, SubContractor, DistributionUser, Permit, Photo } from '@/lib/types';
-import { useFirestore, useStorage } from '@/firebase';
+import { useFirestore, useStorage, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';

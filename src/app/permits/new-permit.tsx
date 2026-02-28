@@ -28,7 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Loader2, Save, Send, ShieldCheck, Clock, Camera, Upload, X, RefreshCw, Sparkles, FileText, ClipboardList } from 'lucide-react';
 import type { Project, SubContractor, DistributionUser, Permit, Photo, PermitTemplate } from '@/lib/types';
-import { useFirestore, useStorage, useCollection } from '@/firebase';
+import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
@@ -82,7 +82,10 @@ export function NewPermitDialog({
   const templateInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch Permit Templates from Settings
-  const templatesQuery = collection(db, 'permit-templates');
+  const templatesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'permit-templates');
+  }, [db]);
   const { data: permitTemplates } = useCollection<PermitTemplate>(templatesQuery);
 
   const form = useForm<NewPermitFormValues>({

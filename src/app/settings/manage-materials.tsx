@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Loader2, Tag, Ruler } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import type { Material } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -37,7 +38,10 @@ export function ManageMaterials() {
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  const materialsQuery = useMemo(() => query(collection(db, 'materials'), orderBy('name', 'asc')), [db]);
+  const materialsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'materials'), orderBy('name', 'asc'));
+  }, [db]);
   const { data: materials, isLoading } = useCollection<Material>(materialsQuery);
 
   const form = useForm({

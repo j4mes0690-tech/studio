@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTransition, useState, useEffect } from 'react';
+import { useTransition, useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,7 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Pencil, X, Shield, Users2, Loader2, Save } from 'lucide-react';
 import type { Project, Area, DistributionUser, SubContractor } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -58,7 +59,10 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
   const [areas, setAreas] = useState<Area[]>(project.areas || []);
   const [currentArea, setCurrentArea] = useState('');
 
-  const subsQuery = collection(db, 'sub-contractors');
+  const subsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
   const { data: allSubContractors } = useCollection<SubContractor>(subsQuery);
 
   const form = useForm<EditProjectFormValues>({

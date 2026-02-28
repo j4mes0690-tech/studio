@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -40,7 +41,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ClientDate } from '../../components/client-date';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -170,13 +171,13 @@ function AcceptInstructionButton({
         }
     }, [open]);
 
-    const subsQuery = useMemo(() => {
+    const subsQuery = useMemoFirebase(() => {
         if (!db) return null;
         return collection(db, 'sub-contractors');
     }, [db]);
     const { data: allSubs } = useCollection<SubContractor>(subsQuery);
     
-    const usersQuery = useMemo(() => {
+    const usersQuery = useMemoFirebase(() => {
         if (!db) return null;
         return collection(db, 'users');
     }, [db]);

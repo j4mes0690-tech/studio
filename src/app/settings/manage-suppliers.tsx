@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Trash2, Loader2, User, Mail, MapPin } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import type { Supplier } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -27,7 +27,10 @@ export function ManageSuppliers() {
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  const suppliersQuery = useMemo(() => query(collection(db, 'suppliers'), orderBy('name', 'asc')), [db]);
+  const suppliersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'suppliers'), orderBy('name', 'asc'));
+  }, [db]);
   const { data: suppliers, isLoading } = useCollection<Supplier>(suppliersQuery);
 
   const form = useForm({
