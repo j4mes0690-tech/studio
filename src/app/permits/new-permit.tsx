@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -32,7 +31,7 @@ import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/fire
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import { getProjectInitials, getNextReference } from '@/lib/utils';
+import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
 import { VoiceInput } from '@/components/voice-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
