@@ -18,6 +18,7 @@
             "canManageProjects": { "type": "boolean" },
             "canManageChecklists": { "type": "boolean" },
             "canManageMaterials": { "type": "boolean" },
+            "canManagePermitTemplates": { "type": "boolean" },
             "hasFullVisibility": { "type": "boolean" }
           }
         }
@@ -137,6 +138,22 @@
         "createdByEmail": { "type": "string" }
       },
       "required": ["id", "reference", "projectId", "type", "contractorId", "status"]
+    },
+    "PermitTemplate": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PermitTemplate",
+      "type": "object",
+      "description": "Predefined description, hazards and precautions for specific permit types.",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["Hot Work", "Confined Space", "Excavation", "Lifting", "General"] },
+        "description": { "type": "string" },
+        "hazards": { "type": "string" },
+        "precautions": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "type", "description", "hazards", "precautions"]
     }
   },
   "auth": {
@@ -150,7 +167,8 @@
       { "path": "/quality-checklists/{checklistId}", "definition": { "entityName": "QualityChecklist" } },
       { "path": "/materials/{materialId}", "definition": { "entityName": "Material" } },
       { "path": "/purchase-orders/{orderId}", "definition": { "entityName": "PurchaseOrder" } },
-      { "path": "/permits/{permitId}", "definition": { "entityName": "Permit" } }
+      { "path": "/permits/{permitId}", "definition": { "entityName": "Permit" } },
+      { "path": "/permit-templates/{templateId}", "definition": { "entityName": "PermitTemplate" } }
     ]
   }
 }

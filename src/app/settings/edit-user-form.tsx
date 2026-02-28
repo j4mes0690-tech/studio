@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -45,6 +46,7 @@ const EditUserSchema = z.object({
   canManageProjects: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
   canManageMaterials: z.boolean().default(false),
+  canManagePermitTemplates: z.boolean().default(false),
   hasFullVisibility: z.boolean().default(false),
 });
 
@@ -72,6 +74,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
       canManageProjects: user.permissions?.canManageProjects || false,
       canManageChecklists: user.permissions?.canManageChecklists || false,
       canManageMaterials: user.permissions?.canManageMaterials || false,
+      canManagePermitTemplates: user.permissions?.canManagePermitTemplates || false,
       hasFullVisibility: user.permissions?.hasFullVisibility || false,
     },
   });
@@ -88,6 +91,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
         canManageProjects: user.permissions?.canManageProjects || false,
         canManageChecklists: user.permissions?.canManageChecklists || false,
         canManageMaterials: user.permissions?.canManageMaterials || false,
+        canManagePermitTemplates: user.permissions?.canManagePermitTemplates || false,
         hasFullVisibility: user.permissions?.hasFullVisibility || false,
       });
     }
@@ -106,6 +110,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
           canManageProjects: values.canManageProjects,
           canManageChecklists: values.canManageChecklists,
           canManageMaterials: values.canManageMaterials,
+          canManagePermitTemplates: values.canManagePermitTemplates,
           hasFullVisibility: values.hasFullVisibility,
         }
       };
@@ -116,11 +121,12 @@ export function EditUserForm({ user }: EditUserFormProps) {
           setOpen(false);
         })
         .catch(async (error) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
+          const permissionError = new FirestorePermissionError({
             path: docRef.path,
             operation: 'update',
             requestResourceData: updates,
-          }));
+          } satisfies SecurityRuleContext);
+          errorEmitter.emit('permission-error', permissionError);
         });
     });
   };
@@ -189,6 +195,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
                       { name: 'canManageProjects', label: 'Manage Projects', desc: 'Site setup and assignments.' },
                       { name: 'canManageMaterials', label: 'Manage Procurement', desc: 'Suppliers and items.' },
                       { name: 'canManageChecklists', label: 'Manage Templates', desc: 'QC master lists.' },
+                      { name: 'canManagePermitTemplates', label: 'Manage Permits', desc: 'Master permit definitions.' },
                     ].map(perm => (
                       <FormField key={perm.name} control={form.control} name={perm.name as any} render={({ field }) => (
                         <FormItem className="flex items-center justify-between rounded-lg border p-3">

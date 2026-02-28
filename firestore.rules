@@ -30,5 +30,6 @@ service cloud.firestore {
     match /purchase-orders/{orderId} { allow read, write: if isSignedIn(); }
     match /trades/{tradeId} { allow read, write: if isSignedIn(); }
     match /permits/{permitId} { allow read, write: if isSignedIn(); }
+    match /permit-templates/{templateId} { allow read, write: if isSignedIn(); }
   }
 }

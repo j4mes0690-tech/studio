@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -23,10 +24,12 @@ import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
-import type { DistributionUser, SubContractor, Project, QualityChecklist } from '@/lib/types';
-import { Loader2, ShieldAlert, Truck, Package } from 'lucide-react';
+import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate } from '@/lib/types';
+import { Loader2, ShieldAlert, Truck, Package, FileCheck } from 'lucide-react';
 import { ManageSuppliers } from './manage-suppliers';
 import { ManageMaterials } from './manage-materials';
+import { NewPermitTemplate } from './new-permit-template';
+import { PermitTemplatesList } from './permit-templates-list';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -68,7 +71,14 @@ export default function SettingsPage() {
   }, [db]);
   const { data: checklistTemplates, isLoading: templatesLoading } = useCollection<QualityChecklist>(templatesQuery);
 
-  const isLoading = profileLoading || usersLoading || subsLoading || projectsLoading || templatesLoading;
+  // Fetch Permit Templates
+  const permitTemplatesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'permit-templates');
+  }, [db]);
+  const { data: permitTemplates, isLoading: permitTemplatesLoading } = useCollection<PermitTemplate>(permitTemplatesQuery);
+
+  const isLoading = profileLoading || usersLoading || subsLoading || projectsLoading || templatesLoading || permitTemplatesLoading;
 
   if (isLoading) {
     return (
@@ -87,8 +97,9 @@ export default function SettingsPage() {
   const canManageProjects = !!permissions?.canManageProjects || isAdmin;
   const canManageChecklists = !!permissions?.canManageChecklists || isAdmin;
   const canManageMaterials = !!permissions?.canManageMaterials || isAdmin;
+  const canManagePermitTemplates = !!permissions?.canManagePermitTemplates || isAdmin;
 
-  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManageMaterials;
+  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManageMaterials || canManagePermitTemplates;
 
   if (!hasAnyAdminPermission) {
     return (
@@ -218,6 +229,29 @@ export default function SettingsPage() {
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Existing Templates</h3>
                                 <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
+                            </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
+          )}
+
+          {canManagePermitTemplates && (
+            <Card>
+                <AccordionItem value="permit-templates" className="border-b-0">
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Permit Templates</AccordionTrigger>
+                    <AccordionContent className="p-6 pt-0">
+                        <div className="grid gap-8 lg:grid-cols-2">
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 text-primary font-bold">
+                                    <FileCheck className="h-5 w-5" />
+                                    <h3>Create Master Template</h3>
+                                </div>
+                                <NewPermitTemplate />
+                            </div>
+                            <div className="space-y-4">
+                                <h3 className="text-lg font-medium">System Library</h3>
+                                <PermitTemplatesList templates={permitTemplates || []} />
                             </div>
                         </div>
                     </AccordionContent>

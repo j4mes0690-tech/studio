@@ -118,6 +118,7 @@ export type UserPermissions = {
   canManageProjects: boolean;
   canManageChecklists: boolean;
   canManageMaterials: boolean;
+  canManagePermitTemplates: boolean;
   hasFullVisibility: boolean;
 };
 
@@ -233,4 +234,14 @@ export type Permit = {
   closedAt?: string | null;
   closedByEmail?: string | null;
   closureNotes?: string | null;
+};
+
+export type PermitTemplate = {
+  id: string;
+  title: string;
+  type: PermitType;
+  description: string;
+  hazards: string;
+  precautions: string;
+  createdAt: string;
 };

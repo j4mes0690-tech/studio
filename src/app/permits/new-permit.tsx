@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -25,9 +26,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Send, ShieldCheck, Clock, Camera, Upload, X, RefreshCw, Sparkles, FileText } from 'lucide-react';
-import type { Project, SubContractor, DistributionUser, Permit, Photo } from '@/lib/types';
-import { useFirestore, useStorage } from '@/firebase';
+import { PlusCircle, Loader2, Save, Send, ShieldCheck, Clock, Camera, Upload, X, RefreshCw, Sparkles, FileText, ClipboardList } from 'lucide-react';
+import type { Project, SubContractor, DistributionUser, Permit, Photo, PermitTemplate } from '@/lib/types';
+import { useFirestore, useStorage, useCollection } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
@@ -80,6 +81,10 @@ export function NewPermitDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const templateInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch Permit Templates from Settings
+  const templatesQuery = collection(db, 'permit-templates');
+  const { data: permitTemplates } = useCollection<PermitTemplate>(templatesQuery);
+
   const form = useForm<NewPermitFormValues>({
     resolver: zodResolver(NewPermitSchema),
     defaultValues: {
@@ -97,14 +102,29 @@ export function NewPermitDialog({
   });
 
   const selectedProjectId = form.watch('projectId');
+  const selectedType = form.watch('type');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
   const availableAreas = selectedProject?.areas || [];
   
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedIds.includes(sub.id));
+    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
+
+  const filteredTemplates = useMemo(() => {
+    return (permitTemplates || []).filter(t => t.type === selectedType);
+  }, [permitTemplates, selectedType]);
+
+  const handleApplyTemplate = (templateId: string) => {
+    const template = permitTemplates?.find(t => t.id === templateId);
+    if (template) {
+        form.setValue('description', template.description);
+        form.setValue('hazards', template.hazards);
+        form.setValue('precautions', template.precautions);
+        toast({ title: 'Template Applied', description: `Standard details for ${template.title} loaded.` });
+    }
+  };
 
   const handleSmartFill = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -228,7 +248,7 @@ export function NewPermitDialog({
       const canvas = canvasRef.current;
       const video = videoRef.current;
       const context = canvas.getContext('2d');
-      if (!context) return;
+      if (!context) return null;
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 1200;
       canvas.height = 1200 / aspectRatio;
@@ -276,7 +296,7 @@ export function NewPermitDialog({
                 disabled={isExtracting}
               >
                 {isExtracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Smart Fill from Template
+                Smart Fill
               </Button>
             </div>
           </div>
@@ -287,22 +307,40 @@ export function NewPermitDialog({
             <input type="hidden" {...form.register('status')} />
             
             <div className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={form.control} name="projectId" render={({ field }) => (
                         <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="areaId" render={({ field }) => (
                         <FormItem><FormLabel>Area / Plot (Optional)</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="General Site" /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>
                     )} />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="type" render={({ field }) => (
                         <FormItem><FormLabel>Permit Type</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="General">General Works</SelectItem><SelectItem value="Hot Work">Hot Work</SelectItem><SelectItem value="Confined Space">Confined Space</SelectItem><SelectItem value="Excavation">Excavation</SelectItem><SelectItem value="Lifting">Lifting Ops</SelectItem></SelectContent></Select></FormItem>
                     )} />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="contractorId" render={({ field }) => (
                         <FormItem><FormLabel>Contractor / Party</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="Select trade" /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )} />
+                    <FormItem>
+                        <FormLabel>Use Library Template</FormLabel>
+                        <Select onValueChange={handleApplyTemplate}>
+                            <FormControl>
+                                <SelectTrigger className="bg-muted/30">
+                                    <div className="flex items-center gap-2">
+                                        <ClipboardList className="h-4 w-4 text-primary" />
+                                        <SelectValue placeholder={filteredTemplates.length > 0 ? "Apply standard controls..." : "No templates found for this type"} />
+                                    </div>
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                {filteredTemplates.map(t => (
+                                    <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </FormItem>
                 </div>
 
                 <Separator />

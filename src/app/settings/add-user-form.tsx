@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -32,6 +33,7 @@ const AddUserSchema = z.object({
   canManageProjects: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
   canManageMaterials: z.boolean().default(false),
+  canManagePermitTemplates: z.boolean().default(false),
   hasFullVisibility: z.boolean().default(false),
 });
 
@@ -53,6 +55,7 @@ export function AddUserForm() {
       canManageProjects: false,
       canManageChecklists: false,
       canManageMaterials: false,
+      canManagePermitTemplates: false,
       hasFullVisibility: false,
     },
   });
@@ -71,6 +74,7 @@ export function AddUserForm() {
           canManageProjects: values.canManageProjects,
           canManageChecklists: values.canManageChecklists,
           canManageMaterials: values.canManageMaterials,
+          canManagePermitTemplates: values.canManagePermitTemplates,
           hasFullVisibility: values.hasFullVisibility,
         }
       };
@@ -251,6 +255,26 @@ export function AddUserForm() {
                         <FormLabel>Manage Checklist Templates</FormLabel>
                         <FormDescription>
                             Access to create and edit master inspection templates.
+                        </FormDescription>
+                    </div>
+                    <FormControl>
+                        <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                    </FormControl>
+                </FormItem>
+                )}
+            />
+            <FormField
+                control={form.control}
+                name="canManagePermitTemplates"
+                render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                    <div className="space-y-0.5">
+                        <FormLabel>Manage Permit Templates</FormLabel>
+                        <FormDescription>
+                            Access to create and edit master permit-to-work definitions.
                         </FormDescription>
                     </div>
                     <FormControl>
