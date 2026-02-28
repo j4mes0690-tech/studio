@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useRef, useEffect } from 'react';
@@ -36,6 +35,7 @@ import { Separator } from '@/components/ui/separator';
 import { replicatePermitTemplate } from '@/ai/flows/replicate-permit-template';
 import type { TemplateSection, PermitType } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const NewPermitTemplateSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
