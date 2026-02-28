@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview This file implements a Genkit flow for replicating existing permit documents into digital templates.
@@ -8,17 +7,20 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import type { ReplicatePermitTemplateOutput } from '@/lib/types';
 
-const TemplateFieldSchema = z.object({
-  id: z.string(),
-  label: z.string(),
-  type: z.enum(['text', 'textarea', 'checkbox']),
+// The schema used for AI generation is flattened to avoid "maximum nesting depth" errors in the Gemini API.
+const FlattenedFieldSchema = z.object({
+  sectionTitle: z.string().describe('The name of the header or grouping this field belongs to.'),
+  label: z.string().describe('The label for the input field.'),
+  type: z.enum(['text', 'textarea', 'checkbox']).describe('The type of input required.'),
 });
 
-const TemplateSectionSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  fields: z.array(TemplateFieldSchema),
+const ReplicatePermitTemplateAISchema = z.object({
+  title: z.string().describe('The identified title of the permit template.'),
+  type: z.enum(['Hot Work', 'Confined Space', 'Excavation', 'Lifting', 'General']),
+  description: z.string().describe('A brief description of what this template covers.'),
+  fields: z.array(FlattenedFieldSchema).describe('A flat list of all data points and checkboxes identified, grouped by their section title.'),
 });
 
 const ReplicatePermitTemplateInputSchema = z.object({
@@ -29,15 +31,6 @@ const ReplicatePermitTemplateInputSchema = z.object({
     ),
 });
 
-const ReplicatePermitTemplateOutputSchema = z.object({
-  title: z.string().describe('The identified title of the permit template.'),
-  type: z.enum(['Hot Work', 'Confined Space', 'Excavation', 'Lifting', 'General']),
-  description: z.string().describe('A brief description of what this template covers.'),
-  sections: z.array(TemplateSectionSchema).describe('The structured layout of the permit, organized into sections like the original document.'),
-});
-
-export type ReplicatePermitTemplateOutput = z.infer<typeof ReplicatePermitTemplateOutputSchema>;
-
 export async function replicatePermitTemplate(
   input: z.infer<typeof ReplicatePermitTemplateInputSchema>
 ): Promise<ReplicatePermitTemplateOutput> {
@@ -47,18 +40,19 @@ export async function replicatePermitTemplate(
 const prompt = ai.definePrompt({
   name: 'replicatePermitTemplatePrompt',
   input: { schema: ReplicatePermitTemplateInputSchema },
-  output: { schema: ReplicatePermitTemplateOutputSchema },
+  output: { schema: ReplicatePermitTemplateAISchema },
   prompt: `You are an expert safety systems analyst. Your task is to look at the provided permit document and REPLICATE its structure into a digital template.
 
-Do not just extract text. You must:
-1. Identify major headers/sections (e.g., "Personal Protective Equipment", "Atmospheric Testing", "Fire Watch Details").
-2. Identify individual data points or checkboxes under those sections.
-3. Map these to field types:
-   - "checkbox": for yes/no or specific safety controls.
-   - "text": for short entries like names, times, or equipment IDs.
-   - "textarea": for larger descriptive areas like specific hazard details.
+Identify all major headers, labels, and specific safety controls (like checkboxes for PPE or atmospheric testing).
 
-Maintain the original document's terminology and grouping to ensure visual and structural similarity.
+Format your response as a flat list of fields. For each field, specify the 'sectionTitle' it belongs to (e.g., "Personal Protective Equipment", "Site Safety Checks").
+
+Mapping to field types:
+- "checkbox": for yes/no, presence/absence, or specific safety controls.
+- "text": for short entries like names, times, or equipment IDs.
+- "textarea": for larger descriptive areas like specific hazard details or remarks.
+
+Maintain the original document's terminology and grouping.
 
 Document: {{media url=fileDataUri}}`,
 });
@@ -67,10 +61,46 @@ const replicatePermitTemplateFlow = ai.defineFlow(
   {
     name: 'replicatePermitTemplateFlow',
     inputSchema: ReplicatePermitTemplateInputSchema,
-    outputSchema: ReplicatePermitTemplateOutputSchema,
+    outputSchema: z.any(), 
   },
   async (input) => {
     const { output } = await prompt(input);
-    return output!;
+    
+    if (!output) {
+      throw new Error("AI failed to generate a response for permit replication.");
+    }
+
+    // Reconstruct the nested structure (sections containing fields) from the flat AI output.
+    // This circumvents API nesting depth limits during generation.
+    const sectionsMap = new Map<string, { title: string; fields: any[] }>();
+
+    output.fields.forEach((f, idx) => {
+      const title = f.sectionTitle || 'General Information';
+      if (!sectionsMap.has(title)) {
+        sectionsMap.set(title, {
+          title: title,
+          fields: []
+        });
+      }
+      
+      sectionsMap.get(title)!.fields.push({
+        id: `field-${Date.now()}-${idx}`,
+        label: f.label,
+        type: f.type
+      });
+    });
+
+    const result: ReplicatePermitTemplateOutput = {
+      title: output.title,
+      type: output.type,
+      description: output.description,
+      sections: Array.from(sectionsMap.entries()).map(([_, section], sIdx) => ({
+        id: `section-${Date.now()}-${sIdx}`,
+        title: section.title,
+        fields: section.fields
+      }))
+    };
+
+    return result;
   }
 );
