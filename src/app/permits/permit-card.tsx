@@ -11,13 +11,13 @@ import {
   Clock, 
   Loader2, 
   FileDown,
-  CheckCircle2,
-  AlertTriangle,
   XCircle,
   HardHat,
   MapPin,
   Calendar,
-  Maximize2
+  Maximize2,
+  CheckCircle2,
+  ChevronDown
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -40,6 +40,7 @@ import { EditPermitDialog } from './edit-permit';
 import { ImageLightbox } from '@/components/image-lightbox';
 import Image from 'next/image';
 import { sendPermitEmailAction } from './actions';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export function PermitCard({ 
   permit, 
@@ -64,6 +65,7 @@ export function PermitCard({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const isDraft = permit.status === 'draft';
   const isClosed = permit.status === 'closed';
@@ -92,7 +94,7 @@ export function PermitCard({
           closedAt: new Date().toISOString(),
           closedByEmail: currentUser.email
         });
-        toast({ title: 'Permit Closed', description: 'Work signed off and permit archived.' });
+        toast({ title: 'Permit Closed', description: 'Work signed off.' });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to close permit.', variant: 'destructive' });
       }
@@ -138,11 +140,11 @@ export function PermitCard({
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
             <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
-              <p style="margin: 0 0 5px 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Issued To (Contractor)</p>
+              <p style="margin: 0 0 5px 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Instructed Party</p>
               <p style="margin: 0; font-size: 16px; font-weight: bold;">${permit.contractorName}</p>
             </div>
             <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
-              <p style="margin: 0 0 5px 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Location / Area</p>
+              <p style="margin: 0 0 5px 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Project / Location</p>
               <p style="margin: 0; font-size: 16px; font-weight: bold;">${project?.name || 'Project'} - ${areaName}</p>
             </div>
           </div>
@@ -152,16 +154,23 @@ export function PermitCard({
             <p style="font-size: 13px; line-height: 1.6;">${permit.description}</p>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
-            <div>
-              <h2 style="font-size: 14px; color: #dc2626; border-bottom: 1px solid #fee2e2; padding-bottom: 5px; margin-bottom: 10px;">KEY HAZARDS</h2>
-              <p style="font-size: 12px; line-height: 1.5; white-space: pre-wrap;">${permit.hazards}</p>
+          <!-- Dynamic AI Sections -->
+          ${(permit.sections || []).map(section => `
+            <div style="margin-bottom: 30px;">
+              <h3 style="font-size: 12px; color: #334155; background: #f1f5f9; padding: 8px; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">${section.title}</h3>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                ${section.fields.map(f => `
+                  <div style="display: flex; align-items: flex-start; gap: 10px;">
+                    <div style="width: 12px; height: 12px; border: 1px solid #cbd5e1; margin-top: 2px; ${f.value === true ? 'background: #16a34a;' : ''}"></div>
+                    <div style="flex: 1;">
+                      <p style="margin: 0; font-size: 11px; font-weight: bold; color: #475569;">${f.label}</p>
+                      ${f.type !== 'checkbox' ? `<p style="margin: 2px 0 0 0; font-size: 11px;">${f.value || '---'}</p>` : ''}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
             </div>
-            <div>
-              <h2 style="font-size: 14px; color: #16a34a; border-bottom: 1px solid #dcfce7; padding-bottom: 5px; margin-bottom: 10px;">SAFETY PRECAUTIONS</h2>
-              <p style="font-size: 12px; line-height: 1.5; white-space: pre-wrap;">${permit.precautions}</p>
-            </div>
-          </div>
+          `).join('')}
 
           <div style="background: #fffbeb; border: 2px solid #fde68a; padding: 20px; border-radius: 8px; margin-bottom: 40px; display: flex; justify-content: space-between;">
             <div>
@@ -176,11 +185,11 @@ export function PermitCard({
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 50px;">
             <div style="border-top: 1px solid #334155; padding-top: 10px;">
-              <p style="margin: 0; font-size: 10px; font-weight: bold;">AUTHORIZED BY (SITE MANAGER)</p>
+              <p style="margin: 0; font-size: 10px; font-weight: bold;">SITE AUTHORITY SIGNATURE</p>
               <p style="margin: 5px 0 0 0; font-size: 12px;">${permit.createdByEmail}</p>
             </div>
             <div style="border-top: 1px solid #334155; padding-top: 10px;">
-              <p style="margin: 0; font-size: 10px; font-weight: bold;">CONTRACTOR ACCEPTANCE (DIGITAL)</p>
+              <p style="margin: 0; font-size: 10px; font-weight: bold;">RECIPIENT ACCEPTANCE</p>
               <p style="margin: 5px 0 0 0; font-size: 12px;">${permit.contractorName}</p>
             </div>
           </div>
@@ -198,7 +207,6 @@ export function PermitCard({
 
       const pdfBase64 = pdf.output('datauristring').split(',')[1];
       
-      // Email to contractor if they have a valid email
       if (subContractor?.email) {
         await sendPermitEmailAction({
           email: subContractor.email,
@@ -212,10 +220,10 @@ export function PermitCard({
       }
 
       pdf.save(`Permit-${permit.reference}.pdf`);
-      toast({ title: 'PDF Ready', description: 'Permit generated and shared with contractor.' });
+      toast({ title: 'PDF Distributed', description: 'Digital permit generated and shared.' });
     } catch (err) {
       console.error(err);
-      toast({ title: 'Error', description: 'Failed to generate PDF permit.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to generate PDF.', variant: 'destructive' });
     } finally {
       setIsGenerating(false);
     }
@@ -278,7 +286,7 @@ export function PermitCard({
                           <XCircle className="h-4 w-4" />
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent><p>Close/Sign-off Permit</p></TooltipContent>
+                      <TooltipContent><p>Sign-off Work</p></TooltipContent>
                     </Tooltip>
                   </>
                 )}
@@ -289,7 +297,7 @@ export function PermitCard({
                       {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>Download & Shared PDF</p></TooltipContent>
+                  <TooltipContent><p>Export & Email PDF</p></TooltipContent>
                 </Tooltip>
 
                 <AlertDialog>
@@ -304,7 +312,7 @@ export function PermitCard({
                     <TooltipContent><p>Delete Record</p></TooltipContent>
                   </Tooltip>
                   <AlertDialogContent onClick={e => e.stopPropagation()}>
-                    <AlertDialogHeader><AlertDialogTitle>Delete Permit Record?</AlertDialogTitle><AlertDialogDescription>This will remove permit {permit.reference} from the audit history.</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove permit {permit.reference} from audit log.</AlertDialogDescription></AlertDialogHeader>
                     <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction></AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -312,36 +320,58 @@ export function PermitCard({
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <p className="text-sm text-foreground line-clamp-2 leading-relaxed">{permit.description}</p>
-            
-            <div className="grid grid-cols-2 gap-4 bg-muted/20 p-3 rounded-lg border border-dashed text-[11px]">
-                <div className="space-y-1">
-                    <p className="font-bold text-muted-foreground uppercase tracking-widest">Valid From</p>
-                    <p className="font-medium flex items-center gap-1"><Calendar className="h-3 w-3" /> <ClientDate date={permit.validFrom} /></p>
-                </div>
-                <div className="space-y-1 text-right">
-                    <p className="font-bold text-muted-foreground uppercase tracking-widest">Valid Until</p>
-                    <p className={cn("font-medium flex items-center justify-end gap-1", isExpired && "text-destructive font-bold")}>
-                        <Clock className="h-3 w-3" /> <ClientDate date={permit.validTo} />
-                    </p>
-                </div>
-            </div>
-
-            {permit.photos && permit.photos.length > 0 && (
-                <div className="flex gap-1.5 flex-wrap pt-2">
-                    {permit.photos.map((p, i) => (
-                        <div key={i} className="relative w-10 h-10 rounded border overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
-                            <Image src={p.url} alt="Permit Attachment" fill className="object-cover" />
-                            <div className="absolute inset-0 bg-black/10 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <Maximize2 className="h-3 w-3 text-white" />
-                            </div>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-foreground line-clamp-2 leading-relaxed">{permit.description}</p>
+          
+          <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+            <CollapsibleTrigger asChild onClick={e => e.stopPropagation()}>
+                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground">
+                    <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
+                    {isExpanded ? "Hide Specific Controls" : "View Specialized Sections"}
+                </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-4 space-y-6">
+                {(permit.sections || []).map((section) => (
+                    <div key={section.id} className="space-y-2">
+                        <p className="text-[10px] font-black uppercase text-primary tracking-widest">{section.title}</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {section.fields.map((field) => (
+                                <div key={field.id} className="flex items-center gap-2 p-2 rounded border bg-muted/5">
+                                    <div className={cn("h-2 w-2 rounded-full", field.value === true ? "bg-green-500" : "bg-muted")} />
+                                    <span className={cn("text-[11px] truncate", field.value === true ? "font-bold" : "text-muted-foreground")}>
+                                        {field.label}
+                                        {field.type !== 'checkbox' && field.value && `: ${field.value}`}
+                                    </span>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-            )}
+                    </div>
+                ))}
+            </CollapsibleContent>
+          </Collapsible>
+
+          <div className="grid grid-cols-2 gap-4 bg-muted/20 p-3 rounded-lg border border-dashed text-[11px]">
+              <div className="space-y-1">
+                  <p className="font-bold text-muted-foreground uppercase tracking-widest">Valid From</p>
+                  <p className="font-medium flex items-center gap-1"><Calendar className="h-3 w-3" /> <ClientDate date={permit.validFrom} /></p>
+              </div>
+              <div className="space-y-1 text-right">
+                  <p className="font-bold text-muted-foreground uppercase tracking-widest">Valid Until</p>
+                  <p className={cn("font-medium flex items-center justify-end gap-1", isExpired && "text-destructive font-bold")}>
+                      <Clock className="h-3 w-3" /> <ClientDate date={permit.validTo} />
+                  </p>
+              </div>
           </div>
+
+          {permit.photos && permit.photos.length > 0 && (
+              <div className="flex gap-1.5 flex-wrap pt-2">
+                  {permit.photos.map((p, i) => (
+                      <div key={i} className="relative w-10 h-10 rounded border overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
+                          <Image src={p.url} alt="Permit Attachment" fill className="object-cover" />
+                      </div>
+                  ))}
+              </div>
+          )}
         </CardContent>
       </Card>
 

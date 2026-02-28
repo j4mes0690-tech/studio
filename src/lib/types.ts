@@ -213,6 +213,19 @@ export type PurchaseOrder = {
 export type PermitType = 'Hot Work' | 'Confined Space' | 'Excavation' | 'Lifting' | 'General';
 export type PermitStatus = 'draft' | 'issued' | 'closed' | 'cancelled';
 
+export type TemplateField = {
+  id: string;
+  label: string;
+  type: 'text' | 'textarea' | 'checkbox';
+  value?: string | boolean;
+};
+
+export type TemplateSection = {
+  id: string;
+  title: string;
+  fields: TemplateField[];
+};
+
 export type Permit = {
   id: string;
   reference: string;
@@ -222,8 +235,11 @@ export type Permit = {
   contractorId: string;
   contractorName: string;
   description: string;
-  hazards: string;
-  precautions: string;
+  // AI-generated dynamic content
+  sections: TemplateSection[];
+  // Standard hazard/precaution fallbacks for non-templated permits
+  hazards?: string;
+  precautions?: string;
   validFrom: string;
   validTo: string;
   status: PermitStatus;
@@ -241,7 +257,6 @@ export type PermitTemplate = {
   title: string;
   type: PermitType;
   description: string;
-  hazards: string;
-  precautions: string;
+  sections: TemplateSection[];
   createdAt: string;
 };
