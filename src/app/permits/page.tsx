@@ -90,26 +90,28 @@ function PermitsContent() {
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
 
   return (
-    <div className="flex flex-col w-full gap-6 p-4 md:p-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="flex flex-col w-full gap-8 p-4 md:p-8 lg:p-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <FileCheck className="h-6 w-6 text-primary" />
-            Permits to Work
-          </h2>
+          <div className="flex items-center gap-4">
+            <div className="bg-primary/10 p-2.5 rounded-lg">
+              <FileCheck className="h-8 w-8 text-primary" />
+            </div>
+            <h2 className="text-3xl font-bold tracking-tight">Permits to Work</h2>
+          </div>
           {hasFullVisibility && (
-            <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest">
-                <ShieldCheck className="h-3 w-3" />
+            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1 ml-1">
+                <ShieldCheck className="h-3.5 w-3.5" />
                 Administrative Oversight Active
             </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={toggleView}>
-                  {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                <Button variant="outline" size="icon" onClick={toggleView} className="h-10 w-10">
+                  {isCompact ? <LayoutGrid className="h-5 w-5" /> : <List className="h-5 w-5" />}
                 </Button>
               </TooltipTrigger>
               <TooltipContent><p>Switch to {isCompact ? 'Card' : 'Compact'} View</p></TooltipContent>
@@ -127,7 +129,7 @@ function PermitsContent() {
 
       <PermitFilters projects={allowedProjects} />
 
-      <div className="grid gap-4">
+      <div className="min-h-[400px]">
         {filteredPermits.length > 0 ? (
           isCompact ? (
             <PermitTable 
@@ -138,7 +140,7 @@ function PermitsContent() {
               currentUser={profile}
             />
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {filteredPermits.map(permit => (
                     <PermitCard 
                         key={permit.id} 
@@ -154,10 +156,10 @@ function PermitsContent() {
             </div>
           )
         ) : (
-          <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/10">
-            <FileCheck className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-lg font-semibold text-muted-foreground">No permits found</p>
-            <p className="text-sm text-muted-foreground">Issue a high-risk activity permit to start tracking site safety.</p>
+          <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed rounded-2xl bg-muted/5 text-muted-foreground/40">
+            <FileCheck className="h-20 w-20 mb-6 opacity-20" />
+            <p className="text-xl font-bold">No permits found</p>
+            <p className="text-sm max-w-xs text-center mt-1">Issue a high-risk activity permit to start tracking site safety.</p>
           </div>
         )}
       </div>

@@ -179,7 +179,11 @@ export function NewPermitDialog({
       } catch (err) {}
     };
     if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach(t => t.stop());
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
   }, [isCameraOpen, facingMode]);
 
   const capturePhoto = () => {
@@ -197,12 +201,19 @@ export function NewPermitDialog({
     }
   };
 
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
   const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2"><PlusCircle className="h-4 w-4" />New Permit</Button>
+        <Button className="gap-2 h-10 px-5 shadow-lg shadow-primary/20">
+          <PlusCircle className="h-4.5 w-4.5" />
+          New Permit
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="p-6 pb-0">
