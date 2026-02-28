@@ -26,7 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Send, ShieldCheck, Clock, Camera, Upload, X, RefreshCw, Sparkles, ClipboardList, CheckSquare, Plus, Trash2, Layout, LayoutPlus } from 'lucide-react';
+import { PlusCircle, Loader2, Save, Send, ShieldCheck, Clock, Camera, Upload, X, RefreshCw, Sparkles, ClipboardList, CheckSquare, Plus, Trash2, Layout } from 'lucide-react';
 import type { Project, SubContractor, DistributionUser, Permit, Photo, PermitTemplate, TemplateSection, TemplateField, TemplateFieldType } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -293,7 +293,7 @@ export function NewPermitDialog({
             </div>
             <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={addSection} className="gap-2 border-primary/20 text-primary h-9">
-                    <LayoutPlus className="h-4 w-4" /> Add Section
+                    <Plus className="h-4 w-4" /> Add Section
                 </Button>
             </div>
           </div>
@@ -309,7 +309,7 @@ export function NewPermitDialog({
                                 <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                             )} />
                             <FormField control={form.control} name="type" render={({ field }) => (
-                                <FormItem><FormLabel>Permit Type</FormLabel><Select onValueChange={(val) => { field.onChange(val); setActiveTemplateId(null); setDynamicSections([]); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="General">General Works</SelectItem><SelectItem value="Hot Work">Hot Work</SelectItem><SelectItem value="Confined Space">Confined Space</SelectItem><SelectItem value="Excavation">Excavation</SelectItem><SelectItem value="Lifting">Lifting Ops</SelectItem></SelectContent></Select></FormItem>
+                                <FormItem><FormLabel>Permit Type</FormLabel><Select onValueChange={(val) => { field.onChange(val); setActiveTemplateId(null); setDynamicSections([]); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="General">General Works</SelectItem><SelectItem value="Hot Work">Hot Work</SelectItem><SelectItem value="Confined Space">Confined Space</SelectItem><SelectItem value="Excavation">Excavation</SelectItem><SelectItem value="Lifting">Lifting Ops</SelectItem></Select></FormItem>
                             )} />
                             <FormItem>
                                 <FormLabel>Start from Template</FormLabel>
@@ -459,7 +459,7 @@ export function NewPermitDialog({
                                 <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">Choose a standard template above or start adding custom sections to build your permit.</p>
                             </div>
                             <Button type="button" variant="outline" onClick={addSection} className="mt-4 gap-2 border-primary/20 text-primary hover:bg-primary/5 font-bold">
-                                <LayoutPlus className="h-4 w-4" /> Start Building Custom Layout
+                                <Plus className="h-4 w-4" /> Start Building Custom Layout
                             </Button>
                         </div>
                     )}
