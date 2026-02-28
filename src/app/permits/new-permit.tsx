@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -26,8 +25,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Send, ShieldCheck, Clock, Camera, Upload, X, RefreshCw } from 'lucide-react';
-import type { Project, SubContractor, DistributionUser, Permit, PermitType, Photo, FileAttachment } from '@/lib/types';
+import { PlusCircle, Loader2, Save, Send, ShieldCheck, Clock, Camera, Upload, X, RefreshCw, Sparkles, FileText } from 'lucide-react';
+import type { Project, SubContractor, DistributionUser, Permit, Photo } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +36,7 @@ import { VoiceInput } from '@/components/voice-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import Image from 'next/image';
+import { extractPermitDetails } from '@/ai/flows/extract-permit-details';
 
 const NewPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -69,13 +69,16 @@ export function NewPermitDialog({
   const db = useFirestore();
   const storage = useStorage();
   const [isPending, startTransition] = useTransition();
+  const [isExtracting, setIsExtracting] = useState(false);
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const templateInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<NewPermitFormValues>({
     resolver: zodResolver(NewPermitSchema),
@@ -88,7 +91,7 @@ export function NewPermitDialog({
       hazards: '',
       precautions: '',
       validFrom: new Date().toISOString().slice(0, 16),
-      validTo: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 16), // Default 8h duration
+      validTo: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 16),
       status: 'issued',
     },
   });
@@ -103,12 +106,46 @@ export function NewPermitDialog({
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, selectedProject, subContractors]);
 
+  const handleSmartFill = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsExtracting(true);
+    toast({ title: "Analyzing Document", description: "AI is extracting permit details from your template..." });
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const dataUri = event.target?.result as string;
+        try {
+          const result = await extractPermitDetails({ fileDataUri: dataUri });
+          
+          if (result) {
+            if (result.type) form.setValue('type', result.type);
+            if (result.description) form.setValue('description', result.description);
+            if (result.hazards) form.setValue('hazards', result.hazards);
+            if (result.precautions) form.setValue('precautions', result.precautions);
+            
+            toast({ title: "Smart Fill Complete", description: "extracted hazards and controls from your document." });
+          }
+        } catch (err) {
+          console.error("Extraction error:", err);
+          toast({ title: "Smart Fill Failed", description: "Could not process this file. Please try a clear photo or screenshot.", variant: "destructive" });
+        } finally {
+          setIsExtracting(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      setIsExtracting(false);
+    }
+  };
+
   const onSubmit = (values: NewPermitFormValues) => {
     startTransition(async () => {
       try {
         toast({ title: 'Processing', description: 'Generating digital permit and uploading media...' });
 
-        // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -120,7 +157,6 @@ export function NewPermitDialog({
           })
         );
 
-        // 2. Determine Type Prefix for Ref
         const typeMap: Record<string, string> = {
           'Hot Work': 'HWP',
           'Confined Space': 'CSP',
@@ -175,6 +211,7 @@ export function NewPermitDialog({
     const getCameraPermission = async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
+        setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (err) {}
     };
@@ -217,8 +254,32 @@ export function NewPermitDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="p-6 pb-0">
-          <DialogTitle>Issue Permit to Work</DialogTitle>
-          <DialogDescription>Fill in the high-risk activity controls and issue to the trade partner.</DialogDescription>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <DialogTitle>Issue Permit to Work</DialogTitle>
+              <DialogDescription>Fill in the high-risk activity controls and issue to the trade partner.</DialogDescription>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <input 
+                type="file" 
+                ref={templateInputRef} 
+                className="hidden" 
+                accept="image/*,.pdf" 
+                onChange={handleSmartFill} 
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 border-primary/20 text-primary hover:bg-primary/5"
+                onClick={() => templateInputRef.current?.click()}
+                disabled={isExtracting}
+              >
+                {isExtracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                Smart Fill from Template
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
@@ -256,13 +317,19 @@ export function NewPermitDialog({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField control={form.control} name="hazards" render={({ field }) => (
                         <FormItem>
-                            <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-destructive" /><FormLabel>Key Hazards</FormLabel></div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-destructive" /><FormLabel>Key Hazards</FormLabel></div>
+                              <VoiceInput onResult={field.onChange} />
+                            </div>
                             <FormControl><Textarea placeholder="e.g. Fire, Fumes, Cables..." className="min-h-[80px] bg-destructive/5" {...field} /></FormControl><FormMessage />
                         </FormItem>
                     )} />
                     <FormField control={form.control} name="precautions" render={({ field }) => (
                         <FormItem>
-                            <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /><FormLabel>Required Controls</FormLabel></div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /><FormLabel>Required Controls</FormLabel></div>
+                              <VoiceInput onResult={field.onChange} />
+                            </div>
                             <FormControl><Textarea placeholder="e.g. Extinguishers, Gas detection..." className="min-h-[80px] bg-primary/5" {...field} /></FormControl><FormMessage />
                         </FormItem>
                     )} />
