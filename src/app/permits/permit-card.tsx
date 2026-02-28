@@ -17,7 +17,11 @@ import {
   Calendar,
   Maximize2,
   CheckCircle2,
-  ChevronDown
+  ChevronDown,
+  FileCheck,
+  Check,
+  X as XIcon,
+  Minus
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -154,20 +158,25 @@ export function PermitCard({
             <p style="font-size: 13px; line-height: 1.6;">${permit.description}</p>
           </div>
 
-          <!-- Dynamic AI Sections -->
+          <!-- Dynamic Sections Engine -->
           ${(permit.sections || []).map(section => `
             <div style="margin-bottom: 30px;">
               <h3 style="font-size: 12px; color: #334155; background: #f1f5f9; padding: 8px; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">${section.title}</h3>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                ${section.fields.map(f => `
-                  <div style="display: flex; align-items: flex-start; gap: 10px;">
-                    <div style="width: 12px; height: 12px; border: 1px solid #cbd5e1; margin-top: 2px; ${f.value === true ? 'background: #16a34a;' : ''}"></div>
-                    <div style="flex: 1;">
-                      <p style="margin: 0; font-size: 11px; font-weight: bold; color: #475569;">${f.label}</p>
-                      ${f.type !== 'checkbox' ? `<p style="margin: 2px 0 0 0; font-size: 11px;">${f.value || '---'}</p>` : ''}
+                ${section.fields.map(f => {
+                  let valueDisplay = f.value || '---';
+                  if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
+                  if (f.type === 'yes-no-na') valueDisplay = String(f.value).toUpperCase();
+
+                  return `
+                    <div style="display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f1f5f9; padding: 8px; border-radius: 4px;">
+                      <div style="flex: 1;">
+                        <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">${f.label}</p>
+                        <p style="margin: 2px 0 0 0; font-size: 12px; font-weight: bold; color: ${f.value === 'no' ? '#dc2626' : '#1e293b'};">${valueDisplay}</p>
+                      </div>
                     </div>
-                  </div>
-                `).join('')}
+                  `;
+                }).join('')}
               </div>
             </div>
           `).join('')}
@@ -220,7 +229,7 @@ export function PermitCard({
       }
 
       pdf.save(`Permit-${permit.reference}.pdf`);
-      toast({ title: 'PDF Distributed', description: 'Digital permit generated and shared.' });
+      toast({ title: 'PDF Ready', description: 'Digital permit generated and shared with partner.' });
     } catch (err) {
       console.error(err);
       toast({ title: 'Error', description: 'Failed to generate PDF.', variant: 'destructive' });
@@ -312,7 +321,7 @@ export function PermitCard({
                     <TooltipContent><p>Delete Record</p></TooltipContent>
                   </Tooltip>
                   <AlertDialogContent onClick={e => e.stopPropagation()}>
-                    <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove permit {permit.reference} from audit log.</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove permit audit trail for {permit.reference}.</AlertDialogDescription></AlertDialogHeader>
                     <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction></AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
@@ -327,7 +336,7 @@ export function PermitCard({
             <CollapsibleTrigger asChild onClick={e => e.stopPropagation()}>
                 <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground">
                     <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
-                    {isExpanded ? "Hide Specific Controls" : "View Specialized Sections"}
+                    {isExpanded ? "Hide Controls" : "View Safety Controls"}
                 </Button>
             </CollapsibleTrigger>
             <CollapsibleContent className="pt-4 space-y-6">
@@ -336,12 +345,23 @@ export function PermitCard({
                         <p className="text-[10px] font-black uppercase text-primary tracking-widest">{section.title}</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {section.fields.map((field) => (
-                                <div key={field.id} className="flex items-center gap-2 p-2 rounded border bg-muted/5">
-                                    <div className={cn("h-2 w-2 rounded-full", field.value === true ? "bg-green-500" : "bg-muted")} />
-                                    <span className={cn("text-[11px] truncate", field.value === true ? "font-bold" : "text-muted-foreground")}>
-                                        {field.label}
-                                        {field.type !== 'checkbox' && field.value && `: ${field.value}`}
-                                    </span>
+                                <div key={field.id} className="flex items-center justify-between p-2 rounded border bg-muted/5 gap-4">
+                                    <span className="text-[11px] font-medium truncate flex-1">{field.label}</span>
+                                    <div className="flex shrink-0">
+                                        {field.type === 'checkbox' ? (
+                                            field.value === true ? <Check className="h-3 w-3 text-green-600" /> : <Minus className="h-3 w-3 text-muted-foreground/30" />
+                                        ) : field.type === 'yes-no-na' ? (
+                                            <Badge variant="outline" className={cn(
+                                                "text-[8px] h-4 px-1 leading-none font-bold border-transparent",
+                                                field.value === 'yes' ? 'bg-green-50 text-green-700' :
+                                                field.value === 'no' ? 'bg-red-50 text-red-700' : 'bg-muted text-muted-foreground'
+                                            )}>
+                                                {String(field.value).toUpperCase()}
+                                            </Badge>
+                                        ) : (
+                                            <span className="text-[10px] font-bold text-primary truncate max-w-[100px]">{field.value || '---'}</span>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>

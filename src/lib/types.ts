@@ -213,10 +213,12 @@ export type PurchaseOrder = {
 export type PermitType = 'Hot Work' | 'Confined Space' | 'Excavation' | 'Lifting' | 'General';
 export type PermitStatus = 'draft' | 'issued' | 'closed' | 'cancelled';
 
+export type TemplateFieldType = 'text' | 'textarea' | 'checkbox' | 'yes-no-na';
+
 export type TemplateField = {
   id: string;
   label: string;
-  type: 'text' | 'textarea' | 'checkbox';
+  type: TemplateFieldType;
   value?: string | boolean;
 };
 
