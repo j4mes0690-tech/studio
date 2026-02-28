@@ -1,3 +1,4 @@
+
 export type Area = {
   id: string;
   name: string;
@@ -204,4 +205,32 @@ export type PurchaseOrder = {
   notes?: string;
   createdAt: string;
   createdByEmail: string;
+};
+
+// --- PERMITS MODULE TYPES ---
+
+export type PermitType = 'Hot Work' | 'Confined Space' | 'Excavation' | 'Lifting' | 'General';
+export type PermitStatus = 'draft' | 'issued' | 'closed' | 'cancelled';
+
+export type Permit = {
+  id: string;
+  reference: string;
+  projectId: string;
+  areaId?: string | null;
+  type: PermitType;
+  contractorId: string;
+  contractorName: string;
+  description: string;
+  hazards: string;
+  precautions: string;
+  validFrom: string;
+  validTo: string;
+  status: PermitStatus;
+  createdAt: string;
+  createdByEmail: string;
+  photos?: Photo[];
+  files?: FileAttachment[];
+  closedAt?: string | null;
+  closedByEmail?: string | null;
+  closureNotes?: string | null;
 };

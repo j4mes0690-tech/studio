@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -28,5 +29,6 @@ service cloud.firestore {
     match /materials/{materialId} { allow read, write: if isSignedIn(); }
     match /purchase-orders/{orderId} { allow read, write: if isSignedIn(); }
     match /trades/{tradeId} { allow read, write: if isSignedIn(); }
+    match /permits/{permitId} { allow read, write: if isSignedIn(); }
   }
 }

@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Header } from '@/components/layout/header';
-import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck, MessageCircle, ShoppingCart } from 'lucide-react';
+import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck, MessageCircle, ShoppingCart, FileCheck } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -23,14 +23,27 @@ export default async function Dashboard() {
         </div>
         <div className="grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8 w-full">
           <Link href="/materials-orders">
-            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full border-primary bg-primary/5">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
                 <ShoppingCart className="h-16 w-16 text-primary mb-4" />
                 <CardTitle className="text-2xl">Materials Orders</CardTitle>
               </CardHeader>
               <CardContent className="p-0 mt-2">
-                <p className="text-muted-foreground font-medium">
+                <p className="text-muted-foreground">
                   Create and manage purchase orders for project materials.
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/permits">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full border-primary bg-primary/5">
+              <CardHeader className="p-0">
+                <FileCheck className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">Permits to Work</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 mt-2">
+                <p className="text-muted-foreground font-medium">
+                  Issue and track high-risk activity permits electronically.
                 </p>
               </CardContent>
             </Card>

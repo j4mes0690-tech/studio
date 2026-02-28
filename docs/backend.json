@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -112,6 +113,30 @@
         "totalAmount": { "type": "number" }
       },
       "required": ["id", "orderNumber", "projectId", "supplierId", "status"]
+    },
+    "Permit": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Permit",
+      "type": "object",
+      "description": "Represents an electronic Permit to Work (e.g. Hot Work, Excavation).",
+      "properties": {
+        "id": { "type": "string" },
+        "reference": { "type": "string" },
+        "projectId": { "type": "string" },
+        "areaId": { "type": "string" },
+        "type": { "type": "string", "enum": ["Hot Work", "Confined Space", "Excavation", "Lifting", "General"] },
+        "contractorId": { "type": "string" },
+        "contractorName": { "type": "string" },
+        "description": { "type": "string" },
+        "hazards": { "type": "string" },
+        "precautions": { "type": "string" },
+        "validFrom": { "type": "string", "format": "date-time" },
+        "validTo": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["draft", "issued", "closed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdByEmail": { "type": "string" }
+      },
+      "required": ["id", "reference", "projectId", "type", "contractorId", "status"]
     }
   },
   "auth": {
@@ -124,7 +149,8 @@
       { "path": "/sub-contractors/{subId}", "definition": { "entityName": "SubContractor" } },
       { "path": "/quality-checklists/{checklistId}", "definition": { "entityName": "QualityChecklist" } },
       { "path": "/materials/{materialId}", "definition": { "entityName": "Material" } },
-      { "path": "/purchase-orders/{orderId}", "definition": { "entityName": "PurchaseOrder" } }
+      { "path": "/purchase-orders/{orderId}", "definition": { "entityName": "PurchaseOrder" } },
+      { "path": "/permits/{permitId}", "definition": { "entityName": "Permit" } }
     ]
   }
 }
