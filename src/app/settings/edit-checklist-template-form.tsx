@@ -25,7 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, X, Loader2 } from 'lucide-react';
+import { Pencil, X, Loader2, Save } from 'lucide-react';
 import type { QualityChecklist } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore } from '@/firebase';
@@ -139,19 +139,16 @@ export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFo
           <span className="sr-only">Edit Checklist Template</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle>Edit Checklist Template</DialogTitle>
           <DialogDescription>
-            Update the template's title, trade, and items.
+            Update the template's title, trade, and compliance items.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4 flex-1 flex flex-col min-h-0"
-          >
-            <div className="space-y-4 overflow-y-auto pr-2">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6">
+            <div className="space-y-4">
                 <input type="hidden" {...form.register('id')} />
                 <FormField
                 control={form.control}
@@ -173,7 +170,7 @@ export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFo
                     <FormItem>
                     <FormLabel>Trade / Discipline</FormLabel>
                     <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="e.g. Mechanical" {...field} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -189,36 +186,32 @@ export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFo
                         placeholder="Add a new checklist item"
                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
                     />
-                    <Button type="button" onClick={handleAddItem}>Add</Button>
+                    <Button type="button" variant="secondary" onClick={handleAddItem}>Add</Button>
                 </div>
 
-                <ScrollArea className="h-40 rounded-md border mt-2">
-                    <div className="p-4 space-y-2">
-                        {items.map((item, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 rounded-md bg-muted/50">
-                                <span className="text-sm">{item}</span>
-                                <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
-                                    <X className="h-4 w-4 text-muted-foreground"/>
-                                </Button>
-                            </div>
-                        ))}
-                        {items.length === 0 && <p className="text-sm text-center text-muted-foreground py-4">No items added yet.</p>}
-                    </div>
-                </ScrollArea>
+                <div className="space-y-2 mt-2">
+                    {items.map((item, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 rounded-md border bg-background group">
+                            <span className="text-sm">{item}</span>
+                            <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveItem(index)}>
+                                <X className="h-4 w-4 text-destructive"/>
+                            </Button>
+                        </div>
+                    ))}
+                    {items.length === 0 && <p className="text-sm text-center text-muted-foreground py-8 italic border-2 border-dashed rounded-lg">No items added yet.</p>}
+                </div>
                 <FormField
                     control={form.control}
                     name="items"
-                    render={() => (
-                    <FormMessage />
-                    )}
+                    render={() => <FormMessage />}
                 />
                 </FormItem>
             </div>
 
-            <DialogFooter className="mt-auto pt-4">
-              <Button type="submit" disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Save Changes
+            <DialogFooter className="pt-4 border-t sticky bottom-0 bg-background pb-2">
+              <Button type="submit" disabled={isPending} className="w-full">
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save Template Changes
               </Button>
             </DialogFooter>
           </form>

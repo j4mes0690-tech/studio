@@ -136,15 +136,14 @@ export function EditUserForm({ user }: EditUserFormProps) {
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle>Edit User Profile</DialogTitle>
           <DialogDescription>Update credentials and permissions for {user.name}.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1 px-6">
-              <div className="space-y-6 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6">
+            <div className="space-y-4">
                 <input type="hidden" {...form.register('id')} />
                 <FormField
                   control={form.control}
@@ -205,10 +204,9 @@ export function EditUserForm({ user }: EditUserFormProps) {
                       )} />
                     ))}
                 </div>
-              </div>
-            </ScrollArea>
+            </div>
 
-            <DialogFooter className="p-6 border-t bg-muted/10">
+            <DialogFooter className="pt-4 border-t sticky bottom-0 bg-background pb-2">
               <Button type="submit" disabled={isPending} className="w-full">
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Save Profile Changes
