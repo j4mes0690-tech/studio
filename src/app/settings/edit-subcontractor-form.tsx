@@ -32,6 +32,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 const EditContactSchema = z.object({
   id: z.string().min(1),
