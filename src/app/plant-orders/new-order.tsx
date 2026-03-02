@@ -34,6 +34,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { addWeeks, differenceInDays } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
+import { VoiceInput } from '@/components/voice-input';
 
 const NewPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -120,6 +121,12 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
   };
 
   const removeItem = (idx: number) => setOrderItems(orderItems.filter((_, i) => i !== idx));
+
+  const setQuickOffHire = (weeks: number) => {
+    const baseDate = pendingOnHireDate ? new Date(pendingOnHireDate) : new Date();
+    const newDate = addWeeks(baseDate, weeks);
+    setPendingOffHireDate(newDate.toISOString().split('T')[0]);
+  };
 
   const totalAmount = useMemo(() => {
     return orderItems.reduce((sum, item) => sum + item.estimatedCost, 0);
@@ -223,7 +230,16 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2"><Label className="text-xs">On-Hire Date</Label><Input type="date" value={pendingOnHireDate} onChange={e => setPendingOnHireDate(e.target.value)} className="bg-background" /></div>
-                  <div className="space-y-2"><Label className="text-xs">Expected Off-Hire</Label><Input type="date" value={pendingOffHireDate} onChange={e => setPendingOffHireDate(e.target.value)} className="bg-background" /></div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Expected Off-Hire</Label>
+                      <div className="flex gap-1">
+                        <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickOffHire(1)}>+1w</Button>
+                        <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickOffHire(2)}>+2w</Button>
+                      </div>
+                    </div>
+                    <Input type="date" value={pendingOffHireDate} onChange={e => setPendingOffHireDate(e.target.value)} className="bg-background" />
+                  </div>
                 </div>
 
                 <div className="bg-background/50 p-3 rounded border flex flex-col md:flex-row gap-4 items-end">

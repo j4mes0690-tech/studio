@@ -107,6 +107,12 @@ export function EditPlantOrderDialog({
     }
   };
 
+  const setQuickOffHire = (weeks: number) => {
+    const baseDate = pendingOnHireDate ? new Date(pendingOnHireDate) : new Date();
+    const newDate = addWeeks(baseDate, weeks);
+    setPendingOffHireDate(newDate.toISOString().split('T')[0]);
+  };
+
   const handleAddItem = () => {
     const rate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
     if (!pendingDescription || isNaN(rate)) return;
@@ -239,7 +245,16 @@ export function EditPlantOrderDialog({
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2"><Label className="text-xs">On-Hire Date</Label><Input type="date" value={pendingOnHireDate} onChange={e => setPendingOnHireDate(e.target.value)} /></div>
-                    <div className="space-y-2"><Label className="text-xs">Expected Off-Hire</Label><Input type="date" value={pendingOffHireDate} onChange={e => setPendingOffHireDate(e.target.value)} /></div>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Expected Off-Hire</Label>
+                        <div className="flex gap-1">
+                          <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickOffHire(1)}>+1w</Button>
+                          <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickOffHire(2)}>+2w</Button>
+                        </div>
+                      </div>
+                      <Input type="date" value={pendingOffHireDate} onChange={e => setPendingOffHireDate(e.target.value)} />
+                    </div>
                 </div>
                 <Button type="button" variant="outline" className="w-full" onClick={handleAddItem} disabled={!pendingDescription}><Plus className="h-4 w-4 mr-2" /> Add Item</Button>
               </div>
