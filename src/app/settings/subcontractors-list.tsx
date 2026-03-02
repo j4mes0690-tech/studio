@@ -2,7 +2,7 @@
 
 import type { SubContractor } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, HardHat, Ruler, Truck } from 'lucide-react';
+import { Trash2, HardHat, Ruler, Truck, Construction } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -71,6 +71,11 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
               {contact.isSupplier && (
                 <Badge variant="outline" className="text-[9px] h-4 gap-1 border-accent/50 text-accent">
                   <Truck className="h-2 w-2" /> Supplier
+                </Badge>
+              )}
+              {contact.isPlantSupplier && (
+                <Badge variant="default" className="text-[9px] h-4 gap-1 bg-primary/10 text-primary border-primary/20 hover:bg-primary/20">
+                  <Construction className="h-2 w-2" /> Plant Supplier
                 </Badge>
               )}
             </div>
