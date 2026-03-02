@@ -13,13 +13,15 @@ import {
   Clock,
   HardHat,
   PoundSterling,
-  Power,
   PowerOff,
-  ChevronDown
+  ChevronDown,
+  Calculator,
+  Save,
+  CheckCircle2
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -59,12 +61,27 @@ export function OrderCard({
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
 
+  const isDraft = order.status === 'draft';
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     startTransition(async () => {
       const docRef = doc(db, 'plant-orders', order.id);
       await deleteDoc(docRef);
       toast({ title: 'Success', description: 'Order removed.' });
+    });
+  };
+
+  const handleCommit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    startTransition(async () => {
+      try {
+        const docRef = doc(db, 'plant-orders', order.id);
+        await updateDoc(docRef, { status: 'scheduled' });
+        toast({ title: 'Order Committed', description: 'Hire is now active in the system.' });
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to commit order.', variant: 'destructive' });
+      }
     });
   };
 
@@ -112,7 +129,7 @@ export function OrderCard({
               <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b;">On-Hire</th>
               <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b;">Off-Hire</th>
               <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b;">Rate</th>
-              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b;">Status</th>
+              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b;">Est. Cost</th>
             </tr>
           </thead>
           <tbody>
@@ -122,10 +139,16 @@ export function OrderCard({
                 <td style="padding: 12px; font-size: 11px;">${item.onHireDate}</td>
                 <td style="padding: 12px; font-size: 11px;">${item.actualOffHireDate || item.anticipatedOffHireDate}</td>
                 <td style="padding: 12px; font-size: 11px; text-align: right;">£${item.rate.toFixed(2)} / ${item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}</td>
-                <td style="padding: 12px; font-size: 10px; text-align: right; text-transform: uppercase; font-weight: bold;">${item.status}</td>
+                <td style="padding: 12px; font-size: 11px; text-align: right; font-weight: bold;">£${item.estimatedCost?.toFixed(2) || '0.00'}</td>
               </tr>
             `).join('')}
           </tbody>
+          <tfoot>
+            <tr style="background: #f8fafc;">
+              <td colspan="4" style="padding: 15px; text-align: right; font-size: 14px; font-weight: bold; color: #336AB6;">ESTIMATED TOTAL (GBP)</td>
+              <td style="padding: 15px; text-align: right; font-size: 18px; font-weight: bold; color: #336AB6; border-top: 2px solid #336AB6;">£${order.totalAmount?.toFixed(2) || '0.00'}</td>
+            </tr>
+          </tfoot>
         </table>
 
         ${order.notes ? `<div style="margin-bottom: 40px;"><p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Notes</p><p style="margin: 0; font-size: 12px; color: #475569; line-height: 1.6;">${order.notes}</p></div>` : ''}
@@ -165,7 +188,9 @@ export function OrderCard({
       <Card 
         className={cn(
           "hover:border-primary transition-all shadow-sm group cursor-pointer border-l-4",
-          order.status === 'off-hired' ? "border-l-muted opacity-75" : order.status === 'on-hire' ? "border-l-green-500 bg-green-50/5" : "border-l-primary"
+          isDraft ? "border-orange-200 border-l-orange-400 bg-orange-50/5" :
+          order.status === 'off-hired' ? "border-l-muted opacity-75" : 
+          order.status === 'on-hire' ? "border-l-green-500 bg-green-50/5" : "border-l-primary"
         )}
         onClick={() => setIsEditDialogOpen(true)}
       >
@@ -173,23 +198,40 @@ export function OrderCard({
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className="font-mono text-[10px] bg-background text-primary border-primary/20">{order.reference}</Badge>
+                <Badge variant="outline" className={cn(
+                  "font-mono text-[10px] bg-background",
+                  isDraft ? "border-orange-200 text-orange-600" : "text-primary border-primary/20"
+                )}>{order.reference}</Badge>
                 <CardTitle className="text-lg group-hover:text-primary transition-colors">{order.description}</CardTitle>
               </div>
               <CardDescription className="flex items-center gap-3">
                 <span className="font-bold text-foreground uppercase tracking-tight text-[10px] bg-muted px-1.5 rounded flex items-center gap-1">
-                    <HardHat className="h-2.5 w-2.5" /> {order.supplierName}
+                    <HardHat className="h-2 w-2" /> {order.supplierName}
                 </span>
                 <span className="font-semibold text-foreground">{project?.name || 'Unknown Project'}</span>
               </CardDescription>
             </div>
             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
               <TooltipProvider>
-                <Badge className={cn(
-                    "capitalize text-[10px]",
-                    order.status === 'on-hire' ? 'bg-green-100 text-green-800' : 
-                    order.status === 'off-hired' ? 'bg-muted' : 'bg-primary/10 text-primary'
-                )}>{order.status}</Badge>
+                {isDraft ? (
+                  <>
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-600 hover:bg-orange-50" onClick={handleCommit} disabled={isPending}>
+                          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Commit Order</p></TooltipContent>
+                    </Tooltip>
+                  </>
+                ) : (
+                  <Badge className={cn(
+                      "capitalize text-[10px]",
+                      order.status === 'on-hire' ? 'bg-green-100 text-green-800' : 
+                      order.status === 'off-hired' ? 'bg-muted' : 'bg-primary/10 text-primary'
+                  )}>{order.status}</Badge>
+                )}
 
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -234,9 +276,8 @@ export function OrderCard({
                     </div>
                 </div>
                 <div className="text-right">
-                    <Badge variant="outline" className={cn("text-[9px] font-bold uppercase", itemSummary.active > 0 ? "text-green-600 bg-green-50" : "text-muted-foreground")}>
-                        {itemSummary.active} Items On-Hire
-                    </Badge>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Est. Total Cost</p>
+                    <p className="text-xl font-bold text-primary">£{order.totalAmount?.toFixed(2) || '0.00'}</p>
                 </div>
             </div>
 
@@ -258,11 +299,8 @@ export function OrderCard({
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="font-bold">£{item.rate.toFixed(2)} / {item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}</p>
-                        <Badge variant="outline" className={cn(
-                            "text-[8px] h-4 leading-none",
-                            item.status === 'on-hire' ? "text-green-600 border-green-200" : "text-muted-foreground"
-                        )}>{item.status}</Badge>
+                        <p className="font-bold">£{item.estimatedCost?.toFixed(2) || '0.00'}</p>
+                        <p className="text-[9px] text-muted-foreground italic">£{item.rate.toFixed(2)} / {item.rateUnit[0]}</p>
                       </div>
                     </div>
                   ))}

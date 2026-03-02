@@ -265,7 +265,7 @@ export type PermitTemplate = {
 
 // --- PLANT MODULE TYPES ---
 
-export type PlantStatus = 'scheduled' | 'on-hire' | 'off-hired';
+export type PlantStatus = 'draft' | 'scheduled' | 'on-hire' | 'off-hired';
 export type PlantRateUnit = 'daily' | 'weekly' | 'monthly' | 'item';
 
 export type PlantOrderItem = {
@@ -277,6 +277,7 @@ export type PlantOrderItem = {
   rate: number;
   rateUnit: PlantRateUnit;
   status: PlantStatus;
+  estimatedCost: number;
 };
 
 export type PlantOrder = {
@@ -287,6 +288,7 @@ export type PlantOrder = {
   supplierName: string;
   description: string;
   items: PlantOrderItem[];
+  totalAmount: number;
   status: PlantStatus; // Summary status (e.g. 'on-hire' if any item is on hire)
   createdAt: string;
   createdByEmail: string;

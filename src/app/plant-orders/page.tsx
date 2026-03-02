@@ -143,6 +143,7 @@ function PlantOrdersContent() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Any Status</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="scheduled">Scheduled</SelectItem>
               <SelectItem value="on-hire">Active (On-Hire)</SelectItem>
               <SelectItem value="off-hired">Off-Hired</SelectItem>

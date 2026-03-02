@@ -26,22 +26,21 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Pencil, Calculator, RefreshCw } from 'lucide-react';
-import type { Project, SubContractor, DistributionUser, PlantOrder, PlantOrderItem, PlantRateUnit } from '@/lib/types';
+import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Calculator } from 'lucide-react';
+import type { Project, SubContractor, DistributionUser, PlantOrder, PlantOrderItem, PlantRateUnit, PlantStatus } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
-import { addWeeks } from 'date-fns';
-import { VoiceInput } from '@/components/voice-input';
+import { addWeeks, differenceInDays } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
 
 const NewPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
   description: z.string().min(3, 'Order description is required.'),
   notes: z.string().optional(),
+  status: z.enum(['draft', 'scheduled', 'on-hire', 'off-hired']).default('scheduled'),
 });
 
 type NewPlantOrderFormValues = z.infer<typeof NewPlantOrderSchema>;
@@ -74,6 +73,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
       supplierId: '',
       description: '',
       notes: '',
+      status: 'scheduled',
     },
   });
 
@@ -83,9 +83,26 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
   // Filter for ONLY Plant Suppliers
   const plantSuppliers = useMemo(() => subContractors.filter(s => !!s.isPlantSupplier), [subContractors]);
 
+  const calculateItemCost = (rate: number, unit: PlantRateUnit, start: string, end: string) => {
+    if (unit === 'item') return rate;
+    
+    const dStart = new Date(start);
+    const dEnd = new Date(end);
+    const days = Math.max(1, differenceInDays(dEnd, dStart) + 1);
+    
+    switch (unit) {
+      case 'daily': return rate * days;
+      case 'weekly': return (rate / 7) * days;
+      case 'monthly': return (rate / 30) * days;
+      default: return 0;
+    }
+  };
+
   const handleAddItem = () => {
     const rate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
     if (!pendingDescription || isNaN(rate)) return;
+
+    const estimatedCost = calculateItemCost(rate, pendingRateUnit, pendingOnHireDate, pendingOffHireDate);
 
     setOrderItems([...orderItems, {
       description: pendingDescription,
@@ -94,7 +111,8 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
       actualOffHireDate: null,
       rate: rate,
       rateUnit: pendingRateUnit,
-      status: 'scheduled'
+      status: 'scheduled',
+      estimatedCost
     }]);
 
     setPendingDescription('');
@@ -102,6 +120,10 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
   };
 
   const removeItem = (idx: number) => setOrderItems(orderItems.filter((_, i) => i !== idx));
+
+  const totalAmount = useMemo(() => {
+    return orderItems.reduce((sum, item) => sum + item.estimatedCost, 0);
+  }, [orderItems]);
 
   const onSubmit = (values: NewPlantOrderFormValues) => {
     if (orderItems.length === 0) {
@@ -123,7 +145,8 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
           supplierName: supplier?.name || 'Unknown',
           description: values.description,
           items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
-          status: 'scheduled',
+          totalAmount,
+          status: values.status,
           createdAt: new Date().toISOString(),
           createdByEmail: currentUser.email.toLowerCase().trim(),
           notes: values.notes || '',
@@ -132,9 +155,9 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
         const colRef = collection(db, 'plant-orders');
         await addDoc(colRef, orderData);
         
-        toast({ title: 'Success', description: 'Plant hire order recorded.' });
+        toast({ title: 'Success', description: values.status === 'draft' ? 'Plant hire order saved as draft.' : 'Plant hire order recorded.' });
         setOpen(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
         toast({ title: 'Error', description: 'Failed to save order.', variant: 'destructive' });
       }
@@ -148,6 +171,8 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
     }
   }, [open, form]);
 
+  const submissionStatus = form.watch('status');
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -159,11 +184,13 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Plant Order</DialogTitle>
-          <DialogDescription>Schedule construction equipment for delivery to site.</DialogDescription>
+          <DialogDescription>Schedule construction equipment for delivery to site. Drafts can be reviewed before commitment.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <input type="hidden" {...form.register('status')} />
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
                 <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
@@ -180,14 +207,17 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
             <Separator />
 
             <div className="space-y-4">
-              <FormLabel className="text-base font-bold text-primary">Plant Items</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel className="text-base font-bold text-primary">Plant Items</FormLabel>
+                <div className="flex items-center gap-2 text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full">
+                  <Calculator className="h-4 w-4" />
+                  Estimated Cost: £{totalAmount.toFixed(2)}
+                </div>
+              </div>
               
               <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs">Plant / Equipment Details</Label>
-                    <VoiceInput onResult={setPendingDescription} />
-                  </div>
+                  <Label className="text-xs">Plant / Equipment Details</Label>
                   <Input placeholder="e.g. 3 Tonne Excavator" value={pendingDescription} onChange={e => setPendingDescription(e.target.value)} className="bg-background" />
                 </div>
 
@@ -226,6 +256,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-[10px] text-muted-foreground">
                         <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {item.onHireDate} &rarr; {item.anticipatedOffHireDate}</span>
                         <span className="font-bold text-primary">£{item.rate.toFixed(2)} / {item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}</span>
+                        <span className="font-bold text-foreground">Subtotal: £{item.estimatedCost.toFixed(2)}</span>
                       </div>
                     </div>
                     <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
@@ -238,9 +269,24 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
               <FormItem><FormLabel>Hire Notes / Site Requirements</FormLabel><FormControl><Textarea placeholder="e.g. Delivery via site entrance B..." {...field} /></FormControl></FormItem>
             )} />
 
-            <DialogFooter>
-              <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <Button 
+                type="submit" 
+                variant="outline" 
+                className="w-full sm:w-auto h-12" 
+                disabled={isPending} 
+                onClick={() => form.setValue('status', 'draft')}
+              >
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                Save as Draft
+              </Button>
+              <Button 
+                type="submit" 
+                className="w-full sm:flex-1 h-12 text-lg font-bold" 
+                disabled={isPending} 
+                onClick={() => form.setValue('status', 'scheduled')}
+              >
+                {isPending && submissionStatus === 'scheduled' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-5 w-5" />}
                 Confirm Plant Order
               </Button>
             </DialogFooter>

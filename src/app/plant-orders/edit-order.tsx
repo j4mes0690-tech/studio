@@ -21,17 +21,17 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Save, PoundSterling, PowerOff, Play, Plus, Trash2, Calendar } from 'lucide-react';
+import { Loader2, Save, PoundSterling, PowerOff, Play, Plus, Trash2, Calendar, Calculator } from 'lucide-react';
 import type { Project, SubContractor, PlantOrder, PlantOrderItem, PlantRateUnit, PlantStatus } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import { addWeeks } from 'date-fns';
+import { addWeeks, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 const EditPlantOrderSchema = z.object({
@@ -39,6 +39,7 @@ const EditPlantOrderSchema = z.object({
   supplierId: z.string().min(1, 'Supplier is required.'),
   description: z.string().min(3, 'Order description is required.'),
   notes: z.string().optional(),
+  status: z.enum(['draft', 'scheduled', 'on-hire', 'off-hired']).default('scheduled'),
 });
 
 type EditPlantOrderFormValues = z.infer<typeof EditPlantOrderSchema>;
@@ -76,6 +77,7 @@ export function EditPlantOrderDialog({
       supplierId: order.supplierId,
       description: order.description,
       notes: order.notes || '',
+      status: order.status,
     },
   });
 
@@ -86,14 +88,30 @@ export function EditPlantOrderDialog({
         supplierId: order.supplierId,
         description: order.description,
         notes: order.notes || '',
+        status: order.status,
       });
       setOrderItems(order.items || []);
     }
   }, [open, order, form]);
 
+  const calculateItemCost = (rate: number, unit: PlantRateUnit, start: string, end: string) => {
+    if (unit === 'item') return rate;
+    const dStart = new Date(start);
+    const dEnd = new Date(end);
+    const days = Math.max(1, differenceInDays(dEnd, dStart) + 1);
+    switch (unit) {
+      case 'daily': return rate * days;
+      case 'weekly': return (rate / 7) * days;
+      case 'monthly': return (rate / 30) * days;
+      default: return 0;
+    }
+  };
+
   const handleAddItem = () => {
     const rate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
     if (!pendingDescription || isNaN(rate)) return;
+
+    const estimatedCost = calculateItemCost(rate, pendingRateUnit, pendingOnHireDate, pendingOffHireDate);
 
     setOrderItems([...orderItems, {
       id: `item-${Date.now()}`,
@@ -103,7 +121,8 @@ export function EditPlantOrderDialog({
       actualOffHireDate: null,
       rate: rate,
       rateUnit: pendingRateUnit,
-      status: 'scheduled'
+      status: 'scheduled',
+      estimatedCost
     }]);
 
     setPendingDescription('');
@@ -125,6 +144,10 @@ export function EditPlantOrderDialog({
     }));
   };
 
+  const totalAmount = useMemo(() => {
+    return orderItems.reduce((sum, item) => sum + item.estimatedCost, 0);
+  }, [orderItems]);
+
   const onSubmit = (values: EditPlantOrderFormValues) => {
     if (orderItems.length === 0) return;
     startTransition(async () => {
@@ -132,15 +155,19 @@ export function EditPlantOrderDialog({
         const supplier = plantSuppliers.find(s => s.id === values.supplierId);
         const docRef = doc(db, 'plant-orders', order.id);
         
-        // Overall status is 'on-hire' if any item is active
-        const hasOnHire = orderItems.some(i => i.status === 'on-hire');
-        const allOffHired = orderItems.length > 0 && orderItems.every(i => i.status === 'off-hired');
-        const overallStatus = hasOnHire ? 'on-hire' : (allOffHired ? 'off-hired' : 'scheduled');
+        // Auto-summary status if not explicitly draft
+        let overallStatus = values.status;
+        if (values.status !== 'draft') {
+            const hasOnHire = orderItems.some(i => i.status === 'on-hire');
+            const allOffHired = orderItems.length > 0 && orderItems.every(i => i.status === 'off-hired');
+            overallStatus = hasOnHire ? 'on-hire' : (allOffHired ? 'off-hired' : 'scheduled');
+        }
 
         const updates = {
           ...values,
           supplierName: supplier?.name || order.supplierName,
           items: orderItems,
+          totalAmount,
           status: overallStatus
         };
 
@@ -154,6 +181,8 @@ export function EditPlantOrderDialog({
     });
   };
 
+  const submissionStatus = form.watch('status');
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -164,6 +193,7 @@ export function EditPlantOrderDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <input type="hidden" {...form.register('status')} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
                 <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
@@ -180,7 +210,13 @@ export function EditPlantOrderDialog({
             <Separator />
 
             <div className="space-y-4">
-              <FormLabel className="text-primary font-bold">Manage Items</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel className="text-primary font-bold">Manage Items</FormLabel>
+                <div className="flex items-center gap-2 text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full">
+                  <Calculator className="h-4 w-4" />
+                  Estimated Cost: £{totalAmount.toFixed(2)}
+                </div>
+              </div>
               
               <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -214,7 +250,7 @@ export function EditPlantOrderDialog({
                     <div className="flex justify-between items-start">
                       <div className="flex-1 min-w-0 pr-4">
                         <p className="text-sm font-bold text-primary truncate">{item.description}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">Hire: {item.onHireDate} &rarr; {item.actualOffHireDate || item.anticipatedOffHireDate} | £{item.rate.toFixed(2)}/{item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Hire: {item.onHireDate} &rarr; {item.actualOffHireDate || item.anticipatedOffHireDate} | £{item.rate.toFixed(2)}/{item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]} | Sub: £{item.estimatedCost.toFixed(2)}</p>
                       </div>
                       <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
@@ -248,10 +284,20 @@ export function EditPlantOrderDialog({
               <FormItem><FormLabel>General Contract Notes</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
             )} />
 
-            <DialogFooter>
-              <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <Button 
+                type="submit" 
+                variant="outline" 
+                className="w-full sm:w-auto h-12" 
+                disabled={isPending} 
+                onClick={() => form.setValue('status', 'draft')}
+              >
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                Save as Draft
+              </Button>
+              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save Order
+                Save Changes
               </Button>
             </DialogFooter>
           </form>
