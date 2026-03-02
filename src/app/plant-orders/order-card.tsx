@@ -12,12 +12,11 @@ import {
   FileDown,
   Clock,
   HardHat,
-  PoundSterling,
-  PowerOff,
   ChevronDown,
   Calculator,
   Save,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -38,6 +37,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { EditPlantOrderDialog } from './edit-order';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 
 export function OrderCard({ 
   order, 
@@ -63,6 +63,34 @@ export function OrderCard({
 
   const isDraft = order.status === 'draft';
 
+  // Calculate Latest Anticipated Off-Hire Date for Summary
+  const latestAnticipatedOffHire = useMemo(() => {
+    if (!order.items || order.items.length === 0) return null;
+    return order.items.reduce((latest, item) => {
+      if (!item.anticipatedOffHireDate) return latest;
+      return !latest || item.anticipatedOffHireDate > latest ? item.anticipatedOffHireDate : latest;
+    }, null as string | null);
+  }, [order.items]);
+
+  // RAG Logic
+  const ragStatus = useMemo(() => {
+    if (isDraft || order.status === 'off-hired' || !latestAnticipatedOffHire) {
+      return { color: 'text-muted-foreground', label: 'Neutral' };
+    }
+
+    const today = startOfDay(new Date());
+    const target = startOfDay(parseISO(latestAnticipatedOffHire));
+    const daysUntil = differenceInDays(target, today);
+
+    if (daysUntil < 0) {
+      return { color: 'text-destructive', label: 'Overdue', icon: AlertTriangle };
+    }
+    if (daysUntil <= 7) {
+      return { color: 'text-amber-600', label: 'Expiring Soon', icon: Clock };
+    }
+    return { color: 'text-green-600', label: 'Active', icon: CheckCircle2 };
+  }, [latestAnticipatedOffHire, order.status, isDraft]);
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     startTransition(async () => {
@@ -78,7 +106,7 @@ export function OrderCard({
       try {
         const docRef = doc(db, 'plant-orders', order.id);
         await updateDoc(docRef, { status: 'scheduled' });
-        toast({ title: 'Order Committed', description: 'Hire is now active in the system.' });
+        toast({ title: 'Order Placed', description: 'Hire is now active in the system.' });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to commit order.', variant: 'destructive' });
       }
@@ -222,15 +250,17 @@ export function OrderCard({
                           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent><p>Commit Order</p></TooltipContent>
+                      <TooltipContent><p>Place Order</p></TooltipContent>
                     </Tooltip>
                   </>
                 ) : (
                   <Badge className={cn(
-                      "capitalize text-[10px]",
+                      "capitalize text-[10px] font-bold",
                       order.status === 'on-hire' ? 'bg-green-100 text-green-800' : 
-                      order.status === 'off-hired' ? 'bg-muted' : 'bg-primary/10 text-primary'
-                  )}>{order.status}</Badge>
+                      order.status === 'off-hired' ? 'bg-muted text-muted-foreground' : 'bg-indigo-600 text-white'
+                  )}>
+                    {order.status === 'scheduled' ? 'Order Placed' : order.status}
+                  </Badge>
                 )}
 
                 <Tooltip>
@@ -264,16 +294,18 @@ export function OrderCard({
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-end gap-4 bg-muted/20 p-3 rounded-lg border border-dashed">
-                <div className="space-y-1 w-full sm:w-auto">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Order Summary</p>
-                    <p className="text-sm font-medium">{itemSummary.total} plant items included</p>
-                    <div className="flex gap-1 flex-wrap">
-                        {order.items?.slice(0, 3).map((item, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-[9px] font-normal">{item.description}</Badge>
-                        ))}
-                        {itemSummary.total > 3 && <Badge variant="secondary" className="text-[9px] font-normal">+{itemSummary.total - 3} more</Badge>}
-                    </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/20 p-3 rounded-lg border border-dashed">
+                <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Anticipated Off-Hire</p>
+                    <p className={cn("text-sm font-bold flex items-center gap-2", ragStatus.color)}>
+                        {ragStatus.icon && <ragStatus.icon className="h-4 w-4" />}
+                        {latestAnticipatedOffHire ? (
+                          new Date(latestAnticipatedOffHire).toLocaleDateString()
+                        ) : 'Not defined'}
+                    </p>
+                    {!isDraft && order.status !== 'off-hired' && (
+                      <p className="text-[9px] uppercase font-bold text-muted-foreground/60">{ragStatus.label}</p>
+                    )}
                 </div>
                 <div className="text-right">
                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Est. Total Cost</p>
@@ -283,9 +315,9 @@ export function OrderCard({
 
             <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
               <CollapsibleTrigger asChild onClick={e => e.stopPropagation()}>
-                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground">
+                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground h-8">
                   <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
-                  {isExpanded ? "Hide Line Details" : "View Individual Item Hires"}
+                  {isExpanded ? "Hide Hire Details" : `View ${itemSummary.total} Individual Item Hires`}
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2">
@@ -307,6 +339,16 @@ export function OrderCard({
                 </div>
               </CollapsibleContent>
             </Collapsible>
+
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground border-t pt-2 mt-2">
+                <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>Order Placed: <ClientDate date={order.createdAt} format="date" /></span>
+                </div>
+                <div className="flex items-center gap-1">
+                    <span>By: {order.createdByEmail}</span>
+                </div>
+            </div>
           </div>
         </CardContent>
       </Card>

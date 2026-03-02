@@ -25,7 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Save, PoundSterling, PowerOff, Play, Plus, Trash2, Calendar, Calculator } from 'lucide-react';
+import { Loader2, Save, PoundSterling, PowerOff, Play, Plus, Trash2, Calendar, Calculator, CheckCircle2 } from 'lucide-react';
 import type { Project, SubContractor, PlantOrder, PlantOrderItem, PlantRateUnit, PlantStatus } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -310,9 +310,16 @@ export function EditPlantOrderDialog({
                 {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Save as Draft
               </Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save Changes
+              <Button 
+                type="submit" 
+                className="w-full sm:flex-1 h-12 text-lg font-bold" 
+                disabled={isPending}
+                onClick={() => {
+                  if (submissionStatus === 'draft') form.setValue('status', 'scheduled');
+                }}
+              >
+                {isPending && (submissionStatus === 'scheduled' || submissionStatus === 'on-hire' || submissionStatus === 'off-hired') ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                {submissionStatus === 'draft' ? 'Place Order' : 'Save Changes'}
               </Button>
             </DialogFooter>
           </form>
