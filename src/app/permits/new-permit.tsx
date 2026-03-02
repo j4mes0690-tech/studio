@@ -26,8 +26,35 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Send, ShieldCheck, Clock, Camera, Upload, X, RefreshCw, Sparkles, ClipboardList, CheckSquare, Plus, Trash2, Layout } from 'lucide-react';
-import type { Project, SubContractor, DistributionUser, Permit, Photo, PermitTemplate, TemplateSection, TemplateField, TemplateFieldType } from '@/lib/types';
+import { 
+  PlusCircle, 
+  Loader2, 
+  Save, 
+  Send, 
+  ShieldCheck, 
+  Clock, 
+  Camera, 
+  Upload, 
+  X, 
+  RefreshCw, 
+  Sparkles, 
+  ClipboardList, 
+  CheckSquare, 
+  Plus, 
+  Trash2, 
+  Layout 
+} from 'lucide-react';
+import type { 
+  Project, 
+  SubContractor, 
+  DistributionUser, 
+  Permit, 
+  Photo, 
+  PermitTemplate, 
+  TemplateSection, 
+  TemplateField, 
+  TemplateFieldType 
+} from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -78,7 +105,6 @@ export function NewPermitDialog({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Dynamic Template State
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [dynamicSections, setDynamicSections] = useState<TemplateSection[]>([]);
 
@@ -127,7 +153,6 @@ export function NewPermitDialog({
     }
   };
 
-  // BUILDER FUNCTIONS
   const addSection = () => {
     const newSection: TemplateSection = {
       id: `section-${Date.now()}`,
@@ -280,7 +305,7 @@ export function NewPermitDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="gap-2 h-10 px-5 shadow-lg shadow-primary/20">
-          <PlusCircle className="h-4.5 w-4.5" />
+          <PlusCircle className="h-4 w-4" />
           New Permit
         </Button>
       </DialogTrigger>
@@ -292,7 +317,7 @@ export function NewPermitDialog({
               <DialogDescription>Apply a standard template or build a custom layout for this task.</DialogDescription>
             </div>
             <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={addSection} className="gap-2 border-primary/20 text-primary h-9">
+                <Button type="button" variant="outline" size="sm" onClick={addSection} className="gap-2 border-primary/20 text-primary h-9">
                     <Plus className="h-4 w-4" /> Add Section
                 </Button>
             </div>
@@ -302,15 +327,41 @@ export function NewPermitDialog({
         <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-muted/5">
             <Form {...form}>
                 <form className="space-y-8">
-                    {/* Standard Metadata */}
                     <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <FormField control={form.control} name="projectId" render={({ field }) => (
-                                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                                <FormItem>
+                                  <FormLabel>Project</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                                    <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                </FormItem>
                             )} />
+                            
                             <FormField control={form.control} name="type" render={({ field }) => (
-                                <FormItem><FormLabel>Permit Type</FormLabel><Select onValueChange={(val) => { field.onChange(val); setActiveTemplateId(null); setDynamicSections([]); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="General">General Works</SelectItem><SelectItem value="Hot Work">Hot Work</SelectItem><SelectItem value="Confined Space">Confined Space</SelectItem><SelectItem value="Excavation">Excavation</SelectItem><SelectItem value="Lifting">Lifting Ops</SelectItem></Select></FormItem>
+                                <FormItem>
+                                  <FormLabel>Permit Type</FormLabel>
+                                  <Select 
+                                    onValueChange={(val) => { 
+                                      field.onChange(val); 
+                                      setActiveTemplateId(null); 
+                                      setDynamicSections([]); 
+                                    }} 
+                                    value={field.value}
+                                  >
+                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="General">General Works</SelectItem>
+                                      <SelectItem value="Hot Work">Hot Work</SelectItem>
+                                      <SelectItem value="Confined Space">Confined Space</SelectItem>
+                                      <SelectItem value="Excavation">Excavation</SelectItem>
+                                      <SelectItem value="Lifting">Lifting Ops</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </FormItem>
                             )} />
+
                             <FormItem>
                                 <FormLabel>Start from Template</FormLabel>
                                 <Select onValueChange={handleApplyTemplate} value={activeTemplateId || ''}>
@@ -348,7 +399,6 @@ export function NewPermitDialog({
                         )} />
                     </div>
 
-                    {/* DYNAMIC BUILDER SECTIONS */}
                     {dynamicSections.length > 0 ? (
                         <div className="space-y-10">
                             {dynamicSections.map((section) => (
