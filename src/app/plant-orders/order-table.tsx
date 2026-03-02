@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -15,14 +14,15 @@ import { ClientDate } from '@/components/client-date';
 import { useState, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc } from 'firebase/firestore';
 import { 
   Trash2, 
   Loader2, 
   FileDown,
   Power,
   PowerOff,
-  Calendar
+  Calendar,
+  Layers
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,9 +60,9 @@ export function OrderTable({
             <TableHead>Description</TableHead>
             <TableHead className="w-[150px]">Project</TableHead>
             <TableHead className="w-[150px]">Supplier</TableHead>
+            <TableHead className="w-[100px]">Items</TableHead>
             <TableHead className="w-[100px]">Status</TableHead>
-            <TableHead className="w-[120px]">On-Hire</TableHead>
-            <TableHead className="w-[120px]">Exp. Off</TableHead>
+            <TableHead className="w-[120px]">Created</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -99,21 +99,6 @@ function OrderTableRow({
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const isOffHired = order.status === 'off-hired';
-  const isOnHire = order.status === 'on-hire';
-
-  const handleToggleHire = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    startTransition(async () => {
-      const docRef = doc(db, 'plant-orders', order.id);
-      const newStatus = isOnHire ? 'off-hired' : 'on-hire';
-      const updates: any = { status: newStatus };
-      if (newStatus === 'off-hired') updates.actualOffHireDate = new Date().toISOString();
-      await updateDoc(docRef, updates);
-      toast({ title: 'Status Updated', description: `Order is now ${newStatus}.` });
-    });
-  };
-
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     startTransition(async () => {
@@ -126,7 +111,7 @@ function OrderTableRow({
   return (
     <>
       <TableRow 
-        className={cn("group cursor-pointer", isOffHired && "opacity-60")}
+        className={cn("group cursor-pointer", order.status === 'off-hired' && "opacity-60")}
         onClick={() => setIsEditDialogOpen(true)}
       >
         <TableCell className="font-mono text-[10px]">{order.reference}</TableCell>
@@ -134,31 +119,21 @@ function OrderTableRow({
         <TableCell className="truncate max-w-[150px] text-muted-foreground text-xs">{project?.name || 'Unknown'}</TableCell>
         <TableCell className="truncate max-w-[150px] text-xs">{order.supplierName}</TableCell>
         <TableCell>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Layers className="h-3 w-3" />
+                {order.items?.length || 0}
+            </div>
+        </TableCell>
+        <TableCell>
           <Badge className={cn(
             "capitalize text-[10px]",
             order.status === 'on-hire' ? 'bg-green-100 text-green-800' : 'bg-muted'
           )}>{order.status}</Badge>
         </TableCell>
-        <TableCell><span className="text-xs text-muted-foreground"><ClientDate date={order.onHireDate} format="date" /></span></TableCell>
-        <TableCell><span className="text-xs text-muted-foreground"><ClientDate date={order.anticipatedOffHireDate} format="date" /></span></TableCell>
+        <TableCell><span className="text-xs text-muted-foreground"><ClientDate date={order.createdAt} format="date" /></span></TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
             <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className={cn("h-8 w-8", isOnHire ? "text-destructive" : "text-green-600")}
-                    onClick={handleToggleHire}
-                    disabled={isPending}
-                  >
-                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : isOnHire ? <PowerOff className="h-4 w-4" /> : <Power className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>{isOnHire ? 'Off-Hire' : 'On-Hire'}</p></TooltipContent>
-              </Tooltip>
-              
               <AlertDialog>
                 <TooltipProvider>
                   <Tooltip>

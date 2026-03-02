@@ -40,7 +40,8 @@ const EditContactSchema = z.object({
   isSubContractor: z.boolean().default(false),
   isDesigner: z.boolean().default(false),
   isSupplier: z.boolean().default(false),
-}).refine(data => data.isSubContractor || data.isDesigner || data.isSupplier, {
+  isPlantSupplier: z.boolean().default(false),
+}).refine(data => data.isSubContractor || data.isDesigner || data.isSupplier || data.isPlantSupplier, {
   message: "Select at least one category",
   path: ["isSubContractor"]
 });
@@ -66,6 +67,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
       isSubContractor: !!subContractor.isSubContractor,
       isDesigner: !!subContractor.isDesigner,
       isSupplier: !!subContractor.isSupplier,
+      isPlantSupplier: !!subContractor.isPlantSupplier,
     },
   });
 
@@ -78,6 +80,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
         isSubContractor: !!subContractor.isSubContractor,
         isDesigner: !!subContractor.isDesigner,
         isSupplier: !!subContractor.isSupplier,
+        isPlantSupplier: !!subContractor.isPlantSupplier,
       });
     }
   }, [open, subContractor, form]);
@@ -91,6 +94,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
         isSubContractor: values.isSubContractor,
         isDesigner: values.isDesigner,
         isSupplier: values.isSupplier,
+        isPlantSupplier: values.isPlantSupplier,
       };
 
       updateDoc(docRef, updates)
@@ -132,12 +136,17 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
 
             <div className="space-y-3">
               <FormLabel>Contact Categories</FormLabel>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {['isSubContractor', 'isDesigner', 'isSupplier'].map((cat) => (
-                  <FormField key={cat} control={form.control} name={cat as any} render={({ field }) => (
-                    <FormItem className="flex items-center space-x-3 space-y-0 rounded-md border p-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {[
+                  { key: 'isSubContractor', label: 'Sub-contractor' },
+                  { key: 'isDesigner', label: 'Designer' },
+                  { key: 'isSupplier', label: 'Material Supplier' },
+                  { key: 'isPlantSupplier', label: 'Plant Hire Supplier' },
+                ].map((cat) => (
+                  <FormField key={cat.key} control={form.control} name={cat.key as any} render={({ field }) => (
+                    <FormItem className={cn("flex items-center space-x-3 space-y-0 rounded-md border p-3", cat.key === 'isPlantSupplier' && field.value && "border-primary/20 bg-primary/5")}>
                       <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                      <FormLabel className="cursor-pointer text-xs capitalize">{cat.replace('is', '').replace('Contractor', '-contractor')}</FormLabel>
+                      <FormLabel className={cn("cursor-pointer text-xs", cat.key === 'isPlantSupplier' && field.value && "font-bold text-primary")}>{cat.label}</FormLabel>
                     </FormItem>
                   )} />
                 ))}

@@ -1,4 +1,3 @@
-
 export type Area = {
   id: string;
   name: string;
@@ -137,6 +136,7 @@ export type SubContractor = {
   isSubContractor?: boolean;
   isDesigner?: boolean;
   isSupplier?: boolean;
+  isPlantSupplier?: boolean;
 };
 
 export type ChecklistItemStatus = 'pending' | 'yes' | 'no' | 'na';
@@ -268,12 +268,8 @@ export type PermitTemplate = {
 export type PlantStatus = 'scheduled' | 'on-hire' | 'off-hired';
 export type PlantRateUnit = 'daily' | 'weekly' | 'monthly';
 
-export type PlantOrder = {
+export type PlantOrderItem = {
   id: string;
-  reference: string;
-  projectId: string;
-  supplierId: string;
-  supplierName: string;
   description: string;
   onHireDate: string;
   anticipatedOffHireDate: string;
@@ -281,6 +277,17 @@ export type PlantOrder = {
   rate: number;
   rateUnit: PlantRateUnit;
   status: PlantStatus;
+};
+
+export type PlantOrder = {
+  id: string;
+  reference: string;
+  projectId: string;
+  supplierId: string;
+  supplierName: string;
+  description: string;
+  items: PlantOrderItem[];
+  status: PlantStatus; // Summary status (e.g. 'on-hire' if any item is on hire)
   createdAt: string;
   createdByEmail: string;
   notes?: string;

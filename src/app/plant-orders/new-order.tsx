@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -23,25 +22,25 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling } from 'lucide-react';
-import type { Project, SubContractor, DistributionUser, PlantOrder } from '@/lib/types';
-import { useFirestore, useMemoFirebase } from '@/firebase';
+import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Pencil, Calculator } from 'lucide-react';
+import type { Project, SubContractor, DistributionUser, PlantOrder, PlantOrderItem, PlantRateUnit } from '@/lib/types';
+import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { addWeeks } from 'date-fns';
+import { VoiceInput } from '@/components/voice-input';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 const NewPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
-  description: z.string().min(3, 'Equipment description is required.'),
-  onHireDate: z.string().min(1, 'On-hire date is required.'),
-  anticipatedOffHireDate: z.string().min(1, 'Anticipated off-hire date is required.'),
-  rate: z.coerce.number().min(0, 'Rate must be positive.'),
-  rateUnit: z.enum(['daily', 'weekly', 'monthly']),
+  description: z.string().min(3, 'Order description is required.'),
   notes: z.string().optional(),
 });
 
@@ -58,16 +57,22 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
+  // Plant Items State
+  const [orderItems, setOrderItems] = useState<Omit<PlantOrderItem, 'id'>[]>([]);
+  
+  // Pending Item State
+  const [pendingDescription, setPendingDescription] = useState('');
+  const [pendingOnHireDate, setPendingOnHireDate] = useState(new Date().toISOString().split('T')[0]);
+  const [pendingOffHireDate, setPendingOffHireDate] = useState(addWeeks(new Date(), 1).toISOString().split('T')[0]);
+  const [pendingRate, setPendingRate] = useState<number | string>(0);
+  const [pendingRateUnit, setPendingRateUnit] = useState<PlantRateUnit>('weekly');
+
   const form = useForm<NewPlantOrderFormValues>({
     resolver: zodResolver(NewPlantOrderSchema),
     defaultValues: {
       projectId: '',
       supplierId: '',
       description: '',
-      onHireDate: new Date().toISOString().slice(0, 16),
-      anticipatedOffHireDate: addWeeks(new Date(), 1).toISOString().slice(0, 16),
-      rate: 0,
-      rateUnit: 'weekly',
       notes: '',
     },
   });
@@ -75,15 +80,41 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
   
-  const allSuppliers = useMemo(() => subContractors.filter(s => !!s.isSupplier), [subContractors]);
+  // Filter for ONLY Plant Suppliers
+  const plantSuppliers = useMemo(() => subContractors.filter(s => !!s.isPlantSupplier), [subContractors]);
+
+  const handleAddItem = () => {
+    const rate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
+    if (!pendingDescription || isNaN(rate)) return;
+
+    setOrderItems([...orderItems, {
+      description: pendingDescription,
+      onHireDate: pendingOnHireDate,
+      anticipatedOffHireDate: pendingOffHireDate,
+      actualOffHireDate: null,
+      rate: rate,
+      rateUnit: pendingRateUnit,
+      status: 'scheduled'
+    }]);
+
+    setPendingDescription('');
+    setPendingRate(0);
+  };
+
+  const removeItem = (idx: number) => setOrderItems(orderItems.filter((_, i) => i !== idx));
 
   const onSubmit = (values: NewPlantOrderFormValues) => {
+    if (orderItems.length === 0) {
+      toast({ title: 'No items', description: 'Add at least one piece of plant to the order.', variant: 'destructive' });
+      return;
+    }
+
     startTransition(async () => {
       try {
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const existingRefs = allOrders.map(o => ({ reference: o.reference, projectId: o.projectId }));
         const reference = getNextReference(existingRefs, values.projectId, 'PL', initials);
-        const supplier = allSuppliers.find(s => s.id === values.supplierId);
+        const supplier = plantSuppliers.find(s => s.id === values.supplierId);
 
         const orderData: Omit<PlantOrder, 'id'> = {
           reference,
@@ -91,11 +122,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
           supplierId: values.supplierId,
           supplierName: supplier?.name || 'Unknown',
           description: values.description,
-          onHireDate: new Date(values.onHireDate).toISOString(),
-          anticipatedOffHireDate: new Date(values.anticipatedOffHireDate).toISOString(),
-          actualOffHireDate: null,
-          rate: values.rate,
-          rateUnit: values.rateUnit,
+          items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
           status: 'scheduled',
           createdAt: new Date().toISOString(),
           createdByEmail: currentUser.email.toLowerCase().trim(),
@@ -105,7 +132,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
         const colRef = collection(db, 'plant-orders');
         await addDoc(colRef, orderData);
         
-        toast({ title: 'Success', description: 'Plant order recorded.' });
+        toast({ title: 'Success', description: 'Plant hire order recorded.' });
         setOpen(false);
       } catch (err) {
         console.error(err);
@@ -115,7 +142,10 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
   };
 
   useEffect(() => {
-    if (!open) form.reset();
+    if (!open) {
+      setOrderItems([]);
+      form.reset();
+    }
   }, [open, form]);
 
   return (
@@ -126,7 +156,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
           Schedule Plant Hire
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Plant Order</DialogTitle>
           <DialogDescription>Schedule construction equipment for delivery to site.</DialogDescription>
@@ -139,40 +169,74 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
                 <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="supplierId" render={({ field }) => (
-                <FormItem><FormLabel>Supplier</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger></FormControl><SelectContent>{allSuppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                <FormItem><FormLabel>Plant Supplier</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger></FormControl><SelectContent>{plantSuppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
               )} />
             </div>
 
             <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><FormLabel>Plant / Equipment Description</FormLabel><FormControl><Input placeholder="e.g. 3 Tonne Excavator" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem><FormLabel>Hire Contract Description</FormLabel><FormControl><Input placeholder="e.g. Groundworks Phase 1 Equipment" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="onHireDate" render={({ field }) => (
-                <FormItem><FormLabel>On-Hire Date</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl></FormItem>
-              )} />
-              <FormField control={form.control} name="anticipatedOffHireDate" render={({ field }) => (
-                <FormItem><FormLabel>Anticipated Off-Hire</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl></FormItem>
-              )} />
-            </div>
+            <Separator />
 
-            <div className="bg-muted/30 p-4 rounded-lg border flex flex-col md:flex-row gap-4 items-end">
-                <FormField control={form.control} name="rate" render={({ field }) => (
-                    <FormItem className="flex-1"><FormLabel>Hire Rate (£)</FormLabel><FormControl><div className="relative"><PoundSterling className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-9" {...field} /></div></FormControl></FormItem>
-                )} />
-                <FormField control={form.control} name="rateUnit" render={({ field }) => (
-                    <FormItem className="w-full md:w-40"><FormLabel>Per</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="daily">Day</SelectItem><SelectItem value="weekly">Week</SelectItem><SelectItem value="monthly">Month</SelectItem></SelectContent></Select></FormItem>
-                )} />
+            <div className="space-y-4">
+              <FormLabel className="text-base font-bold text-primary">Plant Items</FormLabel>
+              
+              <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Plant / Equipment Details</Label>
+                    <VoiceInput onResult={setPendingDescription} />
+                  </div>
+                  <Input placeholder="e.g. 3 Tonne Excavator" value={pendingDescription} onChange={e => setPendingDescription(e.target.value)} className="bg-background" />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2"><Label className="text-xs">On-Hire Date</Label><Input type="date" value={pendingOnHireDate} onChange={e => setPendingOnHireDate(e.target.value)} className="bg-background" /></div>
+                  <div className="space-y-2"><Label className="text-xs">Expected Off-Hire</Label><Input type="date" value={pendingOffHireDate} onChange={e => setPendingOffHireDate(e.target.value)} className="bg-background" /></div>
+                </div>
+
+                <div className="bg-background/50 p-3 rounded border flex flex-col md:flex-row gap-4 items-end">
+                    <div className="flex-1 space-y-2">
+                        <Label className="text-xs">Rate (£)</Label>
+                        <div className="relative"><PoundSterling className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-9 h-9" value={pendingRate} onChange={e => setPendingRate(e.target.value)} /></div>
+                    </div>
+                    <div className="w-full md:w-40 space-y-2">
+                        <Label className="text-xs">Per</Label>
+                        <Select value={pendingRateUnit} onValueChange={(v: any) => setPendingRateUnit(v)}>
+                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectContent><SelectItem value="daily">Day</SelectItem><SelectItem value="weekly">Week</SelectItem><SelectItem value="monthly">Month</SelectItem></SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                
+                <Button type="button" onClick={handleAddItem} disabled={!pendingDescription} className="w-full h-10"><Plus className="h-4 w-4 mr-2" /> Add Item to Order</Button>
+              </div>
+
+              <div className="space-y-2">
+                {orderItems.map((item, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 rounded border bg-background group shadow-sm">
+                    <div className="flex-1 min-w-0 pr-4">
+                      <p className="text-sm font-bold text-primary truncate">{item.description}</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {item.onHireDate} &rarr; {item.anticipatedOffHireDate}</span>
+                        <span className="font-bold text-primary">£{item.rate.toFixed(2)} / {item.rateUnit[0]}</span>
+                      </div>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <FormField control={form.control} name="notes" render={({ field }) => (
-              <FormItem><FormLabel>Hire Notes / Requirements</FormLabel><FormControl><Textarea placeholder="e.g. Include quick hitch and bucket set..." {...field} /></FormControl></FormItem>
+              <FormItem><FormLabel>Hire Notes / Site Requirements</FormLabel><FormControl><Textarea placeholder="e.g. Delivery via site entrance B..." {...field} /></FormControl></FormItem>
             )} />
 
             <DialogFooter>
               <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save Order
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                Confirm Plant Order
               </Button>
             </DialogFooter>
           </form>

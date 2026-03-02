@@ -28,8 +28,9 @@ const AddContactSchema = z.object({
   isSubContractor: z.boolean().default(false),
   isDesigner: z.boolean().default(false),
   isSupplier: z.boolean().default(false),
-}).refine(data => data.isSubContractor || data.isDesigner || data.isSupplier, {
-  message: "Select at least one category (Sub-contractor, Designer, or Supplier)",
+  isPlantSupplier: z.boolean().default(false),
+}).refine(data => data.isSubContractor || data.isDesigner || data.isSupplier || data.isPlantSupplier, {
+  message: "Select at least one category (Sub-contractor, Designer, Supplier, or Plant Supplier)",
   path: ["isSubContractor"]
 });
 
@@ -48,6 +49,7 @@ export function AddSubcontractorForm() {
       isSubContractor: true,
       isDesigner: false,
       isSupplier: false,
+      isPlantSupplier: false,
     },
   });
 
@@ -100,7 +102,7 @@ export function AddSubcontractorForm() {
         
         <div className="space-y-3">
           <FormLabel>Contact Categories</FormLabel>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField
               control={form.control}
               name="isSubContractor"
@@ -147,7 +149,24 @@ export function AddSubcontractorForm() {
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel className="cursor-pointer text-xs">Supplier</FormLabel>
+                    <FormLabel className="cursor-pointer text-xs">Material Supplier</FormLabel>
+                  </div>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isPlantSupplier"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border-2 border-primary/20 bg-primary/5 p-3">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="cursor-pointer text-xs font-bold text-primary">Plant Hire Supplier</FormLabel>
                   </div>
                 </FormItem>
               )}

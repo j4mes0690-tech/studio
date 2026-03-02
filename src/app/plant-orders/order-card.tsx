@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import type { PlantOrder, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,11 +14,12 @@ import {
   HardHat,
   PoundSterling,
   Power,
-  PowerOff
+  PowerOff,
+  ChevronDown
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -35,6 +35,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { EditPlantOrderDialog } from './edit-order';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export function OrderCard({ 
   order, 
@@ -56,25 +57,7 @@ export function OrderCard({
   const [isPending, startTransition] = useTransition();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-
-  const isOffHired = order.status === 'off-hired';
-  const isOnHire = order.status === 'on-hire';
-
-  const handleToggleHire = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    startTransition(async () => {
-      try {
-        const docRef = doc(db, 'plant-orders', order.id);
-        const newStatus = isOnHire ? 'off-hired' : 'on-hire';
-        const updates: any = { status: newStatus };
-        if (newStatus === 'off-hired') updates.actualOffHireDate = new Date().toISOString();
-        await updateDoc(docRef, updates);
-        toast({ title: 'Status Updated', description: `Order is now ${newStatus}.` });
-      } catch (err) {
-        toast({ title: 'Error', description: 'Failed to update status.', variant: 'destructive' });
-      }
-    });
-  };
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -102,7 +85,7 @@ export function OrderCard({
       reportElement.innerHTML = `
         <div style="border-bottom: 3px solid #336AB6; padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
           <div>
-            <h1 style="margin: 0; color: #336AB6; font-size: 28px; letter-spacing: -1px;">PLANT HIRE RECORD</h1>
+            <h1 style="margin: 0; color: #336AB6; font-size: 28px; letter-spacing: -1px;">PLANT HIRE SUMMARY</h1>
             <p style="margin: 5px 0 0 0; color: #1e293b; font-size: 18px; font-weight: bold;">${order.description}</p>
             <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Ref: ${order.reference}</p>
           </div>
@@ -122,38 +105,34 @@ export function OrderCard({
           </div>
         </div>
 
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px;">
-          <h2 style="margin: 0 0 20px 0; font-size: 12px; color: #336AB6; text-transform: uppercase; letter-spacing: 1px;">Hire Period & Commercials</h2>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-            <div>
-                <p style="margin: 0; font-size: 10px; color: #64748b; text-transform: uppercase;">On-Hire Date</p>
-                <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: bold;">${new Date(order.onHireDate).toLocaleString()}</p>
-            </div>
-            <div>
-                <p style="margin: 0; font-size: 10px; color: #64748b; text-transform: uppercase;">Anticipated Off-Hire</p>
-                <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: bold;">${new Date(order.anticipatedOffHireDate).toLocaleString()}</p>
-            </div>
-            <div>
-                <p style="margin: 0; font-size: 10px; color: #64748b; text-transform: uppercase;">Actual Off-Hire</p>
-                <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: bold; color: #dc2626;">${order.actualOffHireDate ? new Date(order.actualOffHireDate).toLocaleString() : 'HIRE ACTIVE'}</p>
-            </div>
-            <div>
-                <p style="margin: 0; font-size: 10px; color: #64748b; text-transform: uppercase;">Agreed Rate</p>
-                <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: bold;">£${order.rate.toFixed(2)} / ${order.rateUnit}</p>
-            </div>
-          </div>
-        </div>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #336AB6;">
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b;">Description</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b;">On-Hire</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b;">Off-Hire</th>
+              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b;">Rate</th>
+              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b;">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(order.items || []).map(item => `
+              <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 12px; font-size: 12px; font-weight: bold;">${item.description}</td>
+                <td style="padding: 12px; font-size: 11px;">${item.onHireDate}</td>
+                <td style="padding: 12px; font-size: 11px;">${item.actualOffHireDate || item.anticipatedOffHireDate}</td>
+                <td style="padding: 12px; font-size: 11px; text-align: right;">£${item.rate.toFixed(2)} / ${item.rateUnit[0]}</td>
+                <td style="padding: 12px; font-size: 10px; text-align: right; text-transform: uppercase; font-weight: bold;">${item.status}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
 
-        ${order.notes ? `
-          <div style="margin-bottom: 40px;">
-            <p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Special Instructions</p>
-            <p style="margin: 0; font-size: 12px; color: #475569; line-height: 1.6;">${order.notes}</p>
-          </div>
-        ` : ''}
+        ${order.notes ? `<div style="margin-bottom: 40px;"><p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Notes</p><p style="margin: 0; font-size: 12px; color: #475569; line-height: 1.6;">${order.notes}</p></div>` : ''}
 
         <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-          <p style="font-size: 10px; color: #94a3b8;">Record Created: ${new Date(order.createdAt).toLocaleString()}</p>
-          <p style="font-size: 10px; color: #94a3b8;">Printed by: ${currentUser.name}</p>
+          <p style="font-size: 10px; color: #94a3b8;">Printed: ${new Date().toLocaleString()}</p>
+          <p style="font-size: 10px; color: #94a3b8;">Issued by: ${order.createdByEmail}</p>
         </div>
       `;
 
@@ -175,12 +154,18 @@ export function OrderCard({
     }
   };
 
+  const itemSummary = useMemo(() => {
+    const total = order.items?.length || 0;
+    const active = order.items?.filter(i => i.status === 'on-hire').length || 0;
+    return { total, active };
+  }, [order.items]);
+
   return (
     <>
       <Card 
         className={cn(
           "hover:border-primary transition-all shadow-sm group cursor-pointer border-l-4",
-          isOffHired ? "border-l-muted opacity-75" : isOnHire ? "border-l-green-500 bg-green-50/5" : "border-l-primary"
+          order.status === 'off-hired' ? "border-l-muted opacity-75" : order.status === 'on-hire' ? "border-l-green-500 bg-green-50/5" : "border-l-primary"
         )}
         onClick={() => setIsEditDialogOpen(true)}
       >
@@ -206,21 +191,6 @@ export function OrderCard({
                     order.status === 'off-hired' ? 'bg-muted' : 'bg-primary/10 text-primary'
                 )}>{order.status}</Badge>
 
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className={cn("h-8 w-8", isOnHire ? "text-destructive" : "text-green-600")}
-                      onClick={handleToggleHire}
-                      disabled={isPending}
-                    >
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : isOnHire ? <PowerOff className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>{isOnHire ? 'Off-Hire Equipment' : 'Set to On-Hire'}</p></TooltipContent>
-                </Tooltip>
-                
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
@@ -252,27 +222,53 @@ export function OrderCard({
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-muted/20 p-3 rounded-lg border border-dashed text-[11px]">
-                <div className="space-y-1">
-                    <p className="font-bold text-muted-foreground uppercase tracking-widest">On-Hire</p>
-                    <p className="font-medium flex items-center gap-1"><Calendar className="h-3 w-3" /> <ClientDate date={order.onHireDate} format="date" /></p>
+            <div className="flex flex-col sm:flex-row justify-between items-end gap-4 bg-muted/20 p-3 rounded-lg border border-dashed">
+                <div className="space-y-1 w-full sm:w-auto">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Order Summary</p>
+                    <p className="text-sm font-medium">{itemSummary.total} plant items included</p>
+                    <div className="flex gap-1 flex-wrap">
+                        {order.items?.slice(0, 3).map((item, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-[9px] font-normal">{item.description}</Badge>
+                        ))}
+                        {itemSummary.total > 3 && <Badge variant="secondary" className="text-[9px] font-normal">+{itemSummary.total - 3} more</Badge>}
+                    </div>
                 </div>
-                <div className="space-y-1">
-                    <p className="font-bold text-muted-foreground uppercase tracking-widest">Expected Off</p>
-                    <p className="font-medium flex items-center gap-1"><Calendar className="h-3 w-3" /> <ClientDate date={order.anticipatedOffHireDate} format="date" /></p>
-                </div>
-                <div className="space-y-1">
-                    <p className="font-bold text-muted-foreground uppercase tracking-widest">Actual Off</p>
-                    <p className={cn("font-medium", order.actualOffHireDate ? "text-foreground" : "text-muted-foreground italic")}>
-                        {order.actualOffHireDate ? <ClientDate date={order.actualOffHireDate} format="date" /> : 'Active'}
-                    </p>
-                </div>
-                <div className="space-y-1 text-right">
-                    <p className="font-bold text-muted-foreground uppercase tracking-widest">Rate</p>
-                    <p className="font-bold text-primary flex items-center justify-end gap-1"><PoundSterling className="h-3 w-3" />{order.rate.toFixed(2)} / {order.rateUnit[0]}</p>
+                <div className="text-right">
+                    <Badge variant="outline" className={cn("text-[9px] font-bold uppercase", itemSummary.active > 0 ? "text-green-600 bg-green-50" : "text-muted-foreground")}>
+                        {itemSummary.active} Items On-Hire
+                    </Badge>
                 </div>
             </div>
-            {order.notes && <p className="text-xs text-muted-foreground line-clamp-1 italic">"{order.notes}"</p>}
+
+            <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+              <CollapsibleTrigger asChild onClick={e => e.stopPropagation()}>
+                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground">
+                  <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
+                  {isExpanded ? "Hide Line Details" : "View Individual Item Hires"}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="pt-2">
+                <div className="space-y-2">
+                  {(order.items || []).map((item, i) => (
+                    <div key={i} className="flex items-start justify-between p-2 rounded border text-[11px] bg-muted/5">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <p className="font-bold text-primary truncate">{item.description}</p>
+                        <p className="text-muted-foreground flex items-center gap-2">
+                            <Clock className="h-3 w-3" /> {item.onHireDate} &rarr; {item.actualOffHireDate || item.anticipatedOffHireDate}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-bold">£{item.rate.toFixed(2)} / {item.rateUnit[0]}</p>
+                        <Badge variant="outline" className={cn(
+                            "text-[8px] h-4 leading-none",
+                            item.status === 'on-hire' ? "text-green-600 border-green-200" : "text-muted-foreground"
+                        )}>{item.status}</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         </CardContent>
       </Card>

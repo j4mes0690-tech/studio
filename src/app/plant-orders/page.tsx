@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -50,6 +49,9 @@ function PlantOrdersContent() {
 
   const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
   const { data: allSubContractors } = useCollection<SubContractor>(subsQuery);
+
+  // Filter for Plant Suppliers
+  const plantSuppliers = useMemo(() => (allSubContractors || []).filter(s => !!s.isPlantSupplier), [allSubContractors]);
 
   const ordersQuery = useMemoFirebase(() => (db ? query(collection(db, 'plant-orders'), orderBy('createdAt', 'desc')) : null), [db]);
   const { data: allOrders, isLoading: ordersLoading } = useCollection<PlantOrder>(ordersQuery);
