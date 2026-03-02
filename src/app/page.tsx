@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Header } from '@/components/layout/header';
-import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck, MessageCircle, ShoppingCart, FileCheck } from 'lucide-react';
+import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck, MessageCircle, ShoppingCart, FileCheck, Truck } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +31,19 @@ export default async function Dashboard() {
               <CardContent className="p-0 mt-2">
                 <p className="text-muted-foreground">
                   Create and manage purchase orders for project materials.
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/plant-orders">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
+              <CardHeader className="p-0">
+                <Truck className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">Plant Orders</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 mt-2">
+                <p className="text-muted-foreground">
+                  Track equipment hire, off-hire dates, and commercial rates.
                 </p>
               </CardContent>
             </Card>

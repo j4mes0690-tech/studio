@@ -262,3 +262,26 @@ export type PermitTemplate = {
   sections: TemplateSection[];
   createdAt: string;
 };
+
+// --- PLANT MODULE TYPES ---
+
+export type PlantStatus = 'scheduled' | 'on-hire' | 'off-hired';
+export type PlantRateUnit = 'daily' | 'weekly' | 'monthly';
+
+export type PlantOrder = {
+  id: string;
+  reference: string;
+  projectId: string;
+  supplierId: string;
+  supplierName: string;
+  description: string;
+  onHireDate: string;
+  anticipatedOffHireDate: string;
+  actualOffHireDate: string | null;
+  rate: number;
+  rateUnit: PlantRateUnit;
+  status: PlantStatus;
+  createdAt: string;
+  createdByEmail: string;
+  notes?: string;
+};

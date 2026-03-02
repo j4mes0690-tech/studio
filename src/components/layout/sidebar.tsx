@@ -25,12 +25,14 @@ import {
   MessageCircle,
   ShoppingCart,
   FileCheck,
+  Truck,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
   { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart },
+  { href: '/plant-orders', label: 'Plant Orders', icon: Truck },
   { href: '/permits', label: 'Permits to Work', icon: FileCheck },
   { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle },
   { href: '/instructions', label: 'Site Instructions', icon: MessageSquare },
