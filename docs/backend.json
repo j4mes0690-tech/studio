@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -59,7 +58,8 @@
         "email": { "type": "string", "format": "email" },
         "isSubContractor": { "type": "boolean" },
         "isDesigner": { "type": "boolean" },
-        "isSupplier": { "type": "boolean" }
+        "isSupplier": { "type": "boolean" },
+        "isPlantSupplier": { "type": "boolean" }
       },
       "required": ["id", "name", "email"]
     },
@@ -67,7 +67,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "PlantOrder",
       "type": "object",
-      "description": "Represents a hire order for construction plant or machinery.",
+      "description": "Represents a hire contract for construction plant or machinery.",
       "properties": {
         "id": { "type": "string" },
         "reference": { "type": "string" },
@@ -75,16 +75,28 @@
         "supplierId": { "type": "string" },
         "supplierName": { "type": "string" },
         "description": { "type": "string" },
-        "onHireDate": { "type": "string", "format": "date-time" },
-        "anticipatedOffHireDate": { "type": "string", "format": "date-time" },
-        "actualOffHireDate": { "type": ["string", "null"], "format": "date-time" },
-        "rate": { "type": "number" },
-        "rateUnit": { "type": "string", "enum": ["daily", "weekly", "monthly"] },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "description": { "type": "string" },
+              "onHireDate": { "type": "string", "format": "date" },
+              "anticipatedOffHireDate": { "type": "string", "format": "date" },
+              "actualOffHireDate": { "type": ["string", "null"], "format": "date" },
+              "rate": { "type": "number" },
+              "rateUnit": { "type": "string", "enum": ["daily", "weekly", "monthly", "item"] },
+              "status": { "type": "string", "enum": ["scheduled", "on-hire", "off-hired"] }
+            }
+          }
+        },
         "status": { "type": "string", "enum": ["scheduled", "on-hire", "off-hired"] },
         "createdAt": { "type": "string", "format": "date-time" },
-        "createdByEmail": { "type": "string" }
+        "createdByEmail": { "type": "string" },
+        "notes": { "type": "string" }
       },
-      "required": ["id", "reference", "projectId", "supplierId", "description", "onHireDate", "rate", "status"]
+      "required": ["id", "reference", "projectId", "supplierId", "description", "status"]
     }
   },
   "auth": {

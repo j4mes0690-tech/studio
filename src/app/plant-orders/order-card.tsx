@@ -121,7 +121,7 @@ export function OrderCard({
                 <td style="padding: 12px; font-size: 12px; font-weight: bold;">${item.description}</td>
                 <td style="padding: 12px; font-size: 11px;">${item.onHireDate}</td>
                 <td style="padding: 12px; font-size: 11px;">${item.actualOffHireDate || item.anticipatedOffHireDate}</td>
-                <td style="padding: 12px; font-size: 11px; text-align: right;">£${item.rate.toFixed(2)} / ${item.rateUnit[0]}</td>
+                <td style="padding: 12px; font-size: 11px; text-align: right;">£${item.rate.toFixed(2)} / ${item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}</td>
                 <td style="padding: 12px; font-size: 10px; text-align: right; text-transform: uppercase; font-weight: bold;">${item.status}</td>
               </tr>
             `).join('')}
@@ -258,7 +258,7 @@ export function OrderCard({
                         </p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="font-bold">£{item.rate.toFixed(2)} / {item.rateUnit[0]}</p>
+                        <p className="font-bold">£{item.rate.toFixed(2)} / {item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}</p>
                         <Badge variant="outline" className={cn(
                             "text-[8px] h-4 leading-none",
                             item.status === 'on-hire' ? "text-green-600 border-green-200" : "text-muted-foreground"

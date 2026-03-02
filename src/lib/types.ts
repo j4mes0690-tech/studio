@@ -266,7 +266,7 @@ export type PermitTemplate = {
 // --- PLANT MODULE TYPES ---
 
 export type PlantStatus = 'scheduled' | 'on-hire' | 'off-hired';
-export type PlantRateUnit = 'daily' | 'weekly' | 'monthly';
+export type PlantRateUnit = 'daily' | 'weekly' | 'monthly' | 'item';
 
 export type PlantOrderItem = {
   id: string;

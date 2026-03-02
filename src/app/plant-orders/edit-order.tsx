@@ -191,7 +191,12 @@ export function EditPlantOrderDialog({
                         <Label className="text-xs">Per</Label>
                         <Select value={pendingRateUnit} onValueChange={(v: any) => setPendingRateUnit(v)}>
                             <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                            <SelectContent><SelectItem value="daily">Day</SelectItem><SelectItem value="weekly">Week</SelectItem><SelectItem value="monthly">Month</SelectItem></SelectContent>
+                            <SelectContent>
+                                <SelectItem value="daily">Day</SelectItem>
+                                <SelectItem value="weekly">Week</SelectItem>
+                                <SelectItem value="monthly">Month</SelectItem>
+                                <SelectItem value="item">Item</SelectItem>
+                            </SelectContent>
                         </Select>
                     </div>
                   </div>
@@ -209,7 +214,7 @@ export function EditPlantOrderDialog({
                     <div className="flex justify-between items-start">
                       <div className="flex-1 min-w-0 pr-4">
                         <p className="text-sm font-bold text-primary truncate">{item.description}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">Hire: {item.onHireDate} &rarr; {item.actualOffHireDate || item.anticipatedOffHireDate} | £{item.rate.toFixed(2)}/{item.rateUnit[0]}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Hire: {item.onHireDate} &rarr; {item.actualOffHireDate || item.anticipatedOffHireDate} | £{item.rate.toFixed(2)}/{item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}</p>
                       </div>
                       <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
