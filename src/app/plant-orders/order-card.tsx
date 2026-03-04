@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
-import type { PlantOrder, Project, SubContractor, DistributionUser } from '@/lib/types';
+import type { PlantOrder, Project, SubContractor, DistributionUser, Photo } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,9 +35,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { EditPlantOrderDialog } from './edit-order';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
+import { EditPlantOrderDialog } from './edit-order';
+import { ImageLightbox } from '@/components/image-lightbox';
 
 export function OrderCard({ 
   order, 
@@ -60,6 +61,7 @@ export function OrderCard({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
   const isDraft = order.status === 'draft';
 
@@ -106,7 +108,7 @@ export function OrderCard({
       try {
         const docRef = doc(db, 'plant-orders', order.id);
         await updateDoc(docRef, { status: 'scheduled' });
-        toast({ title: 'Order Placed', description: 'Hire is now active in the system.' });
+        toast({ title: 'Order Committed', description: 'Hire is now active in the system.' });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to commit order.', variant: 'destructive' });
       }
@@ -248,6 +250,7 @@ export function OrderCard({
                       <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-600 hover:bg-orange-50" onClick={handleCommit} disabled={isPending}>
                           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                          <span className="sr-only">Place Order</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent><p>Place Order</p></TooltipContent>
@@ -259,7 +262,7 @@ export function OrderCard({
                       order.status === 'on-hire' ? 'bg-green-100 text-green-800' : 
                       order.status === 'off-hired' ? 'bg-muted text-muted-foreground' : 'bg-indigo-600 text-white'
                   )}>
-                    {order.status === 'scheduled' ? 'Order Placed' : order.status}
+                    {order.status === 'scheduled' ? 'Committed' : order.status}
                   </Badge>
                 )}
 
@@ -360,6 +363,8 @@ export function OrderCard({
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
       />
+
+      <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
   );
 }
