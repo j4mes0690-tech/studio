@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Users2, Loader2 } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Users2, Loader2, Save, Send } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -411,7 +411,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               <Button 
                 type="submit" 
                 variant="outline" 
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto h-12" 
                 disabled={isPending}
                 onClick={() => form.setValue('status', 'draft')}
               >
@@ -420,7 +420,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               </Button>
               <Button 
                 type="submit" 
-                className="w-full sm:flex-1" 
+                className="w-full sm:flex-1 h-12 text-lg font-bold" 
                 disabled={isPending}
                 onClick={() => form.setValue('status', 'issued')}
               >
