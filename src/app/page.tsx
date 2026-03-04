@@ -1,4 +1,3 @@
-
 import {
   Card,
   CardContent,
@@ -6,7 +5,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Header } from '@/components/layout/header';
-import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck, MessageCircle, ShoppingCart, FileCheck, Truck } from 'lucide-react';
+import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck, MessageCircle, ShoppingCart, FileCheck, Truck, Calculator } from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -46,10 +45,23 @@ export default async function Dashboard() {
                   Track equipment hire, off-hire dates, and commercial rates.
                 </p>
               </CardContent>
+            </Link>
+          </Link>
+          <Link href="/variations">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full border-primary/20 bg-primary/5">
+              <CardHeader className="p-0">
+                <Calculator className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">Variations</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 mt-2">
+                <p className="text-muted-foreground">
+                  Manage additions and omissions linked to instructions.
+                </p>
+              </CardContent>
             </Card>
           </Link>
           <Link href="/permits">
-            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full border-primary bg-primary/5">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
                 <FileCheck className="h-16 w-16 text-primary mb-4" />
                 <CardTitle className="text-2xl">Permits to Work</CardTitle>
@@ -83,19 +95,6 @@ export default async function Dashboard() {
               <CardContent className="p-0 mt-2">
                 <p className="text-muted-foreground">
                   Record and distribute instructions to trade partners.
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/information-requests">
-            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
-              <CardHeader className="p-0">
-                <HelpCircle className="h-16 w-16 text-primary mb-4" />
-                <CardTitle className="text-2xl">Info Requests</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 mt-2">
-                <p className="text-muted-foreground">
-                  Raise technical queries (RFI/CRFI) and track responses.
                 </p>
               </CardContent>
             </Card>

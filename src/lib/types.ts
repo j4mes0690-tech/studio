@@ -294,3 +294,35 @@ export type PlantOrder = {
   createdByEmail: string;
   notes?: string;
 };
+
+// --- VARIATIONS MODULE TYPES ---
+
+export type VariationItemType = 'addition' | 'omission';
+
+export type VariationItem = {
+  id: string;
+  description: string;
+  type: VariationItemType;
+  quantity: number;
+  unit: string;
+  rate: number;
+  total: number;
+};
+
+export type VariationStatus = 'draft' | 'pending' | 'agreed' | 'rejected';
+
+export type Variation = {
+  id: string;
+  reference: string;
+  projectId: string;
+  title: string;
+  description: string;
+  clientInstructionId?: string | null;
+  siteInstructionId?: string | null;
+  items: VariationItem[];
+  totalAmount: number;
+  status: VariationStatus;
+  createdAt: string;
+  createdByEmail: string;
+  notes?: string;
+};

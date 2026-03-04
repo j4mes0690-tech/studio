@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -26,6 +25,7 @@ import {
   ShoppingCart,
   FileCheck,
   Truck,
+  Calculator,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
@@ -33,6 +33,7 @@ const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
   { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart },
   { href: '/plant-orders', label: 'Plant Orders', icon: Truck },
+  { href: '/variations', label: 'Variations', icon: Calculator },
   { href: '/permits', label: 'Permits to Work', icon: FileCheck },
   { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle },
   { href: '/instructions', label: 'Site Instructions', icon: MessageSquare },

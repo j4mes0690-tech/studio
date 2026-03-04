@@ -63,40 +63,19 @@
       },
       "required": ["id", "name", "email"]
     },
-    "PlantOrder": {
+    "Variation": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PlantOrder",
+      "title": "Variation",
       "type": "object",
-      "description": "Represents a hire contract for construction plant or machinery.",
+      "description": "Represents a financial variation or cost change on a project.",
       "properties": {
         "id": { "type": "string" },
         "reference": { "type": "string" },
         "projectId": { "type": "string" },
-        "supplierId": { "type": "string" },
-        "supplierName": { "type": "string" },
-        "description": { "type": "string" },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "string" },
-              "description": { "type": "string" },
-              "onHireDate": { "type": "string", "format": "date" },
-              "anticipatedOffHireDate": { "type": "string", "format": "date" },
-              "actualOffHireDate": { "type": ["string", "null"], "format": "date" },
-              "rate": { "type": "number" },
-              "rateUnit": { "type": "string", "enum": ["daily", "weekly", "monthly", "item"] },
-              "status": { "type": "string", "enum": ["scheduled", "on-hire", "off-hired"] }
-            }
-          }
-        },
-        "status": { "type": "string", "enum": ["scheduled", "on-hire", "off-hired"] },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "createdByEmail": { "type": "string" },
-        "notes": { "type": "string" }
-      },
-      "required": ["id", "reference", "projectId", "supplierId", "description", "status"]
+        "title": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["draft", "pending", "agreed", "rejected"] }
+      }
     }
   },
   "auth": {
@@ -107,7 +86,13 @@
       { "path": "/users/{userId}", "definition": { "entityName": "User" } },
       { "path": "/projects/{projectId}", "definition": { "entityName": "Project" } },
       { "path": "/sub-contractors/{subId}", "definition": { "entityName": "SubContractor" } },
-      { "path": "/plant-orders/{orderId}", "definition": { "entityName": "PlantOrder" } }
+      { "path": "/client-instructions/{id}", "definition": { "entityName": "ClientInstruction" } },
+      { "path": "/instructions/{id}", "definition": { "entityName": "Instruction" } },
+      { "path": "/information-requests/{id}", "definition": { "entityName": "InformationRequest" } },
+      { "path": "/quality-checklists/{id}", "definition": { "entityName": "QualityChecklist" } },
+      { "path": "/purchase-orders/{id}", "definition": { "entityName": "PurchaseOrder" } },
+      { "path": "/plant-orders/{id}", "definition": { "entityName": "PlantOrder" } },
+      { "path": "/variations/{id}", "definition": { "entityName": "Variation" } }
     ]
   }
 }
