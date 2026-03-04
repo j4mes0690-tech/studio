@@ -108,7 +108,7 @@ export function OrderCard({
       try {
         const docRef = doc(db, 'plant-orders', order.id);
         await updateDoc(docRef, { status: 'scheduled' });
-        toast({ title: 'Order Committed', description: 'Hire is now active in the system.' });
+        toast({ title: 'Order Placed', description: 'Hire is now active in the system.' });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to commit order.', variant: 'destructive' });
       }
@@ -262,7 +262,7 @@ export function OrderCard({
                       order.status === 'on-hire' ? 'bg-green-100 text-green-800' : 
                       order.status === 'off-hired' ? 'bg-muted text-muted-foreground' : 'bg-indigo-600 text-white'
                   )}>
-                    {order.status === 'scheduled' ? 'Committed' : order.status}
+                    {order.status === 'scheduled' ? 'On Hire' : order.status}
                   </Badge>
                 )}
 

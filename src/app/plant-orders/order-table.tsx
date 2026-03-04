@@ -133,7 +133,7 @@ function OrderTableRow({
       try {
         const docRef = doc(db, 'plant-orders', order.id);
         await updateDoc(docRef, { status: 'scheduled' });
-        toast({ title: 'Success', description: 'Order Committed.' });
+        toast({ title: 'Success', description: 'Order Placed.' });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to commit order.', variant: 'destructive' });
       }
@@ -157,7 +157,7 @@ function OrderTableRow({
             order.status === 'on-hire' ? "bg-green-100 text-green-800" : 
             order.status === 'off-hired' ? "bg-muted text-muted-foreground" : "bg-indigo-600 text-white"
           )}>
-            {order.status === 'scheduled' ? 'Committed' : order.status}
+            {order.status === 'scheduled' ? 'On Hire' : order.status}
           </Badge>
         </TableCell>
         <TableCell>
