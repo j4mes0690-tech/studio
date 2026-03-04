@@ -137,6 +137,8 @@ export function OrderCard({
       const html2canvas = (await import('html2canvas')).default;
 
       const reportElement = document.createElement('div');
+      reportElement.style.position = 'absolute';
+      reportElement.style.left = '-9999px';
       reportElement.style.padding = '50px';
       reportElement.style.width = '800px';
       reportElement.style.background = 'white';
@@ -181,7 +183,7 @@ export function OrderCard({
               <tr style="border-bottom: 1px solid #e2e8f0;">
                 <td style="padding: 12px; font-size: 12px; font-weight: bold;">${item.description}</td>
                 <td style="padding: 12px; font-size: 11px;">${item.onHireDate}</td>
-                <td style="padding: 12px; font-size: 11px;">${item.actualOffHireDate || item.anticipatedOffHireDate}</td>
+                <td style="padding: 12px; font-size: 11px;">${item.status === 'off-hired' ? (item.actualOffHireDate || '---') : item.anticipatedOffHireDate}</td>
                 <td style="padding: 12px; font-size: 11px; text-align: right;">£${item.rate.toFixed(2)} / ${item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}</td>
                 <td style="padding: 12px; font-size: 11px; text-align: right; font-weight: bold;">£${item.estimatedCost?.toFixed(2) || '0.00'}</td>
               </tr>

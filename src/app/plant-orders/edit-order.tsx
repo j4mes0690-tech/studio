@@ -171,14 +171,13 @@ export function EditPlantOrderDialog({
         const supplier = plantSuppliers.find(s => s.id === values.supplierId);
         const docRef = doc(db, 'plant-orders', order.id);
         
-        // Auto-determine overall status based on items
         let overallStatus = values.status;
         if (values.status !== 'draft') {
             const anyActive = orderItems.some(i => i.status !== 'off-hired');
             const allFinished = orderItems.length > 0 && orderItems.every(i => i.status === 'off-hired');
             
             if (allFinished) overallStatus = 'off-hired';
-            else if (anyActive) overallStatus = 'scheduled'; // Internally scheduled represents 'Active' display
+            else if (anyActive) overallStatus = 'scheduled'; 
             else overallStatus = 'scheduled';
         }
 

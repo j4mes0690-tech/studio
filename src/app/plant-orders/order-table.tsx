@@ -22,7 +22,8 @@ import {
   Loader2, 
   Clock,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  FileDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -98,6 +99,7 @@ function OrderTableRow({
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const isDraft = order.status === 'draft';
@@ -156,6 +158,98 @@ function OrderTableRow({
     });
   };
 
+  const generatePDF = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsGenerating(true);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const html2canvas = (await import('html2canvas')).default;
+
+      const reportElement = document.createElement('div');
+      reportElement.style.position = 'absolute';
+      reportElement.style.left = '-9999px';
+      reportElement.style.padding = '50px';
+      reportElement.style.width = '800px';
+      reportElement.style.background = 'white';
+      reportElement.style.color = 'black';
+      reportElement.style.fontFamily = 'sans-serif';
+
+      reportElement.innerHTML = `
+        <div style="border-bottom: 3px solid #336AB6; padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+          <div>
+            <h1 style="margin: 0; color: #336AB6; font-size: 28px; letter-spacing: -1px;">PLANT HIRE RECORD</h1>
+            <p style="margin: 5px 0 0 0; color: #1e293b; font-size: 18px; font-weight: bold;">${order.description}</p>
+            <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Ref: ${order.reference}</p>
+          </div>
+          <div style="text-align: right;">
+            <p style="margin: 0; font-size: 12px; color: #64748b; text-transform: uppercase;">Generated via SiteCommand</p>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 50px;">
+          <div>
+            <p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Supplier Details</p>
+            <p style="margin: 0; font-size: 16px; font-weight: bold;">${order.supplierName}</p>
+          </div>
+          <div>
+            <p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Project Allocation</p>
+            <p style="margin: 0; font-size: 14px;"><strong>Project:</strong> ${project?.name || 'Project'}</p>
+          </div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+          <thead>
+            <tr style="background: #f8fafc; border-bottom: 2px solid #336AB6;">
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b;">Description</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b;">On-Hire</th>
+              <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; color: #64748b;">Off-Hire</th>
+              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b;">Rate</th>
+              <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; color: #64748b;">Est. Cost</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(order.items || []).map(item => `
+              <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 12px; font-size: 12px; font-weight: bold;">${item.description}</td>
+                <td style="padding: 12px; font-size: 11px;">${item.onHireDate}</td>
+                <td style="padding: 12px; font-size: 11px;">${item.status === 'off-hired' ? (item.actualOffHireDate || '---') : item.anticipatedOffHireDate}</td>
+                <td style="padding: 12px; font-size: 11px; text-align: right;">£${item.rate.toFixed(2)} / ${item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}</td>
+                <td style="padding: 12px; font-size: 11px; text-align: right; font-weight: bold;">£${item.estimatedCost?.toFixed(2) || '0.00'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background: #f8fafc;">
+              <td colspan="4" style="padding: 15px; text-align: right; font-size: 14px; font-weight: bold; color: #336AB6;">ESTIMATED TOTAL (GBP)</td>
+              <td style="padding: 15px; text-align: right; font-size: 18px; font-weight: bold; color: #336AB6; border-top: 2px solid #336AB6;">£${order.totalAmount?.toFixed(2) || '0.00'}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+          <p style="font-size: 10px; color: #94a3b8;">Printed: ${new Date().toLocaleString()}</p>
+          <p style="font-size: 10px; color: #94a3b8;">Issued by: ${order.createdByEmail}</p>
+        </div>
+      `;
+
+      document.body.appendChild(reportElement);
+      const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      document.body.removeChild(reportElement);
+      pdf.save(`PLANT-${order.reference}.pdf`);
+      toast({ title: 'PDF Ready', description: 'Plant hire record exported.' });
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: 'Failed to generate PDF.', variant: 'destructive' });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const offHireDisplayDate = order.status === 'off-hired' ? latestActualOffHire : latestAnticipatedOffHire;
 
   return (
@@ -201,6 +295,16 @@ function OrderTableRow({
                   <TooltipContent><p>Activate Order</p></TooltipContent>
                 </Tooltip>
               )}
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
+                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                    <span className="sr-only">Download PDF</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Download PO as PDF</p></TooltipContent>
+              </Tooltip>
 
               <AlertDialog>
                 <TooltipProvider>
