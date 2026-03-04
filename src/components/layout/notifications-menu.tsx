@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +24,7 @@ import { ClientDate } from '@/components/client-date';
 
 export function NotificationsMenu({ userEmail }: { userEmail: string | null | undefined }) {
   const db = useFirestore();
+  const router = useRouter();
   const normalizedEmail = userEmail?.toLowerCase().trim() || '';
   const [isClearingAll, setIsClearingAll] = useState(false);
 
@@ -100,7 +101,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
             notifType: isAssignedToMe ? 'assignment' : 'response',
             label: isAssignedToMe ? 'RFI Assigned to you' : 'New RFI response',
             createdAt: lastMessage ? lastMessage.createdAt : request.createdAt,
-            url: `/information-requests?project=${request.projectId}`
+            url: `/information-requests/${request.id}`
           });
         }
       });
@@ -129,7 +130,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
             notifType: hasExternalUpdate ? 'response' : 'assignment',
             label: hasExternalUpdate ? 'New directive update' : 'New Client Directive',
             createdAt: lastMessage ? lastMessage.createdAt : ci.createdAt,
-            url: `/client-instructions?project=${ci.projectId}`
+            url: `/client-instructions/${ci.id}`
           });
         }
       });
@@ -234,50 +235,46 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
               {notifications.map((notif: any) => (
                 <DropdownMenuItem 
                   key={notif.id} 
-                  asChild 
-                  className="cursor-pointer p-3 relative group focus:bg-muted/50"
+                  onSelect={() => router.push(notif.url)}
+                  className="cursor-pointer p-3 relative group focus:bg-muted/50 flex gap-3 items-start pr-8"
                 >
-                  <div className="flex gap-3 items-start pr-8">
-                    <Link href={notif.url} className="flex-1 flex gap-3 items-start">
-                      <div className={cn(
-                        "mt-1 p-2 rounded-full",
-                        notif.notifType === 'assignment' ? 'bg-primary/10' : 'bg-accent/10'
-                      )}>
-                        {notif.collection === 'client-instructions' ? (
-                            <MessageCircle className={cn("h-4 w-4", notif.notifType === 'assignment' ? 'text-primary' : 'text-accent')} />
-                        ) : (
-                            notif.notifType === 'assignment' ? <HelpCircle className="h-4 w-4 text-primary" /> : <MessageSquareReply className="h-4 w-4 text-accent" />
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-1 overflow-hidden">
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase leading-none">{notif.label}</p>
-                        <p className="text-sm font-medium leading-tight line-clamp-2">
-                          {notif.description}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">
-                          <ClientDate date={notif.createdAt} />
-                        </p>
-                      </div>
-                    </Link>
-                    
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-2 top-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background hover:text-destructive"
-                      onClick={(e) => handleDismiss(e, notif.id, notif.collection)}
-                      title="Clear Notification"
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
+                  <div className={cn(
+                    "mt-1 p-2 rounded-full shrink-0",
+                    notif.notifType === 'assignment' ? 'bg-primary/10' : 'bg-accent/10'
+                  )}>
+                    {notif.collection === 'client-instructions' ? (
+                        <MessageCircle className={cn("h-4 w-4", notif.notifType === 'assignment' ? 'text-primary' : 'text-accent')} />
+                    ) : (
+                        notif.notifType === 'assignment' ? <HelpCircle className="h-4 w-4 text-primary" /> : <MessageSquareReply className="h-4 w-4 text-accent" />
+                    )}
                   </div>
+                  <div className="flex-1 space-y-1 overflow-hidden">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-none">{notif.label}</p>
+                    <p className="text-sm font-medium leading-tight line-clamp-2">
+                      {notif.description}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      <ClientDate date={notif.createdAt} />
+                    </p>
+                  </div>
+                  
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-2 top-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background hover:text-destructive z-10"
+                    onClick={(e) => handleDismiss(e, notif.id, notif.collection)}
+                    title="Clear Notification"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </DropdownMenuItem>
               ))}
             </div>
           </ScrollArea>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="cursor-pointer text-center justify-center font-bold text-xs uppercase tracking-widest text-primary">
-          <Link href="/">Return to Dashboard</Link>
+        <DropdownMenuItem onSelect={() => router.push('/')} className="cursor-pointer text-center justify-center font-bold text-xs uppercase tracking-widest text-primary">
+          Return to Dashboard
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
