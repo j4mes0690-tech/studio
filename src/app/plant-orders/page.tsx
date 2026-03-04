@@ -144,8 +144,8 @@ function PlantOrdersContent() {
             <SelectContent>
               <SelectItem value="all">Any Status</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="scheduled">On Hire</SelectItem>
-              <SelectItem value="on-hire">Active (On-Hire)</SelectItem>
+              <SelectItem value="scheduled">Active</SelectItem>
+              <SelectItem value="on-hire">In Use</SelectItem>
               <SelectItem value="off-hired">Off-Hired</SelectItem>
             </SelectContent>
           </Select>

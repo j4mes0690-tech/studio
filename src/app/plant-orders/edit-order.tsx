@@ -278,7 +278,7 @@ export function EditPlantOrderDialog({
                             className="flex-1 h-8 text-[10px] uppercase font-bold"
                             onClick={() => updateItemStatus(item.id, 'on-hire')}
                         >
-                            <Play className="h-3 w-3 mr-1" /> Set On-Hire
+                            <Play className="h-3 w-3 mr-1" /> Mark Live
                         </Button>
                         <Button 
                             type="button" 
@@ -287,7 +287,7 @@ export function EditPlantOrderDialog({
                             className="flex-1 h-8 text-[10px] uppercase font-bold"
                             onClick={() => updateItemStatus(item.id, 'off-hired')}
                         >
-                            <PowerOff className="h-3 w-3 mr-1" /> Set Off-Hire
+                            <PowerOff className="h-3 w-3 mr-1" /> Finish Hire
                         </Button>
                     </div>
                   </div>
@@ -319,7 +319,7 @@ export function EditPlantOrderDialog({
                 }}
               >
                 {isPending && (submissionStatus === 'scheduled' || submissionStatus === 'on-hire' || submissionStatus === 'off-hired') ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                {submissionStatus === 'draft' ? 'Place Order' : 'Save Changes'}
+                {submissionStatus === 'draft' ? 'Activate Order' : 'Save Changes'}
               </Button>
             </DialogFooter>
           </form>

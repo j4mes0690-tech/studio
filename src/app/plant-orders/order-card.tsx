@@ -108,9 +108,9 @@ export function OrderCard({
       try {
         const docRef = doc(db, 'plant-orders', order.id);
         await updateDoc(docRef, { status: 'scheduled' });
-        toast({ title: 'Order Placed', description: 'Hire is now active in the system.' });
+        toast({ title: 'Order Activated', description: 'Hire is now active in the system.' });
       } catch (err) {
-        toast({ title: 'Error', description: 'Failed to commit order.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to activate order.', variant: 'destructive' });
       }
     });
   };
@@ -209,8 +209,8 @@ export function OrderCard({
 
   const itemSummary = useMemo(() => {
     const total = order.items?.length || 0;
-    const active = order.items?.filter(i => i.status === 'on-hire').length || 0;
-    return { total, active };
+    const activeCount = order.items?.filter(i => i.status === 'on-hire').length || 0;
+    return { total, activeCount };
   }, [order.items]);
 
   return (
@@ -220,7 +220,7 @@ export function OrderCard({
           "hover:border-primary transition-all shadow-sm group cursor-pointer border-l-4",
           isDraft ? "border-orange-200 border-l-orange-400 bg-orange-50/5" :
           order.status === 'off-hired' ? "border-l-muted opacity-75" : 
-          order.status === 'on-hire' ? "border-l-green-500 bg-green-50/5" : "border-l-primary"
+          (order.status === 'on-hire' || order.status === 'scheduled') ? "border-l-green-500 bg-green-50/5" : "border-l-primary"
         )}
         onClick={() => setIsEditDialogOpen(true)}
       >
@@ -250,19 +250,21 @@ export function OrderCard({
                       <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-600 hover:bg-orange-50" onClick={handleCommit} disabled={isPending}>
                           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                          <span className="sr-only">Place Order</span>
+                          <span className="sr-only">Activate Order</span>
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent><p>Place Order</p></TooltipContent>
+                      <TooltipContent><p>Activate Order</p></TooltipContent>
                     </Tooltip>
                   </>
                 ) : (
                   <Badge className={cn(
                       "capitalize text-[10px] font-bold",
-                      order.status === 'on-hire' ? 'bg-green-100 text-green-800' : 
+                      (order.status === 'on-hire' || order.status === 'scheduled') ? 'bg-green-100 text-green-800' : 
                       order.status === 'off-hired' ? 'bg-muted text-muted-foreground' : 'bg-indigo-600 text-white'
                   )}>
-                    {order.status === 'scheduled' ? 'On Hire' : order.status}
+                    {order.status === 'scheduled' ? 'Active' : 
+                     order.status === 'on-hire' ? 'In Use' : 
+                     order.status}
                   </Badge>
                 )}
 

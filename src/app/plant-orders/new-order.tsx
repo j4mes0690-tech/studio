@@ -191,7 +191,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Plant Order</DialogTitle>
-          <DialogDescription>Schedule construction equipment for delivery to site. Drafts can be reviewed before commitment.</DialogDescription>
+          <DialogDescription>Schedule construction equipment for delivery to site. Drafts can be reviewed before activation.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>

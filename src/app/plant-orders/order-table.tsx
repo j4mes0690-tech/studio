@@ -133,9 +133,9 @@ function OrderTableRow({
       try {
         const docRef = doc(db, 'plant-orders', order.id);
         await updateDoc(docRef, { status: 'scheduled' });
-        toast({ title: 'Success', description: 'Order Placed.' });
+        toast({ title: 'Success', description: 'Order Activated.' });
       } catch (err) {
-        toast({ title: 'Error', description: 'Failed to commit order.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to activate order.', variant: 'destructive' });
       }
     });
   };
@@ -154,10 +154,12 @@ function OrderTableRow({
           <Badge className={cn(
             "capitalize text-[10px] font-bold",
             isDraft ? "bg-orange-100 text-orange-800 border-orange-200" :
-            order.status === 'on-hire' ? "bg-green-100 text-green-800" : 
+            (order.status === 'on-hire' || order.status === 'scheduled') ? "bg-green-100 text-green-800" : 
             order.status === 'off-hired' ? "bg-muted text-muted-foreground" : "bg-indigo-600 text-white"
           )}>
-            {order.status === 'scheduled' ? 'On Hire' : order.status}
+            {order.status === 'scheduled' ? 'Active' : 
+             order.status === 'on-hire' ? 'In Use' : 
+             order.status}
           </Badge>
         </TableCell>
         <TableCell>
@@ -177,10 +179,10 @@ function OrderTableRow({
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleCommit} disabled={isPending}>
                       {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      <span className="sr-only">Place Order</span>
+                      <span className="sr-only">Activate Order</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>Place Order</p></TooltipContent>
+                  <TooltipContent><p>Activate Order</p></TooltipContent>
                 </Tooltip>
               )}
 
