@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -33,11 +34,14 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 const EditContactSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
+  phone: z.string().optional(),
+  address: z.string().optional(),
   isSubContractor: z.boolean().default(false),
   isDesigner: z.boolean().default(false),
   isSupplier: z.boolean().default(false),
@@ -65,6 +69,8 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
       id: subContractor.id,
       name: subContractor.name,
       email: subContractor.email,
+      phone: subContractor.phone || '',
+      address: subContractor.address || '',
       isSubContractor: !!subContractor.isSubContractor,
       isDesigner: !!subContractor.isDesigner,
       isSupplier: !!subContractor.isSupplier,
@@ -78,6 +84,8 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
         id: subContractor.id,
         name: subContractor.name,
         email: subContractor.email,
+        phone: subContractor.phone || '',
+        address: subContractor.address || '',
         isSubContractor: !!subContractor.isSubContractor,
         isDesigner: !!subContractor.isDesigner,
         isSupplier: !!subContractor.isSupplier,
@@ -92,6 +100,8 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
       const updates = {
         name: values.name,
         email: values.email,
+        phone: values.phone || '',
+        address: values.address || '',
         isSubContractor: values.isSubContractor,
         isDesigner: values.isDesigner,
         isSupplier: values.isSupplier,
@@ -129,8 +139,18 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
             <FormField control={form.control} name="name" render={({ field }) => (
                 <FormItem><FormLabel>Name / Company Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem><FormLabel>Contact Email</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField control={form.control} name="email" render={({ field }) => (
+                  <FormItem><FormLabel>Contact Email</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="phone" render={({ field }) => (
+                  <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
+
+            <FormField control={form.control} name="address" render={({ field }) => (
+                <FormItem><FormLabel>Office Address</FormLabel><FormControl><Textarea className="min-h-[80px]" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
 
             <Separator />

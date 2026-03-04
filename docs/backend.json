@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -56,6 +57,8 @@
         "id": { "type": "string" },
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
+        "phone": { "type": "string" },
+        "address": { "type": "string" },
         "isSubContractor": { "type": "boolean" },
         "isDesigner": { "type": "boolean" },
         "isSupplier": { "type": "boolean" },

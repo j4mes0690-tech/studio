@@ -1,8 +1,9 @@
+
 'use client';
 
 import type { SubContractor } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, HardHat, Ruler, Truck, Construction } from 'lucide-react';
+import { Trash2, HardHat, Ruler, Truck, Construction, Phone, MapPin } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -54,7 +55,14 @@ export function SubcontractorsList({ subContractors }: SubcontractorsListProps) 
           <div className="space-y-3 flex-1 overflow-hidden">
             <div>
               <p className="font-semibold text-sm">{contact.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{contact.email}</p>
+              <div className="flex flex-col gap-0.5 mt-1">
+                <p className="text-[10px] text-muted-foreground truncate">{contact.email}</p>
+                {contact.phone && (
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                    <Phone className="h-2 w-2" /> {contact.phone}
+                  </p>
+                )}
+              </div>
             </div>
             
             <div className="flex flex-wrap gap-1">

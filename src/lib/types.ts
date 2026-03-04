@@ -1,3 +1,4 @@
+
 export type Area = {
   id: string;
   name: string;
@@ -134,6 +135,8 @@ export type SubContractor = {
   id: string;
   name: string;
   email: string;
+  phone?: string;
+  address?: string;
   isSubContractor?: boolean;
   isDesigner?: boolean;
   isSupplier?: boolean;

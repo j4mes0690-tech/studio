@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -21,10 +22,13 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 
 const AddContactSchema = z.object({
   name: z.string().min(1, 'Name or company name is required.'),
   email: z.string().email('Invalid email address.'),
+  phone: z.string().optional(),
+  address: z.string().optional(),
   isSubContractor: z.boolean().default(false),
   isDesigner: z.boolean().default(false),
   isSupplier: z.boolean().default(false),
@@ -46,6 +50,8 @@ export function AddSubcontractorForm() {
     defaultValues: { 
       name: '', 
       email: '',
+      phone: '',
+      address: '',
       isSubContractor: true,
       isDesigner: false,
       isSupplier: false,
@@ -86,13 +92,38 @@ export function AddSubcontractorForm() {
             </FormItem>
           )}
         />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Contact Email</FormLabel>
+                <FormControl><Input placeholder="contact@company.com" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="phone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Phone Number</FormLabel>
+                <FormControl><Input placeholder="+44 000 000 000" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
         <FormField
           control={form.control}
-          name="email"
+          name="address"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Contact Email</FormLabel>
-              <FormControl><Input placeholder="contact@company.com" {...field} /></FormControl>
+              <FormLabel>Office Address</FormLabel>
+              <FormControl><Textarea placeholder="Company registered address..." className="min-h-[80px]" {...field} /></FormControl>
               <FormMessage />
             </FormItem>
           )}
