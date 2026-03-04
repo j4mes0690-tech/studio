@@ -21,6 +21,8 @@ import {
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -104,11 +106,17 @@ export function OrderCard({
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    startTransition(async () => {
-      const docRef = doc(db, 'plant-orders', order.id);
-      await deleteDoc(docRef);
-      toast({ title: 'Success', description: 'Order removed.' });
-    });
+    const docRef = doc(db, 'plant-orders', order.id);
+    deleteDoc(docRef)
+      .then(() => {
+        toast({ title: 'Success', description: 'Order removed from log.' });
+      })
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
+        }));
+      });
   };
 
   const handleCommit = (e: React.MouseEvent) => {

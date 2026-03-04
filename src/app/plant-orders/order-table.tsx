@@ -15,6 +15,8 @@ import { useMemo, useState, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { 
   Trash2, 
   Loader2, 
@@ -128,11 +130,17 @@ function OrderTableRow({
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    startTransition(async () => {
-      const docRef = doc(db, 'plant-orders', order.id);
-      await deleteDoc(docRef);
-      toast({ title: 'Success', description: 'Order deleted.' });
-    });
+    const docRef = doc(db, 'plant-orders', order.id);
+    deleteDoc(docRef)
+      .then(() => {
+        toast({ title: 'Success', description: 'Order removed.' });
+      })
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
+        }));
+      });
   };
 
   const handleCommit = (e: React.MouseEvent) => {
