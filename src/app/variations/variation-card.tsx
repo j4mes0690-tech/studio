@@ -41,6 +41,7 @@ import { EditVariationDialog } from './edit-variation';
 export function VariationCard({ 
   variation, 
   project, 
+  projects,
   clientInstructions, 
   siteInstructions, 
   allVariations,
@@ -48,6 +49,7 @@ export function VariationCard({
 }: { 
   variation: Variation; 
   project?: Project; 
+  projects: Project[];
   clientInstructions: ClientInstruction[];
   siteInstructions: Instruction[];
   allVariations: Variation[];

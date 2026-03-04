@@ -172,6 +172,7 @@ function VariationsContent() {
                 key={variation.id} 
                 variation={variation} 
                 project={allProjects?.find(p => p.id === variation.projectId)}
+                projects={allowedProjects}
                 clientInstructions={clientInstructions || []}
                 siteInstructions={siteInstructions || []}
                 allVariations={allVariations || []}
