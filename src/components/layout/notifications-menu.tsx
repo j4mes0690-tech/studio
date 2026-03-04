@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -21,6 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
+import { ClientDate } from '@/components/client-date';
 
 export function NotificationsMenu({ userEmail }: { userEmail: string | null | undefined }) {
   const db = useFirestore();
