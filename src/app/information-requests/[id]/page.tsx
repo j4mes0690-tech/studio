@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, Suspense } from 'react';
 import { Header } from '@/components/layout/header';
-import { useFirestore, useDoc, useUser, useCollection } from '@/firebase';
+import { useFirestore, useDoc, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
 import { Loader2, ChevronLeft } from 'lucide-react';
@@ -17,18 +17,18 @@ function RequestDetailContent() {
   const { user: firebaseUser } = useUser();
 
   // Fetch current request
-  const requestRef = useMemo(() => (db && id ? doc(db, 'information-requests', id) : null), [db, id]);
+  const requestRef = useMemoFirebase(() => (db && id ? doc(db, 'information-requests', id) : null), [db, id]);
   const { data: item, isLoading: itemLoading } = useDoc<InformationRequest>(requestRef);
 
   // Fetch static lookups
-  const projectsQuery = useMemo(() => (db ? collection(db, 'projects') : null), [db]);
+  const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const usersQuery = useMemo(() => (db ? collection(db, 'users') : null), [db]);
+  const usersQuery = useMemoFirebase(() => (db ? collection(db, 'users') : null), [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
   // Fetch current user profile
-  const currentUserRef = useMemo(() => {
+  const currentUserRef = useMemoFirebase(() => {
     if (!db || !firebaseUser?.email) return null;
     return doc(db, 'users', firebaseUser.email.toLowerCase().trim());
   }, [db, firebaseUser?.email]);

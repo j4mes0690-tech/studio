@@ -3,7 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useMemo, Suspense } from 'react';
 import { Header } from '@/components/layout/header';
-import { useFirestore, useDoc, useUser, useCollection } from '@/firebase';
+import { useFirestore, useDoc, useUser, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import type { Instruction, Project, DistributionUser, SubContractor } from '@/lib/types';
 import { Loader2, ChevronLeft } from 'lucide-react';
@@ -17,21 +17,21 @@ function InstructionDetailContent() {
   const { user: firebaseUser } = useUser();
 
   // Fetch current instruction
-  const instructionRef = useMemo(() => (db && id ? doc(db, 'instructions', id) : null), [db, id]);
+  const instructionRef = useMemoFirebase(() => (db && id ? doc(db, 'instructions', id) : null), [db, id]);
   const { data: item, isLoading: itemLoading } = useDoc<Instruction>(instructionRef);
 
   // Fetch lookups
-  const projectsQuery = useMemo(() => (db ? collection(db, 'projects') : null), [db]);
+  const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const usersQuery = useMemo(() => (db ? collection(db, 'users') : null), [db]);
+  const usersQuery = useMemoFirebase(() => (db ? collection(db, 'users') : null), [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  const subsQuery = useMemo(() => (db ? collection(db, 'sub-contractors') : null), [db]);
+  const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
   // Fetch current user profile
-  const currentUserRef = useMemo(() => {
+  const currentUserRef = useMemoFirebase(() => {
     if (!db || !firebaseUser?.email) return null;
     return doc(db, 'users', firebaseUser.email.toLowerCase().trim());
   }, [db, firebaseUser?.email]);
