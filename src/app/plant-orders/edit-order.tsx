@@ -26,8 +26,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, PowerOff, Plus, Trash2, Calculator, Power } from 'lucide-react';
-import type { Project, SubContractor, PlantOrder, PlantOrderItem, PlantRateUnit, PlantStatus } from '@/lib/types';
+import { Loader2, Save, StopCircle, Plus, Trash2, Calculator } from 'lucide-react';
+import type { Project, SubContractor, PlantOrder, PlantOrderItem, PlantRateUnit } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -190,7 +190,14 @@ export function EditPlantOrderDialog({
           status: overallStatus
         };
 
-        await updateDoc(docRef, updates);
+        await updateDoc(docRef, updates).catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: updates,
+          }));
+          throw error;
+        });
         toast({ title: 'Success', description: 'Hire order updated.' });
         onOpenChange(false);
       } catch (err) {
@@ -301,7 +308,7 @@ export function EditPlantOrderDialog({
                                         className={cn("h-8 w-8 transition-colors", item.status !== 'off-hired' && "text-muted-foreground hover:text-destructive")}
                                         onClick={() => toggleOffHire(item.id)}
                                     >
-                                        <Power className="h-4 w-4" />
+                                        <StopCircle className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
                                 <TooltipContent>
@@ -339,7 +346,7 @@ export function EditPlantOrderDialog({
               <Button 
                 type="submit" 
                 className="w-full sm:flex-1 h-12 font-bold" 
-                disabled={isPending}
+                disabled={isPending} 
                 onClick={() => {
                   if (submissionStatus === 'draft') form.setValue('status', 'scheduled');
                 }}
