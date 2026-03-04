@@ -50,12 +50,6 @@ function InstructionsContent() {
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Fetch static lookups
-  const usersQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return collection(db, 'users');
-  }, [db]);
-  const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
-
   const projectsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'projects');
@@ -106,7 +100,7 @@ function InstructionsContent() {
     });
   }, [allInstructions, profile, allProjects, projectId]);
 
-  const isLoading = (usersLoading || projectsLoading || instructionsLoading || profileLoading) && !allInstructions;
+  const isLoading = (projectsLoading || instructionsLoading || profileLoading) && !allInstructions;
 
   if (isLoading) {
     return (
@@ -167,7 +161,6 @@ function InstructionsContent() {
 
             <NewClientInstruction 
               projects={allowedProjects} 
-              distributionUsers={distributionUsers || []} 
               allInstructions={allInstructions || []}
             />
           </div>
@@ -179,7 +172,7 @@ function InstructionsContent() {
             <InstructionTable 
               items={filteredInstructions}
               projects={allProjects || []}
-              distributionUsers={distributionUsers || []}
+              distributionUsers={[]} // Passed as empty since it's no longer used for row actions here
               currentUser={profile!}
               allSiteInstructions={allSiteInstructions || []}
               allRfis={allRfis || []}

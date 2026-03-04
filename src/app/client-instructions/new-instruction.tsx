@@ -33,11 +33,9 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText } from 'lucide-react';
-import type { Project, DistributionUser, Photo, FileAttachment, ClientInstruction } from '@/lib/types';
-import { Checkbox } from '@/components/ui/checkbox';
+import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2 } from 'lucide-react';
+import type { Project, Photo, FileAttachment, ClientInstruction } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -51,18 +49,16 @@ const NewInstructionSchema = z.object({
   originalText: z
     .string()
     .min(10, 'Client directives must be at least 10 characters.'),
-  recipients: z.array(z.string()).optional(),
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
 
 type NewInstructionProps = {
   projects: Project[];
-  distributionUsers: DistributionUser[];
   allInstructions: ClientInstruction[];
 };
 
-export function NewClientInstruction({ projects, distributionUsers, allInstructions }: NewInstructionProps) {
+export function NewClientInstruction({ projects, allInstructions }: NewInstructionProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -84,7 +80,6 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
     defaultValues: {
       projectId: '',
       originalText: '',
-      recipients: [],
     },
   });
 
@@ -121,16 +116,18 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const reference = getNextReference(allInstructions, values.projectId, 'CI', initials);
 
+        // Automatically include all project assigned users in the distribution
+        const projectRecipients = selectedProject?.assignedUsers || [];
+
         const instructionData = {
           reference,
           projectId: values.projectId,
           originalText: values.originalText,
-          // Generate a simple summary from the text instead of using AI
           summary: values.originalText.length > 100 
             ? values.originalText.substring(0, 100) + '...' 
             : values.originalText,
           actionItems: [],
-          recipients: values.recipients || [],
+          recipients: projectRecipients,
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
           files: uploadedFiles,
@@ -141,7 +138,7 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
         const colRef = collection(db, 'client-instructions');
         addDoc(colRef, instructionData)
           .then(() => {
-            toast({ title: 'Success', description: 'Client instruction recorded.' });
+            toast({ title: 'Success', description: `Client directive recorded. Automatically distributed to ${projectRecipients.length} project staff members.` });
             setOpen(false);
           })
           .catch((error) => {
@@ -228,7 +225,7 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
         <DialogHeader>
           <DialogTitle>Record Client Instruction</DialogTitle>
           <DialogDescription>
-            Capture external directives from the client for internal distribution and tracking.
+            Capture external directives. This will be automatically distributed to all project-assigned staff.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -337,37 +334,17 @@ export function NewClientInstruction({ projects, distributionUsers, allInstructi
 
             <Separator />
             
-            <FormItem>
-              <FormLabel>Internal Distribution List</FormLabel>
-              <ScrollArea className="h-40 rounded-md border p-4">
-                {distributionUsers.map((u) => (
-                  <FormField
-                    key={u.id}
-                    control={form.control}
-                    name="recipients"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value?.includes(u.email)}
-                            onCheckedChange={(c) => {
-                              const curr = field.value || [];
-                              field.onChange(c ? [...curr, u.email] : curr.filter(v => v !== u.email));
-                            }}
-                          />
-                        </FormControl>
-                        <FormLabel className="font-normal">{u.name} ({u.email})</FormLabel>
-                      </FormItem>
-                    )}
-                  />
-                ))}
-              </ScrollArea>
-            </FormItem>
+            <div className="p-4 bg-muted/20 rounded-lg border border-dashed text-center">
+                <p className="text-xs text-muted-foreground">
+                    Recording this instruction will automatically notify all staff assigned to the project.
+                </p>
+            </div>
 
             <canvas ref={canvasRef} className="hidden" />
             <DialogFooter>
-              <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? 'Uploading Documentation...' : 'Record Directive'}
+              <Button type="submit" disabled={isPending} className="w-full h-12 text-lg font-bold">
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Record Directive
               </Button>
             </DialogFooter>
           </form>
