@@ -133,7 +133,7 @@ function OrderTableRow({
     const docRef = doc(db, 'plant-orders', order.id);
     deleteDoc(docRef)
       .then(() => {
-        toast({ title: 'Success', description: 'Order removed.' });
+        toast({ title: 'Success', description: 'Order removed from log.' });
       })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -206,9 +206,11 @@ function OrderTableRow({
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
                     </TooltipTrigger>
                     <TooltipContent><p>Delete Order</p></TooltipContent>
                   </Tooltip>

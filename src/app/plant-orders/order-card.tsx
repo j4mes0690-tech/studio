@@ -67,7 +67,6 @@ export function OrderCard({
 
   const isDraft = order.status === 'draft';
 
-  // Calculate Latest Anticipated Off-Hire Date for Summary
   const latestAnticipatedOffHire = useMemo(() => {
     if (!order.items || order.items.length === 0) return null;
     return order.items.reduce((latest, item) => {
@@ -76,7 +75,6 @@ export function OrderCard({
     }, null as string | null);
   }, [order.items]);
 
-  // Calculate Latest Actual Off-Hire Date
   const latestActualOffHire = useMemo(() => {
     if (!order.items || order.items.length === 0) return null;
     return order.items.reduce((latest, item) => {
@@ -85,7 +83,6 @@ export function OrderCard({
     }, null as string | null);
   }, [order.items]);
 
-  // RAG Logic
   const ragStatus = useMemo(() => {
     if (isDraft || order.status === 'off-hired' || !latestAnticipatedOffHire) {
       return { color: 'text-muted-foreground', label: 'Neutral' };
@@ -111,7 +108,7 @@ export function OrderCard({
       .then(() => {
         toast({ title: 'Success', description: 'Order removed from log.' });
       })
-      .catch(async (error) => {
+      .catch((error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: docRef.path,
           operation: 'delete',
@@ -226,8 +223,7 @@ export function OrderCard({
 
   const itemSummary = useMemo(() => {
     const total = order.items?.length || 0;
-    const activeCount = order.items?.filter(i => i.status === 'on-hire' || i.status === 'scheduled').length || 0;
-    return { total, activeCount };
+    return { total };
   }, [order.items]);
 
   return (
@@ -349,7 +345,7 @@ export function OrderCard({
               <CollapsibleContent className="pt-2">
                 <div className="space-y-2">
                   {(order.items || []).map((item, i) => (
-                    <div key={i} className="flex items-start justify-between p-2 rounded border text-[11px] bg-muted/5">
+                    <div key={i} className="flex items-start justify-between p-2 rounded border text-[11px] bg-background">
                       <div className="flex-1 min-w-0 pr-4">
                         <p className={cn("font-bold text-primary truncate", item.status === 'off-hired' && "text-muted-foreground")}>{item.description}</p>
                         <p className="text-muted-foreground flex items-center gap-2">
