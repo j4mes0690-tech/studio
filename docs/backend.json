@@ -19,6 +19,7 @@
             "canManageChecklists": { "type": "boolean" },
             "canManageMaterials": { "type": "boolean" },
             "canManagePermitTemplates": { "type": "boolean" },
+            "canManageTraining": { "type": "boolean" },
             "hasFullVisibility": { "type": "boolean" }
           }
         }
@@ -82,6 +83,39 @@
         "totalAmount": { "type": "number" },
         "status": { "type": "string", "enum": ["draft", "pending", "agreed", "rejected"] }
       }
+    },
+    "TrainingRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TrainingRecord",
+      "type": "object",
+      "description": "Represents a staff training certificate.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "courseName": { "type": "string" },
+        "issueDate": { "type": "string", "format": "date" },
+        "expiryDate": { "type": "string", "format": "date" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userName", "userEmail", "courseName", "issueDate", "expiryDate"]
+    },
+    "TrainingNeed": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TrainingNeed",
+      "type": "object",
+      "description": "Represents a required training gap identified for a user.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "courseName": { "type": "string" },
+        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
+        "status": { "type": "string", "enum": ["requested", "booked", "completed"] },
+        "requestedDate": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userEmail", "courseName", "priority", "status"]
     }
   },
   "auth": {
@@ -94,11 +128,15 @@
       { "path": "/sub-contractors/{subId}", "definition": { "entityName": "SubContractor" } },
       { "path": "/client-instructions/{id}", "definition": { "entityName": "ClientInstruction" } },
       { "path": "/instructions/{id}", "definition": { "entityName": "Instruction" } },
+      { "path": "/cleanup-notices/{id}", "definition": { "entityName": "CleanUpNotice" } },
+      { "path": "/snagging-items/{id}", "definition": { "entityName": "SnaggingItem" } },
       { "path": "/information-requests/{id}", "definition": { "entityName": "InformationRequest" } },
       { "path": "/quality-checklists/{id}", "definition": { "entityName": "QualityChecklist" } },
       { "path": "/purchase-orders/{id}", "definition": { "entityName": "PurchaseOrder" } },
       { "path": "/plant-orders/{id}", "definition": { "entityName": "PlantOrder" } },
-      { "path": "/variations/{id}", "definition": { "entityName": "Variation" } }
+      { "path": "/variations/{id}", "definition": { "entityName": "Variation" } },
+      { "path": "/training-records/{id}", "definition": { "entityName": "TrainingRecord" } },
+      { "path": "/training-needs/{id}", "definition": { "entityName": "TrainingNeed" } }
     ]
   }
 }
