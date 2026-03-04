@@ -25,7 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Save, PoundSterling, PowerOff, Play, Plus, Trash2, Calendar, Calculator, CheckCircle2 } from 'lucide-react';
+import { Loader2, Save, PowerOff, Plus, Trash2, Calculator, Power } from 'lucide-react';
 import type { Project, SubContractor, PlantOrder, PlantOrderItem, PlantRateUnit, PlantStatus } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -33,6 +33,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { addWeeks, differenceInDays } from 'date-fns';
 import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const EditPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -137,13 +143,14 @@ export function EditPlantOrderDialog({
 
   const removeItem = (idx: number) => setOrderItems(orderItems.filter((_, i) => i !== idx));
 
-  const updateItemStatus = (itemId: string, newStatus: PlantStatus) => {
+  const toggleOffHire = (itemId: string) => {
     setOrderItems(prev => prev.map(item => {
         if (item.id === itemId) {
+            const isOffHired = item.status === 'off-hired';
             return {
                 ...item,
-                status: newStatus,
-                actualOffHireDate: newStatus === 'off-hired' ? new Date().toISOString().split('T')[0] : null
+                status: isOffHired ? 'on-hire' : 'off-hired',
+                actualOffHireDate: isOffHired ? null : new Date().toISOString().split('T')[0]
             };
         }
         return item;
@@ -161,12 +168,15 @@ export function EditPlantOrderDialog({
         const supplier = plantSuppliers.find(s => s.id === values.supplierId);
         const docRef = doc(db, 'plant-orders', order.id);
         
-        // Auto-summary status if not explicitly draft
+        // Auto-determine overall status based on items
         let overallStatus = values.status;
         if (values.status !== 'draft') {
-            const hasOnHire = orderItems.some(i => i.status === 'on-hire');
-            const allOffHired = orderItems.length > 0 && orderItems.every(i => i.status === 'off-hired');
-            overallStatus = hasOnHire ? 'on-hire' : (allOffHired ? 'off-hired' : 'scheduled');
+            const anyActive = orderItems.some(i => i.status === 'on-hire' || i.status === 'scheduled');
+            const allFinished = orderItems.length > 0 && orderItems.every(i => i.status === 'off-hired');
+            
+            if (allFinished) overallStatus = 'off-hired';
+            else if (anyActive) overallStatus = 'on-hire';
+            else overallStatus = 'scheduled';
         }
 
         const updates = {
@@ -178,7 +188,7 @@ export function EditPlantOrderDialog({
         };
 
         await updateDoc(docRef, updates);
-        toast({ title: 'Success', description: 'Order updated.' });
+        toast({ title: 'Success', description: 'Hire order updated.' });
         onOpenChange(false);
       } catch (err) {
         console.error(err);
@@ -193,13 +203,12 @@ export function EditPlantOrderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Plant Order: {order.reference}</DialogTitle>
-          <DialogDescription>Modify hire contract details or update specific item statuses.</DialogDescription>
+          <DialogTitle>Edit Plant Hire: {order.reference}</DialogTitle>
+          <DialogDescription>Modify hire contract details or toggle item statuses.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <input type="hidden" {...form.register('status')} />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
                 <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
@@ -217,7 +226,7 @@ export function EditPlantOrderDialog({
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <FormLabel className="text-primary font-bold">Manage Items</FormLabel>
+                <FormLabel className="text-primary font-bold">Line Items</FormLabel>
                 <div className="flex items-center gap-2 text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full">
                   <Calculator className="h-4 w-4" />
                   Estimated Cost: £{totalAmount.toFixed(2)}
@@ -226,18 +235,18 @@ export function EditPlantOrderDialog({
               
               <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label className="text-xs">Plant Description</Label><Input placeholder="e.g. JCB JS130" value={pendingDescription} onChange={e => setPendingDescription(e.target.value)} /></div>
+                  <div className="space-y-2"><Label className="text-xs">Plant Description</Label><Input placeholder="e.g. 1.5T Excavator" value={pendingDescription} onChange={e => setPendingDescription(e.target.value)} /></div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-2"><Label className="text-xs">Rate</Label><Input type="number" value={pendingRate} onChange={e => setPendingRate(e.target.value)} /></div>
+                    <div className="space-y-2"><Label className="text-xs">Rate (£)</Label><Input type="number" step="0.01" value={pendingRate} onChange={e => setPendingRate(e.target.value)} /></div>
                     <div className="space-y-2">
-                        <Label className="text-xs">Per</Label>
+                        <Label className="text-xs">Frequency</Label>
                         <Select value={pendingRateUnit} onValueChange={(v: any) => setPendingRateUnit(v)}>
                             <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="daily">Day</SelectItem>
-                                <SelectItem value="weekly">Week</SelectItem>
-                                <SelectItem value="monthly">Month</SelectItem>
-                                <SelectItem value="item">Item</SelectItem>
+                                <SelectItem value="daily">Daily</SelectItem>
+                                <SelectItem value="weekly">Weekly</SelectItem>
+                                <SelectItem value="monthly">Monthly</SelectItem>
+                                <SelectItem value="item">One-off</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -247,7 +256,7 @@ export function EditPlantOrderDialog({
                     <div className="space-y-2"><Label className="text-xs">On-Hire Date</Label><Input type="date" value={pendingOnHireDate} onChange={e => setPendingOnHireDate(e.target.value)} /></div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-xs">Expected Off-Hire</Label>
+                        <Label className="text-xs">Expect Off-Hire</Label>
                         <div className="flex gap-1">
                           <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickOffHire(1)}>+1w</Button>
                           <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickOffHire(2)}>+2w</Button>
@@ -256,50 +265,64 @@ export function EditPlantOrderDialog({
                       <Input type="date" value={pendingOffHireDate} onChange={e => setPendingOffHireDate(e.target.value)} />
                     </div>
                 </div>
-                <Button type="button" variant="outline" className="w-full" onClick={handleAddItem} disabled={!pendingDescription}><Plus className="h-4 w-4 mr-2" /> Add Item</Button>
+                <Button type="button" variant="secondary" className="w-full" onClick={handleAddItem} disabled={!pendingDescription}><Plus className="h-4 w-4 mr-2" /> Add Item to Contract</Button>
               </div>
 
-              <div className="space-y-3">
-                {orderItems.map((item, idx) => (
-                  <div key={item.id} className="p-4 rounded border bg-background shadow-sm space-y-3 group">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1 min-w-0 pr-4">
-                        <p className="text-sm font-bold text-primary truncate">{item.description}</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">Hire: {item.onHireDate} &rarr; {item.actualOffHireDate || item.anticipatedOffHireDate} | £{item.rate.toFixed(2)}/{item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]} | Sub: £{item.estimatedCost.toFixed(2)}</p>
+              <div className="space-y-2">
+                <TooltipProvider>
+                  {orderItems.map((item, idx) => (
+                    <div key={item.id} className={cn(
+                        "p-3 rounded border bg-background shadow-sm transition-opacity group",
+                        item.status === 'off-hired' && "opacity-60 bg-muted/20"
+                    )}>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1 min-w-0 pr-4">
+                          <div className="flex items-center gap-2">
+                            <p className={cn("text-sm font-bold truncate", item.status === 'off-hired' ? "text-muted-foreground line-through" : "text-primary")}>
+                                {item.description}
+                            </p>
+                            {item.status === 'off-hired' && <Badge variant="outline" className="text-[8px] h-4">OFF-HIRED</Badge>}
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            {item.onHireDate} &rarr; {item.actualOffHireDate || item.anticipatedOffHireDate} | £{item.rate.toFixed(2)}/{item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-1">
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button 
+                                        type="button" 
+                                        variant={item.status === 'off-hired' ? 'destructive' : 'ghost'} 
+                                        size="icon" 
+                                        className={cn("h-8 w-8 transition-colors", item.status !== 'off-hired' && "text-muted-foreground hover:text-destructive")}
+                                        onClick={() => toggleOffHire(item.id)}
+                                    >
+                                        <Power className="h-4 w-4" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>{item.status === 'off-hired' ? 'Resume Hire' : 'Off-Hire Item'}</p>
+                                </TooltipContent>
+                            </Tooltip>
+
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeItem(idx)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
                       </div>
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
+                      <div className="flex justify-end mt-1"><span className="text-xs font-bold">Sub: £{item.estimatedCost.toFixed(2)}</span></div>
                     </div>
-                    
-                    <div className="flex gap-2">
-                        <Button 
-                            type="button" 
-                            size="sm"
-                            variant={item.status === 'on-hire' ? 'default' : 'outline'} 
-                            className="flex-1 h-8 text-[10px] uppercase font-bold"
-                            onClick={() => updateItemStatus(item.id, 'on-hire')}
-                        >
-                            <Play className="h-3 w-3 mr-1" /> Mark Live
-                        </Button>
-                        <Button 
-                            type="button" 
-                            size="sm"
-                            variant={item.status === 'off-hired' ? 'destructive' : 'outline'} 
-                            className="flex-1 h-8 text-[10px] uppercase font-bold"
-                            onClick={() => updateItemStatus(item.id, 'off-hired')}
-                        >
-                            <PowerOff className="h-3 w-3 mr-1" /> Finish Hire
-                        </Button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </TooltipProvider>
               </div>
             </div>
 
             <FormField control={form.control} name="notes" render={({ field }) => (
-              <FormItem><FormLabel>General Contract Notes</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
+              <FormItem><FormLabel>Contract Notes</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
             )} />
 
-            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+            <DialogFooter className="pt-4 border-t gap-3">
               <Button 
                 type="submit" 
                 variant="outline" 
@@ -308,18 +331,18 @@ export function EditPlantOrderDialog({
                 onClick={() => form.setValue('status', 'draft')}
               >
                 {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                Save as Draft
+                Save Draft
               </Button>
               <Button 
                 type="submit" 
-                className="w-full sm:flex-1 h-12 text-lg font-bold" 
+                className="w-full sm:flex-1 h-12 font-bold" 
                 disabled={isPending}
                 onClick={() => {
                   if (submissionStatus === 'draft') form.setValue('status', 'scheduled');
                 }}
               >
-                {isPending && (submissionStatus === 'scheduled' || submissionStatus === 'on-hire' || submissionStatus === 'off-hired') ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                {submissionStatus === 'draft' ? 'Activate Order' : 'Save Changes'}
+                {isPending && submissionStatus !== 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                {submissionStatus === 'draft' ? 'Activate Contract' : 'Update Record'}
               </Button>
             </DialogFooter>
           </form>
