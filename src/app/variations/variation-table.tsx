@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -16,7 +15,7 @@ import { useState, useTransition, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { Trash2, FileDown, Loader2, CheckCircle2 } from 'lucide-react';
+import { Trash2, FileDown, Loader2, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -128,6 +127,15 @@ function VariationTableRow({
       const docRef = doc(db, 'variations', variation.id);
       await updateDoc(docRef, { status: 'pending' });
       toast({ title: 'Success', description: 'Variation submitted.' });
+    });
+  };
+
+  const handleReopen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    startTransition(async () => {
+      const docRef = doc(db, 'variations', variation.id);
+      await updateDoc(docRef, { status: 'draft' });
+      toast({ title: 'Success', description: 'Variation reopened for editing.' });
     });
   };
 
@@ -278,7 +286,7 @@ function VariationTableRow({
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
             <TooltipProvider>
-              {isDraft && (
+              {isDraft ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleCommit} disabled={isPending}>
@@ -286,6 +294,15 @@ function VariationTableRow({
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent><p>Commit & Submit Variation</p></TooltipContent>
+                </Tooltip>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8" onClick={handleReopen} disabled={isPending}>
+                      <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Reopen for Editing</p></TooltipContent>
                 </Tooltip>
               )}
 

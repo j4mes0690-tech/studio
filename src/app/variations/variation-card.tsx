@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
-import type { Variation, Project, ClientInstruction, Instruction, DistributionUser } from '@/lib/types';
+import type { Variation, Project, ClientInstruction, Instruction, DistributionUser, Photo } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,9 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  Percent
+  Percent,
+  RefreshCw,
+  Maximize2
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -34,9 +36,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { EditVariationDialog } from './edit-variation';
+import { ImageLightbox } from '@/components/image-lightbox';
 
 export function VariationCard({ 
   variation, 
@@ -61,6 +70,9 @@ export function VariationCard({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
+
+  const isDraft = variation.status === 'draft';
 
   // Link matching for multiple IDs
   const linkedCIs = useMemo(() => 
@@ -230,24 +242,53 @@ export function VariationCard({
                 {variation.status === 'pending' ? 'Submitted' : variation.status}
               </Badge>
               
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
-                {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-              </Button>
+              <TooltipProvider>
+                {!isDraft && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 text-muted-foreground hover:text-primary"
+                        onClick={() => handleUpdateStatus('draft')}
+                        disabled={isPending}
+                      >
+                        <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Reopen for Editing</p></TooltipContent>
+                  </Tooltip>
+                )}
 
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader><AlertDialogTitle>Delete Variation?</AlertDialogTitle><AlertDialogDescription>This will permanently remove this financial record. Action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
+                      {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Download PDF</p></TooltipContent>
+                </Tooltip>
+
+                <AlertDialog>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Delete Variation</p></TooltipContent>
+                  </Tooltip>
+                  <AlertDialogContent onClick={e => e.stopPropagation()}>
+                    <AlertDialogHeader><AlertDialogTitle>Delete Variation?</AlertDialogTitle><AlertDialogDescription>This will permanently remove this financial record. Action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </TooltipProvider>
             </div>
           </div>
         </CardHeader>
@@ -312,8 +353,8 @@ export function VariationCard({
                   ))}
                   {variation.ohpPercentage > 0 && (
                     <div className="flex items-center justify-between p-2 rounded border border-primary/20 bg-primary/5 text-[11px]">
-                        <span className="font-bold text-primary uppercase">Overhead & Profit (${variation.ohpPercentage}%)</span>
-                        <span className="font-bold text-primary">£${ohpAmount.toFixed(2)}</span>
+                        <span className="font-bold text-primary uppercase">Overhead & Profit ({variation.ohpPercentage}%)</span>
+                        <span className="font-bold text-primary">£{ohpAmount.toFixed(2)}</span>
                     </div>
                   )}
                 </div>
@@ -333,6 +374,8 @@ export function VariationCard({
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
       />
+
+      <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
   );
 }
