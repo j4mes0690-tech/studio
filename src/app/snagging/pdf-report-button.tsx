@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -46,20 +47,22 @@ export function PdfReportButton({
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
           <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project</p>
-            <p style="margin: 2px 0 0 0; font-size: 16px;">${project?.name || 'Unknown Project'}</p>
+            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project Location</p>
+            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold;">${project?.name || 'Unknown Project'}</p>
+            ${project?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${project.address}</p>` : ''}
           </div>
           <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Area</p>
+            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Contract Authority</p>
+            ${project?.siteManager ? `<p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${project.siteManager}</p>` : ''}
+            ${project?.siteManagerPhone ? `<p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">Tel: ${project.siteManagerPhone}</p>` : ''}
+          </div>
+          <div>
+            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Area / Plot</p>
             <p style="margin: 2px 0 0 0; font-size: 16px;">${area?.name || 'General Site'}</p>
           </div>
           <div>
             <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Report Date</p>
             <p style="margin: 2px 0 0 0; font-size: 16px;">${formattedDate}</p>
-          </div>
-          <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Title</p>
-            <p style="margin: 2px 0 0 0; font-size: 16px;">${item.title}</p>
           </div>
         </div>
 
@@ -134,7 +137,7 @@ export function PdfReportButton({
       document.body.removeChild(reportElement);
       pdf.save(`snagging-report-${item.title.replace(/\s+/g, '-').toLowerCase()}-${formattedDate}.pdf`);
     } catch (err) {
-      console.error('PDF Generation Error:', err);
+      console.error('Snagging PDF Generation Error:', err);
     } finally {
       setIsGenerating(false);
     }

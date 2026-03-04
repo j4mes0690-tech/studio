@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -68,8 +69,14 @@ export function DistributeInstructionButton({
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
           <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project</p>
-            <p style="margin: 2px 0 0 0; font-size: 16px;">${project?.name || 'Unknown Project'}</p>
+            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project Location</p>
+            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold;">${project?.name || 'Unknown Project'}</p>
+            ${project?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${project.address}</p>` : ''}
+          </div>
+          <div>
+            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Contract Authority</p>
+            ${project?.siteManager ? `<p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${project.siteManager}</p>` : ''}
+            ${project?.siteManagerPhone ? `<p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">Tel: ${project.siteManagerPhone}</p>` : ''}
           </div>
           <div>
             <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Issued To</p>
@@ -129,7 +136,7 @@ export function DistributeInstructionButton({
         toast({ title: "Email Error", description: result.message, variant: "destructive" });
       }
     } catch (err) {
-      console.error('Instruction Distribution Error:', err);
+      console.error('Site Instruction Distribution Error:', err);
       toast({ title: "Generation Error", description: "Failed to create or send instruction PDF.", variant: "destructive" });
     } finally {
       setIsDistributing(false);

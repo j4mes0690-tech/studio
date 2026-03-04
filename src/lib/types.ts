@@ -7,6 +7,9 @@ export type Area = {
 export type Project = {
   id: string;
   name: string;
+  address?: string;
+  siteManager?: string;
+  siteManagerPhone?: string;
   areas?: Area[];
   assignedUsers?: string[];
   assignedSubContractors?: string[];

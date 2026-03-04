@@ -33,6 +33,9 @@
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
+        "address": { "type": "string" },
+        "siteManager": { "type": "string" },
+        "siteManagerPhone": { "type": "string" },
         "areas": {
           "type": "array",
           "items": {

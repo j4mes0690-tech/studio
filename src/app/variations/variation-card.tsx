@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -158,10 +159,14 @@ export function VariationCard({
           <div>
             <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Project</p>
             <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold;">${project?.name || 'Project'}</p>
+            ${project?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${project.address}</p>` : ''}
           </div>
           <div>
-            <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Status</p>
-            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${variation.status}</p>
+            <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Contract Authority</p>
+            ${project?.siteManager ? `<p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${project.siteManager}</p>` : ''}
+            ${project?.siteManagerPhone ? `<p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">Tel: ${project.siteManagerPhone}</p>` : ''}
+            <p style="margin: 5px 0 0 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; border-top: 1px solid #e2e8f0; padding-top: 5px;">Status</p>
+            <p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold; text-transform: uppercase; color: #1e40af;">${variation.status}</p>
           </div>
         </div>
 

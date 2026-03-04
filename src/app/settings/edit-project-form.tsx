@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { useTransition, useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, X, Shield, Users2, Loader2, Save } from 'lucide-react';
+import { Pencil, X, Shield, Users2, Loader2, Save, MapPin, Phone, User } from 'lucide-react';
 import type { Project, Area, DistributionUser, SubContractor } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -35,10 +36,14 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from '@/components/ui/separator';
 
 const EditProjectSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, 'Project name is required.'),
+  address: z.string().optional(),
+  siteManager: z.string().optional(),
+  siteManagerPhone: z.string().optional(),
   areas: z.string().optional(),
   assignedUsers: z.array(z.string()).optional(),
   assignedSubContractors: z.array(z.string()).optional(),
@@ -70,6 +75,9 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
     defaultValues: {
       id: project.id,
       name: project.name,
+      address: project.address || '',
+      siteManager: project.siteManager || '',
+      siteManagerPhone: project.siteManagerPhone || '',
       areas: JSON.stringify(project.areas || []),
       assignedUsers: project.assignedUsers || [],
       assignedSubContractors: project.assignedSubContractors || [],
@@ -82,6 +90,9 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
       form.reset({
         id: project.id,
         name: project.name,
+        address: project.address || '',
+        siteManager: project.siteManager || '',
+        siteManagerPhone: project.siteManagerPhone || '',
         areas: JSON.stringify(initialAreas),
         assignedUsers: project.assignedUsers || [],
         assignedSubContractors: project.assignedSubContractors || [],
@@ -113,6 +124,9 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
       const docRef = doc(db, 'projects', values.id);
       const updates = {
         name: values.name,
+        address: values.address || '',
+        siteManager: values.siteManager || '',
+        siteManagerPhone: values.siteManagerPhone || '',
         areas: JSON.parse(values.areas || '[]'),
         assignedUsers: values.assignedUsers || [],
         assignedSubContractors: values.assignedSubContractors || [],
@@ -162,13 +176,52 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                   )}
                 />
 
-                <Tabs defaultValue="areas" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="areas">Site Areas</TabsTrigger>
-                        <TabsTrigger value="access">Internal Staff</TabsTrigger>
-                        <TabsTrigger value="subs">External Partners</TabsTrigger>
+                <Tabs defaultValue="details" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="details">Details</TabsTrigger>
+                        <TabsTrigger value="areas">Areas</TabsTrigger>
+                        <TabsTrigger value="access">Staff</TabsTrigger>
+                        <TabsTrigger value="subs">Partners</TabsTrigger>
                     </TabsList>
                     
+                    <TabsContent value="details" className="space-y-4 py-4">
+                        <FormField
+                          control={form.control}
+                          name="address"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Site Address</FormLabel>
+                              <FormControl><Textarea placeholder="Physical location for documentation..." className="min-h-[100px]" {...field} /></FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField
+                              control={form.control}
+                              name="siteManager"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Site Manager</FormLabel>
+                                  <FormControl><Input placeholder="Name" {...field} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="siteManagerPhone"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Manager Phone</FormLabel>
+                                  <FormControl><Input placeholder="Number" {...field} /></FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                        </div>
+                    </TabsContent>
+
                     <TabsContent value="areas" className="space-y-4 py-4">
                         <div className="flex gap-2">
                             <Input
@@ -190,7 +243,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                     </TabsContent>
 
                     <TabsContent value="access" className="space-y-4 py-4">
-                        <ScrollArea className="h-[250px] rounded-md border p-4 bg-muted/5">
+                        <ScrollArea className="h-[300px] rounded-md border p-4 bg-muted/5">
                             {users.map((user) => (
                                 <FormField
                                     key={user.id}
@@ -220,7 +273,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                     </TabsContent>
 
                     <TabsContent value="subs" className="space-y-4 py-4">
-                        <ScrollArea className="h-[250px] rounded-md border p-4 bg-muted/5">
+                        <ScrollArea className="h-[300px] rounded-md border p-4 bg-muted/5">
                             {allSubContractors?.map((sub) => (
                                 <FormField
                                     key={sub.id}

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Form,
   FormControl,
@@ -23,6 +24,9 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 const AddProjectSchema = z.object({
   name: z.string().min(1, 'Project name is required.'),
+  address: z.string().optional(),
+  siteManager: z.string().optional(),
+  siteManagerPhone: z.string().optional(),
 });
 
 type AddProjectFormValues = z.infer<typeof AddProjectSchema>;
@@ -34,12 +38,17 @@ export function AddProjectForm() {
 
   const form = useForm<AddProjectFormValues>({
     resolver: zodResolver(AddProjectSchema),
-    defaultValues: { name: '' },
+    defaultValues: { 
+      name: '', 
+      address: '', 
+      siteManager: '', 
+      siteManagerPhone: '' 
+    },
   });
 
   const onSubmit = (values: AddProjectFormValues) => {
     startTransition(async () => {
-      const data = { ...values, areas: [] };
+      const data = { ...values, areas: [], assignedUsers: [], assignedSubContractors: [] };
       const colRef = collection(db, 'projects');
       addDoc(colRef, data)
         .then(() => {
@@ -71,7 +80,42 @@ export function AddProjectForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" disabled={isPending}>Add Project</Button>
+        <FormField
+          control={form.control}
+          name="address"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Site Address</FormLabel>
+              <FormControl><Textarea placeholder="Project physical location..." className="min-h-[80px]" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="siteManager"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Site Manager</FormLabel>
+                <FormControl><Input placeholder="Manager Name" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="siteManagerPhone"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Manager Phone</FormLabel>
+                <FormControl><Input placeholder="Contact Number" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        <Button type="submit" className="w-full" disabled={isPending}>Add Project</Button>
       </form>
     </Form>
   );

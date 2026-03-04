@@ -150,6 +150,7 @@ export function PermitCard({
             <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
               <p style="margin: 0 0 5px 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Project / Location</p>
               <p style="margin: 0; font-size: 16px; font-weight: bold;">${project?.name || 'Project'} - ${areaName}</p>
+              ${project?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${project.address}</p>` : ''}
             </div>
           </div>
 
@@ -195,7 +196,8 @@ export function PermitCard({
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 50px;">
             <div style="border-top: 1px solid #334155; padding-top: 10px;">
               <p style="margin: 0; font-size: 10px; font-weight: bold;">SITE AUTHORITY SIGNATURE</p>
-              <p style="margin: 5px 0 0 0; font-size: 12px;">${permit.createdByEmail}</p>
+              <p style="margin: 5px 0 0 0; font-size: 12px;">${project?.siteManager || permit.createdByEmail}</p>
+              ${project?.siteManagerPhone ? `<p style="margin: 2px 0 0 0; font-size: 10px;">Tel: ${project.siteManagerPhone}</p>` : ''}
             </div>
             <div style="border-top: 1px solid #334155; padding-top: 10px;">
               <p style="margin: 0; font-size: 10px; font-weight: bold;">RECIPIENT ACCEPTANCE</p>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -131,7 +132,9 @@ export function OrderCard({
           <div>
             <p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Project Details</p>
             <p style="margin: 0; font-size: 14px;"><strong>Project:</strong> ${project?.name || 'Project'}</p>
-            <p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Order Date:</strong> ${new Date(order.orderDate).toLocaleDateString()}</p>
+            ${project?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${project.address}</p>` : ''}
+            <p style="margin: 10px 0 0 0; font-size: 12px;"><strong>Order Date:</strong> ${new Date(order.orderDate).toLocaleDateString()}</p>
+            ${project?.siteManager ? `<p style="margin: 5px 0 0 0; font-size: 11px;"><strong>Site Mgr:</strong> ${project.siteManager} ${project.siteManagerPhone ? `(${project.siteManagerPhone})` : ''}</p>` : ''}
           </div>
         </div>
 
