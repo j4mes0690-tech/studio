@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -11,11 +12,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Bell, HelpCircle, Loader2, MessageSquareReply, X, Check } from 'lucide-react';
+import { Bell, HelpCircle, Loader2, MessageSquareReply, X, Check, MessageCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, or, and, doc, updateDoc, arrayUnion, writeBatch } from 'firebase/firestore';
-import type { InformationRequest, Project, DistributionUser } from '@/lib/types';
+import type { InformationRequest, Project, DistributionUser, ClientInstruction } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -42,21 +43,14 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
 
   const allowedProjectIds = useMemo(() => {
     if (!allProjects || !profile) return [];
-    
-    // Global oversight restricted to hasFullVisibility. 
     if (profile.permissions?.hasFullVisibility) return allProjects.map(p => p.id);
-    
-    // Standard users only see notifications for projects they are assigned to
     return allProjects
-      .filter(p => {
-          const assignments = p.assignedUsers || [];
-          return assignments.some(email => email.toLowerCase().trim() === normalizedEmail);
-      })
+      .filter(p => (p.assignedUsers || []).some(email => email.toLowerCase().trim() === normalizedEmail))
       .map(p => p.id);
   }, [allProjects, profile, normalizedEmail]);
 
-  // Query for open requests that involve the current user
-  const notificationsQuery = useMemoFirebase(() => {
+  // Query 1: Open Information Requests (RFIs)
+  const rfiQuery = useMemoFirebase(() => {
     if (!db || !normalizedEmail) return null;
     return query(
       collection(db, 'information-requests'),
@@ -69,54 +63,96 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
       )
     );
   }, [db, normalizedEmail]);
+  const { data: rawRequests, isLoading: rfiLoading } = useCollection<InformationRequest>(rfiQuery);
 
-  const { data: rawRequests, isLoading } = useCollection<InformationRequest>(notificationsQuery);
+  // Query 2: Open Client Instructions (CIs)
+  const ciQuery = useMemoFirebase(() => {
+    if (!db || !normalizedEmail) return null;
+    return query(
+      collection(db, 'client-instructions'),
+      where('status', '==', 'open')
+    );
+  }, [db, normalizedEmail]);
+  const { data: rawClientInstructions, isLoading: ciLoading } = useCollection<ClientInstruction>(ciQuery);
 
   const notifications = useMemo(() => {
-    if (!rawRequests || !profile || !normalizedEmail) return [];
+    if (!profile || !normalizedEmail) return [];
 
-    return rawRequests.map(request => {
-      // 0. Verify Project Assignment (Primary Security Gate)
-      if (!allowedProjectIds.includes(request.projectId)) return null;
+    const list: any[] = [];
 
-      // 1. Skip if user has dismissed this specific notification
-      if (request.dismissedBy?.includes(normalizedEmail)) return null;
+    // Process RFIs
+    if (rawRequests) {
+      rawRequests.forEach(request => {
+        if (!allowedProjectIds.includes(request.projectId)) return;
+        if (request.dismissedBy?.includes(normalizedEmail)) return;
 
-      // 2. Check if assigned to user
-      const isAssignedToMe = request.assignedTo.some(email => email.toLowerCase().trim() === normalizedEmail);
-      
-      // 3. Check if raised by user and has response from someone else
-      const messages = request.messages || [];
-      const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
-      const isMyRaisedWithResponse = request.raisedBy.toLowerCase().trim() === normalizedEmail && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== normalizedEmail;
+        const isAssignedToMe = request.assignedTo.some(e => e.toLowerCase().trim() === normalizedEmail);
+        const messages = request.messages || [];
+        const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+        const isMyRaisedWithResponse = request.raisedBy.toLowerCase().trim() === normalizedEmail && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== normalizedEmail;
 
-      if (isAssignedToMe || isMyRaisedWithResponse) {
-          return {
-              ...request,
-              notifType: isAssignedToMe ? 'assignment' : 'response',
-              label: isAssignedToMe ? 'Assigned to you' : 'New response received'
-          };
-      }
-      return null;
-    }).filter((n): n is any => n !== null);
-  }, [rawRequests, normalizedEmail, allowedProjectIds, profile]);
+        if (isAssignedToMe || isMyRaisedWithResponse) {
+          list.push({
+            id: request.id,
+            collection: 'information-requests',
+            projectId: request.projectId,
+            description: request.description,
+            notifType: isAssignedToMe ? 'assignment' : 'response',
+            label: isAssignedToMe ? 'RFI Assigned to you' : 'New RFI response',
+            createdAt: lastMessage ? lastMessage.createdAt : request.createdAt,
+            url: `/information-requests?project=${request.projectId}`
+          });
+        }
+      });
+    }
 
-  const handleDismiss = (e: React.MouseEvent, requestId: string) => {
+    // Process Client Instructions
+    if (rawClientInstructions) {
+      rawClientInstructions.forEach(ci => {
+        if (!allowedProjectIds.includes(ci.projectId)) return;
+        if (ci.dismissedBy?.includes(normalizedEmail)) return;
+
+        // Everyone assigned to the project is a recipient
+        const isRecipient = (ci.recipients || []).some(e => e.toLowerCase().trim() === normalizedEmail);
+        const messages = ci.messages || [];
+        const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+        
+        // Notify if it's a new instruction or if someone else has commented
+        const hasExternalUpdate = lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== normalizedEmail;
+
+        if (isRecipient) {
+          list.push({
+            id: ci.id,
+            collection: 'client-instructions',
+            projectId: ci.projectId,
+            description: ci.originalText,
+            notifType: hasExternalUpdate ? 'response' : 'assignment',
+            label: hasExternalUpdate ? 'New directive update' : 'New Client Directive',
+            createdAt: lastMessage ? lastMessage.createdAt : ci.createdAt,
+            url: `/client-instructions?project=${ci.projectId}`
+          });
+        }
+      });
+    }
+
+    return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [rawRequests, rawClientInstructions, normalizedEmail, allowedProjectIds, profile]);
+
+  const handleDismiss = (e: React.MouseEvent, id: string, coll: string) => {
     e.preventDefault();
     e.stopPropagation();
     
     if (!normalizedEmail) return;
 
-    const docRef = doc(db, 'information-requests', requestId);
+    const docRef = doc(db, coll, id);
     updateDoc(docRef, {
       dismissedBy: arrayUnion(normalizedEmail)
     }).catch(error => {
-      const permissionError = new FirestorePermissionError({
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: docRef.path,
         operation: 'update',
         requestResourceData: { dismissedBy: normalizedEmail }
-      });
-      errorEmitter.emit('permission-error', permissionError);
+      }));
     });
   };
 
@@ -130,7 +166,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
     try {
       const batch = writeBatch(db);
       notifications.forEach(notif => {
-        const docRef = doc(db, 'information-requests', notif.id);
+        const docRef = doc(db, notif.collection, notif.id);
         batch.update(docRef, {
           dismissedBy: arrayUnion(normalizedEmail)
         });
@@ -144,6 +180,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
   };
 
   const pendingCount = notifications.length;
+  const isLoading = rfiLoading || ciLoading;
 
   return (
     <DropdownMenu>
@@ -201,15 +238,15 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
                   className="cursor-pointer p-3 relative group focus:bg-muted/50"
                 >
                   <div className="flex gap-3 items-start pr-8">
-                    <Link href={`/information-requests?project=${notif.projectId}`} className="flex-1 flex gap-3 items-start">
+                    <Link href={notif.url} className="flex-1 flex gap-3 items-start">
                       <div className={cn(
                         "mt-1 p-2 rounded-full",
                         notif.notifType === 'assignment' ? 'bg-primary/10' : 'bg-accent/10'
                       )}>
-                        {notif.notifType === 'assignment' ? (
-                            <HelpCircle className="h-4 w-4 text-primary" />
+                        {notif.collection === 'client-instructions' ? (
+                            <MessageCircle className={cn("h-4 w-4", notif.notifType === 'assignment' ? 'text-primary' : 'text-accent')} />
                         ) : (
-                            <MessageSquareReply className="h-4 w-4 text-accent" />
+                            notif.notifType === 'assignment' ? <HelpCircle className="h-4 w-4 text-primary" /> : <MessageSquareReply className="h-4 w-4 text-accent" />
                         )}
                       </div>
                       <div className="flex-1 space-y-1 overflow-hidden">
@@ -218,7 +255,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
                           {notif.description}
                         </p>
                         <p className="text-[10px] text-muted-foreground">
-                          {notif.requiredBy ? `Due ${new Date(notif.requiredBy).toLocaleDateString()}` : 'No deadline'}
+                          <ClientDate date={notif.createdAt} />
                         </p>
                       </div>
                     </Link>
@@ -227,7 +264,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
                       variant="ghost"
                       size="icon"
                       className="absolute right-2 top-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background hover:text-destructive"
-                      onClick={(e) => handleDismiss(e, notif.id)}
+                      onClick={(e) => handleDismiss(e, notif.id, notif.collection)}
                       title="Clear Notification"
                     >
                       <X className="h-3 w-3" />
@@ -240,7 +277,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer text-center justify-center font-bold text-xs uppercase tracking-widest text-primary">
-          <Link href="/information-requests">View Full Log</Link>
+          <Link href="/">Return to Dashboard</Link>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

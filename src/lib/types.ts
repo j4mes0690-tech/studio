@@ -55,6 +55,7 @@ export type ClientInstruction = {
   recipients?: string[];
   messages?: ChatMessage[];
   status?: 'open' | 'accepted';
+  dismissedBy?: string[];
 };
 
 export type CleanUpNotice = {
