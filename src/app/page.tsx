@@ -45,7 +45,7 @@ export default async function Dashboard() {
                   Track equipment hire, off-hire dates, and commercial rates.
                 </p>
               </CardContent>
-            </Link>
+            </Card>
           </Link>
           <Link href="/variations">
             <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full border-primary/20 bg-primary/5">
