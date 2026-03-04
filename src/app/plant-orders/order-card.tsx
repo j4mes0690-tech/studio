@@ -279,6 +279,7 @@ export function OrderCard({
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
                       {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                      <span className="sr-only">Export Hire Record</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent><p>Export Hire Record</p></TooltipContent>
@@ -367,7 +368,7 @@ export function OrderCard({
                 </div>
             </div>
           </div>
-        </CardHeader>
+        </CardContent>
       </Card>
 
       <EditPlantOrderDialog 
