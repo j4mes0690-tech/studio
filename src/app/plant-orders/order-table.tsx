@@ -174,6 +174,8 @@ function OrderTableRow({
       reportElement.style.color = 'black';
       reportElement.style.fontFamily = 'sans-serif';
 
+      const supplier = subContractors.find(s => s.id === order.supplierId);
+
       reportElement.innerHTML = `
         <div style="border-bottom: 3px solid #336AB6; padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
           <div>
@@ -190,6 +192,9 @@ function OrderTableRow({
           <div>
             <p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Supplier Details</p>
             <p style="margin: 0; font-size: 16px; font-weight: bold;">${order.supplierName}</p>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #475569;">${supplier?.email || ''}</p>
+            ${supplier?.phone ? `<p style="margin: 2px 0 0 0; font-size: 11px; color: #475569;">Tel: ${supplier.phone}</p>` : ''}
+            ${supplier?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${supplier.address}</p>` : ''}
           </div>
           <div>
             <p style="margin: 0 0 10px 0; font-weight: bold; color: #336AB6; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Project Allocation</p>
