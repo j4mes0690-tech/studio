@@ -122,7 +122,7 @@ export function VariationCard({
           </div>
           <div>
             <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Status</p>
-            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${variation.status}</p>
+            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${variation.status === 'pending' ? 'Submitted' : variation.status}</p>
           </div>
         </div>
 
@@ -225,7 +225,7 @@ export function VariationCard({
                 variation.status === 'rejected' ? 'bg-red-100 text-red-800' :
                 variation.status === 'pending' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
               )}>
-                {variation.status}
+                {variation.status === 'pending' ? 'Submitted' : variation.status}
               </Badge>
               
               <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>

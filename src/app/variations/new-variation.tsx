@@ -351,7 +351,7 @@ export function NewVariationDialog({
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
                             <SelectItem value="draft">Draft (Internal)</SelectItem>
-                            <SelectItem value="pending">Pending Submission</SelectItem>
+                            <SelectItem value="pending">Submitted</SelectItem>
                             <SelectItem value="agreed">Agreed</SelectItem>
                             <SelectItem value="rejected">Rejected</SelectItem>
                         </SelectContent>

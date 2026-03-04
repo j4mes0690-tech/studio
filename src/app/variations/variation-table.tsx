@@ -14,7 +14,7 @@ import { ClientDate } from '@/components/client-date';
 import { useState, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { Trash2, FileDown, Loader2, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -128,7 +128,9 @@ function VariationTableRow({
             "capitalize text-[10px]",
             variation.status === 'agreed' ? 'bg-green-100 text-green-800' :
             variation.status === 'pending' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
-          )}>{variation.status}</Badge>
+          )}>
+            {variation.status === 'pending' ? 'Submitted' : variation.status}
+          </Badge>
         </TableCell>
         <TableCell>
           <span className="text-xs text-muted-foreground">
@@ -151,7 +153,10 @@ function VariationTableRow({
                 </Tooltip>
                 <AlertDialogContent onClick={e => e.stopPropagation()}>
                   <AlertDialogHeader><AlertDialogTitle>Delete Variation?</AlertDialogTitle><AlertDialogDescription>This will permanently remove this financial record.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction></AlertDialogFooter>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </TooltipProvider>

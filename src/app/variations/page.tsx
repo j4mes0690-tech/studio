@@ -147,7 +147,7 @@ function VariationsContent() {
             <SelectContent>
               <SelectItem value="all">Any Status</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="pending">Pending Submission</SelectItem>
+              <SelectItem value="pending">Submitted</SelectItem>
               <SelectItem value="agreed">Agreed</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>

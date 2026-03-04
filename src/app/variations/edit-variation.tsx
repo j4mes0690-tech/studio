@@ -340,7 +340,7 @@ export function EditVariationDialog({
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
                             <SelectItem value="draft">Draft</SelectItem>
-                            <SelectItem value="pending">Pending Submission</SelectItem>
+                            <SelectItem value="pending">Submitted</SelectItem>
                             <SelectItem value="agreed">Agreed</SelectItem>
                             <SelectItem value="rejected">Rejected</SelectItem>
                         </SelectContent>
