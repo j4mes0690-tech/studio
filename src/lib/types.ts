@@ -118,6 +118,7 @@ export type UserPermissions = {
   canManageChecklists: boolean;
   canManageMaterials: boolean;
   canManagePermitTemplates: boolean;
+  canManageTraining: boolean;
   hasFullVisibility: boolean;
 };
 
@@ -326,4 +327,35 @@ export type Variation = {
   createdAt: string;
   createdByEmail: string;
   notes?: string;
+};
+
+// --- TRAINING MODULE TYPES ---
+
+export type TrainingRecordStatus = 'active' | 'expiring' | 'expired';
+
+export type TrainingRecord = {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  courseName: string;
+  certificateNumber?: string;
+  issueDate: string;
+  expiryDate: string;
+  photos?: Photo[];
+  createdAt: string;
+};
+
+export type TrainingNeedStatus = 'requested' | 'booked' | 'completed';
+
+export type TrainingNeed = {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  courseName: string;
+  priority: 'low' | 'medium' | 'high';
+  status: TrainingNeedStatus;
+  notes?: string;
+  requestedDate: string;
 };

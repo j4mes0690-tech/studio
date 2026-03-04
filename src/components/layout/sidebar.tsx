@@ -26,6 +26,7 @@ import {
   FileCheck,
   Truck,
   Calculator,
+  GraduationCap,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 
@@ -35,6 +36,7 @@ const links = [
   { href: '/plant-orders', label: 'Plant Orders', icon: Truck },
   { href: '/variations', label: 'Variations', icon: Calculator },
   { href: '/permits', label: 'Permits to Work', icon: FileCheck },
+  { href: '/training', label: 'Training & Compliance', icon: GraduationCap },
   { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle },
   { href: '/instructions', label: 'Site Instructions', icon: MessageSquare },
   { href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles },

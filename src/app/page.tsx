@@ -5,7 +5,20 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Header } from '@/components/layout/header';
-import { MessageSquare, Sparkles, ListChecks, HardHat, HelpCircle, ClipboardCheck, MessageCircle, ShoppingCart, FileCheck, Truck, Calculator } from 'lucide-react';
+import { 
+  MessageSquare, 
+  Sparkles, 
+  ListChecks, 
+  HardHat, 
+  HelpCircle, 
+  ClipboardCheck, 
+  MessageCircle, 
+  ShoppingCart, 
+  FileCheck, 
+  Truck, 
+  Calculator,
+  GraduationCap
+} from 'lucide-react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -48,7 +61,7 @@ export default async function Dashboard() {
             </Card>
           </Link>
           <Link href="/variations">
-            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full border-primary/20 bg-primary/5">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
               <CardHeader className="p-0">
                 <Calculator className="h-16 w-16 text-primary mb-4" />
                 <CardTitle className="text-2xl">Variations</CardTitle>
@@ -67,8 +80,21 @@ export default async function Dashboard() {
                 <CardTitle className="text-2xl">Permits to Work</CardTitle>
               </CardHeader>
               <CardContent className="p-0 mt-2">
-                <p className="text-muted-foreground font-medium">
+                <p className="text-muted-foreground">
                   Issue and track high-risk activity permits electronically.
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link href="/training">
+            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full border-primary/20 bg-primary/5 shadow-lg">
+              <CardHeader className="p-0">
+                <GraduationCap className="h-16 w-16 text-primary mb-4" />
+                <CardTitle className="text-2xl">Training & Compliance</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0 mt-2">
+                <p className="text-muted-foreground font-medium">
+                  Store employee certificates and monitor expiry dates.
                 </p>
               </CardContent>
             </Card>
@@ -121,19 +147,6 @@ export default async function Dashboard() {
               <CardContent className="p-0 mt-2">
                 <p className="text-muted-foreground">
                   Record and track defects with completion documentation.
-                </p>
-              </CardContent>
-            </Card>
-          </Link>
-          <Link href="/quality-control">
-            <Card className="flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-colors h-full">
-              <CardHeader className="p-0">
-                <ClipboardCheck className="h-16 w-16 text-primary mb-4" />
-                <CardTitle className="text-2xl">Quality Control</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0 mt-2">
-                <p className="text-muted-foreground">
-                  Use trade checklists to verify work quality.
                 </p>
               </CardContent>
             </Card>
