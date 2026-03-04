@@ -209,7 +209,7 @@ export function OrderCard({
 
   const itemSummary = useMemo(() => {
     const total = order.items?.length || 0;
-    const activeCount = order.items?.filter(i => i.status === 'on-hire').length || 0;
+    const activeCount = order.items?.filter(i => i.status === 'on-hire' || i.status === 'scheduled').length || 0;
     return { total, activeCount };
   }, [order.items]);
 
@@ -262,9 +262,7 @@ export function OrderCard({
                       (order.status === 'on-hire' || order.status === 'scheduled') ? 'bg-green-100 text-green-800' : 
                       order.status === 'off-hired' ? 'bg-muted text-muted-foreground' : 'bg-indigo-600 text-white'
                   )}>
-                    {order.status === 'scheduled' ? 'Active' : 
-                     order.status === 'on-hire' ? 'In Use' : 
-                     order.status}
+                    {(order.status === 'scheduled' || order.status === 'on-hire') ? 'Active' : order.status}
                   </Badge>
                 )}
 

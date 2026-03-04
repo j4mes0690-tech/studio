@@ -71,7 +71,17 @@ function PlantOrdersContent() {
     return allOrders.filter(order => {
       const isAuthorised = allowedProjectIds.includes(order.projectId);
       const matchesProject = projectFilter === 'all' || order.projectId === projectFilter;
-      const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
+      
+      // Consolidate 'scheduled' and 'on-hire' under 'active' status for filtering
+      let matchesStatus = true;
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'active') {
+          matchesStatus = order.status === 'scheduled' || order.status === 'on-hire';
+        } else {
+          matchesStatus = order.status === statusFilter;
+        }
+      }
+      
       return isAuthorised && matchesProject && matchesStatus;
     });
   }, [allOrders, allowedProjectIds, projectFilter, statusFilter]);
@@ -144,8 +154,7 @@ function PlantOrdersContent() {
             <SelectContent>
               <SelectItem value="all">Any Status</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="scheduled">Active</SelectItem>
-              <SelectItem value="on-hire">In Use</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
               <SelectItem value="off-hired">Off-Hired</SelectItem>
             </SelectContent>
           </Select>
@@ -191,8 +200,13 @@ export default function PlantOrdersPage() {
     <div className="flex flex-col w-full min-h-screen">
       <Header title="Plant Orders" />
       <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-        <PlantOrdersContent />
+        <MaterialsOrdersContent />
       </Suspense>
     </div>
   );
+}
+
+function MaterialsOrdersContent() {
+    // This is a duplicate function from the file - removing during logic consolidation
+    return <PlantOrdersContent />;
 }

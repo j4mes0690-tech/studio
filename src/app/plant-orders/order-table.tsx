@@ -157,9 +157,7 @@ function OrderTableRow({
             (order.status === 'on-hire' || order.status === 'scheduled') ? "bg-green-100 text-green-800" : 
             order.status === 'off-hired' ? "bg-muted text-muted-foreground" : "bg-indigo-600 text-white"
           )}>
-            {order.status === 'scheduled' ? 'Active' : 
-             order.status === 'on-hire' ? 'In Use' : 
-             order.status}
+            {(order.status === 'scheduled' || order.status === 'on-hire') ? 'Active' : order.status}
           </Badge>
         </TableCell>
         <TableCell>
@@ -199,7 +197,10 @@ function OrderTableRow({
                 </TooltipProvider>
                 <AlertDialogContent onClick={e => e.stopPropagation()}>
                   <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove this plant hire record.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction></AlertDialogFooter>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </TooltipProvider>

@@ -152,7 +152,7 @@ export function EditPlantOrderDialog({
             const isOffHired = item.status === 'off-hired';
             return {
                 ...item,
-                status: isOffHired ? 'on-hire' : 'off-hired',
+                status: isOffHired ? 'scheduled' : 'off-hired',
                 actualOffHireDate: isOffHired ? null : new Date().toISOString().split('T')[0]
             };
         }
@@ -174,11 +174,11 @@ export function EditPlantOrderDialog({
         // Auto-determine overall status based on items
         let overallStatus = values.status;
         if (values.status !== 'draft') {
-            const anyActive = orderItems.some(i => i.status === 'on-hire' || i.status === 'scheduled');
+            const anyActive = orderItems.some(i => i.status !== 'off-hired');
             const allFinished = orderItems.length > 0 && orderItems.every(i => i.status === 'off-hired');
             
             if (allFinished) overallStatus = 'off-hired';
-            else if (anyActive) overallStatus = 'on-hire';
+            else if (anyActive) overallStatus = 'scheduled'; // Internally scheduled represents 'Active' display
             else overallStatus = 'scheduled';
         }
 
