@@ -294,7 +294,7 @@ export function EditPlantOrderDialog({
                             {item.status === 'off-hired' && <Badge variant="outline" className="text-[8px] h-4">OFF-HIRED</Badge>}
                           </div>
                           <p className="text-[10px] text-muted-foreground mt-1">
-                            {item.onHireDate} &rarr; {item.actualOffHireDate || item.anticipatedOffHireDate} | £{item.rate.toFixed(2)}/{item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}
+                            {item.onHireDate} &rarr; {item.status === 'off-hired' ? `Off-Hired: ${item.actualOffHireDate}` : `Due: ${item.anticipatedOffHireDate}`} | £{item.rate.toFixed(2)}/{item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}
                           </p>
                         </div>
                         

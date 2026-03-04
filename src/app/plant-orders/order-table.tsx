@@ -60,7 +60,7 @@ export function OrderTable({
             <TableHead className="w-[120px]">Supplier</TableHead>
             <TableHead className="w-[100px] text-right">Cost</TableHead>
             <TableHead className="w-[130px]">Status</TableHead>
-            <TableHead className="w-[130px]">Off-Hire Due</TableHead>
+            <TableHead className="w-[130px]">Off-Hire Date</TableHead>
             <TableHead className="w-[120px]">Order Placed</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -108,6 +108,14 @@ function OrderTableRow({
     }, null as string | null);
   }, [order.items]);
 
+  const latestActualOffHire = useMemo(() => {
+    if (!order.items || order.items.length === 0) return null;
+    return order.items.reduce((latest, item) => {
+      if (!item.actualOffHireDate) return latest;
+      return !latest || item.actualOffHireDate > latest ? item.actualOffHireDate : latest;
+    }, null as string | null);
+  }, [order.items]);
+
   const ragStatus = useMemo(() => {
     if (isDraft || order.status === 'off-hired' || !latestAnticipatedOffHire) return null;
     const today = startOfDay(new Date());
@@ -140,6 +148,8 @@ function OrderTableRow({
     });
   };
 
+  const offHireDisplayDate = order.status === 'off-hired' ? latestActualOffHire : latestAnticipatedOffHire;
+
   return (
     <>
       <TableRow 
@@ -161,10 +171,10 @@ function OrderTableRow({
           </Badge>
         </TableCell>
         <TableCell>
-          {latestAnticipatedOffHire ? (
-            <div className={cn("flex items-center gap-1.5 text-xs font-bold", ragStatus?.color)}>
-              {ragStatus?.icon && <ragStatus.icon className="h-3 w-3" />}
-              {new Date(latestAnticipatedOffHire).toLocaleDateString()}
+          {offHireDisplayDate ? (
+            <div className={cn("flex items-center gap-1.5 text-xs font-bold", order.status !== 'off-hired' && ragStatus?.color)}>
+              {order.status !== 'off-hired' && ragStatus?.icon && <ragStatus.icon className="h-3 w-3" />}
+              {new Date(offHireDisplayDate).toLocaleDateString()}
             </div>
           ) : <span className="text-xs text-muted-foreground italic">N/A</span>}
         </TableCell>

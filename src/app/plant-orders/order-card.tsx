@@ -74,6 +74,15 @@ export function OrderCard({
     }, null as string | null);
   }, [order.items]);
 
+  // Calculate Latest Actual Off-Hire Date
+  const latestActualOffHire = useMemo(() => {
+    if (!order.items || order.items.length === 0) return null;
+    return order.items.reduce((latest, item) => {
+      if (!item.actualOffHireDate) return latest;
+      return !latest || item.actualOffHireDate > latest ? item.actualOffHireDate : latest;
+    }, null as string | null);
+  }, [order.items]);
+
   // RAG Logic
   const ragStatus = useMemo(() => {
     if (isDraft || order.status === 'off-hired' || !latestAnticipatedOffHire) {
@@ -288,7 +297,10 @@ export function OrderCard({
                   </Tooltip>
                   <AlertDialogContent onClick={e => e.stopPropagation()}>
                     <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>This will remove order history for {order.reference}.</AlertDialogDescription></AlertDialogHeader>
-                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction></AlertDialogFooter>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               </TooltipProvider>
@@ -299,11 +311,13 @@ export function OrderCard({
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-muted/20 p-3 rounded-lg border border-dashed">
                 <div className="space-y-1">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Anticipated Off-Hire</p>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        {order.status === 'off-hired' ? 'Actual Off-Hire' : 'Anticipated Off-Hire'}
+                    </p>
                     <p className={cn("text-sm font-bold flex items-center gap-2", ragStatus.color)}>
                         {ragStatus.icon && <ragStatus.icon className="h-4 w-4" />}
-                        {latestAnticipatedOffHire ? (
-                          new Date(latestAnticipatedOffHire).toLocaleDateString()
+                        {(order.status === 'off-hired' ? latestActualOffHire : latestAnticipatedOffHire) ? (
+                          new Date((order.status === 'off-hired' ? latestActualOffHire : latestAnticipatedOffHire)!).toLocaleDateString()
                         ) : 'Not defined'}
                     </p>
                     {!isDraft && order.status !== 'off-hired' && (
@@ -328,9 +342,9 @@ export function OrderCard({
                   {(order.items || []).map((item, i) => (
                     <div key={i} className="flex items-start justify-between p-2 rounded border text-[11px] bg-muted/5">
                       <div className="flex-1 min-w-0 pr-4">
-                        <p className="font-bold text-primary truncate">{item.description}</p>
+                        <p className={cn("font-bold text-primary truncate", item.status === 'off-hired' && "text-muted-foreground")}>{item.description}</p>
                         <p className="text-muted-foreground flex items-center gap-2">
-                            <Clock className="h-3 w-3" /> {item.onHireDate} &rarr; {item.actualOffHireDate || item.anticipatedOffHireDate}
+                            <Clock className="h-3 w-3" /> {item.onHireDate} &rarr; {item.status === 'off-hired' ? `Off-Hired: ${item.actualOffHireDate}` : item.anticipatedOffHireDate}
                         </p>
                       </div>
                       <div className="text-right shrink-0">
@@ -353,7 +367,7 @@ export function OrderCard({
                 </div>
             </div>
           </div>
-        </CardContent>
+        </CardHeader>
       </Card>
 
       <EditPlantOrderDialog 
