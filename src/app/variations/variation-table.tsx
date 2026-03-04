@@ -15,6 +15,8 @@ import { useState, useTransition, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { Trash2, FileDown, Loader2, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -104,17 +106,17 @@ function VariationTableRow({
   const isDraft = variation.status === 'draft';
 
   const linkedCIs = useMemo(() => 
-    clientInstructions.filter(c => (variation.clientInstructionIds || []).includes(c.id)), 
+    (clientInstructions || []).filter(c => (variation.clientInstructionIds || []).includes(c.id)), 
     [clientInstructions, variation.clientInstructionIds]
   );
   
   const linkedSIs = useMemo(() => 
-    siteInstructions.filter(s => (variation.siteInstructionIds || []).includes(s.id)), 
+    (siteInstructions || []).filter(s => (variation.siteInstructionIds || []).includes(s.id)), 
     [siteInstructions, variation.siteInstructionIds]
   );
 
   const grossCost = useMemo(() => {
-    return variation.items.reduce((sum, item) => {
+    return (variation.items || []).reduce((sum, item) => {
       return item.type === 'addition' ? sum + item.total : sum - item.total;
     }, 0);
   }, [variation.items]);
@@ -125,8 +127,15 @@ function VariationTableRow({
     e.stopPropagation();
     startTransition(async () => {
       const docRef = doc(db, 'variations', variation.id);
-      await updateDoc(docRef, { status: 'pending' });
-      toast({ title: 'Success', description: 'Variation submitted.' });
+      updateDoc(docRef, { status: 'pending' })
+        .then(() => toast({ title: 'Success', description: 'Variation submitted.' }))
+        .catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: { status: 'pending' }
+          }));
+        });
     });
   };
 
@@ -134,8 +143,15 @@ function VariationTableRow({
     e.stopPropagation();
     startTransition(async () => {
       const docRef = doc(db, 'variations', variation.id);
-      await updateDoc(docRef, { status: 'draft' });
-      toast({ title: 'Success', description: 'Variation reopened for editing.' });
+      updateDoc(docRef, { status: 'draft' })
+        .then(() => toast({ title: 'Success', description: 'Variation reopened for editing.' }))
+        .catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: { status: 'draft' }
+          }));
+        });
     });
   };
 
@@ -169,7 +185,7 @@ function VariationTableRow({
           </div>
           <div>
             <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Status</p>
-            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${variation.status === 'pending' ? 'Submitted' : variation.status}</p>
+            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${variation.status}</p>
           </div>
         </div>
 
@@ -192,7 +208,7 @@ function VariationTableRow({
             </tr>
           </thead>
           <tbody>
-            ${variation.items.map(item => `
+            ${(variation.items || []).map(item => `
               <tr style="border-bottom: 1px solid #e2e8f0;">
                 <td style="padding: 12px; font-size: 12px;">
                     <span style="color: ${item.type === 'omission' ? '#dc2626' : '#16a34a'}; font-weight: bold;">[${item.type === 'omission' ? '-' : '+'}]</span>
@@ -213,7 +229,7 @@ function VariationTableRow({
             <div style="font-size: 12px; color: #64748b;">Subtotal: £${grossCost.toFixed(2)}</div>
             <div style="font-size: 12px; color: #64748b;">OHP (${variation.ohpPercentage}%): £${ohpAmount.toFixed(2)}</div>
             <div style="font-size: 18px; font-weight: bold; color: #1e40af; border-top: 2px solid #1e40af; padding-top: 10px; margin-top: 5px;">
-                NET VARIATION TOTAL: £${variation.totalAmount.toFixed(2)}
+                NET VARIATION TOTAL: £${(variation.totalAmount || 0).toFixed(2)}
             </div>
         </div>
 
@@ -245,10 +261,13 @@ function VariationTableRow({
     e.stopPropagation();
     startTransition(async () => {
       const docRef = doc(db, 'variations', variation.id);
-      await deleteDoc(docRef)
+      deleteDoc(docRef)
         .then(() => toast({ title: 'Success', description: 'Variation deleted.' }))
         .catch((err) => {
-          console.error(err);
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete'
+          }));
         });
     });
   };
@@ -266,7 +285,7 @@ function VariationTableRow({
             "text-right font-bold",
             variation.totalAmount >= 0 ? "text-green-600" : "text-red-600"
         )}>
-            {variation.totalAmount < 0 ? '-' : ''}£{Math.abs(variation.totalAmount).toFixed(2)}
+            {variation.totalAmount < 0 ? '-' : ''}£{Math.abs(variation.totalAmount || 0).toFixed(2)}
         </TableCell>
         <TableCell>
           <Badge className={cn(
@@ -291,6 +310,7 @@ function VariationTableRow({
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleCommit} disabled={isPending}>
                       {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                      <span className="sr-only">Commit & Submit Variation</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent><p>Commit & Submit Variation</p></TooltipContent>
@@ -310,6 +330,7 @@ function VariationTableRow({
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
                     {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                    <span className="sr-only">Download PDF</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent><p>Download Variation PDF</p></TooltipContent>

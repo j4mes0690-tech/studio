@@ -2,7 +2,15 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import type { Variation, Project, ClientInstruction, Instruction, DistributionUser, Photo } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import Image from 'next/image';
+import Link from 'next/link';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
@@ -24,6 +32,8 @@ import {
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -51,8 +61,8 @@ export function VariationCard({
   variation, 
   project, 
   projects,
-  clientInstructions, 
-  siteInstructions, 
+  clientInstructions = [], 
+  siteInstructions = [], 
   allVariations,
   currentUser
 }: { 
@@ -76,17 +86,17 @@ export function VariationCard({
 
   // Link matching for multiple IDs
   const linkedCIs = useMemo(() => 
-    clientInstructions.filter(c => (variation.clientInstructionIds || []).includes(c.id)), 
+    (clientInstructions || []).filter(c => (variation.clientInstructionIds || []).includes(c.id)), 
     [clientInstructions, variation.clientInstructionIds]
   );
   
   const linkedSIs = useMemo(() => 
-    siteInstructions.filter(s => (variation.siteInstructionIds || []).includes(s.id)), 
+    (siteInstructions || []).filter(s => (variation.siteInstructionIds || []).includes(s.id)), 
     [siteInstructions, variation.siteInstructionIds]
   );
 
   const grossCost = useMemo(() => {
-    return variation.items.reduce((sum, item) => {
+    return (variation.items || []).reduce((sum, item) => {
       return item.type === 'addition' ? sum + item.total : sum - item.total;
     }, 0);
   }, [variation.items]);
@@ -96,15 +106,30 @@ export function VariationCard({
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     startTransition(async () => {
-      await deleteDoc(doc(db, 'variations', variation.id));
-      toast({ title: 'Success', description: 'Variation removed.' });
+      const docRef = doc(db, 'variations', variation.id);
+      deleteDoc(docRef)
+        .then(() => toast({ title: 'Success', description: 'Variation removed.' }))
+        .catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete'
+          }));
+        });
     });
   };
 
   const handleUpdateStatus = (newStatus: Variation['status']) => {
     startTransition(async () => {
-      await updateDoc(doc(db, 'variations', variation.id), { status: newStatus });
-      toast({ title: 'Status Updated', description: `Variation is now ${newStatus}.` });
+      const docRef = doc(db, 'variations', variation.id);
+      updateDoc(docRef, { status: newStatus })
+        .then(() => toast({ title: 'Status Updated', description: `Variation is now ${newStatus}.` }))
+        .catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: { status: newStatus }
+          }));
+        });
     });
   };
 
@@ -136,7 +161,7 @@ export function VariationCard({
           </div>
           <div>
             <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Status</p>
-            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${variation.status === 'pending' ? 'Submitted' : variation.status}</p>
+            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold; text-transform: uppercase;">${variation.status}</p>
           </div>
         </div>
 
@@ -159,7 +184,7 @@ export function VariationCard({
             </tr>
           </thead>
           <tbody>
-            ${variation.items.map(item => `
+            ${(variation.items || []).map(item => `
               <tr style="border-bottom: 1px solid #e2e8f0;">
                 <td style="padding: 12px; font-size: 12px;">
                     <span style="color: ${item.type === 'omission' ? '#dc2626' : '#16a34a'}; font-weight: bold;">[${item.type === 'omission' ? '-' : '+'}]</span>
@@ -180,7 +205,7 @@ export function VariationCard({
             <div style="font-size: 12px; color: #64748b;">Subtotal: £${grossCost.toFixed(2)}</div>
             <div style="font-size: 12px; color: #64748b;">OHP (${variation.ohpPercentage}%): £${ohpAmount.toFixed(2)}</div>
             <div style="font-size: 18px; font-weight: bold; color: #1e40af; border-top: 2px solid #1e40af; padding-top: 10px; margin-top: 5px;">
-                NET VARIATION TOTAL: £${variation.totalAmount.toFixed(2)}
+                NET VARIATION TOTAL: £${(variation.totalAmount || 0).toFixed(2)}
             </div>
         </div>
 
@@ -323,7 +348,7 @@ export function VariationCard({
                     "text-2xl font-bold",
                     variation.totalAmount >= 0 ? "text-green-600" : "text-red-600"
                 )}>
-                    {variation.totalAmount < 0 ? '-' : ''}£{Math.abs(variation.totalAmount).toFixed(2)}
+                    {variation.totalAmount < 0 ? '-' : ''}£{Math.abs(variation.totalAmount || 0).toFixed(2)}
                 </p>
               </div>
             </div>

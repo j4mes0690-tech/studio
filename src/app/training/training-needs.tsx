@@ -12,12 +12,14 @@ import {
   CheckCircle2, 
   Calendar, 
   User, 
-  ArrowRight,
   BookOpen,
-  Check
+  Check,
+  Save
 } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,36 +65,61 @@ export function TrainingNeeds({ needs, users, currentUser, canManageAll }: {
         userEmail: targetEmail,
         courseName: course,
         priority,
-        status: 'requested',
+        status: 'requested' as const,
         notes,
         requestedDate: new Date().toISOString()
       };
 
-      await addDoc(collection(db, 'training-needs'), data);
-      toast({ title: 'Success', description: 'Training requirement flagged for admin team.' });
-      setIsAddOpen(false);
-      setCourse('');
-      setNotes('');
+      const colRef = collection(db, 'training-needs');
+      addDoc(colRef, data)
+        .then(() => {
+          toast({ title: 'Success', description: 'Training requirement flagged for admin team.' });
+          setIsAddOpen(false);
+          setCourse('');
+          setNotes('');
+        })
+        .catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: data
+          }));
+        });
     });
   };
 
   const updateStatus = (id: string, newStatus: TrainingNeed['status']) => {
     startTransition(async () => {
-      await updateDoc(doc(db, 'training-needs', id), { status: newStatus });
-      toast({ title: 'Status Updated', description: `Requirement is now ${newStatus}.` });
+      const docRef = doc(db, 'training-needs', id);
+      updateDoc(docRef, { status: newStatus })
+        .then(() => toast({ title: 'Status Updated', description: `Requirement is now ${newStatus}.` }))
+        .catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: { status: newStatus }
+          }));
+        });
     });
   };
 
   const deleteNeed = (id: string) => {
     startTransition(async () => {
-      await deleteDoc(doc(db, 'training-needs', id));
-      toast({ title: 'Removed', description: 'Requirement deleted.' });
+      const docRef = doc(db, 'training-needs', id);
+      deleteDoc(docRef)
+        .then(() => toast({ title: 'Removed', description: 'Requirement deleted.' }))
+        .catch(error => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'delete'
+          }));
+        });
     });
   };
 
   const filteredNeeds = canManageAll 
     ? needs 
-    : needs.filter(n => n.userEmail.toLowerCase() === currentUser.email.toLowerCase());
+    : (needs || []).filter(n => n.userEmail.toLowerCase() === currentUser.email.toLowerCase());
 
   return (
     <div className="space-y-6">
