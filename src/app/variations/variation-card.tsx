@@ -16,7 +16,8 @@ import {
   Link as LinkIcon,
   CheckCircle2,
   XCircle,
-  Clock
+  Clock,
+  Percent
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -59,8 +60,24 @@ export function VariationCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const ci = useMemo(() => clientInstructions.find(c => c.id === variation.clientInstructionId), [clientInstructions, variation.clientInstructionId]);
-  const si = useMemo(() => siteInstructions.find(s => s.id === variation.siteInstructionId), [siteInstructions, variation.siteInstructionId]);
+  // Link matching for multiple IDs
+  const linkedCIs = useMemo(() => 
+    clientInstructions.filter(c => (variation.clientInstructionIds || []).includes(c.id)), 
+    [clientInstructions, variation.clientInstructionIds]
+  );
+  
+  const linkedSIs = useMemo(() => 
+    siteInstructions.filter(s => (variation.siteInstructionIds || []).includes(s.id)), 
+    [siteInstructions, variation.siteInstructionIds]
+  );
+
+  const grossCost = useMemo(() => {
+    return variation.items.reduce((sum, item) => {
+      return item.type === 'addition' ? sum + item.total : sum - item.total;
+    }, 0);
+  }, [variation.items]);
+
+  const ohpAmount = useMemo(() => (grossCost * ((variation.ohpPercentage || 0) / 100)), [grossCost, variation.ohpPercentage]);
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -109,15 +126,15 @@ export function VariationCard({
           </div>
         </div>
 
-        ${ci || si ? `
+        ${linkedCIs.length > 0 || linkedSIs.length > 0 ? `
           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 40px;">
             <p style="margin: 0 0 5px 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">Source Directives</p>
-            ${ci ? `<p style="margin: 0; font-size: 12px;"><strong>Client Inst:</strong> ${ci.reference} - ${ci.summary}</p>` : ''}
-            ${si ? `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Site Inst:</strong> ${si.reference} - ${si.summary}</p>` : ''}
+            ${linkedCIs.map(ci => `<p style="margin: 0; font-size: 12px;"><strong>Client Inst:</strong> ${ci.reference}</p>`).join('')}
+            ${linkedSIs.map(si => `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Site Inst:</strong> ${si.reference}</p>`).join('')}
           </div>
         ` : ''}
 
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 40px;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <thead>
             <tr style="background: #f1f5f9; border-bottom: 2px solid #1e40af;">
               <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Description</th>
@@ -143,15 +160,15 @@ export function VariationCard({
               </tr>
             `).join('')}
           </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="4" style="padding: 20px 15px; text-align: right; font-size: 14px; font-weight: bold;">NET VARIATION TOTAL</td>
-              <td style="padding: 20px 15px; text-align: right; font-size: 18px; font-weight: bold; color: #1e40af; border-top: 2px solid #1e40af;">
-                £${variation.totalAmount.toFixed(2)}
-              </td>
-            </tr>
-          </tfoot>
         </table>
+
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px; margin-bottom: 40px;">
+            <div style="font-size: 12px; color: #64748b;">Subtotal: £${grossCost.toFixed(2)}</div>
+            <div style="font-size: 12px; color: #64748b;">OHP (${variation.ohpPercentage}%): £${ohpAmount.toFixed(2)}</div>
+            <div style="font-size: 18px; font-weight: bold; color: #1e40af; border-top: 2px solid #1e40af; padding-top: 10px; margin-top: 5px;">
+                NET VARIATION TOTAL: £${variation.totalAmount.toFixed(2)}
+            </div>
+        </div>
 
         <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
           <p style="font-size: 10px; color: #94a3b8;">Issued by: ${variation.createdByEmail}</p>
@@ -181,8 +198,10 @@ export function VariationCard({
     <>
       <Card 
         className={cn(
-          "hover:border-primary transition-all shadow-sm group cursor-pointer",
-          variation.status === 'draft' && "border-orange-200 bg-orange-50/10"
+          "hover:border-primary transition-all shadow-sm group cursor-pointer border-l-4",
+          variation.status === 'agreed' ? "border-l-green-500" :
+          variation.status === 'rejected' ? "border-l-destructive" :
+          variation.status === 'draft' ? "border-l-orange-400 border-orange-200 bg-orange-50/10" : "border-l-primary"
         )}
         onClick={() => setIsEditDialogOpen(true)}
       >
@@ -201,7 +220,7 @@ export function VariationCard({
             </div>
             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
               <Badge className={cn(
-                "capitalize text-[10px]",
+                "capitalize text-[10px] font-bold",
                 variation.status === 'agreed' ? 'bg-green-100 text-green-800' :
                 variation.status === 'rejected' ? 'bg-red-100 text-red-800' :
                 variation.status === 'pending' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
@@ -232,24 +251,31 @@ export function VariationCard({
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {(ci || si) && (
-                <div className="flex flex-wrap gap-2">
-                    {ci && <Badge variant="secondary" className="text-[9px] gap-1 h-5"><LinkIcon className="h-2.5 w-2.5" /> Client Directive: {ci.reference}</Badge>}
-                    {si && <Badge variant="secondary" className="text-[9px] gap-1 h-5"><LinkIcon className="h-2.5 w-2.5" /> Site Instruction: {si.reference}</Badge>}
+            {(linkedCIs.length > 0 || linkedSIs.length > 0) && (
+                <div className="flex flex-wrap gap-1.5">
+                    {linkedCIs.map(ci => <Badge key={ci.id} variant="secondary" className="text-[9px] gap-1 h-5"><LinkIcon className="h-2.5 w-2.5" /> CI: {ci.reference}</Badge>)}
+                    {linkedSIs.map(si => <Badge key={si.id} variant="secondary" className="text-[9px] gap-1 h-5"><LinkIcon className="h-2.5 w-2.5" /> SI: {si.reference}</Badge>)}
                 </div>
             )}
 
             <div className="flex flex-col sm:flex-row justify-between items-end gap-4 bg-muted/20 p-3 rounded-lg border border-dashed">
               <div className="space-y-1 w-full sm:w-auto">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Pricing Summary</p>
-                <div className="flex gap-4">
-                    <div className="flex items-center gap-1.5 text-xs text-green-600 font-bold"><ArrowUpCircle className="h-3 w-3" /> {variation.items.filter(i => i.type === 'addition').length} Additions</div>
-                    <div className="flex items-center gap-1.5 text-xs text-red-600 font-bold"><ArrowDownCircle className="h-3 w-3" /> {variation.items.filter(i => i.type === 'omission').length} Omissions</div>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Pricing Model</p>
+                <div className="flex flex-col gap-1">
+                    <div className="flex gap-4">
+                        <div className="flex items-center gap-1.5 text-xs text-green-600 font-bold"><ArrowUpCircle className="h-3 w-3" /> {variation.items.filter(i => i.type === 'addition').length} Add</div>
+                        <div className="flex items-center gap-1.5 text-xs text-red-600 font-bold"><ArrowDownCircle className="h-3 w-3" /> {variation.items.filter(i => i.type === 'omission').length} Om</div>
+                    </div>
+                    {variation.ohpPercentage > 0 && (
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary">
+                            <Percent className="h-2.5 w-2.5" /> {variation.ohpPercentage}% OHP included
+                        </div>
+                    )}
                 </div>
               </div>
               
               <div className="text-right">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Net Variation</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Final Net Value</p>
                 <p className={cn(
                     "text-2xl font-bold",
                     variation.totalAmount >= 0 ? "text-green-600" : "text-red-600"
@@ -261,15 +287,16 @@ export function VariationCard({
 
             <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
               <CollapsibleTrigger asChild onClick={e => e.stopPropagation()}>
-                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground">
+                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground h-8">
                   <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
-                  {isExpanded ? "Hide Line Items" : "View Cost Breakdown"}
+                  {isExpanded ? "Hide Details" : "View Cost Breakdown"}
                 </Button>
               </CollapsibleTrigger>
               <CollapsibleContent className="pt-2">
                 <div className="space-y-2">
+                  <div className="p-2 bg-muted/5 border-b text-[10px] font-bold text-muted-foreground uppercase">Base Build</div>
                   {variation.items.map((item, i) => (
-                    <div key={i} className="flex items-start justify-between p-2 rounded border text-[11px] bg-muted/5">
+                    <div key={item.id} className="flex items-start justify-between p-2 rounded border text-[11px] bg-background">
                       <div className="flex-1 min-w-0 pr-4">
                         <p className={cn("font-bold truncate", item.type === 'addition' ? "text-green-700" : "text-red-700")}>{item.description}</p>
                         <p className="text-muted-foreground">{item.quantity} {item.unit} @ £{item.rate.toFixed(2)}</p>
@@ -281,6 +308,12 @@ export function VariationCard({
                       </div>
                     </div>
                   ))}
+                  {variation.ohpPercentage > 0 && (
+                    <div className="flex items-center justify-between p-2 rounded border border-primary/20 bg-primary/5 text-[11px]">
+                        <span className="font-bold text-primary uppercase">Overhead & Profit (${variation.ohpPercentage}%)</span>
+                        <span className="font-bold text-primary">£${ohpAmount.toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               </CollapsibleContent>
             </Collapsible>

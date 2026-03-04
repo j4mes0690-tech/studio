@@ -20,13 +20,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Calculator, Plus, Trash2, Link as LinkIcon, MinusCircle, PlusCircle as PlusIcon } from 'lucide-react';
+import { PlusCircle, Loader2, Save, Calculator, Plus, Trash2, Link as LinkIcon, MinusCircle, PlusCircle as PlusIcon, Percent } from 'lucide-react';
 import type { Project, DistributionUser, Variation, VariationItem, VariationItemType, ClientInstruction, Instruction } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -34,13 +35,16 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewVariationSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   title: z.string().min(3, 'Title is required.'),
   description: z.string().optional(),
-  clientInstructionId: z.string().optional(),
-  siteInstructionId: z.string().optional(),
+  clientInstructionIds: z.array(z.string()).optional().default([]),
+  siteInstructionIds: z.array(z.string()).optional().default([]),
+  ohpPercentage: z.coerce.number().min(0, 'OHP must be positive.').default(0),
   status: z.enum(['draft', 'pending', 'agreed', 'rejected']).default('draft'),
 });
 
@@ -77,22 +81,27 @@ export function NewVariationDialog({
       projectId: '', 
       title: '', 
       description: '', 
-      clientInstructionId: '', 
-      siteInstructionId: '', 
+      clientInstructionIds: [], 
+      siteInstructionIds: [],
+      ohpPercentage: 0,
       status: 'draft' 
     },
   });
 
   const selectedProjectId = form.watch('projectId');
+  const currentOHP = form.watch('ohpPercentage') || 0;
   
   const filteredCIs = useMemo(() => clientInstructions.filter(ci => ci.projectId === selectedProjectId), [clientInstructions, selectedProjectId]);
   const filteredSIs = useMemo(() => siteInstructions.filter(si => si.projectId === selectedProjectId), [siteInstructions, selectedProjectId]);
 
-  const totalAmount = useMemo(() => {
+  const grossCost = useMemo(() => {
     return items.reduce((sum, item) => {
       return item.type === 'addition' ? sum + item.total : sum - item.total;
     }, 0);
   }, [items]);
+
+  const ohpAmount = useMemo(() => (grossCost * (currentOHP / 100)), [grossCost, currentOHP]);
+  const netVariationTotal = useMemo(() => grossCost + ohpAmount, [grossCost, ohpAmount]);
 
   const handleAddItem = () => {
     const qty = typeof pendingQty === 'string' ? parseFloat(pendingQty) : pendingQty;
@@ -132,10 +141,11 @@ export function NewVariationDialog({
           projectId: values.projectId,
           title: values.title,
           description: values.description || '',
-          clientInstructionId: values.clientInstructionId || null,
-          siteInstructionId: values.siteInstructionId || null,
+          clientInstructionIds: values.clientInstructionIds || [],
+          siteInstructionIds: values.siteInstructionIds || [],
           items: items.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
-          totalAmount,
+          ohpPercentage: values.ohpPercentage,
+          totalAmount: netVariationTotal,
           status: values.status,
           createdAt: new Date().toISOString(),
           createdByEmail: currentUser.email.toLowerCase().trim()
@@ -163,7 +173,7 @@ export function NewVariationDialog({
       <DialogTrigger asChild>
         <Button className="gap-2"><PlusCircle className="h-4 w-4" />New Variation</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Variation Order</DialogTitle>
           <DialogDescription>Record additions and omissions. Link to project directives for audit tracking.</DialogDescription>
@@ -180,13 +190,78 @@ export function NewVariationDialog({
               )} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
-                <FormItem><FormLabel>Link Client Instruction (CI)</FormLabel><Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="No Link" /></SelectTrigger></FormControl><SelectContent><SelectItem value="none">No Link</SelectItem>{filteredCIs.map(ci => <SelectItem key={ci.id} value={ci.id}>{ci.reference}: {ci.summary}</SelectItem>)}</SelectContent></Select></FormItem>
-              )} />
-              <FormField control={form.control} name="siteInstructionId" render={({ field }) => (
-                <FormItem><FormLabel>Link Subcontract Instruction (SI)</FormLabel><Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="No Link" /></SelectTrigger></FormControl><SelectContent><SelectItem value="none">No Link</SelectItem>{filteredSIs.map(si => <SelectItem key={si.id} value={si.id}>{si.reference}: {si.summary}</SelectItem>)}</SelectContent></Select></FormItem>
-              )} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="clientInstructionIds"
+                render={() => (
+                  <FormItem>
+                    <div className="flex items-center gap-2 mb-2"><LinkIcon className="h-4 w-4 text-primary" /><FormLabel>Link Client Instructions (CI)</FormLabel></div>
+                    <ScrollArea className="h-32 rounded-md border p-2 bg-muted/5">
+                      {filteredCIs.length === 0 ? (
+                        <p className="text-[10px] text-muted-foreground text-center py-8">Select project to see CIs.</p>
+                      ) : filteredCIs.map((ci) => (
+                        <FormField
+                          key={ci.id}
+                          control={form.control}
+                          name="clientInstructionIds"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-1">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(ci.id)}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...(field.value || []), ci.id])
+                                      : field.onChange(field.value?.filter((v) => v !== ci.id));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-xs font-medium cursor-pointer">{ci.reference}: {ci.summary}</FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </ScrollArea>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="siteInstructionIds"
+                render={() => (
+                  <FormItem>
+                    <div className="flex items-center gap-2 mb-2"><LinkIcon className="h-4 w-4 text-primary" /><FormLabel>Link Subcontract Instructions (SI)</FormLabel></div>
+                    <ScrollArea className="h-32 rounded-md border p-2 bg-muted/5">
+                      {filteredSIs.length === 0 ? (
+                        <p className="text-[10px] text-muted-foreground text-center py-8">Select project to see SIs.</p>
+                      ) : filteredSIs.map((si) => (
+                        <FormField
+                          key={si.id}
+                          control={form.control}
+                          name="siteInstructionIds"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-1">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(si.id)}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...(field.value || []), si.id])
+                                      : field.onChange(field.value?.filter((v) => v !== si.id));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-xs font-medium cursor-pointer">{si.reference}: {si.summary}</FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </ScrollArea>
+                  </FormItem>
+                )}
+              />
             </div>
 
             <Separator />
@@ -194,30 +269,41 @@ export function NewVariationDialog({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <FormLabel className="text-base font-bold text-primary">Line Items</FormLabel>
-                <div className={cn(
-                    "flex items-center gap-2 font-bold text-sm px-3 py-1 rounded-full",
-                    totalAmount >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                )}>
-                  <Calculator className="h-4 w-4" />
-                  Net Total: £{totalAmount.toFixed(2)}
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-muted-foreground font-medium text-xs">
+                        Subtotal: £{grossCost.toFixed(2)}
+                    </div>
+                    <div className={cn(
+                        "flex items-center gap-2 font-bold text-sm px-3 py-1 rounded-full",
+                        netVariationTotal >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    )}>
+                    <Calculator className="h-4 w-4" />
+                    Net Total: £{netVariationTotal.toFixed(2)}
+                    </div>
                 </div>
               </div>
 
               <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
-                <div className="space-y-2">
-                    <Label className="text-xs">Type</Label>
-                    <RadioGroup value={pendingType} onValueChange={(v: any) => setPendingType(v)} className="flex gap-4">
-                        <div className="flex items-center space-x-2"><RadioGroupItem value="addition" id="add" /><Label htmlFor="addition" className="flex items-center gap-1.5 text-xs text-green-600 font-bold"><PlusIcon className="h-3 w-3" /> Addition</Label></div>
-                        <div className="flex items-center space-x-2"><RadioGroupItem value="omission" id="om" /><Label htmlFor="omission" className="flex items-center gap-1.5 text-xs text-red-600 font-bold"><MinusCircle className="h-3 w-3" /> Omission</Label></div>
-                    </RadioGroup>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label className="text-xs">Type</Label>
+                            <RadioGroup value={pendingType} onValueChange={(v: any) => setPendingType(v)} className="flex gap-4">
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="addition" id="add" /><Label htmlFor="add" className="flex items-center gap-1.5 text-xs text-green-600 font-bold"><PlusIcon className="h-3 w-3" /> Addition</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="omission" id="om" /><Label htmlFor="om" className="flex items-center gap-1.5 text-xs text-red-600 font-bold"><MinusCircle className="h-3 w-3" /> Omission</Label></div>
+                            </RadioGroup>
+                        </div>
+                        <Input placeholder="Description of item..." value={pendingDesc} onChange={e => setPendingDesc(e.target.value)} className="bg-background" />
+                    </div>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Qty</Label><Input type="number" value={pendingQty} onChange={e => setPendingQty(e.target.value)} className="bg-background h-9" /></div>
+                            <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Unit</Label><Input value={pendingUnit} onChange={e => setPendingUnit(e.target.value)} className="bg-background h-9" /></div>
+                            <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Rate £</Label><Input type="number" step="0.01" value={pendingRate} onChange={e => setPendingRate(e.target.value)} className="bg-background h-9" /></div>
+                        </div>
+                        <Button type="button" onClick={handleAddItem} disabled={!pendingDesc} className="w-full h-9"><Plus className="h-4 w-4 mr-2" /> Add Line Item</Button>
+                    </div>
                 </div>
-                <Input placeholder="Description of item..." value={pendingDesc} onChange={e => setPendingDesc(e.target.value)} className="bg-background" />
-                <div className="grid grid-cols-3 gap-4">
-                  <Input type="number" placeholder="Qty" value={pendingQty} onChange={e => setPendingQty(e.target.value)} className="bg-background" />
-                  <Input placeholder="Unit" value={pendingUnit} onChange={e => setPendingUnit(e.target.value)} className="bg-background" />
-                  <Input type="number" step="0.01" placeholder="Rate £" value={pendingRate} onChange={e => setPendingRate(e.target.value)} className="bg-background" />
-                </div>
-                <Button type="button" onClick={handleAddItem} disabled={!pendingDesc} className="w-full h-10"><Plus className="h-4 w-4 mr-2" /> Add Line Item</Button>
               </div>
 
               <div className="space-y-2">
@@ -241,13 +327,45 @@ export function NewVariationDialog({
               </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField control={form.control} name="ohpPercentage" render={({ field }) => (
+                    <FormItem className="bg-primary/5 p-4 rounded-lg border-2 border-primary/10">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <Percent className="h-4 w-4 text-primary" />
+                                <FormLabel className="font-bold">Overhead & Profit (OHP)</FormLabel>
+                            </div>
+                            <Badge variant="secondary" className="font-mono">£{ohpAmount.toFixed(2)}</Badge>
+                        </div>
+                        <FormControl><Input type="number" step="0.1" {...field} className="bg-background" /></FormControl>
+                        <FormDescription className="text-[10px]">Percentage applied to the gross variation value.</FormDescription>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+
+                <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Process Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            <SelectItem value="draft">Draft (Internal)</SelectItem>
+                            <SelectItem value="pending">Pending Submission</SelectItem>
+                            <SelectItem value="agreed">Agreed</SelectItem>
+                            <SelectItem value="rejected">Rejected</SelectItem>
+                        </SelectContent>
+                        </Select>
+                    </FormItem>
+                )} />
+            </div>
+
             <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
               <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
                 <Save className="mr-2 h-4 w-4" /> Save as Draft
               </Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'pending')}>
+              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Submit Variation
+                Record Variation
               </Button>
             </DialogFooter>
           </form>

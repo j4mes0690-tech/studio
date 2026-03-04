@@ -317,10 +317,11 @@ export type Variation = {
   projectId: string;
   title: string;
   description: string;
-  clientInstructionId?: string | null;
-  siteInstructionId?: string | null;
+  clientInstructionIds?: string[] | null;
+  siteInstructionIds?: string[] | null;
   items: VariationItem[];
-  totalAmount: number;
+  ohpPercentage: number;
+  totalAmount: number; // Final net value including OHP
   status: VariationStatus;
   createdAt: string;
   createdByEmail: string;

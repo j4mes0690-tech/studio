@@ -19,13 +19,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, Calculator, Loader2, Save, Plus, PlusCircle as PlusIcon, MinusCircle } from 'lucide-react';
+import { Trash2, Calculator, Loader2, Save, Plus, PlusCircle as PlusIcon, MinusCircle, Link as LinkIcon, Percent } from 'lucide-react';
 import type { Project, DistributionUser, Variation, VariationItem, VariationItemType, ClientInstruction, Instruction } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -33,13 +34,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 const EditVariationSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   title: z.string().min(3, 'Title is required.'),
   description: z.string().optional(),
-  clientInstructionId: z.string().optional(),
-  siteInstructionId: z.string().optional(),
+  clientInstructionIds: z.array(z.string()).optional().default([]),
+  siteInstructionIds: z.array(z.string()).optional().default([]),
+  ohpPercentage: z.coerce.number().min(0, 'OHP must be positive.').default(0),
   status: z.enum(['draft', 'pending', 'agreed', 'rejected']).default('draft'),
 });
 
@@ -81,8 +86,9 @@ export function EditVariationDialog({
       projectId: variation.projectId, 
       title: variation.title, 
       description: variation.description || '',
-      clientInstructionId: variation.clientInstructionId || 'none',
-      siteInstructionId: variation.siteInstructionId || 'none',
+      clientInstructionIds: variation.clientInstructionIds || [],
+      siteInstructionIds: variation.siteInstructionIds || [],
+      ohpPercentage: variation.ohpPercentage || 0,
       status: variation.status
     },
   });
@@ -93,8 +99,9 @@ export function EditVariationDialog({
         projectId: variation.projectId,
         title: variation.title,
         description: variation.description || '',
-        clientInstructionId: variation.clientInstructionId || 'none',
-        siteInstructionId: variation.siteInstructionId || 'none',
+        clientInstructionIds: variation.clientInstructionIds || [],
+        siteInstructionIds: variation.siteInstructionIds || [],
+        ohpPercentage: variation.ohpPercentage || 0,
         status: variation.status,
       });
       setItems(variation.items || []);
@@ -102,14 +109,19 @@ export function EditVariationDialog({
   }, [open, variation, form]);
 
   const selectedProjectId = form.watch('projectId');
+  const currentOHP = form.watch('ohpPercentage') || 0;
+
   const filteredCIs = useMemo(() => clientInstructions.filter(ci => ci.projectId === selectedProjectId), [clientInstructions, selectedProjectId]);
   const filteredSIs = useMemo(() => siteInstructions.filter(si => si.projectId === selectedProjectId), [siteInstructions, selectedProjectId]);
 
-  const totalAmount = useMemo(() => {
+  const grossCost = useMemo(() => {
     return items.reduce((sum, item) => {
       return item.type === 'addition' ? sum + item.total : sum - item.total;
     }, 0);
   }, [items]);
+
+  const ohpAmount = useMemo(() => (grossCost * (currentOHP / 100)), [grossCost, currentOHP]);
+  const netVariationTotal = useMemo(() => grossCost + ohpAmount, [grossCost, ohpAmount]);
 
   const handleAddItem = () => {
     const qty = typeof pendingQty === 'string' ? parseFloat(pendingQty) : pendingQty;
@@ -141,10 +153,11 @@ export function EditVariationDialog({
           projectId: values.projectId,
           title: values.title,
           description: values.description || '',
-          clientInstructionId: values.clientInstructionId === 'none' ? null : values.clientInstructionId,
-          siteInstructionId: values.siteInstructionId === 'none' ? null : values.siteInstructionId,
+          clientInstructionIds: values.clientInstructionIds || [],
+          siteInstructionIds: values.siteInstructionIds || [],
           items,
-          totalAmount,
+          ohpPercentage: values.ohpPercentage,
+          totalAmount: netVariationTotal,
           status: values.status,
         };
 
@@ -160,7 +173,7 @@ export function EditVariationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Variation: {variation.reference}</DialogTitle>
           <DialogDescription>Adjust costs or update instruction links.</DialogDescription>
@@ -177,13 +190,74 @@ export function EditVariationDialog({
               )} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
-                <FormItem><FormLabel>Link Client Instruction (CI)</FormLabel><Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="none">No Link</SelectItem>{filteredCIs.map(ci => <SelectItem key={ci.id} value={ci.id}>{ci.reference}: {ci.summary}</SelectItem>)}</SelectContent></Select></FormItem>
-              )} />
-              <FormField control={form.control} name="siteInstructionId" render={({ field }) => (
-                <FormItem><FormLabel>Link Subcontract Instruction (SI)</FormLabel><Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="none">No Link</SelectItem>{filteredSIs.map(si => <SelectItem key={si.id} value={si.id}>{si.reference}: {si.summary}</SelectItem>)}</SelectContent></Select></FormItem>
-              )} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="clientInstructionIds"
+                render={() => (
+                  <FormItem>
+                    <div className="flex items-center gap-2 mb-2"><LinkIcon className="h-4 w-4 text-primary" /><FormLabel>Link Client Instructions (CI)</FormLabel></div>
+                    <ScrollArea className="h-32 rounded-md border p-2 bg-muted/5">
+                      {filteredCIs.map((ci) => (
+                        <FormField
+                          key={ci.id}
+                          control={form.control}
+                          name="clientInstructionIds"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-1">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(ci.id)}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...(field.value || []), ci.id])
+                                      : field.onChange(field.value?.filter((v) => v !== ci.id));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-xs font-medium cursor-pointer">{ci.reference}: {ci.summary}</FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </ScrollArea>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="siteInstructionIds"
+                render={() => (
+                  <FormItem>
+                    <div className="flex items-center gap-2 mb-2"><LinkIcon className="h-4 w-4 text-primary" /><FormLabel>Link Subcontract Instructions (SI)</FormLabel></div>
+                    <ScrollArea className="h-32 rounded-md border p-2 bg-muted/5">
+                      {filteredSIs.map((si) => (
+                        <FormField
+                          key={si.id}
+                          control={form.control}
+                          name="siteInstructionIds"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-3 space-y-0 mb-1">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(si.id)}
+                                  onCheckedChange={(checked) => {
+                                    return checked
+                                      ? field.onChange([...(field.value || []), si.id])
+                                      : field.onChange(field.value?.filter((v) => v !== si.id));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-xs font-medium cursor-pointer">{si.reference}: {si.summary}</FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                    </ScrollArea>
+                  </FormItem>
+                )}
+              />
             </div>
 
             <Separator />
@@ -191,27 +265,36 @@ export function EditVariationDialog({
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <FormLabel className="text-base font-bold text-primary">Line Items</FormLabel>
-                <div className={cn(
-                    "flex items-center gap-2 font-bold text-sm px-3 py-1 rounded-full",
-                    totalAmount >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                )}>
-                  <Calculator className="h-4 w-4" />
-                  Net Total: £{totalAmount.toFixed(2)}
+                <div className="flex items-center gap-4">
+                    <div className="text-xs text-muted-foreground font-medium">Subtotal: £{grossCost.toFixed(2)}</div>
+                    <div className={cn(
+                        "flex items-center gap-2 font-bold text-sm px-3 py-1 rounded-full",
+                        netVariationTotal >= 0 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    )}>
+                    <Calculator className="h-4 w-4" />
+                    Net Total: £{netVariationTotal.toFixed(2)}
+                    </div>
                 </div>
               </div>
 
               <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
-                <RadioGroup value={pendingType} onValueChange={(v: any) => setPendingType(v)} className="flex gap-4">
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="addition" id="add-edit" /><Label htmlFor="add-edit" className="text-xs text-green-600 font-bold">Addition</Label></div>
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="omission" id="om-edit" /><Label htmlFor="om-edit" className="text-xs text-red-600 font-bold">Omission</Label></div>
-                </RadioGroup>
-                <Input placeholder="Description..." value={pendingDesc} onChange={e => setPendingDesc(e.target.value)} className="bg-background" />
-                <div className="grid grid-cols-3 gap-4">
-                  <Input type="number" placeholder="Qty" value={pendingQty} onChange={e => setPendingQty(e.target.value)} className="bg-background" />
-                  <Input placeholder="Unit" value={pendingUnit} onChange={e => setPendingUnit(e.target.value)} className="bg-background" />
-                  <Input type="number" step="0.01" placeholder="Rate £" value={pendingRate} onChange={e => setPendingRate(e.target.value)} className="bg-background" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="space-y-4">
+                        <RadioGroup value={pendingType} onValueChange={(v: any) => setPendingType(v)} className="flex gap-4">
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="addition" id="add-edit" /><Label htmlFor="add-edit" className="text-xs text-green-600 font-bold">Addition</Label></div>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="omission" id="om-edit" /><Label htmlFor="om-edit" className="text-xs text-red-600 font-bold">Omission</Label></div>
+                        </RadioGroup>
+                        <Input placeholder="Description..." value={pendingDesc} onChange={e => setPendingDesc(e.target.value)} className="bg-background h-10" />
+                    </div>
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-3 gap-4">
+                            <Input type="number" placeholder="Qty" value={pendingQty} onChange={e => setPendingQty(e.target.value)} className="bg-background h-10" />
+                            <Input placeholder="Unit" value={pendingUnit} onChange={e => setPendingUnit(e.target.value)} className="bg-background h-10" />
+                            <Input type="number" step="0.01" placeholder="Rate £" value={pendingRate} onChange={e => setPendingRate(e.target.value)} className="bg-background h-10" />
+                        </div>
+                        <Button type="button" onClick={handleAddItem} disabled={!pendingDesc} className="w-full h-10"><Plus className="h-4 w-4 mr-2" /> Add Item</Button>
+                    </div>
                 </div>
-                <Button type="button" onClick={handleAddItem} disabled={!pendingDesc} className="w-full h-10"><Plus className="h-4 w-4 mr-2" /> Add Item</Button>
               </div>
 
               <div className="space-y-2">
@@ -234,20 +317,37 @@ export function EditVariationDialog({
               </div>
             </div>
 
-            <FormField control={form.control} name="status" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Process Status</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="pending">Pending Submission</SelectItem>
-                    <SelectItem value="agreed">Agreed</SelectItem>
-                    <SelectItem value="rejected">Rejected</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField control={form.control} name="ohpPercentage" render={({ field }) => (
+                    <FormItem className="bg-primary/5 p-4 rounded-lg border-2 border-primary/10">
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                                <Percent className="h-4 w-4 text-primary" />
+                                <FormLabel className="font-bold">Overhead & Profit (OHP)</FormLabel>
+                            </div>
+                            <Badge variant="secondary" className="font-mono">£{ohpAmount.toFixed(2)}</Badge>
+                        </div>
+                        <FormControl><Input type="number" step="0.1" {...field} className="bg-background" /></FormControl>
+                        <FormDescription className="text-[10px]">Percentage applied to the gross variation value.</FormDescription>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+
+                <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Process Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>
+                            <SelectItem value="draft">Draft</SelectItem>
+                            <SelectItem value="pending">Pending Submission</SelectItem>
+                            <SelectItem value="agreed">Agreed</SelectItem>
+                            <SelectItem value="rejected">Rejected</SelectItem>
+                        </SelectContent>
+                        </Select>
+                    </FormItem>
+                )} />
+            </div>
 
             <DialogFooter className="pt-4 border-t gap-3">
               <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
