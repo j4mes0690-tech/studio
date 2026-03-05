@@ -26,15 +26,16 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Calculator } from 'lucide-react';
-import type { Project, SubContractor, DistributionUser, PlantOrder, PlantOrderItem, PlantRateUnit, PlantStatus } from '@/lib/types';
+import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Calculator, Pencil } from 'lucide-react';
+import type { Project, SubContractor, DistributionUser, PlantOrder, PlantOrderItem, PlantRateUnit } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
-import { addWeeks, differenceInDays } from 'date-fns';
+import { addWeeks, differenceInDays, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { VoiceInput } from '@/components/voice-input';
+import { Badge } from '@/components/ui/badge';
 
 const NewPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -57,10 +58,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  // Plant Items State
   const [orderItems, setOrderItems] = useState<Omit<PlantOrderItem, 'id'>[]>([]);
-  
-  // Pending Item State
   const [pendingDescription, setPendingDescription] = useState('');
   const [pendingOnHireDate, setPendingOnHireDate] = useState(new Date().toISOString().split('T')[0]);
   const [pendingOffHireDate, setPendingOffHireDate] = useState(addWeeks(new Date(), 1).toISOString().split('T')[0]);
@@ -80,17 +78,13 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
-  
-  // Filter for ONLY Plant Suppliers
   const plantSuppliers = useMemo(() => subContractors.filter(s => !!s.isPlantSupplier), [subContractors]);
 
   const calculateItemCost = (rate: number, unit: PlantRateUnit, start: string, end: string) => {
     if (unit === 'item') return rate;
-    
-    const dStart = new Date(start);
-    const dEnd = new Date(end);
+    const dStart = parseISO(start);
+    const dEnd = parseISO(end);
     const days = Math.max(1, differenceInDays(dEnd, dStart) + 1);
-    
     switch (unit) {
       case 'daily': return rate * days;
       case 'weekly': return (rate / 7) * days;
@@ -99,11 +93,15 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
     }
   };
 
+  const livePendingCost = useMemo(() => {
+    const rate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
+    if (isNaN(rate) || !pendingOnHireDate || !pendingOffHireDate) return 0;
+    return calculateItemCost(rate, pendingRateUnit, pendingOnHireDate, pendingOffHireDate);
+  }, [pendingRate, pendingRateUnit, pendingOnHireDate, pendingOffHireDate]);
+
   const handleAddItem = () => {
     const rate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
     if (!pendingDescription || isNaN(rate)) return;
-
-    const estimatedCost = calculateItemCost(rate, pendingRateUnit, pendingOnHireDate, pendingOffHireDate);
 
     setOrderItems([...orderItems, {
       description: pendingDescription,
@@ -113,17 +111,27 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
       rate: rate,
       rateUnit: pendingRateUnit,
       status: 'scheduled',
-      estimatedCost
+      estimatedCost: livePendingCost
     }]);
 
     setPendingDescription('');
     setPendingRate(0);
   };
 
+  const handleEditItem = (idx: number) => {
+    const item = orderItems[idx];
+    setPendingDescription(item.description);
+    setPendingOnHireDate(item.onHireDate);
+    setPendingOffHireDate(item.anticipatedOffHireDate);
+    setPendingRate(item.rate);
+    setPendingRateUnit(item.rateUnit);
+    setOrderItems(orderItems.filter((_, i) => i !== idx));
+  };
+
   const removeItem = (idx: number) => setOrderItems(orderItems.filter((_, i) => i !== idx));
 
   const setQuickOffHire = (weeks: number) => {
-    const baseDate = pendingOnHireDate ? new Date(pendingOnHireDate) : new Date();
+    const baseDate = pendingOnHireDate ? parseISO(pendingOnHireDate) : new Date();
     const newDate = addWeeks(baseDate, weeks);
     setPendingOffHireDate(newDate.toISOString().split('T')[0]);
   };
@@ -159,12 +167,10 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
           notes: values.notes || '',
         };
 
-        const colRef = collection(db, 'plant-orders');
-        await addDoc(colRef, orderData);
-        
-        toast({ title: 'Success', description: values.status === 'draft' ? 'Plant hire order saved as draft.' : 'Plant hire order recorded.' });
+        await addDoc(collection(db, 'plant-orders'), orderData);
+        toast({ title: 'Success', description: values.status === 'draft' ? 'Order saved as draft.' : 'Order recorded.' });
         setOpen(false);
-      } catch (err: any) {
+      } catch (err) {
         console.error(err);
         toast({ title: 'Error', description: 'Failed to save order.', variant: 'destructive' });
       }
@@ -183,15 +189,12 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
-          <PlusCircle className="h-4 w-4" />
-          Schedule Plant Hire
-        </Button>
+        <Button className="gap-2"><PlusCircle className="h-4 w-4" />Schedule Plant Hire</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>New Plant Order</DialogTitle>
-          <DialogDescription>Schedule construction equipment for delivery to site. Drafts can be reviewed before activation.</DialogDescription>
+          <DialogDescription>Schedule construction equipment for delivery to site.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -200,37 +203,31 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
-                  <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                </Select><FormMessage /></FormItem>
+                <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
               )} />
               <FormField control={form.control} name="supplierId" render={({ field }) => (
-                <FormItem><FormLabel>Plant Supplier</FormLabel><Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger></FormControl>
-                  <SelectContent>{plantSuppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                </Select><FormMessage /></FormItem>
+                <FormItem><FormLabel>Plant Supplier</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select supplier" /></SelectTrigger></FormControl><SelectContent>{plantSuppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
               )} />
             </div>
 
             <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><FormLabel>Hire Contract Description</FormLabel><FormControl><Input placeholder="e.g. Groundworks Phase 1 Equipment" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem><FormLabel>Hire Contract Title</FormLabel><FormControl><Input placeholder="e.g. Phase 1 Excavation Equipment" {...field} /></FormControl></FormItem>
             )} />
 
             <Separator />
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <FormLabel className="text-base font-bold text-primary">Plant Items</FormLabel>
+                <FormLabel className="text-base font-bold text-primary">Line Items</FormLabel>
                 <div className="flex items-center gap-2 text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full">
                   <Calculator className="h-4 w-4" />
-                  Estimated Cost: £{totalAmount.toFixed(2)}
+                  Estimated Contract: £{totalAmount.toFixed(2)}
                 </div>
               </div>
               
               <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs">Plant / Equipment Details</Label>
+                  <Label className="text-xs">Equipment / Asset Description</Label>
                   <Input placeholder="e.g. 3 Tonne Excavator" value={pendingDescription} onChange={e => setPendingDescription(e.target.value)} className="bg-background" />
                 </div>
 
@@ -238,10 +235,10 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
                   <div className="space-y-2"><Label className="text-xs">On-Hire Date</Label><Input type="date" value={pendingOnHireDate} onChange={e => setPendingOnHireDate(e.target.value)} className="bg-background" /></div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs">Expected Off-Hire</Label>
+                      <Label className="text-xs">Anticipated Off-Hire</Label>
                       <div className="flex gap-1">
-                        <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickOffHire(1)}>+1w</Button>
-                        <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickOffHire(2)}>+2w</Button>
+                        <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setQuickOffHire(1)}>+1w</Button>
+                        <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setQuickOffHire(2)}>+2w</Button>
                       </div>
                     </div>
                     <Input type="date" value={pendingOffHireDate} onChange={e => setPendingOffHireDate(e.target.value)} className="bg-background" />
@@ -261,9 +258,13 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
                                 <SelectItem value="daily">Day</SelectItem>
                                 <SelectItem value="weekly">Week</SelectItem>
                                 <SelectItem value="monthly">Month</SelectItem>
-                                <SelectItem value="item">Item</SelectItem>
+                                <SelectItem value="item">One-off</SelectItem>
                             </SelectContent>
                         </Select>
+                    </div>
+                    <div className="flex flex-col items-end gap-1 shrink-0 pb-1">
+                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Estimated Item Cost</span>
+                        <Badge variant="secondary" className="h-7 px-3 text-primary font-bold">£{livePendingCost.toFixed(2)}</Badge>
                     </div>
                 </div>
                 
@@ -275,41 +276,32 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
                   <div key={idx} className="flex items-center justify-between p-3 rounded border bg-background group shadow-sm">
                     <div className="flex-1 min-w-0 pr-4">
                       <p className="text-sm font-bold text-primary truncate">{item.description}</p>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-[10px] text-muted-foreground">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-[10px] text-muted-foreground font-medium">
                         <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {item.onHireDate} &rarr; {item.anticipatedOffHireDate}</span>
-                        <span className="font-bold text-primary">£{item.rate.toFixed(2)} / {item.rateUnit === 'item' ? 'ea' : item.rateUnit[0]}</span>
+                        <span className="font-bold text-primary">£{item.rate.toFixed(2)} / {item.rateUnit[0]}</span>
                         <span className="font-bold text-foreground">Subtotal: £{item.estimatedCost.toFixed(2)}</span>
                       </div>
                     </div>
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
+                    <div className="flex gap-1">
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleEditItem(idx)}><Pencil className="h-4 w-4" /></Button>
+                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
 
             <FormField control={form.control} name="notes" render={({ field }) => (
-              <FormItem><FormLabel>Hire Notes / Site Requirements</FormLabel><FormControl><Textarea placeholder="e.g. Delivery via site entrance B..." {...field} /></FormControl></FormItem>
+              <FormItem><FormLabel>Site Delivery Notes</FormLabel><FormControl><Textarea placeholder="e.g. Access via gate B..." {...field} /></FormControl></FormItem>
             )} />
 
             <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-              <Button 
-                type="submit" 
-                variant="outline" 
-                className="w-full sm:w-auto h-12" 
-                disabled={isPending} 
-                onClick={() => form.setValue('status', 'draft')}
-              >
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                Save as Draft
+              <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
+                <Save className="mr-2 h-4 w-4" /> Save as Draft
               </Button>
-              <Button 
-                type="submit" 
-                className="w-full sm:flex-1 h-12 text-lg font-bold" 
-                disabled={isPending} 
-                onClick={() => form.setValue('status', 'scheduled')}
-              >
-                {isPending && submissionStatus === 'scheduled' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-5 w-5" />}
-                Place Order
+              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'scheduled')}>
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-5 w-5" />}
+                Issue Hire Order
               </Button>
             </DialogFooter>
           </form>
