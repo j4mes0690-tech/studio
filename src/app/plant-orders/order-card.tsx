@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -17,7 +16,8 @@ import {
   Calculator,
   Save,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  ShoppingCart
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -72,6 +72,11 @@ export function OrderCard({
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
   const isDraft = order.status === 'draft';
+
+  const itemSummary = useMemo(() => ({
+    total: order.items?.length || 0,
+    active: order.items?.filter(i => i.status !== 'off-hired').length || 0
+  }), [order.items]);
 
   const latestAnticipatedOffHire = useMemo(() => {
     if (!order.items || order.items.length === 0) return null;
@@ -273,7 +278,6 @@ export function OrderCard({
                       <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-600 hover:bg-orange-50" onClick={handleCommit} disabled={isPending}>
                           {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                          <span className="sr-only">Activate Order</span>
                         </Button>
                       </TooltipTrigger>
                       <TooltipContent><p>Activate Order</p></TooltipContent>
@@ -293,7 +297,6 @@ export function OrderCard({
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
                       {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-                      <span className="sr-only">Export Hire Record</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent><p>Export Hire Record</p></TooltipContent>

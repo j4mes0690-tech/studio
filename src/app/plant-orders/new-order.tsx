@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Calculator, Pencil } from 'lucide-react';
+import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Calculator, Pencil, ShoppingCart } from 'lucide-react';
 import type { Project, SubContractor, DistributionUser, PlantOrder, PlantOrderItem, PlantRateUnit } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -36,6 +36,8 @@ import { addWeeks, differenceInDays, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { VoiceInput } from '@/components/voice-input';
 import { Badge } from '@/components/ui/badge';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const NewPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -118,16 +120,6 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
     setPendingRate(0);
   };
 
-  const handleEditItem = (idx: number) => {
-    const item = orderItems[idx];
-    setPendingDescription(item.description);
-    setPendingOnHireDate(item.onHireDate);
-    setPendingOffHireDate(item.anticipatedOffHireDate);
-    setPendingRate(item.rate);
-    setPendingRateUnit(item.rateUnit);
-    setOrderItems(orderItems.filter((_, i) => i !== idx));
-  };
-
   const removeItem = (idx: number) => setOrderItems(orderItems.filter((_, i) => i !== idx));
 
   const setQuickOffHire = (weeks: number) => {
@@ -141,7 +133,23 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
   }, [orderItems]);
 
   const onSubmit = (values: NewPlantOrderFormValues) => {
-    if (orderItems.length === 0) {
+    // Synchronize: If user has a pending item filled out, add it automatically
+    let finalItems = [...orderItems];
+    const pRate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
+    if (pendingDescription && !isNaN(pRate) && pRate > 0) {
+        finalItems.push({
+            description: pendingDescription,
+            onHireDate: pendingOnHireDate,
+            anticipatedOffHireDate: pendingOffHireDate,
+            actualOffHireDate: null,
+            rate: pRate,
+            rateUnit: pendingRateUnit,
+            status: 'scheduled',
+            estimatedCost: livePendingCost
+        });
+    }
+
+    if (finalItems.length === 0) {
       toast({ title: 'No items', description: 'Add at least one piece of plant to the order.', variant: 'destructive' });
       return;
     }
@@ -153,21 +161,29 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
         const reference = getNextReference(existingRefs, values.projectId, 'PL', initials);
         const supplier = plantSuppliers.find(s => s.id === values.supplierId);
 
-        const orderData: Omit<PlantOrder, 'id'> = {
+        const orderData = {
           reference,
           projectId: values.projectId,
           supplierId: values.supplierId,
           supplierName: supplier?.name || 'Unknown',
           description: values.description,
-          items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
-          totalAmount,
+          items: finalItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
+          totalAmount: finalItems.reduce((sum, i) => sum + i.estimatedCost, 0),
           status: values.status,
           createdAt: new Date().toISOString(),
           createdByEmail: currentUser.email.toLowerCase().trim(),
           notes: values.notes || '',
         };
 
-        await addDoc(collection(db, 'plant-orders'), orderData);
+        const colRef = collection(db, 'plant-orders');
+        addDoc(colRef, orderData).catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: colRef.path,
+            operation: 'create',
+            requestResourceData: orderData,
+          }));
+        });
+
         toast({ title: 'Success', description: values.status === 'draft' ? 'Order saved as draft.' : 'Order recorded.' });
         setOpen(false);
       } catch (err) {
@@ -199,8 +215,6 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <input type="hidden" {...form.register('status')} />
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
                 <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
@@ -218,7 +232,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <FormLabel className="text-base font-bold text-primary">Line Items</FormLabel>
+                <FormLabel className="text-base font-bold text-primary">Hire Items</FormLabel>
                 <div className="flex items-center gap-2 text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full">
                   <Calculator className="h-4 w-4" />
                   Estimated Contract: £{totalAmount.toFixed(2)}
@@ -237,8 +251,8 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
                     <div className="flex items-center justify-between">
                       <Label className="text-xs">Anticipated Off-Hire</Label>
                       <div className="flex gap-1">
-                        <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setQuickOffHire(1)}>+1w</Button>
-                        <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setQuickOffHire(2)}>+2w</Button>
+                        <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setQuickOffHire(1)}>+1w</Button>
+                        <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setQuickOffHire(2)}>+2w</Button>
                       </div>
                     </div>
                     <Input type="date" value={pendingOffHireDate} onChange={e => setPendingOffHireDate(e.target.value)} className="bg-background" />
@@ -248,12 +262,12 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
                 <div className="bg-background/50 p-3 rounded border flex flex-col md:flex-row gap-4 items-end">
                     <div className="flex-1 space-y-2">
                         <Label className="text-xs">Rate (£)</Label>
-                        <div className="relative"><PoundSterling className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-9 h-9" value={pendingRate} onChange={e => setPendingRate(e.target.value)} /></div>
+                        <div className="relative"><PoundSterling className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input type="number" step="0.01" className="pl-9 h-9 bg-background" value={pendingRate} onChange={e => setPendingRate(e.target.value)} /></div>
                     </div>
                     <div className="w-full md:w-40 space-y-2">
                         <Label className="text-xs">Per</Label>
                         <Select value={pendingRateUnit} onValueChange={(v: any) => setPendingRateUnit(v)}>
-                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-9 bg-background"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="daily">Day</SelectItem>
                                 <SelectItem value="weekly">Week</SelectItem>
@@ -283,7 +297,6 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
                       </div>
                     </div>
                     <div className="flex gap-1">
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleEditItem(idx)}><Pencil className="h-4 w-4" /></Button>
                         <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                   </div>

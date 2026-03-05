@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, StopCircle, Plus, Trash2, Calculator, Pencil, PoundSterling } from 'lucide-react';
+import { Loader2, Save, StopCircle, Plus, Trash2, Calculator, Pencil, PoundSterling, ShoppingCart } from 'lucide-react';
 import type { Project, SubContractor, PlantOrder, PlantOrderItem, PlantRateUnit } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -72,7 +72,7 @@ export function EditPlantOrderDialog({
 
   const plantSuppliers = useMemo(() => subContractors.filter(s => !!s.isPlantSupplier), [subContractors]);
 
-  const [orderItems, setOrderItems] = useState<PlantOrderItem[]>(order.items || []);
+  const [orderItems, setOrderItems] = useState<PlantOrderItem[]>([]);
   const [pendingDescription, setPendingDescription] = useState('');
   const [pendingOnHireDate, setPendingOnHireDate] = useState(new Date().toISOString().split('T')[0]);
   const [pendingOffHireDate, setPendingOffHireDate] = useState(addWeeks(new Date(), 1).toISOString().split('T')[0]);
@@ -82,11 +82,11 @@ export function EditPlantOrderDialog({
   const form = useForm<EditPlantOrderFormValues>({
     resolver: zodResolver(EditPlantOrderSchema),
     defaultValues: {
-      projectId: order.projectId,
-      supplierId: order.supplierId,
-      description: order.description,
-      notes: order.notes || '',
-      status: order.status,
+      projectId: '',
+      supplierId: '',
+      description: '',
+      notes: '',
+      status: 'scheduled',
     },
   });
 
@@ -167,8 +167,6 @@ export function EditPlantOrderDialog({
             const newStatus = isClosing ? 'off-hired' : 'scheduled';
             const newActualDate = isClosing ? new Date().toISOString().split('T')[0] : null;
             
-            // Recalculate cost based on actual off-hire date if closing, 
-            // or return to anticipated if reopening.
             const endDate = newActualDate || item.anticipatedOffHireDate;
             const newCost = calculateItemCost(item.rate, item.rateUnit, item.onHireDate, endDate);
 
@@ -188,7 +186,28 @@ export function EditPlantOrderDialog({
   }, [orderItems]);
 
   const onSubmit = (values: EditPlantOrderFormValues) => {
-    if (orderItems.length === 0) return;
+    // Synchronize: If user has a pending item filled out, add it automatically
+    let finalItems = [...orderItems];
+    const pRate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
+    if (pendingDescription && !isNaN(pRate) && pRate > 0) {
+        finalItems.push({
+            id: `item-${Date.now()}-auto`,
+            description: pendingDescription,
+            onHireDate: pendingOnHireDate,
+            anticipatedOffHireDate: pendingOffHireDate,
+            actualOffHireDate: null,
+            rate: pRate,
+            rateUnit: pendingRateUnit,
+            status: 'scheduled',
+            estimatedCost: livePendingCost
+        });
+    }
+
+    if (finalItems.length === 0) {
+        toast({ title: 'Order Empty', description: 'Please add at least one item to the contract.', variant: 'destructive' });
+        return;
+    }
+
     startTransition(async () => {
       try {
         const supplier = plantSuppliers.find(s => s.id === values.supplierId);
@@ -196,27 +215,30 @@ export function EditPlantOrderDialog({
         
         let overallStatus = values.status;
         if (values.status !== 'draft') {
-            const allFinished = orderItems.length > 0 && orderItems.every(i => i.status === 'off-hired');
+            const allFinished = finalItems.length > 0 && finalItems.every(i => i.status === 'off-hired');
             if (allFinished) overallStatus = 'off-hired';
             else overallStatus = 'scheduled'; 
         }
 
         const updates = {
-          ...values,
+          projectId: values.projectId,
+          supplierId: values.supplierId,
           supplierName: supplier?.name || order.supplierName,
-          items: orderItems,
-          totalAmount,
+          description: values.description,
+          notes: values.notes || '',
+          items: finalItems,
+          totalAmount: finalItems.reduce((sum, i) => sum + i.estimatedCost, 0),
           status: overallStatus
         };
 
-        await updateDoc(docRef, updates).catch((error) => {
+        updateDoc(docRef, updates).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: docRef.path,
             operation: 'update',
             requestResourceData: updates,
           }));
-          throw error;
         });
+
         toast({ title: 'Success', description: 'Hire record updated.' });
         onOpenChange(false);
       } catch (err) {
@@ -225,8 +247,6 @@ export function EditPlantOrderDialog({
       }
     });
   };
-
-  const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -255,7 +275,7 @@ export function EditPlantOrderDialog({
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <FormLabel className="text-primary font-bold">Line Items</FormLabel>
+                <FormLabel className="text-primary font-bold">Hire Items</FormLabel>
                 <div className="flex items-center gap-2 text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full">
                   <Calculator className="h-4 w-4" />
                   Estimated Cost: £{totalAmount.toFixed(2)}
@@ -264,13 +284,13 @@ export function EditPlantOrderDialog({
               
               <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label className="text-xs">Plant Description</Label><Input placeholder="e.g. 1.5T Excavator" value={pendingDescription} onChange={e => setPendingDescription(e.target.value)} /></div>
+                  <div className="space-y-2"><Label className="text-xs">Plant Description</Label><Input placeholder="e.g. 1.5T Excavator" value={pendingDescription} onChange={e => setPendingDescription(e.target.value)} className="bg-background" /></div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-2"><Label className="text-xs">Rate (£)</Label><div className="relative"><PoundSterling className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6 h-9" value={pendingRate} onChange={e => setPendingRate(e.target.value)} /></div></div>
+                    <div className="space-y-2"><Label className="text-xs">Rate (£)</Label><div className="relative"><PoundSterling className="absolute left-2 top-2.5 h-3 w-3 text-muted-foreground" /><Input type="number" step="0.01" className="pl-6 h-9 bg-background" value={pendingRate} onChange={e => setPendingRate(e.target.value)} /></div></div>
                     <div className="space-y-2">
                         <Label className="text-xs">Frequency</Label>
                         <Select value={pendingRateUnit} onValueChange={(v: any) => setPendingRateUnit(v)}>
-                            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-9 bg-background"><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="daily">Daily</SelectItem>
                                 <SelectItem value="weekly">Weekly</SelectItem>
@@ -282,7 +302,7 @@ export function EditPlantOrderDialog({
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2"><Label className="text-xs">On-Hire Date</Label><Input type="date" value={pendingOnHireDate} onChange={e => setPendingOnHireDate(e.target.value)} /></div>
+                    <div className="space-y-2"><Label className="text-xs">On-Hire Date</Label><Input type="date" value={pendingOnHireDate} onChange={e => setPendingOnHireDate(e.target.value)} className="bg-background" /></div>
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label className="text-xs">Expect Off-Hire</Label>
@@ -291,7 +311,7 @@ export function EditPlantOrderDialog({
                           <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickOffHire(2)}>+2w</Button>
                         </div>
                       </div>
-                      <Input type="date" value={pendingOffHireDate} onChange={e => setPendingOffHireDate(e.target.value)} />
+                      <Input type="date" value={pendingOffHireDate} onChange={e => setPendingOffHireDate(e.target.value)} className="bg-background" />
                     </div>
                 </div>
                 <div className="flex items-center justify-between bg-background p-2 rounded border border-dashed">
@@ -364,9 +384,10 @@ export function EditPlantOrderDialog({
                 <Save className="mr-2 h-4 w-4" /> Save Draft
               </Button>
               <Button type="submit" className="w-full sm:flex-1 h-12 font-bold" disabled={isPending} onClick={() => {
-                  if (submissionStatus === 'draft') form.setValue('status', 'scheduled');
+                  const currentStatus = form.getValues('status');
+                  if (currentStatus === 'draft') form.setValue('status', 'scheduled');
               }}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4 mr-2" />}
                 Commit Changes
               </Button>
             </DialogFooter>
