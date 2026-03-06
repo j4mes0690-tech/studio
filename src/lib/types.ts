@@ -387,6 +387,7 @@ export type PaymentNoticeStatus = 'pending' | 'certified' | 'invoiced' | 'proces
 export type PaymentNotice = {
   id: string;
   projectId: string;
+  period: string; // Format: YYYY-MM
   subcontractorId: string;
   subcontractorName: string;
   applicationReceivedDate: string | null;

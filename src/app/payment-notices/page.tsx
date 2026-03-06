@@ -3,24 +3,41 @@
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, setDoc } from 'firebase/firestore';
+import { collection, doc, setDoc } from 'firebase/firestore';
 import { useMemo, useState, Suspense } from 'react';
 import type { PaymentNotice, Project, DistributionUser, SubContractor, PaymentNoticeStatus } from '@/lib/types';
-import { Loader2, Banknote, Building2, User, Calendar, CheckCircle2, Circle, Clock, Save, History, Filter } from 'lucide-react';
+import { Loader2, Banknote, Building2, Calendar, Filter, FolderKanban } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { format, subMonths, startOfMonth } from 'date-fns';
 
 function PaymentNoticesContent() {
   const db = useFirestore();
   const { toast } = useToast();
   const { user: sessionUser } = useUser();
   const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+  
+  // Period state (default to current month)
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(format(new Date(), 'yyyy-MM'));
+
+  // Generate a list of available months (last 6 months and next 3 months)
+  const availablePeriods = useMemo(() => {
+    const periods = [];
+    const base = startOfMonth(new Date());
+    for (let i = -6; i <= 3; i++) {
+      const d = subMonths(base, -i);
+      periods.push({
+        value: format(d, 'yyyy-MM'),
+        label: format(d, 'MMMM yyyy')
+      });
+    }
+    return periods.reverse();
+  }, []);
 
   // Load Data
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
@@ -35,7 +52,7 @@ function PaymentNoticesContent() {
   const noticesQuery = useMemoFirebase(() => (db ? collection(db, 'payment-notices') : null), [db]);
   const { data: allNotices, isLoading: noticesLoading } = useCollection<PaymentNotice>(noticesQuery);
 
-  // Security
+  // Security & Project Filter
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
@@ -60,15 +77,17 @@ function PaymentNoticesContent() {
   };
 
   const handleUpdateDate = async (subId: string, field: keyof PaymentNotice, value: string | null) => {
-    if (!selectedProjectId) return;
+    if (!selectedProjectId || !selectedPeriod) return;
     
-    const docId = `${selectedProjectId}_${subId}`;
+    // Unique ID per Project, Subcontractor, and Period (Month)
+    const docId = `${selectedProjectId}_${subId}_${selectedPeriod}`;
     const existing = allNotices?.find(n => n.id === docId);
     const sub = subContractors?.find(s => s.id === subId);
 
     const updates: Partial<PaymentNotice> = {
       ...(existing || {}),
       projectId: selectedProjectId,
+      period: selectedPeriod,
       subcontractorId: subId,
       subcontractorName: sub?.name || 'Unknown',
       [field]: value || null,
@@ -84,7 +103,7 @@ function PaymentNoticesContent() {
 
     try {
       await setDoc(doc(db, 'payment-notices', docId), updates, { merge: true });
-      toast({ title: 'Record Updated', description: `Payment notice milestone saved for ${updates.subcontractorName}.` });
+      toast({ title: 'Period Updated', description: `Milestone saved for ${updates.subcontractorName} in ${selectedPeriod}.` });
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to update record.', variant: 'destructive' });
     }
@@ -106,64 +125,92 @@ function PaymentNoticesContent() {
             <Banknote className="h-6 w-6 text-primary" />
             Payment Notice Tracking
           </h2>
-          <p className="text-sm text-muted-foreground">Monitor the valuation and certification lifecycle for project trade partners.</p>
+          <p className="text-sm text-muted-foreground">Manage monthly valuation cycles and subcontractor payments.</p>
         </div>
       </div>
 
-      <Card className="bg-muted/30">
-        <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
-          <div className="flex items-center gap-2 text-sm font-medium shrink-0">
-            <Filter className="h-4 w-4 text-muted-foreground" />
-            Select Project:
-          </div>
-          <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-            <SelectTrigger className="w-full sm:w-[300px] bg-background">
-              <SelectValue placeholder="Select a project..." />
-            </SelectTrigger>
-            <SelectContent>
-              {allowedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="bg-muted/30">
+            <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
+            <div className="flex items-center gap-2 text-sm font-medium shrink-0">
+                <Building2 className="h-4 w-4 text-muted-foreground" />
+                Project:
+            </div>
+            <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger className="w-full bg-background">
+                <SelectValue placeholder="Select a project..." />
+                </SelectTrigger>
+                <SelectContent>
+                {allowedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+            </Select>
+            </CardContent>
+        </Card>
+
+        <Card className="bg-primary/5 border-primary/20">
+            <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
+            <div className="flex items-center gap-2 text-sm font-bold text-primary shrink-0">
+                <FolderKanban className="h-4 w-4" />
+                Valuation Period:
+            </div>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-full bg-background border-primary/30 font-semibold text-primary">
+                <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                {availablePeriods.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                </SelectContent>
+            </Select>
+            </CardContent>
+        </Card>
+      </div>
 
       {selectedProjectId !== 'all' ? (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                {activeProject?.name} Subcontractor Ledger
-            </CardTitle>
-            <CardDescription>Update payment milestones for assigned trade partners.</CardDescription>
+        <Card className="shadow-lg">
+          <CardHeader className="border-b bg-muted/10">
+            <div className='flex items-center justify-between'>
+                <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-primary" />
+                        {activeProject?.name}
+                    </CardTitle>
+                    <CardDescription>Payment ledger for the selected valuation month.</CardDescription>
+                </div>
+                <Badge variant="outline" className="h-8 px-4 gap-2 text-sm bg-background border-primary/20 text-primary font-bold">
+                    <Calendar className="h-4 w-4" />
+                    {availablePeriods.find(p => p.value === selectedPeriod)?.label} Cycle
+                </Badge>
+            </div>
           </CardHeader>
-          <CardContent className="p-0 sm:p-6">
-            <div className="rounded-md border overflow-hidden">
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="w-[200px]">Subcontractor</TableHead>
+                    <TableHead className="w-[220px] pl-6">Subcontractor</TableHead>
                     <TableHead className="text-center">Application Received</TableHead>
                     <TableHead className="text-center">Certificate Issued</TableHead>
                     <TableHead className="text-center">Invoice Received</TableHead>
                     <TableHead className="text-center">Uploaded for Pay</TableHead>
-                    <TableHead className="text-right w-[120px]">Status</TableHead>
+                    <TableHead className="text-right pr-6 w-[120px]">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {projectSubs.length > 0 ? projectSubs.map(sub => {
-                    const notice = allNotices?.find(n => n.id === `${selectedProjectId}_${sub.id}`);
+                    const noticeId = `${selectedProjectId}_${sub.id}_${selectedPeriod}`;
+                    const notice = allNotices?.find(n => n.id === noticeId);
                     return (
                       <TableRow key={sub.id} className="hover:bg-muted/5 transition-colors">
-                        <TableCell className="font-bold">
+                        <TableCell className="font-bold pl-6">
                           <div className="flex flex-col">
                             <span>{sub.name}</span>
-                            <span className="text-[10px] text-muted-foreground font-normal uppercase">{sub.email}</span>
+                            <span className="text-[10px] text-muted-foreground font-normal uppercase tracking-tighter">{sub.email}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <Input 
                             type="date" 
-                            className="h-8 text-xs" 
+                            className="h-8 text-xs bg-background" 
                             value={notice?.applicationReceivedDate || ''} 
                             onChange={(e) => handleUpdateDate(sub.id, 'applicationReceivedDate', e.target.value)}
                           />
@@ -171,7 +218,7 @@ function PaymentNoticesContent() {
                         <TableCell>
                           <Input 
                             type="date" 
-                            className="h-8 text-xs" 
+                            className="h-8 text-xs bg-background" 
                             value={notice?.certificateIssuedDate || ''} 
                             onChange={(e) => handleUpdateDate(sub.id, 'certificateIssuedDate', e.target.value)}
                           />
@@ -179,7 +226,7 @@ function PaymentNoticesContent() {
                         <TableCell>
                           <Input 
                             type="date" 
-                            className="h-8 text-xs" 
+                            className="h-8 text-xs bg-background" 
                             value={notice?.invoiceReceivedDate || ''} 
                             onChange={(e) => handleUpdateDate(sub.id, 'invoiceReceivedDate', e.target.value)}
                           />
@@ -187,12 +234,12 @@ function PaymentNoticesContent() {
                         <TableCell>
                           <Input 
                             type="date" 
-                            className="h-8 text-xs" 
+                            className="h-8 text-xs bg-background" 
                             value={notice?.invoiceUploadedDate || ''} 
                             onChange={(e) => handleUpdateDate(sub.id, 'invoiceUploadedDate', e.target.value)}
                           />
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right pr-6">
                           <Badge variant="outline" className={cn(
                             "capitalize text-[10px] h-5",
                             notice?.status === 'processed' ? "bg-green-100 text-green-800 border-green-200" :
@@ -221,7 +268,7 @@ function PaymentNoticesContent() {
         <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-xl bg-muted/10">
             <Banknote className="h-16 w-16 text-muted-foreground/20 mb-4" />
             <p className="text-lg font-bold text-muted-foreground">No Project Selected</p>
-            <p className="text-sm text-muted-foreground">Select a project above to view and manage subcontractor payment notices.</p>
+            <p className="text-sm text-muted-foreground">Select a project and valuation period above to manage monthly payment notices.</p>
         </div>
       )}
     </div>
