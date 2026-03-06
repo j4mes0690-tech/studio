@@ -92,6 +92,7 @@
         "projectId": { "type": "string" },
         "subcontractorId": { "type": "string" },
         "subcontractorName": { "type": "string" },
+        "period": { "type": "string" },
         "applicationReceivedDate": { "type": ["string", "null"], "format": "date" },
         "certificateIssuedDate": { "type": ["string", "null"], "format": "date" },
         "invoiceReceivedDate": { "type": ["string", "null"], "format": "date" },
@@ -99,7 +100,20 @@
         "status": { "type": "string", "enum": ["pending", "certified", "invoiced", "processed"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "projectId", "subcontractorId"]
+      "required": ["id", "projectId", "subcontractorId", "period"]
+    },
+    "ValuationPeriod": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ValuationPeriod",
+      "type": "object",
+      "description": "Represents a formal monthly valuation cycle folder.",
+      "properties": {
+        "id": { "type": "string" },
+        "value": { "type": "string" },
+        "label": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "value", "label"]
     }
   },
   "auth": {
@@ -119,7 +133,8 @@
       { "path": "/variations/{id}", "definition": { "entityName": "Variation" } },
       { "path": "/training-records/{id}", "definition": { "entityName": "TrainingRecord" } },
       { "path": "/training-needs/{id}", "definition": { "entityName": "TrainingNeed" } },
-      { "path": "/payment-notices/{id}", "definition": { "entityName": "PaymentNotice" } }
+      { "path": "/payment-notices/{id}", "definition": { "entityName": "PaymentNotice" } },
+      { "path": "/valuation-periods/{id}", "definition": { "entityName": "ValuationPeriod" } }
     ]
   }
 }

@@ -34,5 +34,6 @@ service cloud.firestore {
     match /training-records/{id} { allow read, write: if isSignedIn(); }
     match /training-needs/{id} { allow read, write: if isSignedIn(); }
     match /payment-notices/{id} { allow read, write: if isSignedIn(); }
+    match /valuation-periods/{id} { allow read, write: if isSignedIn(); }
   }
 }

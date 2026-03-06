@@ -398,3 +398,10 @@ export type PaymentNotice = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type ValuationPeriod = {
+  id: string;
+  value: string; // YYYY-MM
+  label: string; // Month Year
+  createdAt: string;
+};

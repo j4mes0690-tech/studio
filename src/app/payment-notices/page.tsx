@@ -3,10 +3,10 @@
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc } from 'firebase/firestore';
-import { useMemo, useState, Suspense } from 'react';
-import type { PaymentNotice, Project, DistributionUser, SubContractor, PaymentNoticeStatus } from '@/lib/types';
-import { Loader2, Banknote, Building2, Calendar, Filter, FolderKanban } from 'lucide-react';
+import { collection, doc, setDoc, query, orderBy } from 'firebase/firestore';
+import { useMemo, useState, Suspense, useTransition } from 'react';
+import type { PaymentNotice, Project, DistributionUser, SubContractor, PaymentNoticeStatus, ValuationPeriod } from '@/lib/types';
+import { Loader2, Banknote, Building2, Calendar, Filter, FolderKanban, PlusCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,30 +14,30 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { format, subMonths, startOfMonth } from 'date-fns';
+import { format, parseISO } from 'date-fns';
+import { 
+    Dialog, 
+    DialogContent, 
+    DialogDescription, 
+    DialogFooter, 
+    DialogHeader, 
+    DialogTitle, 
+    DialogTrigger 
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 function PaymentNoticesContent() {
   const db = useFirestore();
   const { toast } = useToast();
   const { user: sessionUser } = useUser();
-  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+  const [isPending, startTransition] = useTransition();
+  const [isAddPeriodOpen, setIsAddOpen] = useState(false);
   
-  // Period state (default to current month)
-  const [selectedPeriod, setSelectedPeriod] = useState<string>(format(new Date(), 'yyyy-MM'));
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>('');
 
-  // Generate a list of available months (last 6 months and next 3 months)
-  const availablePeriods = useMemo(() => {
-    const periods = [];
-    const base = startOfMonth(new Date());
-    for (let i = -6; i <= 3; i++) {
-      const d = subMonths(base, -i);
-      periods.push({
-        value: format(d, 'yyyy-MM'),
-        label: format(d, 'MMMM yyyy')
-      });
-    }
-    return periods.reverse();
-  }, []);
+  // Form State for New Period
+  const [newPeriodValue, setNewPeriodValue] = useState(format(new Date(), 'yyyy-MM'));
 
   // Load Data
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
@@ -52,6 +52,10 @@ function PaymentNoticesContent() {
   const noticesQuery = useMemoFirebase(() => (db ? collection(db, 'payment-notices') : null), [db]);
   const { data: allNotices, isLoading: noticesLoading } = useCollection<PaymentNotice>(noticesQuery);
 
+  // Load formal periods from Firestore
+  const periodsQuery = useMemoFirebase(() => (db ? query(collection(db, 'valuation-periods'), orderBy('value', 'desc')) : null), [db]);
+  const { data: valuationPeriods, isLoading: periodsLoading } = useCollection<ValuationPeriod>(periodsQuery);
+
   // Security & Project Filter
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
@@ -61,6 +65,7 @@ function PaymentNoticesContent() {
   }, [allProjects, profile]);
 
   const activeProject = useMemo(() => allowedProjects.find(p => p.id === selectedProjectId), [allowedProjects, selectedProjectId]);
+  const activePeriod = useMemo(() => valuationPeriods?.find(p => p.value === selectedPeriodId), [valuationPeriods, selectedPeriodId]);
 
   const projectSubs = useMemo(() => {
     if (!activeProject || !subContractors) return [];
@@ -76,18 +81,43 @@ function PaymentNoticesContent() {
     return 'pending';
   };
 
+  const handleAddPeriod = async () => {
+    if (!newPeriodValue || !db) return;
+    
+    startTransition(async () => {
+        try {
+            const dateObj = parseISO(`${newPeriodValue}-01`);
+            const label = format(dateObj, 'MMMM yyyy');
+            const docId = newPeriodValue; // e.g. "2025-01"
+
+            await setDoc(doc(db, 'valuation-periods', docId), {
+                id: docId,
+                value: newPeriodValue,
+                label: label,
+                createdAt: new Date().toISOString()
+            });
+
+            toast({ title: 'Success', description: `Valuation period ${label} created.` });
+            setSelectedPeriodId(newPeriodValue);
+            setIsAddOpen(false);
+        } catch (err) {
+            toast({ title: 'Error', description: 'Failed to create period.', variant: 'destructive' });
+        }
+    });
+  };
+
   const handleUpdateDate = async (subId: string, field: keyof PaymentNotice, value: string | null) => {
-    if (!selectedProjectId || !selectedPeriod) return;
+    if (!selectedProjectId || !selectedPeriodId || !db) return;
     
     // Unique ID per Project, Subcontractor, and Period (Month)
-    const docId = `${selectedProjectId}_${subId}_${selectedPeriod}`;
+    const docId = `${selectedProjectId}_${subId}_${selectedPeriodId}`;
     const existing = allNotices?.find(n => n.id === docId);
     const sub = subContractors?.find(s => s.id === subId);
 
     const updates: Partial<PaymentNotice> = {
       ...(existing || {}),
       projectId: selectedProjectId,
-      period: selectedPeriod,
+      period: selectedPeriodId,
       subcontractorId: subId,
       subcontractorName: sub?.name || 'Unknown',
       [field]: value || null,
@@ -103,13 +133,13 @@ function PaymentNoticesContent() {
 
     try {
       await setDoc(doc(db, 'payment-notices', docId), updates, { merge: true });
-      toast({ title: 'Period Updated', description: `Milestone saved for ${updates.subcontractorName} in ${selectedPeriod}.` });
+      toast({ title: 'Period Updated', description: `Milestone saved for ${updates.subcontractorName} in ${activePeriod?.label}.` });
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to update record.', variant: 'destructive' });
     }
   };
 
-  if (noticesLoading || !profile) {
+  if (noticesLoading || periodsLoading || !profile) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -127,6 +157,38 @@ function PaymentNoticesContent() {
           </h2>
           <p className="text-sm text-muted-foreground">Manage monthly valuation cycles and subcontractor payments.</p>
         </div>
+        
+        <Dialog open={isAddPeriodOpen} onOpenChange={setIsAddOpen}>
+            <DialogTrigger asChild>
+                <Button className="gap-2">
+                    <PlusCircle className="h-4 w-4" />
+                    New Period
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add Valuation Period</DialogTitle>
+                    <DialogDescription>Create a new monthly folder for payment tracking.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Select Month</Label>
+                        <Input 
+                            type="month" 
+                            value={newPeriodValue} 
+                            onChange={(e) => setNewPeriodValue(e.target.value)} 
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsAddOpen(false)}>Cancel</Button>
+                    <Button onClick={handleAddPeriod} disabled={isPending}>
+                        {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                        Open Period
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -151,21 +213,25 @@ function PaymentNoticesContent() {
             <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
             <div className="flex items-center gap-2 text-sm font-bold text-primary shrink-0">
                 <FolderKanban className="h-4 w-4" />
-                Valuation Period:
+                Active Folder:
             </div>
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
                 <SelectTrigger className="w-full bg-background border-primary/30 font-semibold text-primary">
-                <SelectValue />
+                <SelectValue placeholder="Select period..." />
                 </SelectTrigger>
                 <SelectContent>
-                {availablePeriods.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                {valuationPeriods && valuationPeriods.length > 0 ? valuationPeriods.map(p => (
+                    <SelectItem key={p.id} value={p.value}>{p.label}</SelectItem>
+                )) : (
+                    <div className="p-2 text-xs text-muted-foreground italic text-center">No periods created. Click 'New Period' to start.</div>
+                )}
                 </SelectContent>
             </Select>
             </CardContent>
         </Card>
       </div>
 
-      {selectedProjectId !== 'all' ? (
+      {selectedProjectId !== 'all' && selectedPeriodId ? (
         <Card className="shadow-lg">
           <CardHeader className="border-b bg-muted/10">
             <div className='flex items-center justify-between'>
@@ -178,7 +244,7 @@ function PaymentNoticesContent() {
                 </div>
                 <Badge variant="outline" className="h-8 px-4 gap-2 text-sm bg-background border-primary/20 text-primary font-bold">
                     <Calendar className="h-4 w-4" />
-                    {availablePeriods.find(p => p.value === selectedPeriod)?.label} Cycle
+                    {activePeriod?.label} Cycle
                 </Badge>
             </div>
           </CardHeader>
@@ -197,7 +263,7 @@ function PaymentNoticesContent() {
                 </TableHeader>
                 <TableBody>
                   {projectSubs.length > 0 ? projectSubs.map(sub => {
-                    const noticeId = `${selectedProjectId}_${sub.id}_${selectedPeriod}`;
+                    const noticeId = `${selectedProjectId}_${sub.id}_${selectedPeriodId}`;
                     const notice = allNotices?.find(n => n.id === noticeId);
                     return (
                       <TableRow key={sub.id} className="hover:bg-muted/5 transition-colors">
@@ -267,8 +333,8 @@ function PaymentNoticesContent() {
       ) : (
         <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-xl bg-muted/10">
             <Banknote className="h-16 w-16 text-muted-foreground/20 mb-4" />
-            <p className="text-lg font-bold text-muted-foreground">No Project Selected</p>
-            <p className="text-sm text-muted-foreground">Select a project and valuation period above to manage monthly payment notices.</p>
+            <p className="text-lg font-bold text-muted-foreground">No Period or Project Selected</p>
+            <p className="text-sm text-muted-foreground">Select a project and an active valuation cycle above to manage payments.</p>
         </div>
       )}
     </div>
