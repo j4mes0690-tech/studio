@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -243,7 +242,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
                                     { name: 'canManageUsers', label: 'Manage Users', desc: 'Internal staff control.' },
                                     { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Trade partner directory.' },
                                     { name: 'canManageProjects', label: 'Manage Projects', desc: 'Site setup and assignments.' },
-                                    { name: 'canManageMaterials', label: 'Manage Procurement', desc: 'Suppliers and items.' },
+                                    { name: 'canManageMaterials', label: 'Manage Procurement', desc: 'Suppliers directory.' },
                                     { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'QC master lists.' },
                                     { name: 'canManagePermitTemplates', label: 'Manage Permits', desc: 'Master permit definitions.' },
                                     { name: 'canManageTraining', label: 'Manage Training', desc: 'Staff compliance oversight.' },

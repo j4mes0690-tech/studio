@@ -24,9 +24,8 @@ import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate } from '@/lib/types';
-import { Loader2, ShieldAlert, Truck, Package, FileCheck, Tag } from 'lucide-react';
+import { Loader2, ShieldAlert, Truck, FileCheck, Tag } from 'lucide-react';
 import { ManageSuppliers } from './manage-suppliers';
-import { ManageMaterials } from './manage-materials';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
@@ -175,23 +174,14 @@ export default function SettingsPage() {
           {canManageMaterials && (
             <Card>
                 <AccordionItem value="materials" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Procurement: Suppliers & Materials</AccordionTrigger>
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Procurement: Suppliers</AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
-                        <div className="grid gap-8 lg:grid-cols-2">
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2 text-primary font-bold">
-                                    <Truck className="h-5 w-5" />
-                                    <h3>Suppliers Directory</h3>
-                                </div>
-                                <ManageSuppliers />
+                        <div className="space-y-4 max-w-2xl">
+                            <div className="flex items-center gap-2 text-primary font-bold">
+                                <Truck className="h-5 w-5" />
+                                <h3>Suppliers Directory</h3>
                             </div>
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-2 text-primary font-bold">
-                                    <Package className="h-5 w-5" />
-                                    <h3>Material Catalogue</h3>
-                                </div>
-                                <ManageMaterials />
-                            </div>
+                            <ManageSuppliers />
                         </div>
                     </AccordionContent>
                 </AccordionItem>
