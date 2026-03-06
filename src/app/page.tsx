@@ -35,7 +35,7 @@ const DASHBOARD_CARDS = [
   { href: '/plant-orders', label: 'Plant Orders', icon: Truck, desc: 'Track equipment hire, off-hire dates, and commercial rates.', permission: 'accessPlant' },
   { href: '/variations', label: 'Variations', icon: Calculator, desc: 'Manage additions and omissions linked to instructions.', permission: 'accessVariations' },
   { href: '/permits', label: 'Permits to Work', icon: FileCheck, desc: 'Issue and track high-risk activity permits electronically.', permission: 'accessPermits' },
-  { href: '/training', label: 'Training & Compliance', icon: GraduationCap, desc: 'Store employee certificates and monitor expiry dates.', permission: 'accessTraining', highlight: true },
+  { href: '/training', label: 'Training & Compliance', icon: GraduationCap, desc: 'Store employee certificates and monitor expiry dates.', permission: 'accessTraining' },
   { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle, desc: 'Directives received from the client for implementation.', permission: 'accessClientInstructions' },
   { href: '/instructions', label: 'Site Instructions', icon: MessageSquare, desc: 'Record and distribute instructions to trade partners.', permission: 'accessSiteInstructions' },
   { href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles, desc: 'Create and send clean up notices with site photos.', permission: 'accessCleanupNotices' },
