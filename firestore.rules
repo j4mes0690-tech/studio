@@ -6,7 +6,8 @@ service cloud.firestore {
     /**
      * PROTOTYPE SECURITY RULES:
      * These rules allow authenticated users (including anonymous ones) to access
-     * all collections. 
+     * all collections for internal site management. 
+     * Comment added to trigger redeployment of rules for valuation-periods.
      */
 
     function isSignedIn() {

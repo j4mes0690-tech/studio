@@ -1,11 +1,9 @@
-
 {
   "entities": {
     "User": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "User",
-      "type": "object",
       "description": "Represents a user of the application, such as a site team member or administrator.",
+      "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
@@ -39,10 +37,9 @@
       "required": ["id", "name", "email"]
     },
     "Project": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Project",
-      "type": "object",
       "description": "Represents a construction project.",
+      "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
@@ -65,10 +62,9 @@
       "required": ["id", "name"]
     },
     "SubContractor": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "SubContractor",
-      "type": "object",
       "description": "Represents an external partner such as a subcontractor, designer, or supplier.",
+      "type": "object",
       "properties": {
         "id": { "type": "string" },
         "name": { "type": "string" },
@@ -82,11 +78,24 @@
       },
       "required": ["id", "name", "email"]
     },
-    "PaymentNotice": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PaymentNotice",
+    "ClientInstruction": {
+      "title": "ClientInstruction",
+      "description": "A directive received from the client for implementation on site.",
       "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reference": { "type": "string" },
+        "projectId": { "type": "string" },
+        "originalText": { "type": "string" },
+        "summary": { "type": "string" },
+        "status": { "type": "string", "enum": ["open", "accepted"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "PaymentNotice": {
+      "title": "PaymentNotice",
       "description": "Represents a payment notice lifecycle for a subcontractor.",
+      "type": "object",
       "properties": {
         "id": { "type": "string" },
         "projectId": { "type": "string" },
@@ -103,10 +112,9 @@
       "required": ["id", "projectId", "subcontractorId", "period"]
     },
     "ValuationPeriod": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ValuationPeriod",
-      "type": "object",
       "description": "Represents a formal monthly valuation cycle folder.",
+      "type": "object",
       "properties": {
         "id": { "type": "string" },
         "value": { "type": "string" },
@@ -114,27 +122,85 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "value", "label"]
+    },
+    "PurchaseOrder": {
+      "title": "PurchaseOrder",
+      "description": "A formal request for materials from a supplier.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "projectId": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string" }
+      }
+    },
+    "PlantOrder": {
+      "title": "PlantOrder",
+      "description": "A contract forconstruction equipment hire.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reference": { "type": "string" },
+        "projectId": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "Permit": {
+      "title": "Permit",
+      "description": "An electronic permit-to-work for high-risk activities.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reference": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "TrainingRecord": {
+      "title": "TrainingRecord",
+      "description": "A staff training certificate or qualification record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "courseName": { "type": "string" },
+        "expiryDate": { "type": "string", "format": "date" }
+      }
+    },
+    "TrainingNeed": {
+      "title": "TrainingNeed",
+      "description": "An identified training gap or requirement for an employee.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "courseName": { "type": "string" },
+        "priority": { "type": "string" }
+      }
     }
   },
   "auth": {
     "providers": ["password", "anonymous"]
   },
   "firestore": {
-    "structure": [
-      { "path": "/users/{userId}", "definition": { "entityName": "User" } },
-      { "path": "/projects/{projectId}", "definition": { "entityName": "Project" } },
-      { "path": "/sub-contractors/{subId}", "definition": { "entityName": "SubContractor" } },
-      { "path": "/cleanup-notices/{id}", "definition": { "entityName": "CleanUpNotice" } },
-      { "path": "/snagging-items/{id}", "definition": { "entityName": "SnaggingItem" } },
-      { "path": "/information-requests/{id}", "definition": { "entityName": "InformationRequest" } },
-      { "path": "/quality-checklists/{id}", "definition": { "entityName": "QualityChecklist" } },
-      { "path": "/purchase-orders/{id}", "definition": { "entityName": "PurchaseOrder" } },
-      { "path": "/plant-orders/{id}", "definition": { "entityName": "PlantOrder" } },
-      { "path": "/variations/{id}", "definition": { "entityName": "Variation" } },
-      { "path": "/training-records/{id}", "definition": { "entityName": "TrainingRecord" } },
-      { "path": "/training-needs/{id}", "definition": { "entityName": "TrainingNeed" } },
-      { "path": "/payment-notices/{id}", "definition": { "entityName": "PaymentNotice" } },
-      { "path": "/valuation-periods/{id}", "definition": { "entityName": "ValuationPeriod" } }
-    ]
+    "/users/{userId}": { "schema": { "$ref": "#/backend/entities/User" }, "description": "System user profiles." },
+    "/projects/{projectId}": { "schema": { "$ref": "#/backend/entities/Project" }, "description": "Construction site project metadata." },
+    "/sub-contractors/{subId}": { "schema": { "$ref": "#/backend/entities/SubContractor" }, "description": "External trade partner directory." },
+    "/client-instructions/{id}": { "schema": { "$ref": "#/backend/entities/ClientInstruction" }, "description": "Directives from the client." },
+    "/instructions/{id}": { "schema": "Instruction", "description": "Site instructions for contractors." },
+    "/cleanup-notices/{id}": { "schema": "CleanUpNotice", "description": "Formal cleaning requirements." },
+    "/snagging-items/{id}": { "schema": "SnaggingItem", "description": "Defect logs and items." },
+    "/information-requests/{id}": { "schema": "InformationRequest", "description": "Technical queries (RFI)." },
+    "/quality-checklists/{id}": { "schema": "QualityChecklist", "description": "Trade verification checklists." },
+    "/purchase-orders/{id}": { "schema": { "$ref": "#/backend/entities/PurchaseOrder" }, "description": "Material procurement records." },
+    "/plant-orders/{id}": { "schema": { "$ref": "#/backend/entities/PlantOrder" }, "description": "Equipment hire contracts." },
+    "/permits/{id}": { "schema": { "$ref": "#/backend/entities/Permit" }, "description": "Electronic safety permits." },
+    "/permit-templates/{id}": { "schema": "PermitTemplate", "description": "Master permit layouts." },
+    "/variations/{id}": { "schema": "Variation", "description": "Financial cost changes." },
+    "/training-records/{id}": { "schema": { "$ref": "#/backend/entities/TrainingRecord" }, "description": "Staff certifications." },
+    "/training-needs/{id}": { "schema": { "$ref": "#/backend/entities/TrainingNeed" }, "description": "Future training requirements." },
+    "/payment-notices/{id}": { "schema": { "$ref": "#/backend/entities/PaymentNotice" }, "description": "Subcontractor payment lifecycle." },
+    "/valuation-periods/{id}": { "schema": { "$ref": "#/backend/entities/ValuationPeriod" }, "description": "Monthly valuation cycles." }
   }
 }
