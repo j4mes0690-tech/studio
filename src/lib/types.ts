@@ -1,4 +1,3 @@
-
 export type Area = {
   id: string;
   name: string;
@@ -390,6 +389,7 @@ export type PaymentNotice = {
   period: string; // Format: YYYY-MM
   subcontractorId: string;
   subcontractorName: string;
+  isValuationDue: boolean;
   applicationReceivedDate: string | null;
   certificateIssuedDate: string | null;
   invoiceReceivedDate: string | null;

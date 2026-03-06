@@ -102,6 +102,7 @@
         "subcontractorId": { "type": "string" },
         "subcontractorName": { "type": "string" },
         "period": { "type": "string" },
+        "isValuationDue": { "type": "boolean" },
         "applicationReceivedDate": { "type": ["string", "null"], "format": "date" },
         "certificateIssuedDate": { "type": ["string", "null"], "format": "date" },
         "invoiceReceivedDate": { "type": ["string", "null"], "format": "date" },

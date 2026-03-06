@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { format, parseISO } from 'date-fns';
@@ -75,6 +76,7 @@ function PaymentNoticesContent() {
 
   // Status calculation logic
   const getStatus = (notice: Partial<PaymentNotice>): PaymentNoticeStatus => {
+    if (!notice.isValuationDue) return 'pending';
     if (notice.invoiceUploadedDate) return 'processed';
     if (notice.invoiceReceivedDate) return 'invoiced';
     if (notice.certificateIssuedDate) return 'certified';
@@ -106,10 +108,9 @@ function PaymentNoticesContent() {
     });
   };
 
-  const handleUpdateDate = async (subId: string, field: keyof PaymentNotice, value: string | null) => {
+  const handleUpdateField = async (subId: string, field: keyof PaymentNotice, value: any) => {
     if (!selectedProjectId || !selectedPeriodId || !db) return;
     
-    // Unique ID per Project, Subcontractor, and Period (Month)
     const docId = `${selectedProjectId}_${subId}_${selectedPeriodId}`;
     const existing = allNotices?.find(n => n.id === docId);
     const sub = subContractors?.find(s => s.id === subId);
@@ -120,20 +121,29 @@ function PaymentNoticesContent() {
       period: selectedPeriodId,
       subcontractorId: subId,
       subcontractorName: sub?.name || 'Unknown',
-      [field]: value || null,
+      [field]: value,
       updatedAt: new Date().toISOString(),
     };
+
+    // If valuation is being turned off, clear the dates
+    if (field === 'isValuationDue' && value === false) {
+        updates.applicationReceivedDate = null;
+        updates.certificateIssuedDate = null;
+        updates.invoiceReceivedDate = null;
+        updates.invoiceUploadedDate = null;
+    }
 
     // Recalculate status based on the new state
     updates.status = getStatus(updates);
 
     if (!existing) {
       updates.createdAt = new Date().toISOString();
+      if (field !== 'isValuationDue') updates.isValuationDue = true;
     }
 
     try {
       await setDoc(doc(db, 'payment-notices', docId), updates, { merge: true });
-      toast({ title: 'Period Updated', description: `Milestone saved for ${updates.subcontractorName} in ${activePeriod?.label}.` });
+      toast({ title: 'Ledger Updated', description: `Record saved for ${updates.subcontractorName}.` });
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to update record.', variant: 'destructive' });
     }
@@ -253,7 +263,8 @@ function PaymentNoticesContent() {
               <Table>
                 <TableHeader className="bg-muted/50">
                   <TableRow>
-                    <TableHead className="w-[220px] pl-6">Subcontractor</TableHead>
+                    <TableHead className="w-[100px] text-center">Valuation Due</TableHead>
+                    <TableHead className="w-[220px]">Subcontractor</TableHead>
                     <TableHead className="text-center">Application Received</TableHead>
                     <TableHead className="text-center">Certificate Issued</TableHead>
                     <TableHead className="text-center">Invoice Received</TableHead>
@@ -265,9 +276,17 @@ function PaymentNoticesContent() {
                   {projectSubs.length > 0 ? projectSubs.map(sub => {
                     const noticeId = `${selectedProjectId}_${sub.id}_${selectedPeriodId}`;
                     const notice = allNotices?.find(n => n.id === noticeId);
+                    const isDue = notice?.isValuationDue ?? false;
+
                     return (
-                      <TableRow key={sub.id} className="hover:bg-muted/5 transition-colors">
-                        <TableCell className="font-bold pl-6">
+                      <TableRow key={sub.id} className={cn("hover:bg-muted/5 transition-colors", !isDue && "opacity-60 grayscale")}>
+                        <TableCell className="text-center">
+                            <Switch 
+                                checked={isDue} 
+                                onCheckedChange={(val) => handleUpdateField(sub.id, 'isValuationDue', val)} 
+                            />
+                        </TableCell>
+                        <TableCell className="font-bold">
                           <div className="flex flex-col">
                             <span>{sub.name}</span>
                             <span className="text-[10px] text-muted-foreground font-normal uppercase tracking-tighter">{sub.email}</span>
@@ -276,51 +295,56 @@ function PaymentNoticesContent() {
                         <TableCell>
                           <Input 
                             type="date" 
-                            className="h-8 text-xs bg-background" 
+                            className="h-8 text-xs bg-background disabled:opacity-30" 
                             value={notice?.applicationReceivedDate || ''} 
-                            onChange={(e) => handleUpdateDate(sub.id, 'applicationReceivedDate', e.target.value)}
+                            disabled={!isDue}
+                            onChange={(e) => handleUpdateField(sub.id, 'applicationReceivedDate', e.target.value)}
                           />
                         </TableCell>
                         <TableCell>
                           <Input 
                             type="date" 
-                            className="h-8 text-xs bg-background" 
+                            className="h-8 text-xs bg-background disabled:opacity-30" 
                             value={notice?.certificateIssuedDate || ''} 
-                            onChange={(e) => handleUpdateDate(sub.id, 'certificateIssuedDate', e.target.value)}
+                            disabled={!isDue}
+                            onChange={(e) => handleUpdateField(sub.id, 'certificateIssuedDate', e.target.value)}
                           />
                         </TableCell>
                         <TableCell>
                           <Input 
                             type="date" 
-                            className="h-8 text-xs bg-background" 
+                            className="h-8 text-xs bg-background disabled:opacity-30" 
                             value={notice?.invoiceReceivedDate || ''} 
-                            onChange={(e) => handleUpdateDate(sub.id, 'invoiceReceivedDate', e.target.value)}
+                            disabled={!isDue}
+                            onChange={(e) => handleUpdateField(sub.id, 'invoiceReceivedDate', e.target.value)}
                           />
                         </TableCell>
                         <TableCell>
                           <Input 
                             type="date" 
-                            className="h-8 text-xs bg-background" 
+                            className="h-8 text-xs bg-background disabled:opacity-30" 
                             value={notice?.invoiceUploadedDate || ''} 
-                            onChange={(e) => handleUpdateDate(sub.id, 'invoiceUploadedDate', e.target.value)}
+                            disabled={!isDue}
+                            onChange={(e) => handleUpdateField(sub.id, 'invoiceUploadedDate', e.target.value)}
                           />
                         </TableCell>
                         <TableCell className="text-right pr-6">
                           <Badge variant="outline" className={cn(
                             "capitalize text-[10px] h-5",
+                            !isDue ? "bg-slate-50 text-slate-400 border-slate-100" :
                             notice?.status === 'processed' ? "bg-green-100 text-green-800 border-green-200" :
                             notice?.status === 'invoiced' ? "bg-blue-100 text-blue-800 border-blue-200" :
                             notice?.status === 'certified' ? "bg-amber-100 text-amber-800 border-amber-200" :
                             "bg-slate-100 text-slate-600 border-slate-200"
                           )}>
-                            {notice?.status || 'Pending'}
+                            {!isDue ? 'No Work' : (notice?.status || 'Pending')}
                           </Badge>
                         </TableCell>
                       </TableRow>
                     );
                   }) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground italic">
+                      <TableCell colSpan={7} className="text-center py-12 text-muted-foreground italic">
                         No subcontractors assigned to this project. Update project settings to assign partners.
                       </TableCell>
                     </TableRow>
