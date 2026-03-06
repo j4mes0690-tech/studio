@@ -23,14 +23,22 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, X, Loader2, Save } from 'lucide-react';
-import type { QualityChecklist } from '@/lib/types';
+import type { QualityChecklist, Trade } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { ManageTradesDialog } from '@/app/settings/manage-trades-dialog';
 
 const EditChecklistTemplateSchema = z.object({
   id: z.string().min(1),
@@ -53,6 +61,13 @@ export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFo
 
   const [items, setItems] = useState<string[]>(checklist.items.map(i => i.text));
   const [currentItem, setCurrentItem] = useState('');
+
+  // Fetch defined trades from Firestore
+  const tradesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'trades');
+  }, [db]);
+  const { data: trades, isLoading: tradesLoading } = useCollection<Trade>(tradesQuery);
 
   const form = useForm<EditChecklistTemplateFormValues>({
     resolver: zodResolver(EditChecklistTemplateSchema),
@@ -163,18 +178,38 @@ export function EditChecklistTemplateForm({ checklist }: EditChecklistTemplateFo
                     </FormItem>
                 )}
                 />
+                
                 <FormField
-                control={form.control}
-                name="trade"
-                render={({ field }) => (
+                  control={form.control}
+                  name="trade"
+                  render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Trade / Discipline</FormLabel>
-                    <FormControl>
-                        <Input placeholder="e.g. Mechanical" {...field} />
-                    </FormControl>
-                    <FormMessage />
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Trade / Discipline</FormLabel>
+                        <ManageTradesDialog showLabel={true} />
+                      </div>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={tradesLoading ? "Loading trades..." : "Select trade discipline"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {trades?.map((trade) => (
+                            <SelectItem key={trade.id} value={trade.name}>
+                              {trade.name}
+                            </SelectItem>
+                          ))}
+                          {(!trades || trades.length === 0) && !tradesLoading && (
+                            <div className="p-2 text-xs text-muted-foreground italic text-center">
+                              No trades defined. Add them in Settings.
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
                     </FormItem>
-                )}
+                  )}
                 />
                 
                 <FormItem>

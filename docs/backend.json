@@ -179,6 +179,16 @@
         "courseName": { "type": "string" },
         "priority": { "type": "string" }
       }
+    },
+    "Trade": {
+      "title": "Trade",
+      "description": "A construction trade or discipline category.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"]
     }
   },
   "auth": {
@@ -202,6 +212,7 @@
     "/training-records/{id}": { "schema": { "$ref": "#/backend/entities/TrainingRecord" }, "description": "Staff certifications." },
     "/training-needs/{id}": { "schema": { "$ref": "#/backend/entities/TrainingNeed" }, "description": "Future training requirements." },
     "/payment-notices/{id}": { "schema": { "$ref": "#/backend/entities/PaymentNotice" }, "description": "Subcontractor payment lifecycle." },
-    "/valuation-periods/{id}": { "schema": { "$ref": "#/backend/entities/ValuationPeriod" }, "description": "Monthly valuation cycles." }
+    "/valuation-periods/{id}": { "schema": { "$ref": "#/backend/entities/ValuationPeriod" }, "description": "Monthly valuation cycles." },
+    "/trades/{id}": { "schema": { "$ref": "#/backend/entities/Trade" }, "description": "Master list of trade disciplines." }
   }
 }

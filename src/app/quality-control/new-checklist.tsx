@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useTransition } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,13 +23,22 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, X, Loader2 } from 'lucide-react';
+import { PlusCircle, X, Loader2, Settings2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import type { Trade } from '@/lib/types';
+import { ManageTradesDialog } from '@/app/settings/manage-trades-dialog';
 
 const NewChecklistSchema = z.object({
   title: z.string().min(1, 'Title is required.'),
@@ -46,6 +55,13 @@ export function NewChecklist() {
 
   const [items, setItems] = useState<string[]>([]);
   const [currentItem, setCurrentItem] = useState('');
+
+  // Fetch defined trades from Firestore
+  const tradesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'trades');
+  }, [db]);
+  const { data: trades, isLoading: tradesLoading } = useCollection<Trade>(tradesQuery);
 
   const form = useForm<NewChecklistFormValues>({
     resolver: zodResolver(NewChecklistSchema),
@@ -148,10 +164,29 @@ export function NewChecklist() {
                   name="trade"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Trade / Discipline</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Electrical" {...field} />
-                      </FormControl>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Trade / Discipline</FormLabel>
+                        <ManageTradesDialog showLabel={true} />
+                      </div>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder={tradesLoading ? "Loading trades..." : "Select trade discipline"} />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {trades?.map((trade) => (
+                            <SelectItem key={trade.id} value={trade.name}>
+                              {trade.name}
+                            </SelectItem>
+                          ))}
+                          {(!trades || trades.length === 0) && !tradesLoading && (
+                            <div className="p-2 text-xs text-muted-foreground italic text-center">
+                              No trades defined. Add them in Settings.
+                            </div>
+                          )}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

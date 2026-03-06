@@ -182,6 +182,11 @@ export type QualityChecklist = {
   photos?: Photo[];
 };
 
+export type Trade = {
+  id: string;
+  name: string;
+};
+
 // --- PROCUREMENT MODULE TYPES ---
 
 export type Supplier = {

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -25,11 +24,12 @@ import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate } from '@/lib/types';
-import { Loader2, ShieldAlert, Truck, Package, FileCheck } from 'lucide-react';
+import { Loader2, ShieldAlert, Truck, Package, FileCheck, Tag } from 'lucide-react';
 import { ManageSuppliers } from './manage-suppliers';
 import { ManageMaterials } from './manage-materials';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
+import { ManageTrades } from './manage-trades';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -231,6 +231,15 @@ export default function SettingsPage() {
                                 <h3 className="text-lg font-medium">Existing Templates</h3>
                                 <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
                             </div>
+                        </div>
+                        <Separator className="my-8" />
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 text-primary font-bold">
+                                <Tag className="h-5 w-5" />
+                                <h3>Trade Categories</h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground">Define the trade disciplines available for checklist assignment.</p>
+                            <ManageTrades />
                         </div>
                     </AccordionContent>
                 </AccordionItem>
