@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -29,20 +30,24 @@ import {
   GraduationCap,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import type { DistributionUser } from '@/lib/types';
+import { useMemo } from 'react';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
-  { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart },
-  { href: '/plant-orders', label: 'Plant Orders', icon: Truck },
-  { href: '/variations', label: 'Variations', icon: Calculator },
-  { href: '/permits', label: 'Permits to Work', icon: FileCheck },
-  { href: '/training', label: 'Training & Compliance', icon: GraduationCap },
-  { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle },
-  { href: '/instructions', label: 'Site Instructions', icon: MessageSquare },
-  { href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles },
-  { href: '/snagging', label: 'Snagging', icon: ListChecks },
-  { href: '/quality-control', label: 'Quality Control', icon: ClipboardCheck },
-  { href: '/information-requests', label: 'Info Requests', icon: HelpCircle },
+  { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, permission: 'accessMaterials' },
+  { href: '/plant-orders', label: 'Plant Orders', icon: Truck, permission: 'accessPlant' },
+  { href: '/variations', label: 'Variations', icon: Calculator, permission: 'accessVariations' },
+  { href: '/permits', label: 'Permits to Work', icon: FileCheck, permission: 'accessPermits' },
+  { href: '/training', label: 'Training & Compliance', icon: GraduationCap, permission: 'accessTraining' },
+  { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle, permission: 'accessClientInstructions' },
+  { href: '/instructions', label: 'Site Instructions', icon: MessageSquare, permission: 'accessSiteInstructions' },
+  { href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles, permission: 'accessCleanupNotices' },
+  { href: '/snagging', label: 'Snagging', icon: ListChecks, permission: 'accessSnagging' },
+  { href: '/quality-control', label: 'Quality Control', icon: ClipboardCheck, permission: 'accessQualityControl' },
+  { href: '/information-requests', label: 'Info Requests', icon: HelpCircle, permission: 'accessInfoRequests' },
   { href: '/projects', label: 'Projects', icon: FolderKanban },
 ];
 
@@ -52,6 +57,26 @@ const secondaryLinks = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user } = useUser();
+  const db = useFirestore();
+
+  const profileRef = useMemoFirebase(() => {
+    if (!db || !user?.email) return null;
+    return doc(db, 'users', user.email.toLowerCase().trim());
+  }, [db, user?.email]);
+
+  const { data: profile } = useDoc<DistributionUser>(profileRef);
+
+  const filteredLinks = useMemo(() => {
+    if (!profile) return links.filter(l => !l.permission); // Fallback to basic links during load
+    
+    return links.filter(link => {
+        if (!link.permission) return true;
+        // If the permission field doesn't exist on older records, default to true
+        const hasPermission = profile.permissions?.[link.permission as keyof typeof profile.permissions] !== false;
+        return hasPermission;
+    });
+  }, [profile]);
 
   return (
     <Sidebar collapsible="icon" className="group-data-[variant=floating]:bg-card/95 group-data-[variant=floating]:backdrop-blur-sm">
@@ -60,7 +85,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {links.map((link) => (
+          {filteredLinks.map((link) => (
             <SidebarMenuItem key={link.href}>
               <SidebarMenuButton
                 asChild

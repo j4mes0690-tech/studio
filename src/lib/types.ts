@@ -125,6 +125,18 @@ export type UserPermissions = {
   canManagePermitTemplates: boolean;
   canManageTraining: boolean;
   hasFullVisibility: boolean;
+  // Module Access
+  accessMaterials: boolean;
+  accessPlant: boolean;
+  accessVariations: boolean;
+  accessPermits: boolean;
+  accessTraining: boolean;
+  accessClientInstructions: boolean;
+  accessSiteInstructions: boolean;
+  accessCleanupNotices: boolean;
+  accessSnagging: boolean;
+  accessQualityControl: boolean;
+  accessInfoRequests: boolean;
 };
 
 export type DistributionUser = {

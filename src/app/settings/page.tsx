@@ -98,8 +98,9 @@ export default function SettingsPage() {
   const canManageChecklists = !!permissions?.canManageChecklists || isAdmin;
   const canManageMaterials = !!permissions?.canManageMaterials || isAdmin;
   const canManagePermitTemplates = !!permissions?.canManagePermitTemplates || isAdmin;
+  const canManageTraining = !!permissions?.canManageTraining || isAdmin;
 
-  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManageMaterials || canManagePermitTemplates;
+  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManageMaterials || canManagePermitTemplates || canManageTraining;
 
   if (!hasAnyAdminPermission) {
     return (

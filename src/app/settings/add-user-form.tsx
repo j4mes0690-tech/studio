@@ -23,18 +23,33 @@ import { useFirestore } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const AddUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
+  // Administrative
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
   canManageMaterials: z.boolean().default(false),
   canManagePermitTemplates: z.boolean().default(false),
+  canManageTraining: z.boolean().default(false),
   hasFullVisibility: z.boolean().default(false),
+  // Module Access
+  accessMaterials: z.boolean().default(true),
+  accessPlant: z.boolean().default(true),
+  accessVariations: z.boolean().default(true),
+  accessPermits: z.boolean().default(true),
+  accessTraining: z.boolean().default(true),
+  accessClientInstructions: z.boolean().default(true),
+  accessSiteInstructions: z.boolean().default(true),
+  accessCleanupNotices: z.boolean().default(true),
+  accessSnagging: z.boolean().default(true),
+  accessQualityControl: z.boolean().default(true),
+  accessInfoRequests: z.boolean().default(true),
 });
 
 type AddUserFormValues = z.infer<typeof AddUserSchema>;
@@ -56,7 +71,19 @@ export function AddUserForm() {
       canManageChecklists: false,
       canManageMaterials: false,
       canManagePermitTemplates: false,
+      canManageTraining: false,
       hasFullVisibility: false,
+      accessMaterials: true,
+      accessPlant: true,
+      accessVariations: true,
+      accessPermits: true,
+      accessTraining: true,
+      accessClientInstructions: true,
+      accessSiteInstructions: true,
+      accessCleanupNotices: true,
+      accessSnagging: true,
+      accessQualityControl: true,
+      accessInfoRequests: true,
     },
   });
 
@@ -75,7 +102,19 @@ export function AddUserForm() {
           canManageChecklists: values.canManageChecklists,
           canManageMaterials: values.canManageMaterials,
           canManagePermitTemplates: values.canManagePermitTemplates,
+          canManageTraining: values.canManageTraining,
           hasFullVisibility: values.hasFullVisibility,
+          accessMaterials: values.accessMaterials,
+          accessPlant: values.accessPlant,
+          accessVariations: values.accessVariations,
+          accessPermits: values.accessPermits,
+          accessTraining: values.accessTraining,
+          accessClientInstructions: values.accessClientInstructions,
+          accessSiteInstructions: values.accessSiteInstructions,
+          accessCleanupNotices: values.accessCleanupNotices,
+          accessSnagging: values.accessSnagging,
+          accessQualityControl: values.accessQualityControl,
+          accessInfoRequests: values.accessInfoRequests,
         }
       };
 
@@ -101,194 +140,135 @@ export function AddUserForm() {
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-4"
+        className="space-y-6"
       >
-        <FormField
-          control={form.control}
-          name="name"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Name</FormLabel>
-              <FormControl>
-                <Input placeholder="John Doe" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="john.doe@example.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input type="password" placeholder="System password" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <Separator />
         <div className="space-y-4">
-          <FormLabel>Access & Visibility</FormLabel>
             <FormField
-                control={form.control}
-                name="hasFullVisibility"
-                render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-primary/20 p-3 shadow-sm bg-primary/5">
-                    <div className="space-y-0.5">
-                        <FormLabel className="text-primary font-bold">Administrative Visibility</FormLabel>
-                        <FormDescription>
-                            Enable to allow this user to see ALL projects and records.
-                        </FormDescription>
-                    </div>
-                    <FormControl>
-                        <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Full Name</FormLabel>
+                <FormControl>
+                    <Input placeholder="John Doe" {...field} />
+                </FormControl>
+                <FormMessage />
                 </FormItem>
-                )}
-            />
-            
-            <FormField
-                control={form.control}
-                name="canManageUsers"
-                render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <FormLabel>Manage Users</FormLabel>
-                        <FormDescription>
-                            Access to internal staff directory and system credentials.
-                        </FormDescription>
-                    </div>
-                    <FormControl>
-                        <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
-                </FormItem>
-                )}
+            )}
             />
             <FormField
-                control={form.control}
-                name="canManageSubcontractors"
-                render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <FormLabel>Manage External Contacts</FormLabel>
-                        <FormDescription>
-                            Access to trade partner and designer directory.
-                        </FormDescription>
-                    </div>
-                    <FormControl>
-                        <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                    <Input placeholder="john.doe@example.com" {...field} />
+                </FormControl>
+                <FormMessage />
                 </FormItem>
-                )}
+            )}
             />
             <FormField
-                control={form.control}
-                name="canManageProjects"
-                render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <FormLabel>Manage Projects</FormLabel>
-                        <FormDescription>
-                           Access to project setup, site areas, and staff assignment.
-                        </FormDescription>
-                    </div>
-                    <FormControl>
-                        <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Initial Password</FormLabel>
+                <FormControl>
+                    <Input type="password" placeholder="System password" {...field} />
+                </FormControl>
+                <FormMessage />
                 </FormItem>
-                )}
-            />
-            <FormField
-                control={form.control}
-                name="canManageMaterials"
-                render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <FormLabel>Manage Procurement</FormLabel>
-                        <FormDescription>
-                           Manage suppliers and material catalogue definitions.
-                        </FormDescription>
-                    </div>
-                    <FormControl>
-                        <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
-                </FormItem>
-                )}
-            />
-            <FormField
-                control={form.control}
-                name="canManageChecklists"
-                render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <FormLabel>Manage Checklist Templates</FormLabel>
-                        <FormDescription>
-                            Access to create and edit master inspection templates.
-                        </FormDescription>
-                    </div>
-                    <FormControl>
-                        <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
-                </FormItem>
-                )}
-            />
-            <FormField
-                control={form.control}
-                name="canManagePermitTemplates"
-                render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                    <div className="space-y-0.5">
-                        <FormLabel>Manage Permit Templates</FormLabel>
-                        <FormDescription>
-                            Access to create and edit master permit-to-work definitions.
-                        </FormDescription>
-                    </div>
-                    <FormControl>
-                        <Switch
-                            checked={field.value}
-                            onCheckedChange={field.onChange}
-                        />
-                    </FormControl>
-                </FormItem>
-                )}
+            )}
             />
         </div>
-        <Button type="submit" className="w-full" disabled={isPending}>
-          {isPending ? 'Adding...' : 'Add User Profile'}
+
+        <Separator />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+                <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Administrative Permissions</FormLabel>
+                <ScrollArea className="h-[400px] pr-4">
+                    <div className="space-y-3">
+                        <FormField
+                            control={form.control}
+                            name="hasFullVisibility"
+                            render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-primary/20 p-3 shadow-sm bg-primary/5">
+                                <div className="space-y-0.5">
+                                    <FormLabel className="text-primary font-bold">Admin Visibility</FormLabel>
+                                    <FormDescription className="text-[10px]">Access to ALL projects and data.</FormDescription>
+                                </div>
+                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            </FormItem>
+                            )}
+                        />
+                        
+                        {[
+                            { name: 'canManageUsers', label: 'Manage Users', desc: 'Internal staff and passwords.' },
+                            { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Trade partner directory.' },
+                            { name: 'canManageProjects', label: 'Manage Projects', desc: 'Site setup and assignments.' },
+                            { name: 'canManageMaterials', label: 'Manage Procurement', desc: 'Suppliers and material items.' },
+                            { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Master checklist definitions.' },
+                            { name: 'canManagePermitTemplates', label: 'Manage Permit Forms', desc: 'Master permit-to-work setup.' },
+                            { name: 'canManageTraining', label: 'Manage Training', desc: 'Staff compliance oversight.' },
+                        ].map(perm => (
+                            <FormField
+                                key={perm.name}
+                                control={form.control}
+                                name={perm.name as any}
+                                render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                    <div className="space-y-0.5">
+                                        <FormLabel className="text-xs font-semibold">{perm.label}</FormLabel>
+                                        <FormDescription className="text-[10px]">{perm.desc}</FormDescription>
+                                    </div>
+                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                </FormItem>
+                                )}
+                            />
+                        ))}
+                    </div>
+                </ScrollArea>
+            </div>
+
+            <div className="space-y-4">
+                <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Module Access</FormLabel>
+                <ScrollArea className="h-[400px] pr-4">
+                    <div className="space-y-3">
+                        {[
+                            { name: 'accessMaterials', label: 'Materials Orders' },
+                            { name: 'accessPlant', label: 'Plant Hire' },
+                            { name: 'accessVariations', label: 'Variation Pricing' },
+                            { name: 'accessPermits', label: 'Permits to Work' },
+                            { name: 'accessTraining', label: 'Training & Compliance' },
+                            { name: 'accessClientInstructions', label: 'Client Instructions' },
+                            { name: 'accessSiteInstructions', label: 'Site Instructions' },
+                            { name: 'accessCleanupNotices', label: 'Clean Up Notices' },
+                            { name: 'accessSnagging', label: 'Snagging Lists' },
+                            { name: 'accessQualityControl', label: 'Quality Control' },
+                            { name: 'accessInfoRequests', label: 'Information Requests' },
+                        ].map(mod => (
+                            <FormField
+                                key={mod.name}
+                                control={form.control}
+                                name={mod.name as any}
+                                render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/5">
+                                    <FormLabel className="text-xs font-semibold">{mod.label}</FormLabel>
+                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                </FormItem>
+                                )}
+                            />
+                        ))}
+                    </div>
+                </ScrollArea>
+            </div>
+        </div>
+
+        <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
+          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Add User Profile'}
         </Button>
       </form>
     </Form>
