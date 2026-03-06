@@ -194,7 +194,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
             <ScrollArea className="flex-1 px-6 py-4">
-              <div className="space-y-6">
+              <div className="space-y-6 pb-10">
                 <input type="hidden" {...form.register('id')} />
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -227,61 +227,65 @@ export function EditUserForm({ user }: EditUserFormProps) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
                         <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Admin Rights</FormLabel>
-                        <div className="space-y-3">
-                            <FormField control={form.control} name="hasFullVisibility" render={({ field }) => (
-                                <FormItem className="flex items-center justify-between rounded-lg border-2 border-primary/20 p-3 bg-primary/5">
-                                    <div className="space-y-0.5"><FormLabel className="text-primary font-bold">Admin Visibility</FormLabel><FormDescription className="text-[10px]">Access to ALL projects.</FormDescription></div>
-                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                </FormItem>
-                            )} />
-                            {[
-                                { name: 'canManageUsers', label: 'Manage Users', desc: 'Internal staff control.' },
-                                { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Trade partner directory.' },
-                                { name: 'canManageProjects', label: 'Manage Projects', desc: 'Site setup and assignments.' },
-                                { name: 'canManageMaterials', label: 'Manage Procurement', desc: 'Suppliers and items.' },
-                                { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'QC master lists.' },
-                                { name: 'canManagePermitTemplates', label: 'Manage Permits', desc: 'Master permit definitions.' },
-                                { name: 'canManageTraining', label: 'Manage Training', desc: 'Staff compliance oversight.' },
-                            ].map(perm => (
-                                <FormField key={perm.name} control={form.control} name={perm.name as any} render={({ field }) => (
-                                <FormItem className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-                                    <div className="space-y-0.5"><FormLabel className="text-xs font-semibold">{perm.label}</FormLabel><FormDescription className="text-[10px]">{perm.desc}</FormDescription></div>
-                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                </FormItem>
+                        <ScrollArea className="h-[300px] pr-4 border rounded-md p-2 bg-muted/5">
+                            <div className="space-y-3">
+                                <FormField control={form.control} name="hasFullVisibility" render={({ field }) => (
+                                    <FormItem className="flex items-center justify-between rounded-lg border-2 border-primary/20 p-3 bg-primary/5">
+                                        <div className="space-y-0.5"><FormLabel className="text-primary font-bold">Admin Visibility</FormLabel><FormDescription className="text-[10px]">Access to ALL projects.</FormDescription></div>
+                                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                    </FormItem>
                                 )} />
-                            ))}
-                        </div>
+                                {[
+                                    { name: 'canManageUsers', label: 'Manage Users', desc: 'Internal staff control.' },
+                                    { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Trade partner directory.' },
+                                    { name: 'canManageProjects', label: 'Manage Projects', desc: 'Site setup and assignments.' },
+                                    { name: 'canManageMaterials', label: 'Manage Procurement', desc: 'Suppliers and items.' },
+                                    { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'QC master lists.' },
+                                    { name: 'canManagePermitTemplates', label: 'Manage Permits', desc: 'Master permit definitions.' },
+                                    { name: 'canManageTraining', label: 'Manage Training', desc: 'Staff compliance oversight.' },
+                                ].map(perm => (
+                                    <FormField key={perm.name} control={form.control} name={perm.name as any} render={({ field }) => (
+                                    <FormItem className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+                                        <div className="space-y-0.5"><FormLabel className="text-xs font-semibold">{perm.label}</FormLabel><FormDescription className="text-[10px]">{perm.desc}</FormDescription></div>
+                                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                    </FormItem>
+                                    )} />
+                                ))}
+                            </div>
+                        </ScrollArea>
                     </div>
 
                     <div className="space-y-4">
                         <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Module Visibility</FormLabel>
-                        <div className="space-y-3">
-                            {[
-                                { name: 'accessMaterials', label: 'Materials Orders' },
-                                { name: 'accessPlant', label: 'Plant Hire' },
-                                { name: 'accessVariations', label: 'Variation Pricing' },
-                                { name: 'accessPermits', label: 'Permits to Work' },
-                                { name: 'accessTraining', label: 'Training & Compliance' },
-                                { name: 'accessClientInstructions', label: 'Client Instructions' },
-                                { name: 'accessSiteInstructions', label: 'Site Instructions' },
-                                { name: 'accessCleanupNotices', label: 'Clean Up Notices' },
-                                { name: 'accessSnagging', label: 'Snagging Lists' },
-                                { name: 'accessQualityControl', label: 'Quality Control' },
-                                { name: 'accessInfoRequests', label: 'Information Requests' },
-                            ].map(mod => (
-                                <FormField
-                                    key={mod.name}
-                                    control={form.control}
-                                    name={mod.name as any}
-                                    render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/5">
-                                        <FormLabel className="text-xs font-semibold">{mod.label}</FormLabel>
-                                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                    </FormItem>
-                                    )}
-                                />
-                            ))}
-                        </div>
+                        <ScrollArea className="h-[300px] pr-4 border rounded-md p-2 bg-muted/5">
+                            <div className="space-y-3">
+                                {[
+                                    { name: 'accessMaterials', label: 'Materials Orders' },
+                                    { name: 'accessPlant', label: 'Plant Hire' },
+                                    { name: 'accessVariations', label: 'Variation Pricing' },
+                                    { name: 'accessPermits', label: 'Permits to Work' },
+                                    { name: 'accessTraining', label: 'Training & Compliance' },
+                                    { name: 'accessClientInstructions', label: 'Client Instructions' },
+                                    { name: 'accessSiteInstructions', label: 'Site Instructions' },
+                                    { name: 'accessCleanupNotices', label: 'Clean Up Notices' },
+                                    { name: 'accessSnagging', label: 'Snagging Lists' },
+                                    { name: 'accessQualityControl', label: 'Quality Control' },
+                                    { name: 'accessInfoRequests', label: 'Information Requests' },
+                                ].map(mod => (
+                                    <FormField
+                                        key={mod.name}
+                                        control={form.control}
+                                        name={mod.name as any}
+                                        render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+                                            <FormLabel className="text-xs font-semibold">{mod.label}</FormLabel>
+                                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                        </FormItem>
+                                        )}
+                                    />
+                                ))}
+                            </div>
+                        </ScrollArea>
                     </div>
                 </div>
               </div>

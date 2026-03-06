@@ -189,7 +189,7 @@ export function AddUserForm() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-4">
                 <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Administrative Permissions</FormLabel>
-                <ScrollArea className="h-[400px] pr-4">
+                <ScrollArea className="h-[400px] pr-4 border rounded-md p-2 bg-muted/5">
                     <div className="space-y-3">
                         <FormField
                             control={form.control}
@@ -219,7 +219,7 @@ export function AddUserForm() {
                                 control={form.control}
                                 name={perm.name as any}
                                 render={({ field }) => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
                                     <div className="space-y-0.5">
                                         <FormLabel className="text-xs font-semibold">{perm.label}</FormLabel>
                                         <FormDescription className="text-[10px]">{perm.desc}</FormDescription>
@@ -235,7 +235,7 @@ export function AddUserForm() {
 
             <div className="space-y-4">
                 <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Module Access</FormLabel>
-                <ScrollArea className="h-[400px] pr-4">
+                <ScrollArea className="h-[400px] pr-4 border rounded-md p-2 bg-muted/5">
                     <div className="space-y-3">
                         {[
                             { name: 'accessMaterials', label: 'Materials Orders' },
@@ -255,7 +255,7 @@ export function AddUserForm() {
                                 control={form.control}
                                 name={mod.name as any}
                                 render={({ field }) => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-muted/5">
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
                                     <FormLabel className="text-xs font-semibold">{mod.label}</FormLabel>
                                     <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                 </FormItem>
