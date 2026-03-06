@@ -25,7 +25,6 @@ import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@
 import { collection, doc, query, where } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate } from '@/lib/types';
 import { Loader2, ShieldAlert, Truck, FileCheck, Tag } from 'lucide-react';
-import { ManageSuppliers } from './manage-suppliers';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
@@ -50,7 +49,7 @@ export default function SettingsPage() {
   }, [db]);
   const { data: users, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  // Fetch Sub-contractors / Designers
+  // Fetch Sub-contractors / Designers / Suppliers
   const subsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'sub-contractors');
@@ -96,11 +95,10 @@ export default function SettingsPage() {
   const canManageSubcontractors = !!permissions?.canManageSubcontractors || isAdmin;
   const canManageProjects = !!permissions?.canManageProjects || isAdmin;
   const canManageChecklists = !!permissions?.canManageChecklists || isAdmin;
-  const canManageMaterials = !!permissions?.canManageMaterials || isAdmin;
   const canManagePermitTemplates = !!permissions?.canManagePermitTemplates || isAdmin;
   const canManageTraining = !!permissions?.canManageTraining || isAdmin;
 
-  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManageMaterials || canManagePermitTemplates || canManageTraining;
+  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManagePermitTemplates || canManageTraining;
 
   if (!hasAnyAdminPermission) {
     return (
@@ -165,23 +163,6 @@ export default function SettingsPage() {
                                     <SubcontractorsList subContractors={subContractors || []} />
                                 </div>
                             </div>
-                        </div>
-                    </AccordionContent>
-                </AccordionItem>
-            </Card>
-          )}
-
-          {canManageMaterials && (
-            <Card>
-                <AccordionItem value="materials" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Procurement: Suppliers</AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
-                        <div className="space-y-4 max-w-2xl">
-                            <div className="flex items-center gap-2 text-primary font-bold">
-                                <Truck className="h-5 w-5" />
-                                <h3>Suppliers Directory</h3>
-                            </div>
-                            <ManageSuppliers />
                         </div>
                     </AccordionContent>
                 </AccordionItem>
