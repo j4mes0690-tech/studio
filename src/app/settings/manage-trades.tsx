@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,11 +11,12 @@ import {
   FormControl,
   FormField,
   FormItem,
+  FormLabel,
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2, Plus, Loader2, Tag } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, deleteDoc, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -45,7 +45,10 @@ export function ManageTrades() {
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  const tradesQuery = useMemo(() => query(collection(db, 'trades'), orderBy('name', 'asc')), [db]);
+  const tradesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'trades'), orderBy('name', 'asc'));
+  }, [db]);
   const { data: trades, isLoading } = useCollection<Trade>(tradesQuery);
 
   const form = useForm<TradeFormValues>({

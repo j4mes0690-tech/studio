@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -10,8 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { useUser, useFirestore, useDoc } from '@/firebase';
-import { useMemo } from 'react';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import type { DistributionUser } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { doc } from 'firebase/firestore';
@@ -21,7 +19,7 @@ export default function AccountPage() {
   const db = useFirestore();
 
   // We look up the user profile by their email, which we used as the document ID
-  const profileRef = useMemo(() => {
+  const profileRef = useMemoFirebase(() => {
     if (!db || !user?.email) return null;
     return doc(db, 'users', user.email.toLowerCase().trim());
   }, [db, user?.email]);
