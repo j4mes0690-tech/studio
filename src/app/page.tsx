@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -21,13 +20,15 @@ import {
   Truck, 
   Calculator,
   GraduationCap,
-  Loader2
+  Loader2,
+  ShieldCheck
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { DistributionUser } from '@/lib/types';
 import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
 
 const DASHBOARD_CARDS = [
   { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, desc: 'Create and manage purchase orders for project materials.', permission: 'accessMaterials' },
