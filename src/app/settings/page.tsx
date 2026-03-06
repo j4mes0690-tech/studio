@@ -30,6 +30,7 @@ import { ManageMaterials } from './manage-materials';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
+import { Separator } from '@/components/ui/separator';
 
 export default function SettingsPage() {
   const db = useFirestore();
