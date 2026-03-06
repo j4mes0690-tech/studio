@@ -20,7 +20,19 @@
             "canManageMaterials": { "type": "boolean" },
             "canManagePermitTemplates": { "type": "boolean" },
             "canManageTraining": { "type": "boolean" },
-            "hasFullVisibility": { "type": "boolean" }
+            "hasFullVisibility": { "type": "boolean" },
+            "accessMaterials": { "type": "boolean" },
+            "accessPlant": { "type": "boolean" },
+            "accessVariations": { "type": "boolean" },
+            "accessPermits": { "type": "boolean" },
+            "accessTraining": { "type": "boolean" },
+            "accessClientInstructions": { "type": "boolean" },
+            "accessSiteInstructions": { "type": "boolean" },
+            "accessCleanupNotices": { "type": "boolean" },
+            "accessSnagging": { "type": "boolean" },
+            "accessQualityControl": { "type": "boolean" },
+            "accessInfoRequests": { "type": "boolean" },
+            "accessPaymentNotices": { "type": "boolean" }
           }
         }
       },
@@ -70,52 +82,24 @@
       },
       "required": ["id", "name", "email"]
     },
-    "Variation": {
+    "PaymentNotice": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Variation",
+      "title": "PaymentNotice",
       "type": "object",
-      "description": "Represents a financial variation or cost change on a project.",
+      "description": "Represents a payment notice lifecycle for a subcontractor.",
       "properties": {
         "id": { "type": "string" },
-        "reference": { "type": "string" },
         "projectId": { "type": "string" },
-        "title": { "type": "string" },
-        "totalAmount": { "type": "number" },
-        "status": { "type": "string", "enum": ["draft", "pending", "agreed", "rejected"] }
-      }
-    },
-    "TrainingRecord": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "TrainingRecord",
-      "type": "object",
-      "description": "Represents a staff training certificate.",
-      "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "userEmail": { "type": "string", "format": "email" },
-        "courseName": { "type": "string" },
-        "issueDate": { "type": "string", "format": "date" },
-        "expiryDate": { "type": "string", "format": "date" },
+        "subcontractorId": { "type": "string" },
+        "subcontractorName": { "type": "string" },
+        "applicationReceivedDate": { "type": ["string", "null"], "format": "date" },
+        "certificateIssuedDate": { "type": ["string", "null"], "format": "date" },
+        "invoiceReceivedDate": { "type": ["string", "null"], "format": "date" },
+        "invoiceUploadedDate": { "type": ["string", "null"], "format": "date" },
+        "status": { "type": "string", "enum": ["pending", "certified", "invoiced", "processed"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "userName", "userEmail", "courseName", "issueDate", "expiryDate"]
-    },
-    "TrainingNeed": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "TrainingNeed",
-      "type": "object",
-      "description": "Represents a required training gap identified for a user.",
-      "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "userEmail": { "type": "string", "format": "email" },
-        "courseName": { "type": "string" },
-        "priority": { "type": "string", "enum": ["low", "medium", "high"] },
-        "status": { "type": "string", "enum": ["requested", "booked", "completed"] },
-        "requestedDate": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "userEmail", "courseName", "priority", "status"]
+      "required": ["id", "projectId", "subcontractorId"]
     }
   },
   "auth": {
@@ -126,8 +110,6 @@
       { "path": "/users/{userId}", "definition": { "entityName": "User" } },
       { "path": "/projects/{projectId}", "definition": { "entityName": "Project" } },
       { "path": "/sub-contractors/{subId}", "definition": { "entityName": "SubContractor" } },
-      { "path": "/client-instructions/{id}", "definition": { "entityName": "ClientInstruction" } },
-      { "path": "/instructions/{id}", "definition": { "entityName": "Instruction" } },
       { "path": "/cleanup-notices/{id}", "definition": { "entityName": "CleanUpNotice" } },
       { "path": "/snagging-items/{id}", "definition": { "entityName": "SnaggingItem" } },
       { "path": "/information-requests/{id}", "definition": { "entityName": "InformationRequest" } },
@@ -136,7 +118,8 @@
       { "path": "/plant-orders/{id}", "definition": { "entityName": "PlantOrder" } },
       { "path": "/variations/{id}", "definition": { "entityName": "Variation" } },
       { "path": "/training-records/{id}", "definition": { "entityName": "TrainingRecord" } },
-      { "path": "/training-needs/{id}", "definition": { "entityName": "TrainingNeed" } }
+      { "path": "/training-needs/{id}", "definition": { "entityName": "TrainingNeed" } },
+      { "path": "/payment-notices/{id}", "definition": { "entityName": "PaymentNotice" } }
     ]
   }
 }

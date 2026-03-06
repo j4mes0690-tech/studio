@@ -28,6 +28,7 @@ import {
   Truck,
   Calculator,
   GraduationCap,
+  Banknote,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -40,6 +41,7 @@ const links = [
   { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, permission: 'accessMaterials' },
   { href: '/plant-orders', label: 'Plant Orders', icon: Truck, permission: 'accessPlant' },
   { href: '/variations', label: 'Variations', icon: Calculator, permission: 'accessVariations' },
+  { href: '/payment-notices', label: 'Payment Notices', icon: Banknote, permission: 'accessPaymentNotices' },
   { href: '/permits', label: 'Permits to Work', icon: FileCheck, permission: 'accessPermits' },
   { href: '/training', label: 'Training & Compliance', icon: GraduationCap, permission: 'accessTraining' },
   { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle, permission: 'accessClientInstructions' },

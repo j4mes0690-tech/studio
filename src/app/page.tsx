@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -21,7 +22,8 @@ import {
   Calculator,
   GraduationCap,
   Loader2,
-  ShieldCheck
+  ShieldCheck,
+  Banknote
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -34,6 +36,7 @@ const DASHBOARD_CARDS = [
   { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, desc: 'Create and manage purchase orders for project materials.', permission: 'accessMaterials' },
   { href: '/plant-orders', label: 'Plant Orders', icon: Truck, desc: 'Track equipment hire, off-hire dates, and commercial rates.', permission: 'accessPlant' },
   { href: '/variations', label: 'Variations', icon: Calculator, desc: 'Manage additions and omissions linked to instructions.', permission: 'accessVariations' },
+  { href: '/payment-notices', label: 'Payment Notices', icon: Banknote, desc: 'Track subcontractor applications, certificates, and invoices.', permission: 'accessPaymentNotices' },
   { href: '/permits', label: 'Permits to Work', icon: FileCheck, desc: 'Issue and track high-risk activity permits electronically.', permission: 'accessPermits' },
   { href: '/training', label: 'Training & Compliance', icon: GraduationCap, desc: 'Store employee certificates and monitor expiry dates.', permission: 'accessTraining' },
   { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle, desc: 'Directives received from the client for implementation.', permission: 'accessClientInstructions' },
@@ -92,13 +95,11 @@ export default function Dashboard() {
           {allowedCards.map((card) => (
             <Link key={card.href} href={card.href}>
               <Card className={cn(
-                  "flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-all hover:border-primary/50 hover:shadow-md h-full group",
-                  card.highlight && "border-primary/20 bg-primary/5 shadow-lg"
+                  "flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-all hover:border-primary/50 hover:shadow-md h-full group"
               )}>
                 <CardHeader className="p-0">
                   <card.icon className={cn(
-                      "h-12 w-12 mb-4 transition-transform group-hover:scale-110",
-                      card.highlight ? "text-primary" : "text-muted-foreground group-hover:text-primary"
+                      "h-12 w-12 mb-4 transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary"
                   )} />
                   <CardTitle className="text-xl">{card.label}</CardTitle>
                 </CardHeader>

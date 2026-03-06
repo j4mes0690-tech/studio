@@ -50,6 +50,7 @@ const AddUserSchema = z.object({
   accessSnagging: z.boolean().default(true),
   accessQualityControl: z.boolean().default(true),
   accessInfoRequests: z.boolean().default(true),
+  accessPaymentNotices: z.boolean().default(true),
 });
 
 type AddUserFormValues = z.infer<typeof AddUserSchema>;
@@ -84,6 +85,7 @@ export function AddUserForm() {
       accessSnagging: true,
       accessQualityControl: true,
       accessInfoRequests: true,
+      accessPaymentNotices: true,
     },
   });
 
@@ -115,6 +117,7 @@ export function AddUserForm() {
           accessSnagging: values.accessSnagging,
           accessQualityControl: values.accessQualityControl,
           accessInfoRequests: values.accessInfoRequests,
+          accessPaymentNotices: values.accessPaymentNotices,
         }
       };
 
@@ -241,6 +244,7 @@ export function AddUserForm() {
                             { name: 'accessMaterials', label: 'Materials Orders' },
                             { name: 'accessPlant', label: 'Plant Hire' },
                             { name: 'accessVariations', label: 'Variation Pricing' },
+                            { name: 'accessPaymentNotices', label: 'Payment Notices' },
                             { name: 'accessPermits', label: 'Permits to Work' },
                             { name: 'accessTraining', label: 'Training & Compliance' },
                             { name: 'accessClientInstructions', label: 'Client Instructions' },

@@ -137,6 +137,7 @@ export type UserPermissions = {
   accessSnagging: boolean;
   accessQualityControl: boolean;
   accessInfoRequests: boolean;
+  accessPaymentNotices: boolean;
 };
 
 export type DistributionUser = {
@@ -377,4 +378,22 @@ export type TrainingNeed = {
   status: TrainingNeedStatus;
   notes?: string;
   requestedDate: string;
+};
+
+// --- PAYMENT NOTICE MODULE TYPES ---
+
+export type PaymentNoticeStatus = 'pending' | 'certified' | 'invoiced' | 'processed';
+
+export type PaymentNotice = {
+  id: string;
+  projectId: string;
+  subcontractorId: string;
+  subcontractorName: string;
+  applicationReceivedDate: string | null;
+  certificateIssuedDate: string | null;
+  invoiceReceivedDate: string | null;
+  invoiceUploadedDate: string | null;
+  status: PaymentNoticeStatus;
+  createdAt: string;
+  updatedAt: string;
 };
