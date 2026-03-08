@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -17,7 +18,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2, Send, MailCheck } from 'lucide-react';
+import { Camera, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2, Send, MailCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -100,11 +101,6 @@ export function InstructionCard({
   const instructedParty = useMemo(() => {
     return subContractors.find(s => instruction.recipients?.includes(s.email));
   }, [subContractors, instruction.recipients]);
-
-  // Identify the internal distribution list
-  const internalDistribution = useMemo(() => {
-    return distributionUsers.filter(u => instruction.recipients?.includes(u.email));
-  }, [distributionUsers, instruction.recipients]);
 
   const handleIssue = () => {
     const hasText = instruction.originalText && instruction.originalText.trim().length >= 10;
@@ -247,7 +243,7 @@ export function InstructionCard({
               </AlertDialog>
             </div>
           </div>
-        </CardHeader>
+        </Header>
         <CardContent>
           <div className="bg-muted/5 p-4 rounded-lg border mb-4">
             <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{instruction.originalText}</p>
@@ -269,25 +265,6 @@ export function InstructionCard({
           )}
 
           <Accordion type="single" collapsible className="w-full">
-            {internalDistribution.length > 0 && (
-               <AccordionItem value="recipients">
-               <AccordionTrigger className="text-sm font-semibold">
-                 <div className="flex items-center gap-2">
-                   <Users className="h-4 w-4" />
-                   <span>
-                     Internal Distribution ({internalDistribution.length})
-                   </span>
-                 </div>
-               </AccordionTrigger>
-               <AccordionContent>
-                <div className="flex flex-wrap gap-1">
-                  {internalDistribution.map((user, index) => (
-                    <Badge key={index} variant="outline" className="bg-background">{user.name} ({user.email})</Badge>
-                  ))}
-                </div>
-               </AccordionContent>
-             </AccordionItem>
-            )}
             {instruction.photos && instruction.photos.length > 0 && (
               <AccordionItem value="photo">
                 <AccordionTrigger className="text-sm font-semibold">

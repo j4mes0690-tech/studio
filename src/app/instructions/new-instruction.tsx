@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -176,10 +177,9 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               ...uploadedFiles.map(f => ({ name: f.name, url: f.url }))
             ];
 
-            // 3. Distribute via Resend
+            // 3. Distribute via Resend to ALL recipients (sub + staff)
             await sendSiteInstructionEmailAction({ 
-              email: sub.email, 
-              name: sub.name, 
+              emails: combinedRecipients, 
               projectName: selectedProject?.name || 'Project', 
               reference, 
               pdfBase64, 
@@ -188,7 +188,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
             });
             
             await updateDoc(doc(db, 'instructions', newDocRef.id), { distributedAt: new Date().toISOString() });
-            toast({ title: 'Success', description: `Instruction issued and distributed to ${sub.name}.` });
+            toast({ title: 'Success', description: `Instruction issued and distributed to ${combinedRecipients.length} project personnel.` });
           } catch (err) {
             console.error(err);
             toast({ title: 'Issued with Warning', description: 'Instruction saved, but email failed.', variant: 'destructive' });
@@ -242,6 +242,8 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     });
   };
 
+  const submissionStatus = form.watch('status');
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />New Instruction</Button></DialogTrigger>
@@ -289,7 +291,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                         <Users2 className="h-4 w-4 text-accent" />
                         <FormLabel className="font-bold">Primary Recipient (Project Partner)</FormLabel>
                     </div>
-                    <p className='text-[10px] text-muted-foreground'>Select the contractor or designer to issue this instruction to. Optional for drafts.</p>
+                    <p className='text-[10px] text-muted-foreground'>Select the contractor or designer to issue this instruction to. Assigned project staff will be notified automatically.</p>
                 </div>
                 <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
                     {availableSubContractors.map((sub) => (

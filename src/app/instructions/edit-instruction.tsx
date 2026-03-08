@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -197,10 +198,9 @@ export function EditInstruction({
               ...uploadedFiles.map(f => ({ name: f.name, url: f.url }))
             ];
 
-            // 3. Distribute
+            // 3. Distribute to all project personnel
             await sendSiteInstructionEmailAction({ 
-              email: sub.email, 
-              name: sub.name, 
+              emails: combinedRecipients, 
               projectName: selectedProject?.name || 'Project', 
               reference: item.reference, 
               pdfBase64, 
@@ -209,7 +209,7 @@ export function EditInstruction({
             });
             
             await updateDoc(docRef, { distributedAt: new Date().toISOString() });
-            toast({ title: 'Success', description: `Instruction updated and distributed to ${sub.name}.` });
+            toast({ title: 'Success', description: `Instruction updated and distributed to ${combinedRecipients.length} recipients.` });
           } catch (err) {
             console.error(err);
             toast({ title: 'Updated with Warning', description: 'Saved, but email distribution failed.', variant: 'destructive' });

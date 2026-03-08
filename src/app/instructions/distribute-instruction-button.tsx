@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -19,8 +20,7 @@ import { generateInstructionPDF } from '@/lib/pdf-utils';
 
 /**
  * DistributeInstructionButton - Generates a high-resolution PDF of the site instruction
- * and sends it to the primary recipient via the Resend server action.
- * Now includes all photos and files as individual email attachments.
+ * and sends it to all recipients (partners and staff) via the Resend server action.
  */
 export function DistributeInstructionButton({
   instruction,
@@ -35,14 +35,14 @@ export function DistributeInstructionButton({
   const { toast } = useToast();
   const db = useFirestore();
 
-  const sub = subContractors.find(s => instruction.recipients?.includes(s.email));
   const isDistributed = !!instruction.distributedAt;
+  const recipientCount = instruction.recipients?.length || 0;
 
   const handleDistribute = async () => {
-    if (!sub) {
+    if (recipientCount === 0) {
       toast({
         title: "Distribution Cancelled",
-        description: "No sub-contractor is formally assigned to this instruction.",
+        description: "No recipients are defined for this instruction.",
         variant: "destructive",
       });
       return;
@@ -53,11 +53,14 @@ export function DistributeInstructionButton({
     try {
       const fileName = `SiteInstruction-${instruction.reference}.pdf`;
 
-      // 1. Generate high-fidelity PDF with Appendices
+      // 1. Find the primary sub for branding the PDF if possible
+      const sub = subContractors.find(s => instruction.recipients?.includes(s.email));
+
+      // 2. Generate high-fidelity PDF with Appendices
       const pdf = await generateInstructionPDF(instruction, project, sub);
       const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-      // 2. Prepare additional attachments (Photos and Files)
+      // 3. Prepare additional attachments (Photos and Files)
       const additionalAttachments = [
         ...(instruction.photos || []).map((p, i) => ({
           name: `Appendix-Photo-${i + 1}.jpg`,
@@ -69,10 +72,9 @@ export function DistributeInstructionButton({
         }))
       ];
 
-      // 3. Send via Resend
+      // 4. Send via Resend to the full list
       const result = await sendSiteInstructionEmailAction({
-        email: sub.email,
-        name: sub.name,
+        emails: instruction.recipients || [],
         projectName: project?.name || 'Project',
         reference: instruction.reference,
         pdfBase64,
@@ -83,7 +85,7 @@ export function DistributeInstructionButton({
       if (result.success) {
         const docRef = doc(db, 'instructions', instruction.id);
         await updateDoc(docRef, { distributedAt: new Date().toISOString() });
-        toast({ title: "Distribution Complete", description: `Instruction and ${additionalAttachments.length} attachments emailed to ${sub.name}.` });
+        toast({ title: "Distribution Complete", description: `Instruction emailed to ${recipientCount} recipients.` });
       } else {
         toast({ title: "Email Error", description: result.message, variant: "destructive" });
       }
@@ -107,11 +109,11 @@ export function DistributeInstructionButton({
             className={cn("transition-all", isDistributed ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-muted-foreground")}
           >
             {isDistributing ? <Loader2 className="h-4 w-4 animate-spin" /> : isDistributed ? <CheckCircle2 className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-            <span className="sr-only">{isDistributed ? 'Resend distributed instruction' : 'Distribute PDF to partner'}</span>
+            <span className="sr-only">{isDistributed ? 'Resend distributed instruction' : 'Distribute PDF to all recipients'}</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>{isDistributed ? `Emailed on ${new Date(instruction.distributedAt!).toLocaleString()}. Click to resend.` : `Email PDF to ${sub?.name || 'Partner'}`}</p>
+          <p>{isDistributed ? `Last sent: ${new Date(instruction.distributedAt!).toLocaleString()}. Click to resend to all.` : `Email PDF to ${recipientCount} personnel`}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
