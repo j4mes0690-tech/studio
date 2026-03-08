@@ -75,6 +75,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { sendClientInstructionEmailAction } from './actions';
 
 function ReopenInstructionButton({ instruction, currentUser }: { instruction: ClientInstruction, currentUser: DistributionUser }) {
     const { toast } = useToast();
@@ -295,7 +296,20 @@ function AcceptInstructionButton({
                     });
                 });
 
-                toast({ title: 'Success', description: 'Directive processed successfully.' });
+                // Broadcast acceptance to the project team
+                const projectRecipients = project?.assignedUsers || [];
+                if (projectRecipients.length > 0) {
+                  await sendClientInstructionEmailAction({
+                    emails: projectRecipients,
+                    projectName: project?.name || 'Project',
+                    reference: instruction.reference,
+                    status: 'accepted',
+                    text: instruction.originalText,
+                    summary: instruction.summary
+                  });
+                }
+
+                toast({ title: 'Success', description: 'Directive processed and team notified.' });
                 setOpen(false);
             } catch (err) {
                 console.error(err);
@@ -316,7 +330,7 @@ function AcceptInstructionButton({
                 <DialogHeader className="p-6 pb-0 flex-none">
                     <DialogTitle>Action Workspace: {instruction.reference}</DialogTitle>
                     <DialogDescription>
-                        Assign follow-up tasks to project members and partners.
+                        Assign follow-up tasks to project members and partners. Accepting will automatically notify the project team.
                     </DialogDescription>
                 </DialogHeader>
                 
@@ -597,7 +611,7 @@ export function ClientInstructionCard({
                       <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
                           <div className={cn("relative px-4 py-2 rounded-2xl max-w-[90%] shadow-sm", isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none border")}>
                               {!isMe && <p className="text-[10px] font-bold mb-1 text-primary">{msg.sender}</p>}
-                              <p className="text-sm leading-snug whitespace-pre-wrap">{msg.message}</p>
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
                               {msg.photos?.map((p, i) => (
                                 <div 
                                     key={i} 

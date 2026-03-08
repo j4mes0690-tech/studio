@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -43,6 +44,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
+import { sendClientInstructionEmailAction } from './actions';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -118,14 +120,15 @@ export function NewClientInstruction({ projects, allInstructions }: NewInstructi
 
         // Automatically include all project assigned users in the distribution
         const projectRecipients = selectedProject?.assignedUsers || [];
+        const summaryText = values.originalText.length > 100 
+          ? values.originalText.substring(0, 100) + '...' 
+          : values.originalText;
 
         const instructionData = {
           reference,
           projectId: values.projectId,
           originalText: values.originalText,
-          summary: values.originalText.length > 100 
-            ? values.originalText.substring(0, 100) + '...' 
-            : values.originalText,
+          summary: summaryText,
           actionItems: [],
           recipients: projectRecipients,
           createdAt: new Date().toISOString(),
@@ -136,8 +139,20 @@ export function NewClientInstruction({ projects, allInstructions }: NewInstructi
         };
 
         const colRef = collection(db, 'client-instructions');
-        addDoc(colRef, instructionData)
-          .then(() => {
+        await addDoc(colRef, instructionData)
+          .then(async () => {
+            // Trigger automated email distribution to the team
+            if (projectRecipients.length > 0) {
+              await sendClientInstructionEmailAction({
+                emails: projectRecipients,
+                projectName: selectedProject?.name || 'Project',
+                reference,
+                status: 'open',
+                text: values.originalText,
+                summary: summaryText
+              });
+            }
+            
             toast({ title: 'Success', description: `Client directive recorded. Automatically distributed to ${projectRecipients.length} project staff members.` });
             setOpen(false);
           })
