@@ -72,30 +72,34 @@ export function DistributeInstructionButton({
           <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Reference: ${instruction.reference}</p>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
-          <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project Location</p>
-            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold;">${project?.name || 'Unknown Project'}</p>
-            ${project?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${project.address}</p>` : ''}
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
+          <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Project Location</p>
+            <p style="margin: 0; font-size: 16px; font-weight: bold; color: #1e293b;">${project?.name || 'Unknown Project'}</p>
+            ${project?.address ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #475569; white-space: pre-wrap; line-height: 1.4;">${project.address}</p>` : '<p style="margin: 8px 0 0 0; font-size: 11px; color: #94a3b8; font-style: italic;">No address provided</p>'}
           </div>
-          <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Contract Authority</p>
-            ${project?.siteManager ? `<p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${project.siteManager}</p>` : ''}
+          <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Contract Authority</p>
+            ${project?.siteManager ? `<p style="margin: 0; font-size: 14px; font-weight: bold;">${project.siteManager}</p>` : ''}
             ${project?.siteManagerPhone ? `<p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">Tel: ${project.siteManagerPhone}</p>` : ''}
-          </div>
-          <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Issued To</p>
-            <p style="margin: 2px 0 0 0; font-size: 16px;">${sub.name}</p>
-          </div>
-          <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Date Issued</p>
-            <p style="margin: 2px 0 0 0; font-size: 16px;">${new Date(instruction.createdAt).toLocaleDateString()}</p>
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Date Issued</p>
+                <p style="margin: 2px 0 0 0; font-size: 14px;">${new Date(instruction.createdAt).toLocaleDateString()}</p>
+            </div>
           </div>
         </div>
 
-        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px;">
-          <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b;">Instruction Details</h2>
-          <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${instruction.originalText}</p>
+        <div style="margin-bottom: 40px; display: grid; grid-template-columns: 1fr; gap: 20px;">
+            <div style="background: #f1f5f9; padding: 15px; border-radius: 6px;">
+                <p style="margin: 0 0 5px 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Issued To</p>
+                <p style="margin: 0; font-size: 16px; font-weight: bold;">${sub.name}</p>
+                <p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">${sub.email}</p>
+            </div>
+        </div>
+
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px; min-height: 200px;">
+          <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">Instruction Details</h2>
+          <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: #334155;">${instruction.originalText}</p>
         </div>
 
         ${instruction.photos && instruction.photos.length > 0 ? `

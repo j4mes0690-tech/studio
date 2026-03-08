@@ -38,19 +38,28 @@ export async function sendSiteInstructionEmailAction({
       to: [email],
       subject: `Site Instruction Issued: ${reference} - ${projectName}`,
       html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #334155;">
-          <h1 style="color: #1e40af; border-bottom: 2px solid #f97316; padding-bottom: 10px;">Site Instruction</h1>
-          <p>Hello <strong>${name}</strong>,</p>
-          <p>A formal <strong>Site Instruction (SI)</strong> has been issued for your attention at <strong>${projectName}</strong>.</p>
-          <p>Reference: <strong>${reference}</strong></p>
-          <p>Please find the formal instruction document attached as a PDF. You are required to review the specific requirements and ensure compliance on-site.</p>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 0; font-size: 14px;"><strong>Project:</strong> ${projectName}</p>
-            <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Instruction Ref:</strong> ${reference}</p>
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #334155; line-height: 1.6;">
+          <div style="background: #1e40af; padding: 25px; text-align: center; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px; letter-spacing: -0.5px;">Site Instruction Issued</h1>
           </div>
-          <p style="font-size: 12px; color: #64748b; margin-top: 30px;">
-            This was an automated distribution via SiteCommand.
-          </p>
+          <div style="padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
+            <p>Hello <strong>${name}</strong>,</p>
+            <p>A formal <strong>Site Instruction (SI)</strong> has been issued for your attention regarding works at <strong>${projectName}</strong>.</p>
+            
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin: 25px 0;">
+              <p style="margin: 0; font-size: 14px; color: #64748b; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">Instruction Reference</p>
+              <p style="margin: 2px 0 15px 0; font-size: 18px; font-weight: bold; color: #1e40af;">${reference}</p>
+              
+              <p style="margin: 0; font-size: 14px; color: #64748b; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">Project</p>
+              <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold;">${projectName}</p>
+            </div>
+
+            <p>Please find the formal instruction document attached as a PDF. You are required to review the specific requirements and ensure immediate compliance on-site.</p>
+            
+            <p style="font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+              This is an automated distribution via <strong>SiteCommand</strong>.
+            </p>
+          </div>
         </div>
       `,
       attachments: [
