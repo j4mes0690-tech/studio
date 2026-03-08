@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Send, Save } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Send, Save, Users2 } from 'lucide-react';
 import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage } from '@/firebase';
@@ -55,13 +55,6 @@ const NewInstructionSchema = z.object({
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
-
-type NewInstructionProps = {
-  projects: Project[];
-  distributionUsers: DistributionUser[];
-  subContractors: SubContractor[];
-  allInstructions: Instruction[];
-};
 
 export function NewInstruction({ projects, distributionUsers, subContractors, allInstructions }: NewInstructionProps) {
   const [open, setOpen] = useState(false);
@@ -346,7 +339,9 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                   <FormLabel>Project</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger></FormControl>
-                    <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                    <SelectContent>
+                      {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
                   </Select>
                   <FormMessage />
                 </FormItem>
@@ -500,4 +495,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
       </DialogContent>
     </Dialog>
   );
+}
+
+interface NewInstructionProps {
+  projects: Project[];
+  distributionUsers: DistributionUser[];
+  subContractors: SubContractor[];
+  allInstructions: Instruction[];
 }
