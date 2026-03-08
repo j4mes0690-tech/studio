@@ -28,7 +28,7 @@ export async function generateInstructionPDF(
       };
       img.onerror = () => {
         console.warn("PDF Generation: Image load failed", p.url);
-        resolve(''); // Skip failed images rather than crashing or using broken URLs
+        resolve(''); // Skip failed images
       };
       // Append cache buster to ensure fresh CORS response
       img.src = p.url + (p.url.includes('?') ? '&' : '?') + 't=' + Date.now();
@@ -75,7 +75,7 @@ export async function generateInstructionPDF(
       </table>
     </div>
 
-    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; min-height: 150px;">
+    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; min-height: 150px; margin-bottom: 40px;">
       <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">Instruction Details</h2>
       <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: #334155;">${instruction.originalText}</p>
     </div>
@@ -106,28 +106,59 @@ export async function generateInstructionPDF(
   
   pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, canvasHeightInPdf);
 
-  // 4. Manually Add Photos below the layout
-  let currentY = canvasHeightInPdf + 10;
-  const filteredPhotos = photoDataUrls.filter(url => !!url);
+  let currentY = canvasHeightInPdf + 15;
 
+  // 4. Appendix A: Visual Evidence (Photos)
+  const filteredPhotos = photoDataUrls.filter(url => !!url);
   if (filteredPhotos.length > 0) {
+    if (currentY + 20 > pdfHeight) {
+      pdf.addPage();
+      currentY = 20;
+    }
+    
     pdf.setFontSize(14);
-    pdf.setTextColor(30, 41, 59); // color #1e293b
-    pdf.text("Site Documentation", 10, currentY);
+    pdf.setTextColor(30, 41, 59);
+    pdf.text("Appendix A: Visual Evidence", 10, currentY);
     currentY += 8;
 
     for (const url of filteredPhotos) {
-      // Check for page overflow
+      // Check for page overflow (standard photo height ~120mm + buffer)
       if (currentY + 130 > pdfHeight) {
         pdf.addPage();
         currentY = 20;
       }
       
-      // Add image with standard scaling (centered, maintaining aspect ratio)
-      // We assume a standard box of 190mm wide, 120mm high
       pdf.addImage(url, 'JPEG', 10, currentY, 190, 120, undefined, 'FAST');
       currentY += 130;
     }
+  }
+
+  // 5. Appendix B: Linked Documentation (Files)
+  if (instruction.files && instruction.files.length > 0) {
+    if (currentY + 30 > pdfHeight) {
+      pdf.addPage();
+      currentY = 20;
+    }
+
+    pdf.setFontSize(14);
+    pdf.setTextColor(30, 41, 59);
+    pdf.text("Appendix B: Linked Documentation", 10, currentY);
+    currentY += 10;
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(71, 85, 105);
+    instruction.files.forEach(f => {
+      if (currentY + 10 > pdfHeight) {
+        pdf.addPage();
+        currentY = 20;
+      }
+      pdf.text(`• ${f.name} (${(f.size / 1024).toFixed(1)} KB)`, 15, currentY);
+      currentY += 7;
+    });
+    
+    pdf.setFontSize(9);
+    pdf.setTextColor(148, 163, 184);
+    pdf.text("* Note: Documentation files are attached separately to the distribution email.", 15, currentY + 5);
   }
 
   return pdf;

@@ -165,18 +165,26 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         const sub = subContractors.find(s => s.email === values.externalRecipient);
         if (values.status === 'issued' && sub) {
           try {
-            // Generate PDF using high-fidelity utility
+            // 1. Generate high-fidelity PDF
             const fullInstruction = { ...instructionData, id: newDocRef.id } as Instruction;
             const pdf = await generateInstructionPDF(fullInstruction, selectedProject, sub);
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
+            // 2. Prepare attachments for email
+            const additionalAttachments = [
+              ...uploadedPhotos.map((p, i) => ({ name: `Appendix-Photo-${i + 1}.jpg`, url: p.url })),
+              ...uploadedFiles.map(f => ({ name: f.name, url: f.url }))
+            ];
+
+            // 3. Distribute via Resend
             await sendSiteInstructionEmailAction({ 
               email: sub.email, 
               name: sub.name, 
               projectName: selectedProject?.name || 'Project', 
               reference, 
               pdfBase64, 
-              fileName: `SiteInstruction-${reference}.pdf` 
+              fileName: `SiteInstruction-${reference}.pdf`,
+              additionalAttachments
             });
             
             await updateDoc(doc(db, 'instructions', newDocRef.id), { distributedAt: new Date().toISOString() });
@@ -234,8 +242,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     });
   };
 
-  const submissionStatus = form.watch('status');
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />New Instruction</Button></DialogTrigger>
@@ -250,12 +256,23 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               <FormItem><div className="flex items-center justify-between"><FormLabel>Instruction Text</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <div className="space-y-4">
-              <FormLabel>Documentation</FormLabel>
+              <FormLabel>Documentation & Files</FormLabel>
               <div className="flex gap-2 flex-wrap">
                 {photos.map((p, i) => (<div key={i} className="relative w-20 h-20"><Image src={p.url} alt="Site" fill className="rounded-md object-cover border" /><button type="button" className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></button></div>))}
                 <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
                 <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
               </div>
+              
+              <div className="space-y-1">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between p-2 rounded border bg-muted/30 text-xs">
+                    <span className="truncate">{f.name}</span>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                  </div>
+                ))}
+              </div>
+
               {isCameraOpen && (
                 <div className="space-y-2 border rounded-md p-2 bg-muted/30">
                   <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
@@ -263,19 +280,46 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                 </div>
               )}
             </div>
+            
             <Separator />
+            
             <div className="space-y-4">
-                <div className="flex items-center gap-2"><Users2 className="h-4 w-4 text-accent" /><FormLabel className="font-bold">Primary Recipient (External Partner)</FormLabel></div>
+                <div className='flex flex-col gap-1'>
+                    <div className="flex items-center gap-2">
+                        <Users2 className="h-4 w-4 text-accent" />
+                        <FormLabel className="font-bold">Primary Recipient (Project Partner)</FormLabel>
+                    </div>
+                    <p className='text-[10px] text-muted-foreground'>Select the contractor or designer to issue this instruction to. Optional for drafts.</p>
+                </div>
                 <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
                     {availableSubContractors.map((sub) => (
-                    <FormField key={sub.id} control={form.control} name="externalRecipient" render={({ field }) => (
-                        <FormItem className="flex items-center space-x-3 space-y-0 mb-2"><FormControl><Checkbox checked={field.value === sub.email} onCheckedChange={(c) => field.onChange(c ? sub.email : '')} /></FormControl><div className="flex flex-col"><FormLabel className="text-xs font-semibold">{sub.name}</FormLabel><span className="text-[10px] text-muted-foreground">{sub.email}</span></div></FormItem>
-                    )} />
+                    <FormField
+                        key={sub.id}
+                        control={form.control}
+                        name="externalRecipient"
+                        render={({ field }) => (
+                        <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                            <FormControl>
+                            <Checkbox
+                                checked={field.value === sub.email}
+                                onCheckedChange={(checked) => {
+                                    field.onChange(checked ? sub.email : '');
+                                }}
+                            />
+                            </FormControl>
+                            <div className="flex flex-col">
+                                <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
+                                <span className="text-[10px] text-muted-foreground">{sub.email}</span>
+                            </div>
+                        </FormItem>
+                        )}
+                    />
                     ))}
                 </ScrollArea>
                 <FormField control={form.control} name="externalRecipient" render={() => <FormMessage />} />
             </div>
-            <DialogFooter className="flex flex-col sm:flex-row gap-3">
+
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
               <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button>
               <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Save & Issue Instruction</Button>
             </DialogFooter>
@@ -287,6 +331,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                 reader.readAsDataURL(f);
               });
             }} />
+            <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
             <canvas ref={canvasRef} className="hidden" />
           </form>
         </Form>

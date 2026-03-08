@@ -83,9 +83,11 @@ export function EditInstruction({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
+  const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
@@ -121,6 +123,7 @@ export function EditInstruction({
         status: item.status === 'issued' ? 'issued' : 'draft',
       });
       setPhotos(item.photos || []);
+      setFiles(item.files || []);
     }
   }, [open, item, form, subContractors]);
 
@@ -140,7 +143,7 @@ export function EditInstruction({
 
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Updating documentation and generating report...' });
+        toast({ title: 'Processing', description: 'Updating documentation and generating PDF...' });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -153,6 +156,17 @@ export function EditInstruction({
           })
         );
 
+        const uploadedFiles = await Promise.all(
+          files.map(async (f, i) => {
+            if (f.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(f.url);
+              const url = await uploadFile(storage, `internal-instructions/files/${Date.now()}-${i}-${f.name}`, blob);
+              return { ...f, url };
+            }
+            return f;
+          })
+        );
+
         const internalStaffEmails = selectedProject?.assignedUsers || [];
         const combinedRecipients = [values.externalRecipient, ...internalStaffEmails].filter(Boolean);
 
@@ -162,6 +176,7 @@ export function EditInstruction({
           summary: values.originalText && values.originalText.length > 100 ? values.originalText.substring(0, 100) + '...' : (values.originalText || 'No description'),
           recipients: combinedRecipients,
           photos: uploadedPhotos,
+          files: uploadedFiles,
           status: values.status
         };
 
@@ -172,20 +187,29 @@ export function EditInstruction({
         if (values.status === 'issued' && sub) {
           try {
             const updatedInstruction = { ...item, ...updates };
+            // 1. Generate high-fidelity PDF
             const pdf = await generateInstructionPDF(updatedInstruction, selectedProject, sub);
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
+            // 2. Prepare attachments
+            const additionalAttachments = [
+              ...uploadedPhotos.map((p, i) => ({ name: `Appendix-Photo-${i + 1}.jpg`, url: p.url })),
+              ...uploadedFiles.map(f => ({ name: f.name, url: f.url }))
+            ];
+
+            // 3. Distribute
             await sendSiteInstructionEmailAction({ 
               email: sub.email, 
               name: sub.name, 
               projectName: selectedProject?.name || 'Project', 
               reference: item.reference, 
               pdfBase64, 
-              fileName: `SiteInstruction-${item.reference}.pdf` 
+              fileName: `SiteInstruction-${item.reference}.pdf`,
+              additionalAttachments
             });
             
             await updateDoc(docRef, { distributedAt: new Date().toISOString() });
-            toast({ title: 'Success', description: `Instruction updated and sent to ${sub.name}.` });
+            toast({ title: 'Success', description: `Instruction updated and distributed to ${sub.name}.` });
           } catch (err) {
             console.error(err);
             toast({ title: 'Updated with Warning', description: 'Saved, but email distribution failed.', variant: 'destructive' });
@@ -197,6 +221,16 @@ export function EditInstruction({
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to process update.', variant: 'destructive' });
       }
+    });
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles) return;
+    Array.from(selectedFiles).forEach(f => {
+      const reader = new FileReader();
+      reader.onload = (re) => setFiles(prev => [...prev, { name: f.name, type: f.type, size: f.size, url: re.target?.result as string }]);
+      reader.readAsDataURL(f);
     });
   };
 
@@ -230,11 +264,23 @@ export function EditInstruction({
               <FormItem><div className="flex items-center justify-between"><FormLabel>Instruction Text</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
             <div className="space-y-4">
-              <FormLabel>Documentation</FormLabel>
+              <FormLabel>Documentation & Files</FormLabel>
               <div className="flex gap-2 flex-wrap">
                 {photos.map((p, i) => (<div key={i} className="relative w-20 h-20"><Image src={p.url} alt="Site" fill className="rounded-md object-cover border" /><button type="button" className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></button></div>))}
                 <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
               </div>
+              
+              <div className="space-y-1">
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between p-2 rounded border bg-muted/30 text-xs">
+                    <span className="truncate">{f.name}</span>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                  </div>
+                ))}
+              </div>
+
               {isCameraOpen && (
                 <div className="space-y-2 border rounded-md p-2 bg-muted/30">
                   <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
@@ -266,6 +312,7 @@ export function EditInstruction({
                 reader.readAsDataURL(f);
               });
             }} />
+            <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
             <canvas ref={canvasRef} className="hidden" />
           </form>
         </Form>

@@ -2,8 +2,15 @@
 
 import { Resend } from 'resend';
 
+export type EmailAttachment = {
+  filename: string;
+  content?: string; // base64
+  path?: string; // url
+};
+
 /**
  * sendSiteInstructionEmailAction - Uses the Resend API to send a Site Instruction PDF to subcontractors.
+ * Supports multiple attachments for photos and documents.
  */
 export async function sendSiteInstructionEmailAction({
   email,
@@ -11,7 +18,8 @@ export async function sendSiteInstructionEmailAction({
   projectName,
   reference,
   pdfBase64,
-  fileName
+  fileName,
+  additionalAttachments = []
 }: {
   email: string;
   name: string;
@@ -19,6 +27,7 @@ export async function sendSiteInstructionEmailAction({
   reference: string;
   pdfBase64: string;
   fileName: string;
+  additionalAttachments?: { name: string, url: string }[];
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
@@ -31,6 +40,22 @@ export async function sendSiteInstructionEmailAction({
   }
 
   const resend = new Resend(apiKey);
+
+  // Prepare Resend attachments array
+  const attachments: EmailAttachment[] = [
+    {
+      filename: fileName,
+      content: pdfBase64,
+    }
+  ];
+
+  // Add individual photos/files if provided
+  additionalAttachments.forEach(att => {
+    attachments.push({
+      filename: att.name,
+      path: att.url // Resend can fetch public URLs directly
+    });
+  });
 
   try {
     const { data, error } = await resend.emails.send({
@@ -54,7 +79,8 @@ export async function sendSiteInstructionEmailAction({
               <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold;">${projectName}</p>
             </div>
 
-            <p>Please find the formal instruction document attached as a PDF. You are required to review the specific requirements and ensure immediate compliance on-site.</p>
+            <p>Please find the formal instruction document attached as a PDF. All visual evidence and linked documentation have also been included as individual attachments for your records.</p>
+            <p>You are required to review the specific requirements and ensure immediate compliance on-site.</p>
             
             <p style="font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
               This is an automated distribution via <strong>SiteCommand</strong>.
@@ -62,12 +88,7 @@ export async function sendSiteInstructionEmailAction({
           </div>
         </div>
       `,
-      attachments: [
-        {
-          filename: fileName,
-          content: pdfBase64,
-        },
-      ],
+      attachments,
     });
 
     if (error) {
@@ -75,7 +96,7 @@ export async function sendSiteInstructionEmailAction({
       return { success: false, message: error.message };
     }
 
-    return { success: true, message: `Instruction sent to ${email}.` };
+    return { success: true, message: `Instruction and ${additionalAttachments.length} attachments sent to ${email}.` };
   } catch (err: any) {
     console.error('Server Side Email Error:', err);
     return { success: false, message: err.message || 'An unexpected server error occurred.' };
