@@ -16,7 +16,24 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, ListChecks, CheckCircle2, Circle, Trash2, User, Upload, X, AlertTriangle, Maximize2, ExternalLink, RefreshCw, History, Check } from 'lucide-react';
+import { 
+  Camera, 
+  ListChecks, 
+  CheckCircle2, 
+  Circle, 
+  Trash2, 
+  User, 
+  Upload, 
+  X, 
+  AlertTriangle, 
+  Maximize2, 
+  ExternalLink, 
+  RefreshCw, 
+  History, 
+  Check,
+  Eye,
+  FileSearch
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
@@ -83,6 +100,9 @@ export function SnaggingItemCard({
   }, [db, item.id]);
   const { data: history } = useCollection<SnaggingHistoryRecord>(historyQuery);
 
+  // Snapshot Viewer State
+  const [viewingHistoryRecord, setViewingHistoryRecord] = useState<SnaggingHistoryRecord | null>(null);
+
   // Lightbox State
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
@@ -129,8 +149,8 @@ export function SnaggingItemCard({
       if (!context) return null;
 
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 800;
-      canvas.height = 800 / aspectRatio;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       const now = new Date();
@@ -193,7 +213,7 @@ export function SnaggingItemCard({
       const closed = updatedItems.filter(i => i.status === 'closed').length;
       const historyData = {
         timestamp: new Date().toISOString(),
-        updatedBy: 'System User', // In a production app, use actual user name
+        updatedBy: 'System User', 
         items: updatedItems,
         totalCount: updatedItems.length,
         closedCount: closed,
@@ -387,11 +407,18 @@ export function SnaggingItemCard({
                     <ScrollArea className="h-48 rounded-md border bg-muted/5 p-4">
                         <div className="space-y-4">
                             {history && history.length > 0 ? history.map((record, idx) => (
-                                <div key={record.id} className="relative pl-4 border-l-2 border-primary/20 pb-2 last:pb-0">
+                                <div 
+                                    key={record.id} 
+                                    className="relative pl-4 border-l-2 border-primary/20 pb-2 last:pb-0 cursor-pointer group/hist transition-colors hover:bg-primary/5 rounded-r-md"
+                                    onClick={() => setViewingHistoryRecord(record)}
+                                >
                                     <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-primary" />
                                     <div className="flex flex-col gap-1">
                                         <div className="flex items-center justify-between">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Version {history.length - idx}</span>
+                                            <div className='flex items-center gap-2'>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Version {history.length - idx}</span>
+                                                <Eye className="h-3 w-3 text-primary opacity-0 group-hover/hist:opacity-100 transition-opacity" />
+                                            </div>
                                             <span className="text-[9px] text-muted-foreground"><ClientDate date={record.timestamp} /></span>
                                         </div>
                                         <p className="text-xs font-medium text-foreground">{record.summary}</p>
@@ -538,6 +565,84 @@ export function SnaggingItemCard({
             }} />
             <canvas ref={canvasRef} className="hidden" />
           </DialogContent>
+        </Dialog>
+
+        {/* Snapshot Viewer Dialog */}
+        <Dialog open={!!viewingHistoryRecord} onOpenChange={() => setViewingHistoryRecord(null)}>
+            <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+                <DialogHeader className="p-6 pb-0 shrink-0">
+                    <div className='flex items-center gap-3 mb-1'>
+                        <div className='bg-primary/10 p-2 rounded-lg'>
+                            <FileSearch className='h-5 w-5 text-primary' />
+                        </div>
+                        <div>
+                            <DialogTitle>Historical Snapshot</DialogTitle>
+                            <DialogDescription>Captured on <ClientDate date={viewingHistoryRecord?.timestamp || ''} /></DialogDescription>
+                        </div>
+                    </div>
+                </DialogHeader>
+                
+                <div className='flex-1 overflow-y-auto px-6 py-4'>
+                    <div className="space-y-4">
+                        <div className='bg-muted/30 p-4 rounded-lg border border-dashed text-center space-y-1'>
+                            <p className='text-[10px] font-black uppercase text-muted-foreground tracking-widest'>Audit Summary</p>
+                            <p className='text-sm font-medium'>"{viewingHistoryRecord?.summary}"</p>
+                            <div className='flex justify-center gap-2 mt-2'>
+                                <Badge variant="secondary" className='bg-background'>{viewingHistoryRecord?.closedCount} / {viewingHistoryRecord?.totalCount} Fixed</Badge>
+                                <Badge variant="outline" className='bg-background'>Authored by: {viewingHistoryRecord?.updatedBy}</Badge>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 pt-2">
+                            <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest px-1'>Point-in-Time Status</p>
+                            {viewingHistoryRecord?.items.map((histItem) => {
+                                const sub = subContractors.find(s => s.id === histItem.subContractorId);
+                                return (
+                                    <div key={histItem.id} className="p-3 border rounded-lg bg-background shadow-sm space-y-3">
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex items-start gap-3">
+                                                {histItem.status === 'closed' ? (
+                                                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                                                ) : (
+                                                    <Circle className="h-4 w-4 text-muted-foreground mt-0.5" />
+                                                )}
+                                                <div className='flex flex-col gap-1'>
+                                                    <span className={cn("text-sm font-semibold", histItem.status === 'closed' && "line-through text-muted-foreground")}>
+                                                        {histItem.description}
+                                                    </span>
+                                                    {sub && <span className="text-[10px] font-bold text-primary uppercase">{sub.name}</span>}
+                                                </div>
+                                            </div>
+                                            <Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold h-5'>
+                                                {histItem.status}
+                                            </Badge>
+                                        </div>
+
+                                        {(histItem.photos && histItem.photos.length > 0) || (histItem.completionPhotos && histItem.completionPhotos.length > 0) ? (
+                                            <div className='pl-7 flex flex-wrap gap-2 pt-1 border-t border-dashed'>
+                                                {histItem.photos?.map((p, pi) => (
+                                                    <div key={`hist-p-${pi}`} className='relative w-12 h-10 rounded border overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}>
+                                                        <Image src={p.url} alt="Snap" fill className='object-cover' />
+                                                    </div>
+                                                ))}
+                                                {histItem.completionPhotos?.map((p, pi) => (
+                                                    <div key={`hist-c-${pi}`} className='relative w-12 h-10 rounded border-2 border-green-200 overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}>
+                                                        <Image src={p.url} alt="Fix Snap" fill className='object-cover' />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+
+                <DialogFooter className='p-6 bg-muted/10 border-t shrink-0'>
+                    <Button variant="outline" className='w-full' onClick={() => setViewingHistoryRecord(null)}>Close Auditor</Button>
+                </DialogFooter>
+            </DialogContent>
         </Dialog>
       </Card>
 
