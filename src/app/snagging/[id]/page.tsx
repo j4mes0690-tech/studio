@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useDoc, useCollection, useUser, useStorage } from '@/firebase';
+import { useFirestore, useDoc, useCollection, useUser, useStorage, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -49,16 +49,16 @@ function EditSnaggingContent() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Data
-  const snagRef = useMemo(() => (db && id ? doc(db, 'snagging-items', id) : null), [db, id]);
+  const snagRef = useMemoFirebase(() => (db && id ? doc(db, 'snagging-items', id) : null), [db, id]);
   const { data: item, isLoading: itemLoading } = useDoc<SnaggingItem>(snagRef);
 
-  const projectsQuery = useMemo(() => (db ? collection(db, 'projects') : null), [db]);
+  const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const subsQuery = useMemo(() => (db ? collection(db, 'sub-contractors') : null), [db]);
+  const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
-  const profileRef = useMemo(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
+  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Form State

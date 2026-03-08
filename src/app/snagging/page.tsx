@@ -9,7 +9,7 @@ import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
-import { useUser, useFirestore, useCollection, useDoc } from '@/firebase';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,27 +41,27 @@ function SnaggingContent() {
   };
 
   // Profile check
-  const profileRef = useMemo(() => {
+  const profileRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Lookups
-  const projectsQuery = useMemo(() => {
+  const projectsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'projects');
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const subsQuery = useMemo(() => {
+  const subsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'sub-contractors');
   }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
   // STABLE QUERY: Fetch all by date to avoid composite index requirements
-  const snaggingQuery = useMemo(() => {
+  const snaggingQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'snagging-items'), orderBy('createdAt', 'desc'));
   }, [db]);
