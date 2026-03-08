@@ -50,7 +50,7 @@
         "email": { "type": "string", "format": "email" },
         "name": { "type": "string" },
         "userType": { "type": "string", "enum": ["internal", "partner"] },
-        "projectId": { "type": "string", "description": "Optional project to auto-assign upon joining." },
+        "projectId": { "type": "string" },
         "token": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "accepted", "expired"] },
         "createdAt": { "type": "string", "format": "date-time" },
@@ -83,6 +83,20 @@
         "assignedSubContractors": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["id", "name"]
+    },
+    "SnaggingHistoryRecord": {
+      "title": "Snagging History Record",
+      "description": "A timestamped version snapshot of a snagging list.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "updatedBy": { "type": "string" },
+        "totalCount": { "type": "number" },
+        "closedCount": { "type": "number" },
+        "summary": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "updatedBy"]
     }
   },
   "auth": {
@@ -91,6 +105,7 @@
   "firestore": {
     "/users/{userId}": { "schema": { "$ref": "#/backend/entities/User" }, "description": "System user profiles." },
     "/invitations/{id}": { "schema": { "$ref": "#/backend/entities/Invitation" }, "description": "Pending user invites." },
-    "/projects/{projectId}": { "schema": { "$ref": "#/backend/entities/Project" }, "description": "Construction site project metadata." }
+    "/projects/{projectId}": { "schema": { "$ref": "#/backend/entities/Project" }, "description": "Construction site project metadata." },
+    "/snagging-items/{snagId}/history/{id}": { "schema": { "$ref": "#/backend/entities/SnaggingHistoryRecord" }, "description": "Version history snapshots for snagging lists." }
   }
 }

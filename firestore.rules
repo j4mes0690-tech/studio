@@ -22,6 +22,7 @@ service cloud.firestore {
     match /instructions/{id} { allow read, write: if isSignedIn(); }
     match /cleanup-notices/{id} { allow read, write: if isSignedIn(); }
     match /snagging-items/{id} { allow read, write: if isSignedIn(); }
+    match /snagging-items/{id}/history/{historyId} { allow read, write: if isSignedIn(); }
     match /information-requests/{id} { allow read, write: if isSignedIn(); }
     match /quality-checklists/{id} { allow read, write: if isSignedIn(); }
     match /suppliers/{supplierId} { allow read, write: if isSignedIn(); }
@@ -36,5 +37,6 @@ service cloud.firestore {
     match /training-needs/{id} { allow read, write: if isSignedIn(); }
     match /payment-notices/{id} { allow read, write: if isSignedIn(); }
     match /valuation-periods/{id} { allow read, write: if isSignedIn(); }
+    match /invitations/{id} { allow read, write: if isSignedIn(); }
   }
 }
