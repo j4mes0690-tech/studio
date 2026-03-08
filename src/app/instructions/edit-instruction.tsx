@@ -14,7 +14,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -23,6 +22,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -35,9 +35,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, Camera, Upload, X, RefreshCw, Loader2, Send, Save, Users2, FileText, FileIcon } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -248,7 +246,6 @@ export function EditInstruction({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /><span className="sr-only">Edit Instruction</span></Button></DialogTrigger>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>Edit Site Instruction</DialogTitle></DialogHeader>
         <Form {...form}>
@@ -256,6 +253,43 @@ export function EditInstruction({
             <FormField control={form.control} name="projectId" render={({ field }) => (
               <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
             )} />
+            
+            <FormField
+              control={form.control}
+              name="externalRecipient"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <Users2 className="h-4 w-4 text-accent" />
+                    Primary Trade Partner
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Assign a contractor or designer" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableSubContractors.map((sub) => (
+                        <SelectItem key={sub.id} value={sub.email}>
+                          {sub.name}
+                        </SelectItem>
+                      ))}
+                      {availableSubContractors.length === 0 && (
+                        <div className="p-2 text-xs text-muted-foreground italic text-center">
+                          No partners assigned to this project.
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription className="text-[10px]">
+                    Project staff will be notified automatically alongside the selected partner.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField control={form.control} name="originalText" render={({ field }) => (
               <FormItem><div className="flex items-center justify-between"><FormLabel>Instruction Text</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
@@ -284,18 +318,9 @@ export function EditInstruction({
                 </div>
               )}
             </div>
+            
             <Separator />
-            <div className="space-y-4">
-                <div className="flex items-center gap-2"><Users2 className="h-4 w-4 text-accent" /><FormLabel className="font-bold">Primary Recipient (External Partner)</FormLabel></div>
-                <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                    {availableSubContractors.map((sub) => (
-                    <FormField key={sub.id} control={form.control} name="externalRecipient" render={({ field }) => (
-                        <FormItem className="flex items-center space-x-3 space-y-0 mb-2"><FormControl><Checkbox checked={field.value === sub.email} onCheckedChange={(c) => field.onChange(c ? sub.email : '')} /></FormControl><div className="flex flex-col"><FormLabel className="text-xs font-semibold">{sub.name}</FormLabel><span className="text-[10px] text-muted-foreground">{sub.email}</span></div></FormItem>
-                    )} />
-                    ))}
-                </ScrollArea>
-                <FormField control={form.control} name="externalRecipient" render={() => <FormMessage />} />
-            </div>
+
             <DialogFooter className="flex flex-col sm:flex-row gap-3">
               <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button>
               <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Update & Issue</Button>

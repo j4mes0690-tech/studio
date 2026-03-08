@@ -23,6 +23,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -36,8 +37,6 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Users2, Send, Save } from 'lucide-react';
 import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -250,6 +249,43 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
             <FormField control={form.control} name="projectId" render={({ field }) => (
               <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
             )} />
+            
+            <FormField
+              control={form.control}
+              name="externalRecipient"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center gap-2">
+                    <Users2 className="h-4 w-4 text-accent" />
+                    Primary Trade Partner
+                  </FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Assign a contractor or designer" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableSubContractors.map((sub) => (
+                        <SelectItem key={sub.id} value={sub.email}>
+                          {sub.name}
+                        </SelectItem>
+                      ))}
+                      {availableSubContractors.length === 0 && (
+                        <div className="p-2 text-xs text-muted-foreground italic text-center">
+                          No partners assigned to this project.
+                        </div>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription className="text-[10px]">
+                    The selected partner and all project staff will be notified automatically upon issuance.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             <FormField control={form.control} name="originalText" render={({ field }) => (
               <FormItem><div className="flex items-center justify-between"><FormLabel>Instruction Text</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} /></FormControl><FormMessage /></FormItem>
             )} />
@@ -280,42 +316,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
             </div>
             
             <Separator />
-            
-            <div className="space-y-4">
-                <div className='flex flex-col gap-1'>
-                    <div className="flex items-center gap-2">
-                        <Users2 className="h-4 w-4 text-accent" />
-                        <FormLabel className="font-bold">Primary Recipient (Project Partner)</FormLabel>
-                    </div>
-                    <p className='text-[10px] text-muted-foreground'>Select the contractor or designer to issue this instruction to. Assigned project staff will be notified automatically.</p>
-                </div>
-                <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                    {availableSubContractors.map((sub) => (
-                    <FormField
-                        key={sub.id}
-                        control={form.control}
-                        name="externalRecipient"
-                        render={({ field }) => (
-                        <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                            <FormControl>
-                            <Checkbox
-                                checked={field.value === sub.email}
-                                onCheckedChange={(checked) => {
-                                    field.onChange(checked ? sub.email : '');
-                                }}
-                            />
-                            </FormControl>
-                            <div className="flex flex-col">
-                                <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
-                                <span className="text-[10px] text-muted-foreground">{sub.email}</span>
-                            </div>
-                        </FormItem>
-                        )}
-                    />
-                    ))}
-                </ScrollArea>
-                <FormField control={form.control} name="externalRecipient" render={() => <FormMessage />} />
-            </div>
 
             <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
               <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button>
