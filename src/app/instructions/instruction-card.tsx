@@ -48,6 +48,7 @@ import { Button } from '@/components/ui/button';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { EditInstruction } from './edit-instruction';
 import { DistributeInstructionButton } from './distribute-instruction-button';
+import { DownloadInstructionButton } from './download-instruction-button';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -202,6 +203,12 @@ export function InstructionCard({
                 </Button>
               )}
               
+              <DownloadInstructionButton 
+                instruction={instruction}
+                project={project}
+                subContractors={subContractors}
+              />
+
               <DistributeInstructionButton 
                 instruction={instruction} 
                 project={project} 
@@ -300,7 +307,7 @@ export function InstructionCard({
                         </CarouselItem>
                       ))}
                     </CarouselContent>
-                     {item.photos.length > 1 && (
+                     {instruction.photos.length > 1 && (
                       <>
                         <CarouselPrevious />
                         <CarouselNext />

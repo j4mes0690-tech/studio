@@ -14,6 +14,7 @@ import type { Instruction, Project, DistributionUser, SubContractor } from '@/li
 import { ClientDate } from '@/components/client-date';
 import { EditInstruction } from './edit-instruction';
 import { DistributeInstructionButton } from './distribute-instruction-button';
+import { DownloadInstructionButton } from './download-instruction-button';
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
@@ -270,6 +271,12 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
               </TooltipProvider>
             )}
             
+            <DownloadInstructionButton 
+              instruction={item}
+              project={project}
+              subContractors={subContractors}
+            />
+
             <DistributeInstructionButton 
               instruction={item} 
               project={project} 
