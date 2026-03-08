@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { VoiceInput } from '@/components/voice-input';
 import { ImageLightbox } from '@/components/image-lightbox';
+import { ClientDate } from '@/components/client-date';
 
 function EditSnaggingContent() {
   const { id } = useParams() as { id: string };
