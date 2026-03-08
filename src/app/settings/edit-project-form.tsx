@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -26,7 +27,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, X, Shield, Users2, Loader2, Save, MapPin, Phone, User, ClipboardCheck, Plus, Trash2, CheckCircle2, Building2 } from 'lucide-react';
+import { Pencil, X, Loader2, Save, Users2, MapPin, Plus, Trash2, CheckCircle2, Link as LinkIcon } from 'lucide-react';
 import type { Project, Area, DistributionUser, SubContractor, QualityChecklist } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -168,7 +169,6 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
           .map(sub => sub.email);
 
         const promises = assigningAreaIds.map(areaId => {
-          const area = areas.find(a => a.id === areaId);
           const data = {
             projectId: project.id,
             areaId,
@@ -184,15 +184,12 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
         });
 
         await Promise.all(promises);
-        toast({ title: 'Checklists Assigned', description: `Successfully added ${assigningAreaIds.length} checklists to ${project.name}.` });
-        
-        // Reset Assignment UI
+        toast({ title: 'Checklists Assigned', description: `Successfully added ${assigningAreaIds.length} checklists.` });
         setAssignTemplateId('');
         setAssignAreaIds([]);
         setAssignRecipientIds([]);
       } catch (err) {
         console.error("Assignment error:", err);
-        toast({ title: 'Error', description: 'Failed to assign checklists.', variant: 'destructive' });
       }
     });
   };
@@ -200,7 +197,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
   const handleRemoveChecklist = (id: string) => {
     startTransition(async () => {
       await deleteDoc(doc(db, 'quality-checklists', id))
-        .then(() => toast({ title: 'Removed', description: 'Checklist instance deleted.' }))
+        .then(() => toast({ title: 'Removed', description: 'Checklist deleted.' }))
         .catch(err => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: `quality-checklists/${id}`,
@@ -225,7 +222,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
 
       updateDoc(docRef, updates)
         .then(() => {
-          toast({ title: 'Success', description: 'Project configuration updated.' });
+          toast({ title: 'Success', description: 'Project updated.' });
           setOpen(false);
         })
         .catch((error) => {
@@ -246,26 +243,18 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle>Project Configuration</DialogTitle>
-          <DialogDescription>Update project metadata and manage quality controls.</DialogDescription>
+          <DialogDescription>Update metadata and manage assignments.</DialogDescription>
         </DialogHeader>
         
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1 px-6">
-              <div className="space-y-6 py-4 pb-10">
+            <ScrollArea className="flex-1 px-6 py-4">
+              <div className="space-y-6 pb-10">
                 <input type="hidden" {...form.register('id')} />
                 
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Project Name</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem><FormLabel>Project Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
 
                 <Tabs defaultValue="details" className="w-full">
                     <TabsList className="grid w-full grid-cols-5 h-auto p-1 bg-muted/50 rounded-lg">
@@ -277,221 +266,106 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                     </TabsList>
                     
                     <TabsContent value="details" className="space-y-4 py-4">
-                        <FormField
-                          control={form.control}
-                          name="address"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Site Address</FormLabel>
-                              <FormControl><Textarea placeholder="Physical location..." className="min-h-[100px]" {...field} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
+                        <FormField control={form.control} name="address" render={({ field }) => (
+                            <FormItem><FormLabel>Site Address</FormLabel><FormControl><Textarea className="min-h-[100px]" {...field} /></FormControl></FormItem>
+                        )} />
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField
-                              control={form.control}
-                              name="siteManager"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Site Manager</FormLabel>
-                                  <FormControl><Input placeholder="Name" {...field} /></FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
-                            <FormField
-                              control={form.control}
-                              name="siteManagerPhone"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Manager Phone</FormLabel>
-                                  <FormControl><Input placeholder="Number" {...field} /></FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
+                            <FormField control={form.control} name="siteManager" render={({ field }) => (
+                                <FormItem><FormLabel>Site Manager</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                            )} />
+                            <FormField control={form.control} name="siteManagerPhone" render={({ field }) => (
+                                <FormItem><FormLabel>Manager Phone</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                            )} />
                         </div>
                     </TabsContent>
 
                     <TabsContent value="areas" className="space-y-4 py-4">
                         <div className="flex gap-2">
-                            <Input
-                                value={currentArea}
-                                onChange={(e) => setCurrentArea(e.target.value)}
-                                placeholder="Add site area (e.g. Level 1)"
-                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddArea(); }}}
-                            />
+                            <Input value={currentArea} onChange={(e) => setCurrentArea(e.target.value)} placeholder="Add site area (e.g. Level 1)" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddArea(); }}} />
                             <Button type="button" variant="secondary" onClick={handleAddArea}>Add</Button>
                         </div>
-                        <ScrollArea className="h-[250px] rounded-md border p-4 bg-muted/5">
+                        <div className="space-y-2">
                             {areas.map((area) => (
-                                <div key={area.id} className="flex items-center justify-between p-2 rounded-md border bg-background mb-2 group">
+                                <div key={area.id} className="flex items-center justify-between p-2 rounded-md border bg-background group">
                                     <span className="text-sm font-medium">{area.name}</span>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveArea(area.id)}><X className="h-4 w-4 text-destructive"/></Button>
                                 </div>
                             ))}
-                            {areas.length === 0 && <p className="text-center py-10 text-muted-foreground italic text-xs">No areas defined. Add plots or levels here.</p>}
-                        </ScrollArea>
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="access" className="space-y-4 py-4">
-                        <ScrollArea className="h-[300px] rounded-md border p-4 bg-muted/5">
+                        <div className="space-y-2">
                             {users.map((user) => (
-                                <FormField
-                                    key={user.id}
-                                    control={form.control}
-                                    name="assignedUsers"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-2 border rounded-md mb-2 bg-background">
-                                            <FormControl>
-                                                <Checkbox
-                                                    checked={field.value?.includes(user.email)}
-                                                    onCheckedChange={(checked) => {
-                                                        return checked
-                                                            ? field.onChange([...(field.value || []), user.email])
-                                                            : field.onChange((field.value || []).filter((v) => v !== user.email));
-                                                    }}
-                                                />
-                                            </FormControl>
-                                            <div className="flex-1 overflow-hidden leading-tight">
-                                                <FormLabel className="text-sm font-semibold truncate block">{user.name}</FormLabel>
-                                                <span className="text-[10px] text-muted-foreground truncate block">{user.email}</span>
-                                            </div>
-                                        </FormItem>
-                                    )}
-                                />
+                                <FormField key={user.id} control={form.control} name="assignedUsers" render={({ field }) => (
+                                    <FormItem className="flex items-center space-x-3 space-y-0 p-2 border rounded-md bg-background">
+                                        <FormControl><Checkbox checked={field.value?.includes(user.email)} onCheckedChange={(c) => c ? field.onChange([...(field.value || []), user.email]) : field.onChange((field.value || []).filter((v) => v !== user.email))} /></FormControl>
+                                        <div className="flex-1 min-w-0"><FormLabel className="text-sm font-semibold truncate block">{user.name}</FormLabel><span className="text-[10px] text-muted-foreground block">{user.email}</span></div>
+                                    </FormItem>
+                                )} />
                             ))}
-                        </ScrollArea>
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="subs" className="space-y-4 py-4">
-                        <ScrollArea className="h-[300px] rounded-md border p-4 bg-muted/5">
+                        <div className="space-y-2">
                             {allSubContractors?.map((sub) => (
-                                <FormField
-                                    key={sub.id}
-                                    control={form.control}
-                                    name="assignedSubContractors"
-                                    render={({ field }) => (
-                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 p-2 border rounded-md mb-2 bg-background">
-                                            <FormControl>
-                                                <Checkbox
-                                                    checked={field.value?.includes(sub.id)}
-                                                    onCheckedChange={(checked) => {
-                                                        return checked
-                                                            ? field.onChange([...(field.value || []), sub.id])
-                                                            : field.onChange((field.value || []).filter((v) => v !== sub.id));
-                                                    }}
-                                                />
-                                            </FormControl>
-                                            <div className="flex-1 overflow-hidden leading-tight">
-                                                <FormLabel className="text-sm font-semibold truncate block">{sub.name}</FormLabel>
-                                                <span className="text-[10px] text-muted-foreground truncate block">{sub.email}</span>
-                                            </div>
-                                        </FormItem>
-                                    )}
-                                />
+                                <FormField key={sub.id} control={form.control} name="assignedSubContractors" render={({ field }) => (
+                                    <FormItem className="flex items-center space-x-3 space-y-0 p-2 border rounded-md bg-background">
+                                        <FormControl><Checkbox checked={field.value?.includes(sub.id)} onCheckedChange={(c) => c ? field.onChange([...(field.value || []), sub.id]) : field.onChange((field.value || []).filter((v) => v !== sub.id))} /></FormControl>
+                                        <div className="flex-1 min-w-0"><FormLabel className="text-sm font-semibold truncate block">{sub.name}</FormLabel><span className="text-[10px] text-muted-foreground block">{sub.email}</span></div>
+                                    </FormItem>
+                                )} />
                             ))}
-                        </ScrollArea>
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="checklists" className="space-y-6 py-4">
                         <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
-                            <div className="flex items-center gap-2 text-primary font-bold">
-                                <Plus className="h-4 w-4" />
-                                <h4>Assign Trade Checklist</h4>
-                            </div>
-                            
+                            <div className="flex items-center gap-2 text-primary font-bold"><Plus className="h-4 w-4" /><h4>Assign Trade Checklist</h4></div>
                             <div className="space-y-3">
                                 <div className="space-y-1">
                                     <Label className="text-[10px] uppercase font-bold text-muted-foreground">Select Template</Label>
-                                    <Select value={assigningTemplateId} onValueChange={setAssignTemplateId}>
-                                        <SelectTrigger className="bg-background"><SelectValue placeholder="Choose standard template..." /></SelectTrigger>
-                                        <SelectContent>
-                                            {checklistTemplates?.map(t => <SelectItem key={t.id} value={t.id}>{t.title} ({t.trade})</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                                    <Select value={assigningTemplateId} onValueChange={setAssignTemplateId}><SelectTrigger className="bg-background"><SelectValue placeholder="Choose template..." /></SelectTrigger><SelectContent>{checklistTemplates?.map(t => <SelectItem key={t.id} value={t.id}>{t.title} ({t.trade})</SelectItem>)}</SelectContent></Select>
                                 </div>
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Select Areas / Plots</Label>
-                                        <ScrollArea className="h-32 border rounded bg-background p-2">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Areas / Plots</Label>
+                                        <div className="border rounded bg-background p-2 max-h-40 overflow-y-auto">
                                             {areas.map(a => (
-                                                <div key={a.id} className="flex items-center space-x-2 mb-1.5">
-                                                    <Checkbox 
-                                                        id={`assign-area-${a.id}`} 
-                                                        checked={assigningAreaIds.includes(a.id)}
-                                                        onCheckedChange={c => setAssignAreaIds(c ? [...assigningAreaIds, a.id] : assigningAreaIds.filter(id => id !== a.id))}
-                                                    />
-                                                    <label htmlFor={`assign-area-${a.id}`} className="text-xs font-medium cursor-pointer">{a.name}</label>
-                                                </div>
+                                                <div key={a.id} className="flex items-center space-x-2 mb-1.5"><Checkbox id={`a-${a.id}`} checked={assigningAreaIds.includes(a.id)} onCheckedChange={c => setAssignAreaIds(c ? [...assigningAreaIds, a.id] : assigningAreaIds.filter(id => id !== a.id))} /><label htmlFor={`a-${a.id}`} className="text-xs font-medium cursor-pointer">{a.name}</label></div>
                                             ))}
-                                            {areas.length === 0 && <p className="text-[10px] text-center py-8 text-muted-foreground italic">Add areas in the Areas tab first.</p>}
-                                        </ScrollArea>
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Report Distribution (Partners)</Label>
-                                        <ScrollArea className="h-32 border rounded bg-background p-2">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Partners</Label>
+                                        <div className="border rounded bg-background p-2 max-h-40 overflow-y-auto">
                                             {activeAssignedSubs.map(s => (
-                                                <div key={s.id} className="flex items-center space-x-2 mb-1.5">
-                                                    <Checkbox 
-                                                        id={`assign-sub-${s.id}`} 
-                                                        checked={assigningRecipientIds.includes(s.id)}
-                                                        onCheckedChange={c => setAssignRecipientIds(c ? [...assigningRecipientIds, s.id] : assigningRecipientIds.filter(id => id !== s.id))}
-                                                    />
-                                                    <label htmlFor={`assign-sub-${s.id}`} className="text-xs font-medium cursor-pointer">{s.name}</label>
-                                                </div>
+                                                <div key={s.id} className="flex items-center space-x-2 mb-1.5"><Checkbox id={`s-${s.id}`} checked={assigningRecipientIds.includes(s.id)} onCheckedChange={c => setAssignRecipientIds(c ? [...assigningRecipientIds, s.id] : assigningRecipientIds.filter(id => id !== s.id))} /><label htmlFor={`s-${s.id}`} className="text-xs font-medium cursor-pointer">{s.name}</label></div>
                                             ))}
-                                            {activeAssignedSubs.length === 0 && <p className="text-[10px] text-center py-8 text-muted-foreground italic">Add partners in the Partners tab first.</p>}
-                                        </ScrollArea>
+                                        </div>
                                     </div>
                                 </div>
-
-                                <Button 
-                                    type="button" 
-                                    className="w-full font-bold gap-2" 
-                                    disabled={isPending || !selectedTemplate || assigningAreaIds.length === 0}
-                                    onClick={handleAssignChecklists}
-                                >
-                                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                                    Assign to {assigningAreaIds.length} Area(s)
-                                </Button>
+                                <Button type="button" className="w-full font-bold gap-2" disabled={isPending || !selectedTemplate || assigningAreaIds.length === 0} onClick={handleAssignChecklists}>{isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}Assign Checklists</Button>
                             </div>
                         </div>
 
                         <div className="space-y-3">
-                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Current Active Checklists</h4>
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Active Checklists</h4>
                             <div className="rounded-md border bg-background overflow-hidden">
                                 <Table>
                                     <TableHeader className="bg-muted/30">
-                                        <TableRow>
-                                            <TableHead className="h-8 text-[10px] uppercase font-bold">Trade</TableHead>
-                                            <TableHead className="h-8 text-[10px] uppercase font-bold">Area</TableHead>
-                                            <TableHead className="h-8 text-[10px] uppercase font-bold">Checklist</TableHead>
-                                            <TableHead className="h-8 text-[10px] uppercase font-bold text-right">Action</TableHead>
-                                        </TableRow>
+                                        <TableRow><TableHead className="h-8 text-[10px] uppercase font-bold">Trade</TableHead><TableHead className="h-8 text-[10px] uppercase font-bold">Area</TableHead><TableHead className="h-8 text-[10px] uppercase font-bold">Checklist</TableHead><TableHead className="h-8 text-[10px] uppercase font-bold text-right">Action</TableHead></TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {projectChecklists && projectChecklists.length > 0 ? projectChecklists.map((cl) => {
-                                            const area = areas.find(a => a.id === cl.areaId);
-                                            return (
-                                                <TableRow key={cl.id}>
-                                                    <TableCell className="py-2 text-[11px] font-bold text-primary">{cl.trade}</TableCell>
-                                                    <TableCell className="py-2 text-[11px] font-medium">{area?.name || '---'}</TableCell>
-                                                    <TableCell className="py-2 text-[11px] truncate max-w-[150px]">{cl.title}</TableCell>
-                                                    <TableCell className="py-2 text-right">
-                                                        <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveChecklist(cl.id)}>
-                                                            <Trash2 className="h-3 w-3" />
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        }) : (
-                                            <TableRow>
-                                                <TableCell colSpan={4} className="text-center py-10 text-muted-foreground text-[11px] italic">No active checklists assigned to this project.</TableCell>
+                                        {projectChecklists?.map((cl) => (
+                                            <TableRow key={cl.id}>
+                                                <TableCell className="py-2 text-[11px] font-bold text-primary">{cl.trade}</TableCell>
+                                                <TableCell className="py-2 text-[11px] font-medium">{areas.find(a => a.id === cl.areaId)?.name || '---'}</TableCell>
+                                                <TableCell className="py-2 text-[11px] truncate max-w-[150px]">{cl.title}</TableCell>
+                                                <TableCell className="py-2 text-right"><Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveChecklist(cl.id)}><Trash2 className="h-3 w-3" /></Button></TableCell>
                                             </TableRow>
-                                        )}
+                                        ))}
                                     </TableBody>
                                 </Table>
                             </div>
@@ -501,9 +375,9 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
               </div>
             </ScrollArea>
 
-            <DialogFooter className="p-6 border-t bg-muted/10">
-              <Button type="submit" disabled={isPending} className="w-full">
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            <DialogFooter className="p-6 border-t bg-muted/10 shrink-0">
+              <Button type="submit" disabled={isPending} className="w-full h-12 font-bold">
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Save Project Configuration
               </Button>
             </DialogFooter>
