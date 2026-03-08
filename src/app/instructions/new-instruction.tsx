@@ -36,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Send, Save, Users2 } from 'lucide-react';
 import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -143,7 +144,8 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         ].filter(Boolean);
 
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
-        const reference = getNextReference(allInstructions, values.projectId, 'SI', initials);
+        const existingRefs = allInstructions.map(o => ({ reference: o.reference, projectId: o.projectId }));
+        const reference = getNextReference(existingRefs, values.projectId, 'SI', initials);
 
         const instructionData = {
           reference,

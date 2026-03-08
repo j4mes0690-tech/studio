@@ -501,7 +501,7 @@ export function EditInstruction({
                 disabled={isPending}
                 onClick={() => form.setValue('status', 'issued')}
               >
-                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                {isPending && (submissionStatus === 'issued') ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                 Save & Issue Instruction
               </Button>
             </DialogFooter>
