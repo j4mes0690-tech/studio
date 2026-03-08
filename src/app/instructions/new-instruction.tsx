@@ -178,6 +178,20 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
             const { jsPDF } = await import('jspdf');
             const html2canvas = (await import('html2canvas')).default;
 
+            // Pre-convert photos to base64 for PDF rendering
+            const photoBase64s = await Promise.all(uploadedPhotos.map(async (p) => {
+              try {
+                if (p.url.startsWith('data:')) return p.url;
+                const resp = await fetch(p.url);
+                const blob = await resp.blob();
+                return new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(blob);
+                });
+              } catch (e) { return p.url; }
+            }));
+
             const reportElement = document.createElement('div');
             reportElement.style.position = 'absolute';
             reportElement.style.left = '-9999px';
@@ -208,19 +222,17 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                 <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b;">Instruction Details</h2>
                 <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${values.originalText}</p>
               </div>
-              ${uploadedPhotos.length > 0 ? `
+              ${photoBase64s.length > 0 ? `
                 <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                  ${uploadedPhotos.map(p => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover;" crossorigin="anonymous" /></div>`).join('')}
+                  ${photoBase64s.map(url => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${url}" style="width: 100%; height: 200px; object-fit: cover;" /></div>`).join('')}
                 </div>
               ` : ''}
             `;
 
             document.body.appendChild(reportElement);
-            
-            // Wait for images to load
-            const imgs = reportElement.getElementsByTagName('img');
-            await Promise.all(Array.from(imgs).map(img => {
+            const images = reportElement.getElementsByTagName('img');
+            await Promise.all(Array.from(images).map(img => {
               if (img.complete) return Promise.resolve();
               return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
             }));

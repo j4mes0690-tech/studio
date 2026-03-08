@@ -54,6 +54,22 @@ export function DistributeInstructionButton({
       const { jsPDF } = await import('jspdf');
       const html2canvas = (await import('html2canvas')).default;
 
+      // 1. Pre-convert photos to base64 to ensure they render in canvas correctly (CORS bypass)
+      const photoBase64s = await Promise.all((instruction.photos || []).map(async (p) => {
+        try {
+          const resp = await fetch(p.url);
+          const blob = await resp.blob();
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+        } catch (e) {
+          console.error("Failed to base64 image for PDF", e);
+          return p.url;
+        }
+      }));
+
       const fileName = `SiteInstruction-${instruction.reference}-${sub.name.replace(/\s+/g, '-')}.pdf`;
 
       // Create a temporary off-screen element for PDF rendering
@@ -76,7 +92,7 @@ export function DistributeInstructionButton({
           <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
             <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Project Location</p>
             <p style="margin: 0; font-size: 16px; font-weight: bold; color: #1e293b;">${project?.name || 'Unknown Project'}</p>
-            ${project?.address ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #475569; white-space: pre-wrap; line-height: 1.4;">${project.address}</p>` : '<p style="margin: 8px 0 0 0; font-size: 11px; color: #94a3b8; font-style: italic;">No address provided</p>'}
+            ${project?.address ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #475569; white-space: pre-wrap; line-height: 1.4;">${project.address}</p>` : ''}
           </div>
           <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
             <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Contract Authority</p>
@@ -89,7 +105,7 @@ export function DistributeInstructionButton({
           </div>
         </div>
 
-        <div style="margin-bottom: 40px; display: grid; grid-template-columns: 1fr; gap: 20px;">
+        <div style="margin-bottom: 40px;">
             <div style="background: #f1f5f9; padding: 15px; border-radius: 6px;">
                 <p style="margin: 0 0 5px 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Issued To</p>
                 <p style="margin: 0; font-size: 16px; font-weight: bold;">${sub.name}</p>
@@ -102,13 +118,12 @@ export function DistributeInstructionButton({
           <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: #334155;">${instruction.originalText}</p>
         </div>
 
-        ${instruction.photos && instruction.photos.length > 0 ? `
+        ${photoBase64s.length > 0 ? `
           <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-            ${instruction.photos.map(p => `
+            ${photoBase64s.map(url => `
               <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; padding: 10px;">
-                <img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" crossorigin="anonymous" />
-                <p style="margin: 8px 0 0 0; font-size: 10px; color: #64748b; text-align: center;">Captured: ${new Date(p.takenAt).toLocaleString()}</p>
+                <img src="${url}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" />
               </div>
             `).join('')}
           </div>
@@ -121,14 +136,13 @@ export function DistributeInstructionButton({
 
       document.body.appendChild(reportElement);
       
-      // We need to give images a moment to load potentially, though html2canvas with useCORS usually handles it
-      // For extra safety, we wait for all images in the reportElement to load.
+      // Wait for any rendered content to be ready
       const images = reportElement.getElementsByTagName('img');
       const loadPromises = Array.from(images).map(img => {
         if (img.complete) return Promise.resolve();
         return new Promise((resolve) => {
           img.onload = resolve;
-          img.onerror = resolve; // Continue anyway if one fails
+          img.onerror = resolve;
         });
       });
       await Promise.all(loadPromises);
@@ -136,8 +150,7 @@ export function DistributeInstructionButton({
       const canvas = await html2canvas(reportElement, { 
         scale: 2, 
         useCORS: true, 
-        logging: false,
-        allowTaint: true
+        logging: false
       });
       
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
