@@ -219,10 +219,8 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
           items: uploadedItems.map(i => ({ ...i, subContractorId: i.subContractorId || null, photos: i.photos || [], completionPhotos: i.completionPhotos || [] })),
         };
         
-        // 1. Create Main Document
         const docRef = await addDoc(collection(db, 'snagging-items'), snagData);
 
-        // 2. Create Initial Version Snapshot
         const historyCol = collection(db, 'snagging-items', docRef.id, 'history');
         const closed = snagData.items.filter(i => i.status === 'closed').length;
         await addDoc(historyCol, {
@@ -293,8 +291,8 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                                 </div>
                                 <div className="flex justify-center gap-2">
                                     <Button type="button" size="sm" onClick={takeItemPhoto} className="font-bold">Capture</Button>
-                                    <Button type="button" variant="outline" size="sm" onClick={toggleCamera}><RefreshCw className="h-4 w-4" /></Button>
-                                    <Button type="button" variant="ghost" size="sm" onClick={() => setIsItemCameraOpen(false)}>Cancel</Button>
+                                    <Button type="button" variant="secondary" size="sm" onClick={toggleCamera}><RefreshCw className="h-4 w-4 mr-2" />Switch</Button>
+                                    <Button type="button" variant="secondary" size="sm" onClick={() => setIsItemCameraOpen(false)}>Cancel</Button>
                                 </div>
                             </div>
                         )}
@@ -339,8 +337,8 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                                 </div>
                                 <div className="flex justify-center gap-3">
                                     <Button type="button" size="lg" onClick={takeGeneralPhoto} className="h-12 px-8 font-bold">Capture Area</Button>
-                                    <Button type="button" variant="outline" size="icon" className="h-12 w-12 rounded-full" onClick={toggleCamera}><RefreshCw className="h-5 w-5" /></Button>
-                                    <Button type="button" variant="ghost" onClick={() => setIsCameraOpen(false)} className="h-12 font-bold text-muted-foreground">Cancel</Button>
+                                    <Button type="button" variant="secondary" size="icon" className="h-12 w-12 rounded-full" onClick={toggleCamera}><RefreshCw className="h-5 w-5" /></Button>
+                                    <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)} className="h-12 px-6 font-bold">Cancel</Button>
                                 </div>
                             </div>
                         )}

@@ -462,10 +462,10 @@ function EditSnaggingContent() {
             </div>
             <div className="flex justify-center gap-4">
               <Button size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-16 w-16 p-0 border-4 border-white/20"><div className="h-10 w-10 rounded-full bg-white" /></Button>
-              <Button variant="outline" size="icon" onClick={toggleCamera} className="rounded-full h-12 w-12 text-white border-white/40 hover:bg-white/20" title="Switch Camera">
+              <Button variant="secondary" size="icon" className="rounded-full h-12 w-12" onClick={toggleCamera} title="Switch Camera">
                 <RefreshCw className="h-6 w-6" />
               </Button>
-              <Button variant="outline" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 border-white/40 text-white hover:bg-white/20">Cancel</Button>
+              <Button variant="secondary" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 font-bold">Cancel</Button>
             </div>
           </div>
         </div>

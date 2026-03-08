@@ -135,7 +135,11 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       }
     };
     if (isCameraOpen || itemPhotoTargetId !== null) getCameraPermission();
-    return () => stream?.getTracks().forEach(t => t.stop());
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
+      }
+    };
   }, [isCameraOpen, itemPhotoTargetId, facingMode]);
 
   const capturePhoto = () => {
@@ -337,8 +341,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                       <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
                       <div className="flex gap-2">
                         <Button type="button" size="sm" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto}>Capture</Button>
-                        <Button type="button" variant="outline" size="sm" onClick={toggleCamera}><RefreshCw className="h-4 w-4" /></Button>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }}>Cancel</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={toggleCamera}><RefreshCw className="h-4 w-4 mr-2" />Switch</Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }}>Cancel</Button>
                       </div>
                     </div>
                   )}

@@ -200,7 +200,6 @@ export function SnaggingItemCard({
       
       const docRef = doc(db, 'snagging-items', item.id);
       
-      // Update Main Document
       await updateDoc(docRef, { items: updatedItems })
         .catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -210,7 +209,6 @@ export function SnaggingItemCard({
           }));
         });
 
-      // Record Version History Snapshot
       const historyCol = collection(db, 'snagging-items', item.id, 'history');
       const closed = updatedItems.filter(i => i.status === 'closed').length;
       const historyData = {
@@ -311,7 +309,7 @@ export function SnaggingItemCard({
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDeleteList} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
-                      {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : null}
+                      {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                       Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -359,7 +357,6 @@ export function SnaggingItemCard({
                               </div>
                           </div>
                           
-                          {/* Photos Section */}
                           {(subItem.photos && subItem.photos.length > 0) || (subItem.completionPhotos && subItem.completionPhotos.length > 0) ? (
                             <div className="pl-6 space-y-2">
                               {subItem.photos && subItem.photos.length > 0 && (
@@ -397,7 +394,6 @@ export function SnaggingItemCard({
           </div>
 
           <Accordion type="single" collapsible className="w-full">
-            {/* Version History Section */}
             <AccordionItem value="history">
                 <AccordionTrigger className="text-sm font-semibold">
                     <div className="flex items-center gap-2">
@@ -489,7 +485,6 @@ export function SnaggingItemCard({
           </Accordion>
         </CardContent>
 
-        {/* Completion Dialog */}
         <Dialog open={!!completingItem} onOpenChange={() => setCompletingItem(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
@@ -539,10 +534,10 @@ export function SnaggingItemCard({
                         setIsCameraOpen(false);
                       }
                     }}>Capture Frame</Button>
-                    <Button variant="outline" size="icon" className="h-12 w-12 rounded-full" onClick={toggleCamera} title="Switch Camera">
+                    <Button variant="secondary" size="icon" className="h-12 w-12 rounded-full" onClick={toggleCamera} title="Switch Camera">
                       <RefreshCw className="h-5 w-5" />
                     </Button>
-                    <Button variant="ghost" onClick={() => setIsCameraOpen(false)} className="h-12 font-bold text-muted-foreground">Cancel</Button>
+                    <Button variant="secondary" onClick={() => setIsCameraOpen(false)} className="h-12 font-bold px-6">Cancel</Button>
                   </div>
                 </div>
               )}
@@ -569,7 +564,6 @@ export function SnaggingItemCard({
           </DialogContent>
         </Dialog>
 
-        {/* Snapshot Viewer Dialog */}
         <Dialog open={!!viewingHistoryRecord} onOpenChange={() => setViewingHistoryRecord(null)}>
             <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
                 <DialogHeader className="p-6 pb-0 shrink-0">
