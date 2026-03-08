@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -23,7 +22,7 @@ import {
     CheckCircle2 
 } from 'lucide-react';
 import { useFirestore } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import {
     Dialog,
     DialogContent,
@@ -33,6 +32,9 @@ import {
     DialogTitle,
     DialogTrigger,
 } from '@/components/ui/dialog';
+import { sendPasswordResetEmailAction } from './actions';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export function LoginForm() {
   const db = useFirestore();
@@ -150,14 +152,38 @@ export function LoginForm() {
           const userSnap = await getDoc(userRef);
 
           if (userSnap.exists()) {
-              // IN A PROTOTYPE: We'll simulate a reset by flagging the account
-              // or just providing instructions. Since we don't have a real email link,
-              // we'll instruct the user to contact the seeded admin.
-              setResetStatus('success');
+              const userData = userSnap.data();
+              // Generate a random 8-char temporary password
+              const tempPassword = Math.random().toString(36).slice(-8).toUpperCase();
+              
+              // 1. Update the password in Firestore immediately
+              await updateDoc(userRef, { password: tempPassword }).catch(async (error) => {
+                  errorEmitter.emit('permission-error', new FirestorePermissionError({
+                      path: userRef.path,
+                      operation: 'update',
+                      requestResourceData: { password: '***' }
+                  }));
+                  throw error;
+              });
+
+              // 2. Send the email via Resend server action
+              const result = await sendPasswordResetEmailAction({
+                  email: emailKey,
+                  name: userData.name || 'User',
+                  tempPassword
+              });
+
+              if (result.success) {
+                  setResetStatus('success');
+              } else {
+                  console.error('Reset email failed:', result.message);
+                  setResetStatus('error');
+              }
           } else {
               setResetStatus('not-found');
           }
       } catch (err) {
+          console.error('Reset workflow error:', err);
           setResetStatus('error');
       } finally {
           setIsReseting(false);
@@ -210,7 +236,7 @@ export function LoginForm() {
                                             Password Recovery
                                         </DialogTitle>
                                         <DialogDescription>
-                                            Enter your registered email address to request a password reset.
+                                            Enter your registered email address to request a temporary login password.
                                         </DialogDescription>
                                     </DialogHeader>
                                     
@@ -218,9 +244,9 @@ export function LoginForm() {
                                         {resetStatus === 'success' ? (
                                             <Alert className="bg-green-50 border-green-200">
                                                 <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                                <AlertTitle className="text-green-800">Request Received</AlertTitle>
+                                                <AlertTitle className="text-green-800">Email Sent</AlertTitle>
                                                 <AlertDescription className="text-green-700 text-xs">
-                                                    Your account has been identified. Please contact the <strong>System Administrator</strong> (admin@example.com) to receive your temporary access token.
+                                                    We have identified your account and sent a <strong>temporary password</strong> to your email address. Please check your inbox (and spam folder).
                                                 </AlertDescription>
                                             </Alert>
                                         ) : resetStatus === 'not-found' ? (
@@ -229,6 +255,14 @@ export function LoginForm() {
                                                 <AlertTitle>Account Not Found</AlertTitle>
                                                 <AlertDescription className="text-xs">
                                                     We couldn't find an active user profile for that email address.
+                                                </AlertDescription>
+                                            </Alert>
+                                        ) : resetStatus === 'error' ? (
+                                            <Alert variant="destructive" className="bg-destructive/5">
+                                                <AlertTriangle className="h-4 w-4" />
+                                                <AlertTitle>System Error</AlertTitle>
+                                                <AlertDescription className="text-xs">
+                                                    Could not process your reset request. Please contact your administrator.
                                                 </AlertDescription>
                                             </Alert>
                                         ) : (
@@ -251,7 +285,7 @@ export function LoginForm() {
                                         {resetStatus !== 'success' && (
                                             <Button onClick={handleResetPassword} disabled={isResetting || !resetEmail}>
                                                 {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                                Find Account
+                                                Send Temporary Password
                                             </Button>
                                         )}
                                     </DialogFooter>
