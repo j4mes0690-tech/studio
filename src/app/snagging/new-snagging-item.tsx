@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -310,7 +309,10 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                                             {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] font-bold h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
                                         </div>
                                     </div>
-                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setItems(items.filter((_, i) => i !== idx))}><Trash2 className="h-4 w-4" /></Button>
+                                    <div className="flex items-center gap-1">
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
+                                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setItems(items.filter((_, i) => i !== idx))}><Trash2 className="h-4 w-4" /></Button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -322,7 +324,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                             {photos.map((p, i) => (
                                 <div key={i} className="relative w-24 h-24 group">
                                     <Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2 border-muted" />
-                                    <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                                    <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
                                 </div>
                             ))}
                             <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed hover:border-primary/50 hover:bg-primary/5" onClick={() => setIsCameraOpen(true)}>

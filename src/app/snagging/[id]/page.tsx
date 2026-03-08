@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -396,7 +395,7 @@ function EditSnaggingContent() {
                         {sub && <Badge variant="secondary" className="mt-1 text-[10px] gap-1 font-bold bg-primary/10 text-primary"><User className="h-2 w-2" /> {sub.name}</Badge>}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" onClick={() => setItemPhotoTargetId(listItem.id)} className="text-primary"><Camera className="h-4 w-4" /></Button>
                       <Button variant="ghost" size="icon" onClick={() => setItems(items.filter(i => i.id !== listItem.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                     </div>

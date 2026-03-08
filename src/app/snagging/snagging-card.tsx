@@ -32,7 +32,8 @@ import {
   History, 
   Check,
   Eye,
-  FileSearch
+  FileSearch,
+  Loader2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
@@ -75,6 +76,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 
 type SnaggingItemCardProps = {
   item: SnaggingItem;
@@ -417,7 +419,7 @@ export function SnaggingItemCard({
                                         <div className="flex items-center justify-between">
                                             <div className='flex items-center gap-2'>
                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Version {history.length - idx}</span>
-                                                <Eye className="h-3 w-3 text-primary opacity-0 group-hover/hist:opacity-100 transition-opacity" />
+                                                <Eye className="h-3 w-3 text-primary group-hover/hist:text-primary transition-colors" />
                                             </div>
                                             <span className="text-[9px] text-muted-foreground"><ClientDate date={record.timestamp} /></span>
                                         </div>
@@ -504,7 +506,7 @@ export function SnaggingItemCard({
                 {completionPhotos.map((p, idx) => (
                   <div key={idx} className="relative w-20 h-20 group">
                     <Image src={p.url} alt="Fixed" fill className="rounded-md object-cover border" />
-                    <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg" onClick={() => setCompletionPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></Button>
+                    <button type="button" className="absolute -top-2 -right-2 h-6 w-6 bg-destructive text-white rounded-full flex items-center justify-center shadow-lg" onClick={() => setCompletionPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></button>
                   </div>
                 ))}
                 <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed hover:bg-muted/50" onClick={() => setIsCameraOpen(true)}>
