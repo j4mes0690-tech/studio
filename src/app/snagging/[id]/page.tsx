@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -13,7 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useDoc, useCollection, useUser, useStorage, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser } from '@/lib/types';
@@ -247,6 +248,7 @@ function EditSnaggingContent() {
           photos: uploadedGeneralPhotos 
         };
 
+        // Save Main List
         await updateDoc(snagRef, updates).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: snagRef.path,
@@ -256,7 +258,19 @@ function EditSnaggingContent() {
           throw error;
         });
 
-        toast({ title: 'Success', description: 'Snagging list saved.' });
+        // Record Version Snapshot
+        const historyCol = collection(db, 'snagging-items', id, 'history');
+        const closed = uploadedItems.filter(i => i.status === 'closed').length;
+        await addDoc(historyCol, {
+          timestamp: new Date().toISOString(),
+          updatedBy: profile?.name || 'System User',
+          items: uploadedItems,
+          totalCount: uploadedItems.length,
+          closedCount: closed,
+          summary: 'Bulk list update via editor'
+        });
+
+        toast({ title: 'Success', description: 'Snagging list and version history saved.' });
         router.push('/snagging');
 
       } catch (err) {
@@ -291,9 +305,9 @@ function EditSnaggingContent() {
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
         <div className="flex items-center gap-2">
-          <Button onClick={handleSave} disabled={isPending} className="gap-2">
+          <Button onClick={handleSave} disabled={isPending} className="gap-2 font-bold shadow-lg shadow-primary/20">
             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Changes
+            Record Snapshot
           </Button>
         </div>
       </div>
@@ -368,7 +382,7 @@ function EditSnaggingContent() {
             {items.map((listItem) => {
               const sub = subContractors?.find(s => s.id === listItem.subContractorId);
               return (
-                <div key={listItem.id} className="p-4 border rounded-lg bg-muted/10 space-y-3 group">
+                <div key={listItem.id} className="p-4 border rounded-lg bg-muted/10 space-y-3 group transition-all hover:border-primary/20">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
                       <button 
@@ -379,7 +393,7 @@ function EditSnaggingContent() {
                       </button>
                       <div>
                         <p className={cn("font-medium", listItem.status === 'closed' && "line-through text-muted-foreground")}>{listItem.description}</p>
-                        {sub && <Badge variant="secondary" className="mt-1 text-[10px] gap-1"><User className="h-2 w-2" /> {sub.name}</Badge>}
+                        {sub && <Badge variant="secondary" className="mt-1 text-[10px] gap-1 font-bold bg-primary/10 text-primary"><User className="h-2 w-2" /> {sub.name}</Badge>}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -401,7 +415,7 @@ function EditSnaggingContent() {
 
                   {(listItem.completionPhotos?.length || 0) > 0 && (
                     <div className="pl-8 space-y-1">
-                      <p className="text-[9px] font-bold text-green-600 uppercase">Completion Evidence</p>
+                      <p className="text-[9px] font-black text-green-600 uppercase tracking-widest">Completion Evidence</p>
                       <div className="flex flex-wrap gap-2">
                         {listItem.completionPhotos?.map((p, idx) => (
                           <div key={idx} className="relative w-16 h-16">
@@ -429,12 +443,12 @@ function EditSnaggingContent() {
             {photos.map((p, i) => (
               <div key={i} className="relative w-32 h-24">
                 <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
-                <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                <Button variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
               </div>
             ))}
-            <Button variant="outline" className="w-32 h-24 flex flex-col gap-2 border-dashed" onClick={() => setIsCameraOpen(true)}>
-              <Camera className="h-6 w-6" />
-              <span className="text-xs">Take Photo</span>
+            <Button variant="outline" className="w-32 h-24 flex flex-col gap-2 border-dashed hover:bg-muted/50" onClick={() => setIsCameraOpen(true)}>
+              <Camera className="h-6 w-6 text-primary" />
+              <span className="text-xs font-bold uppercase">Take Photo</span>
             </Button>
           </div>
         </CardContent>
@@ -444,7 +458,7 @@ function EditSnaggingContent() {
       {(isCameraOpen || itemPhotoTargetId) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
           <div className="w-full max-w-lg space-y-4">
-            <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border border-white/10">
+            <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border-4 border-white/10 shadow-2xl">
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
             </div>
             <div className="flex justify-center gap-4">

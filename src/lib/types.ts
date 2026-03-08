@@ -90,6 +90,16 @@ export type SnaggingItem = {
   items: SnaggingListItem[];
 };
 
+export type SnaggingHistoryRecord = {
+  id: string;
+  timestamp: string;
+  updatedBy: string;
+  items: SnaggingListItem[];
+  totalCount: number;
+  closedCount: number;
+  summary: string;
+};
+
 export type ChatMessage = {
   id: string;
   sender: string;
