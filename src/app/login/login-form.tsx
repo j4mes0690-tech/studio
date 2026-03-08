@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -84,6 +85,7 @@ export function LoginForm() {
               email: emailKey,
               name: u.name,
               password: u.password,
+              requirePasswordChange: false,
               permissions: {
                 canManageUsers: u.isAdmin,
                 canManageSubcontractors: u.isAdmin,
@@ -180,12 +182,15 @@ export function LoginForm() {
               // Generate a random 8-char temporary password
               const tempPassword = Math.random().toString(36).slice(-8).toUpperCase();
               
-              // 1. Update the password in Firestore immediately
-              await updateDoc(userRef, { password: tempPassword }).catch(async (error) => {
+              // 1. Update the password in Firestore immediately and set requirePasswordChange flag
+              await updateDoc(userRef, { 
+                password: tempPassword,
+                requirePasswordChange: true
+              }).catch(async (error) => {
                   errorEmitter.emit('permission-error', new FirestorePermissionError({
                       path: userRef.path,
                       operation: 'update',
-                      requestResourceData: { password: '***' }
+                      requestResourceData: { password: '***', requirePasswordChange: true }
                   }));
                   throw error;
               });

@@ -23,7 +23,7 @@ import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import { Lock, User, Eye, EyeOff } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const UpdateAccountSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
@@ -102,6 +102,8 @@ export function AccountForm({ user }: AccountFormProps) {
 
       if (values.newPassword) {
           updates.password = values.newPassword;
+          // Clear the prompt flag if they've manually set a new password
+          updates.requirePasswordChange = false;
       }
 
       updateDoc(docRef, updates)

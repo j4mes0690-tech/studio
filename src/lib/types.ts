@@ -1,3 +1,4 @@
+
 export type Area = {
   id: string;
   name: string;
@@ -144,6 +145,7 @@ export type DistributionUser = {
   name: string;
   email: string;
   password?: string;
+  requirePasswordChange?: boolean;
   permissions?: UserPermissions;
 };
 

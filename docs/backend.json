@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -8,6 +9,7 @@
         "id": { "type": "string" },
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
+        "requirePasswordChange": { "type": "boolean", "description": "Flag to prompt user to update password after a reset." },
         "permissions": {
           "type": "object",
           "properties": {

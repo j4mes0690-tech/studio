@@ -23,7 +23,9 @@ import {
   GraduationCap,
   Loader2,
   ShieldCheck,
-  Banknote
+  Banknote,
+  AlertTriangle,
+  ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -31,6 +33,8 @@ import { doc } from 'firebase/firestore';
 import type { DistributionUser } from '@/lib/types';
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 const DASHBOARD_CARDS = [
   { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, desc: 'Create and manage purchase orders for project materials.', permission: 'accessMaterials' },
@@ -80,8 +84,24 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col w-full">
       <Header title="Dashboard" />
-      <main className="flex flex-1 flex-col items-center justify-center gap-8 p-4 md:p-8">
-        <div className="flex flex-col items-center text-center gap-4">
+      <main className="flex flex-1 flex-col items-center gap-8 p-4 md:p-8">
+        
+        {profile?.requirePasswordChange && (
+            <Alert variant="destructive" className="max-w-6xl w-full border-2 bg-destructive/5 animate-in fade-in slide-in-from-top-4 duration-500">
+                <AlertTriangle className="h-5 w-5" />
+                <AlertTitle className="font-bold">Security Action Required</AlertTitle>
+                <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
+                    <p>You are currently using a temporary password. Please update your account credentials immediately to secure your access.</p>
+                    <Button asChild variant="destructive" size="sm" className="font-bold gap-2 shrink-0">
+                        <Link href="/account">
+                            Update Password <ArrowRight className="h-4 w-4" />
+                        </Link>
+                    </Button>
+                </AlertDescription>
+            </Alert>
+        )}
+
+        <div className="flex flex-col items-center text-center gap-4 mt-4">
             <div className="p-4 bg-primary/10 rounded-full">
                 <HardHat className="h-16 w-16 text-primary" />
             </div>
@@ -91,7 +111,7 @@ export default function Dashboard() {
             </div>
         </div>
 
-        <div className="grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8 w-full">
+        <div className="grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8 w-full pb-12">
           {allowedCards.map((card) => (
             <Link key={card.href} href={card.href}>
               <Card className={cn(
