@@ -1,4 +1,3 @@
-
 'use server';
 
 import { Resend } from 'resend';
@@ -37,7 +36,7 @@ export async function sendPermitEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'SiteCommand Permits <permits@sitecommand.internal>',
+      from: 'onboarding@resend.dev',
       to: [email],
       subject: `Permit to Work Issued: ${permitRef} (${permitType}) - ${projectName}`,
       html: `

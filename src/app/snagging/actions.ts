@@ -1,4 +1,3 @@
-
 'use server';
 
 import { Resend } from 'resend';
@@ -36,7 +35,7 @@ export async function sendSubcontractorReportAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'SiteCommand Reports <reports@sitecommand.internal>',
+      from: 'onboarding@resend.dev',
       to: [email],
       subject: `Snagging Tasks: ${projectName} - ${areaName}`,
       html: `

@@ -45,7 +45,8 @@ export async function sendPasswordResetEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'SiteCommand Security <auth@sitecommand.internal>',
+      // Resend Free Tier requires using their verified domain until you verify your own.
+      from: 'onboarding@resend.dev',
       to: [email],
       subject: 'SiteCommand: Password Reset Request',
       html: `

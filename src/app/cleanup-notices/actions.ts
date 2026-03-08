@@ -1,4 +1,3 @@
-
 'use server';
 
 import { Resend } from 'resend';
@@ -35,7 +34,7 @@ export async function sendCleanUpNoticeEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'SiteCommand Notices <reports@sitecommand.internal>',
+      from: 'onboarding@resend.dev',
       to: [email],
       subject: `Clean Up Notice: ${projectName} - ${reference}`,
       html: `
