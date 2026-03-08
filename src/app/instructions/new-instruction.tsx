@@ -39,7 +39,7 @@ import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useFirestore, useStorage } from '@/firebase';
-import { collection, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
@@ -162,7 +162,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         };
 
         const colRef = collection(db, 'instructions');
-        const docRef = await addDoc(colRef, instructionData).catch((error) => {
+        const newDocRef = await addDoc(colRef, instructionData).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: colRef.path,
             operation: 'create',
@@ -211,13 +211,21 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               ${uploadedPhotos.length > 0 ? `
                 <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                  ${uploadedPhotos.map(p => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover;" /></div>`).join('')}
+                  ${uploadedPhotos.map(p => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover;" crossorigin="anonymous" /></div>`).join('')}
                 </div>
               ` : ''}
             `;
 
             document.body.appendChild(reportElement);
-            const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
+            
+            // Wait for images to load
+            const imgs = reportElement.getElementsByTagName('img');
+            await Promise.all(Array.from(imgs).map(img => {
+              if (img.complete) return Promise.resolve();
+              return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+            }));
+
+            const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
             const imgData = canvas.toDataURL('image/jpeg', 0.95);
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -236,7 +244,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               fileName: `SiteInstruction-${reference}.pdf`
             });
 
-            await updateDoc(docRef, { distributedAt: new Date().toISOString() });
+            await updateDoc(doc(db, 'instructions', newDocRef.id), { distributedAt: new Date().toISOString() });
             toast({ title: 'Success', description: `Instruction issued and emailed to ${sub.name}.` });
           } catch (err) {
             console.error('Auto-email error:', err);

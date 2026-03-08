@@ -49,6 +49,12 @@ import { ImageLightbox } from '@/components/image-lightbox';
 import { EditInstruction } from './edit-instruction';
 import { DistributeInstructionButton } from './distribute-instruction-button';
 import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 type InstructionCardProps = {
   instruction: Instruction;
@@ -149,10 +155,20 @@ export function InstructionCard({
                 </Link>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
                 {isDraft && <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>}
+                
                 {isDistributed && (
-                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1 h-5 text-[9px] uppercase font-bold tracking-tighter">
-                        <MailCheck className="h-2.5 w-2.5" /> Emailed
-                    </Badge>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1 h-5 text-[9px] uppercase font-bold tracking-tighter cursor-help">
+                            <MailCheck className="h-2.5 w-2.5" /> Emailed
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Last sent: {new Date(instruction.distributedAt!).toLocaleString()}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 )}
               </div>
               <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">

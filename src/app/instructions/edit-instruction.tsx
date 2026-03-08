@@ -237,13 +237,21 @@ export function EditInstruction({
               ${uploadedPhotos.length > 0 ? `
                 <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                  ${uploadedPhotos.map(p => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover;" /></div>`).join('')}
+                  ${uploadedPhotos.map(p => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover;" crossorigin="anonymous" /></div>`).join('')}
                 </div>
               ` : ''}
             `;
 
             document.body.appendChild(reportElement);
-            const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
+            
+            // Wait for images to load
+            const imgs = reportElement.getElementsByTagName('img');
+            await Promise.all(Array.from(imgs).map(img => {
+              if (img.complete) return Promise.resolve();
+              return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
+            }));
+
+            const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
             const imgData = canvas.toDataURL('image/jpeg', 0.95);
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -343,15 +351,15 @@ export function EditInstruction({
             <span className="sr-only">Edit Instruction</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="p-6 pb-0">
           <DialogTitle>Edit Site Instruction</DialogTitle>
           <DialogDescription>
             Modify instructions or documentation. Formal issuing requires a description and a recipient.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6">
             <input type="hidden" {...form.register('id')} />
             
             <FormField
@@ -484,20 +492,20 @@ export function EditInstruction({
             </div>
 
             <canvas ref={canvasRef} className="hidden" />
-            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+            <DialogFooter className="pt-4 border-t gap-3">
               <Button 
                 type="submit" 
                 variant="outline" 
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto h-12" 
                 disabled={isPending}
                 onClick={() => form.setValue('status', 'draft')}
               >
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Save as Draft
               </Button>
               <Button 
                 type="submit" 
-                className="w-full sm:flex-1" 
+                className="w-full sm:flex-1 h-12 text-lg font-bold" 
                 disabled={isPending}
                 onClick={() => form.setValue('status', 'issued')}
               >

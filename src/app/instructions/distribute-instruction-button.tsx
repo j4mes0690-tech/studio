@@ -107,7 +107,7 @@ export function DistributeInstructionButton({
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
             ${instruction.photos.map(p => `
               <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; padding: 10px;">
-                <img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" />
+                <img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" crossorigin="anonymous" />
                 <p style="margin: 8px 0 0 0; font-size: 10px; color: #64748b; text-align: center;">Captured: ${new Date(p.takenAt).toLocaleString()}</p>
               </div>
             `).join('')}
@@ -120,7 +120,26 @@ export function DistributeInstructionButton({
       `;
 
       document.body.appendChild(reportElement);
-      const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
+      
+      // We need to give images a moment to load potentially, though html2canvas with useCORS usually handles it
+      // For extra safety, we wait for all images in the reportElement to load.
+      const images = reportElement.getElementsByTagName('img');
+      const loadPromises = Array.from(images).map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          img.onload = resolve;
+          img.onerror = resolve; // Continue anyway if one fails
+        });
+      });
+      await Promise.all(loadPromises);
+
+      const canvas = await html2canvas(reportElement, { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        allowTaint: true
+      });
+      
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -187,7 +206,7 @@ export function DistributeInstructionButton({
         <TooltipContent>
           <p>
             {isDistributed 
-                ? `Emailed on ${new Date(instruction.distributedAt!).toLocaleDateString()}. Click to resend.` 
+                ? `Emailed on ${new Date(instruction.distributedAt!).toLocaleString()}. Click to resend.` 
                 : `Email PDF to ${sub?.name || 'Partner'}`}
           </p>
         </TooltipContent>
