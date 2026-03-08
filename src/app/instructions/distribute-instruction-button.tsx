@@ -19,7 +19,6 @@ import { cn } from '@/lib/utils';
 /**
  * DistributeInstructionButton - Generates a high-resolution PDF of the site instruction
  * and sends it to the primary recipient via the Resend server action.
- * Tracks distribution status in Firestore to prevent duplicate issuance.
  */
 export function DistributeInstructionButton({
   instruction,
@@ -34,7 +33,6 @@ export function DistributeInstructionButton({
   const { toast } = useToast();
   const db = useFirestore();
 
-  // Identify the primary external recipient (Subcontractor/Designer) at component level
   const sub = subContractors.find(s => instruction.recipients?.includes(s.email));
   const isDistributed = !!instruction.distributedAt;
 
@@ -42,7 +40,7 @@ export function DistributeInstructionButton({
     if (!sub) {
       toast({
         title: "Distribution Cancelled",
-        description: "No sub-contractor or designer is formally assigned to this instruction.",
+        description: "No sub-contractor is formally assigned to this instruction.",
         variant: "destructive",
       });
       return;
@@ -54,27 +52,31 @@ export function DistributeInstructionButton({
       const { jsPDF } = await import('jspdf');
       const html2canvas = (await import('html2canvas')).default;
 
-      // 1. Pre-convert photos to base64 to ensure they render in canvas correctly (CORS bypass)
-      // Added robust error handling to prevent "Failed to fetch" from crashing the flow
-      const photoBase64s = await Promise.all((instruction.photos || []).map(async (p) => {
+      // 1. Convert photos to Base64 using a robust canvas-based approach
+      const photoDataUrls = await Promise.all((instruction.photos || []).map(async (p) => {
         if (p.url.startsWith('data:')) return p.url;
-        try {
-          const resp = await fetch(p.url);
-          const blob = await resp.blob();
-          return new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-        } catch (e) {
-          console.warn("CORS block or network error for photo, falling back to direct URL", e);
-          return p.url;
-        }
+        return new Promise<string>((resolve) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/jpeg', 0.8));
+          };
+          img.onerror = () => {
+            console.warn("Failed to load image for PDF:", p.url);
+            resolve(p.url); // Fallback to original URL
+          };
+          img.src = p.url;
+        });
       }));
 
-      const fileName = `SiteInstruction-${instruction.reference}-${sub.name.replace(/\s+/g, '-')}.pdf`;
+      const fileName = `SiteInstruction-${instruction.reference}.pdf`;
 
-      // Create a temporary off-screen element for PDF rendering
+      // 2. Construct the high-fidelity PDF report element
       const reportElement = document.createElement('div');
       reportElement.style.position = 'absolute';
       reportElement.style.left = '-9999px';
@@ -85,75 +87,70 @@ export function DistributeInstructionButton({
       reportElement.style.fontFamily = 'sans-serif';
 
       reportElement.innerHTML = `
-        <div style="border-bottom: 2px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
-          <h1 style="margin: 0; color: #1e40af; font-size: 28px;">Site Instruction</h1>
-          <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Reference: ${instruction.reference}</p>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
-          <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Project Location</p>
-            <p style="margin: 0; font-size: 16px; font-weight: bold; color: #1e293b;">${project?.name || 'Unknown Project'}</p>
-            ${project?.address ? `<p style="margin: 8px 0 0 0; font-size: 12px; color: #475569; white-space: pre-wrap; line-height: 1.4;">${project.address}</p>` : ''}
-          </div>
-          <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Contract Authority</p>
-            ${project?.siteManager ? `<p style="margin: 0; font-size: 14px; font-weight: bold;">${project.siteManager}</p>` : ''}
-            ${project?.siteManagerPhone ? `<p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">Tel: ${project.siteManagerPhone}</p>` : ''}
-            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
-                <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Date Issued</p>
-                <p style="margin: 2px 0 0 0; font-size: 14px;">${new Date(instruction.createdAt).toLocaleDateString()}</p>
-            </div>
-          </div>
+        <div style="border-bottom: 3px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
+          <h1 style="margin: 0; color: #1e40af; font-size: 32px;">Site Instruction</h1>
+          <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Reference: ${instruction.reference}</p>
         </div>
 
         <div style="margin-bottom: 40px;">
-            <div style="background: #f1f5f9; padding: 15px; border-radius: 6px;">
-                <p style="margin: 0 0 5px 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Issued To</p>
-                <p style="margin: 0; font-size: 16px; font-weight: bold;">${sub.name}</p>
-                <p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">${sub.email}</p>
-            </div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="width: 50%; vertical-align: top; padding-right: 20px;">
+                <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; height: 120px;">
+                  <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Project Location</p>
+                  <p style="margin: 0; font-size: 16px; font-weight: bold; color: #1e293b;">${project?.name || 'Unknown'}</p>
+                  <p style="margin: 8px 0 0 0; font-size: 12px; color: #475569; line-height: 1.4;">${project?.address || 'No address provided'}</p>
+                </div>
+              </td>
+              <td style="width: 50%; vertical-align: top;">
+                <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; height: 120px;">
+                  <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Issued To</p>
+                  <p style="margin: 0; font-size: 16px; font-weight: bold;">${sub.name}</p>
+                  <p style="margin: 4px 0 0 0; font-size: 12px; color: #475569;">${sub.email}</p>
+                  <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                    <p style="margin: 0; font-size: 11px;"><strong>Date Issued:</strong> ${new Date(instruction.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </table>
         </div>
 
-        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px; min-height: 200px;">
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px; min-height: 150px;">
           <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">Instruction Details</h2>
           <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: #334155;">${instruction.originalText}</p>
         </div>
 
-        ${photoBase64s.length > 0 ? `
+        ${photoDataUrls.length > 0 ? `
           <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-            ${photoBase64s.map(url => `
-              <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; padding: 10px;">
-                <img src="${url}" crossorigin="anonymous" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" />
+          <div style="text-align: center;">
+            ${photoDataUrls.map(url => `
+              <div style="display: inline-block; width: 340px; margin: 10px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+                <img src="${url}" crossorigin="anonymous" style="width: 100%; height: 240px; object-fit: cover; display: block;" />
               </div>
             `).join('')}
           </div>
         ` : ''}
 
         <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
-          <p style="font-size: 12px; color: #64748b;">This instruction was distributed via SiteCommand.</p>
+          <p style="font-size: 12px; color: #64748b;">This instruction was distributed via SiteCommand on ${new Date().toLocaleString()}.</p>
         </div>
       `;
 
       document.body.appendChild(reportElement);
       
-      // Wait for any rendered content to be ready
+      // Wait for all images to settle
       const images = reportElement.getElementsByTagName('img');
-      const loadPromises = Array.from(images).map(img => {
+      await Promise.all(Array.from(images).map(img => {
         if (img.complete) return Promise.resolve();
-        return new Promise((resolve) => {
-          img.onload = resolve;
-          img.onerror = resolve;
-        });
-      });
-      await Promise.all(loadPromises);
+        return new Promise((resolve) => { img.onload = resolve; img.onerror = resolve; });
+      }));
 
       const canvas = await html2canvas(reportElement, { 
         scale: 2, 
         useCORS: true, 
-        allowTaint: true,
-        logging: false
+        backgroundColor: '#ffffff',
+        logging: false 
       });
       
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -175,19 +172,15 @@ export function DistributeInstructionButton({
       });
 
       if (result.success) {
-        // Track distribution success in Firestore
         const docRef = doc(db, 'instructions', instruction.id);
-        await updateDoc(docRef, { 
-          distributedAt: new Date().toISOString() 
-        });
-        
-        toast({ title: "Distribution Complete", description: `Instruction ${instruction.reference} emailed to ${sub.name}.` });
+        await updateDoc(docRef, { distributedAt: new Date().toISOString() });
+        toast({ title: "Distribution Complete", description: `Instruction emailed to ${sub.name}.` });
       } else {
         toast({ title: "Email Error", description: result.message, variant: "destructive" });
       }
     } catch (err) {
-      console.error('Site Instruction Distribution Error:', err);
-      toast({ title: "Generation Error", description: "Failed to create or send instruction PDF.", variant: "destructive" });
+      console.error('Distribution Error:', err);
+      toast({ title: "Process Error", description: "Failed to generate or send instruction PDF.", variant: "destructive" });
     } finally {
       setIsDistributing(false);
     }
@@ -202,29 +195,14 @@ export function DistributeInstructionButton({
             size="icon" 
             onClick={handleDistribute} 
             disabled={isDistributing}
-            className={cn(
-                "transition-all",
-                isDistributed ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-muted-foreground"
-            )}
+            className={cn("transition-all", isDistributed ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-muted-foreground")}
           >
-            {isDistributing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-            ) : isDistributed ? (
-                <CheckCircle2 className="h-4 w-4" />
-            ) : (
-                <Send className="h-4 w-4" />
-            )}
-            <span className="sr-only">
-                {isDistributed ? 'Resend distributed instruction' : 'Distribute PDF to partner'}
-            </span>
+            {isDistributing ? <Loader2 className="h-4 w-4 animate-spin" /> : isDistributed ? <CheckCircle2 className="h-4 w-4" /> : <Send className="h-4 w-4" />}
+            <span className="sr-only">{isDistributed ? 'Resend distributed instruction' : 'Distribute PDF to partner'}</span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>
-            {isDistributed 
-                ? `Emailed on ${new Date(instruction.distributedAt!).toLocaleString()}. Click to resend.` 
-                : `Email PDF to ${sub?.name || 'Partner'}`}
-          </p>
+          <p>{isDistributed ? `Emailed on ${new Date(instruction.distributedAt!).toLocaleString()}. Click to resend.` : `Email PDF to ${sub?.name || 'Partner'}`}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
