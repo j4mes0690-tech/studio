@@ -19,6 +19,7 @@ export async function loginAction(
 
 /**
  * sendPasswordResetEmailAction - Sends a temporary password to the user via Resend.
+ * Returns a special flag if the API key is missing to allow prototype-mode fallback in the UI.
  */
 export async function sendPasswordResetEmailAction({
   email,
@@ -31,10 +32,11 @@ export async function sendPasswordResetEmailAction({
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
-  if (!apiKey) {
-    console.error('RESEND_API_KEY is not set in environment variables.');
+  if (!apiKey || apiKey === 'your_resend_api_key_here') {
+    console.warn('RESEND_API_KEY is not set. Falling back to prototype mode display.');
     return { 
       success: false, 
+      isConfigError: true,
       message: 'Email service not configured. Please add RESEND_API_KEY to system settings.' 
     };
   }

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -49,8 +48,9 @@ export function LoginForm() {
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsReseting] = useState(false);
-  const [resetStatus, setResetStatus] = useState<'idle' | 'success' | 'not-found' | 'error'>('idle');
+  const [resetStatus, setResetStatus] = useState<'idle' | 'success' | 'prototype-success' | 'not-found' | 'error'>('idle');
   const [resetErrorMessage, setResetErrorMessage] = useState<string | null>(null);
+  const [prototypePassword, setPrototypePassword] = useState<string | null>(null);
 
   // Auto-seed the admin account in the background if it doesn't exist
   useEffect(() => {
@@ -148,6 +148,7 @@ export function LoginForm() {
       setIsReseting(true);
       setResetStatus('idle');
       setResetErrorMessage(null);
+      setPrototypePassword(null);
 
       try {
           const emailKey = resetEmail.toLowerCase().trim();
@@ -178,6 +179,10 @@ export function LoginForm() {
 
               if (result.success) {
                   setResetStatus('success');
+              } else if (result.isConfigError) {
+                  // Reveal the password directly in prototype mode if email isn't configured
+                  setPrototypePassword(tempPassword);
+                  setResetStatus('prototype-success');
               } else {
                   setResetErrorMessage(result.message || 'The email service encountered an error.');
                   setResetStatus('error');
@@ -227,6 +232,7 @@ export function LoginForm() {
                                     setResetStatus('idle');
                                     setResetEmail('');
                                     setResetErrorMessage(null);
+                                    setPrototypePassword(null);
                                 }
                             }}>
                                 <DialogTrigger asChild>
@@ -252,6 +258,19 @@ export function LoginForm() {
                                                 <AlertTitle className="text-green-800">Email Sent</AlertTitle>
                                                 <AlertDescription className="text-green-700 text-xs">
                                                     We have identified your account and sent a <strong>temporary password</strong> to your email address. Please check your inbox (and spam folder).
+                                                </AlertDescription>
+                                            </Alert>
+                                        ) : resetStatus === 'prototype-success' ? (
+                                            <Alert className="bg-amber-50 border-amber-200">
+                                                <Info className="h-4 w-4 text-amber-600" />
+                                                <AlertTitle className="text-amber-800">Prototype Mode: Reset Complete</AlertTitle>
+                                                <AlertDescription className="text-amber-700 text-xs space-y-3">
+                                                    <p>The email service is not configured (missing RESEND_API_KEY), but your account has been updated in the database.</p>
+                                                    <div className="p-3 bg-white border-2 border-amber-200 rounded-lg text-center">
+                                                        <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Temporary Password</p>
+                                                        <p className="text-2xl font-mono font-bold text-primary tracking-widest">{prototypePassword}</p>
+                                                    </div>
+                                                    <p className="font-medium">Use this code to log in, then update your password in Account Settings.</p>
                                                 </AlertDescription>
                                             </Alert>
                                         ) : resetStatus === 'not-found' ? (
@@ -285,9 +304,9 @@ export function LoginForm() {
 
                                     <DialogFooter>
                                         <Button variant="ghost" onClick={() => setIsResetOpen(false)}>
-                                            {resetStatus === 'success' ? 'Back to Login' : 'Cancel'}
+                                            {(resetStatus === 'success' || resetStatus === 'prototype-success') ? 'Back to Login' : 'Cancel'}
                                         </Button>
-                                        {resetStatus !== 'success' && (
+                                        {resetStatus !== 'success' && resetStatus !== 'prototype-success' && (
                                             <Button onClick={handleResetPassword} disabled={isResetting || !resetEmail}>
                                                 {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                                 Send Temporary Password
