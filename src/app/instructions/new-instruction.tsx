@@ -37,6 +37,7 @@ import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, 
 import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -45,8 +46,6 @@ import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { sendSiteInstructionEmailAction } from './actions';
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -498,6 +497,8 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     </Dialog>
   );
 }
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 interface NewInstructionProps {
   projects: Project[];
