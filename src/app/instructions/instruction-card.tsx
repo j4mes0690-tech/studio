@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2, MailCheck } from 'lucide-react';
+import { Camera, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -129,15 +129,14 @@ export function InstructionCard({
     });
   };
 
-  const isDraft = instruction.status === 'draft';
-  const isDistributed = !!instruction.distributedAt;
+  const isIssued = instruction.status === 'issued' && !!instruction.distributedAt;
+  const isDraft = !isIssued;
 
   return (
     <>
       <Card className={cn(
         "border-l-4 transition-all", 
-        isDraft ? "border-orange-200 border-l-orange-400 bg-orange-50/10" : 
-        isDistributed ? "border-l-green-500" : "border-l-primary"
+        isDraft ? "border-orange-200 border-l-orange-400 bg-orange-50/10" : "border-l-green-500"
       )}>
         <CardHeader>
           <div className="flex justify-between items-start">
@@ -148,21 +147,22 @@ export function InstructionCard({
                   <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </Link>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
-                {isDraft && <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>}
                 
-                {isDistributed && (
+                {isIssued ? (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1 h-5 text-[9px] uppercase font-bold tracking-tighter cursor-help">
-                            <MailCheck className="h-2.5 w-2.5" /> Emailed
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 cursor-help text-[10px] uppercase font-bold tracking-tight">
+                          ISSUED
                         </Badge>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Last sent: {new Date(instruction.distributedAt!).toLocaleString()}</p>
+                        <p>Distributed: {new Date(instruction.distributedAt!).toLocaleString()}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                ) : (
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px] uppercase font-bold tracking-tight">DRAFT</Badge>
                 )}
               </div>
               <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
@@ -300,7 +300,7 @@ export function InstructionCard({
                         </CarouselItem>
                       ))}
                     </CarouselContent>
-                     {instruction.photos.length > 1 && (
+                     {item.photos.length > 1 && (
                       <>
                         <CarouselPrevious />
                         <CarouselNext />
