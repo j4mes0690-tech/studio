@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -34,7 +33,6 @@ import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const EditUserSchema = z.object({
   id: z.string().min(1),
@@ -192,8 +190,8 @@ export function EditUserForm({ user }: EditUserFormProps) {
           <DialogDescription>Update credentials and granular module permissions for {user.name}.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1 px-6 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-6 py-4">
               <div className="space-y-8 pb-10">
                 <input type="hidden" {...form.register('id')} />
                 
@@ -285,7 +283,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
                     </div>
                 </div>
               </div>
-            </ScrollArea>
+            </div>
 
             <DialogFooter className="p-6 border-t bg-muted/10 shrink-0">
               <Button type="submit" disabled={isPending} className="w-full h-12 text-lg font-bold">

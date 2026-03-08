@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -29,7 +28,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, X, Loader2, Save, Users2, MapPin, Plus, Trash2, CheckCircle2, Link as LinkIcon } from 'lucide-react';
 import type { Project, Area, DistributionUser, SubContractor, QualityChecklist } from '@/lib/types';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection, query, where, addDoc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -247,8 +245,8 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
         </DialogHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1 px-6 py-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-6 py-4">
               <div className="space-y-6 pb-10">
                 <input type="hidden" {...form.register('id')} />
                 
@@ -351,7 +349,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                         </div>
 
                         <div className="space-y-3">
-                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Active Checklists</h4>
+                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Active Checklists</h4>
                             <div className="rounded-md border bg-background overflow-hidden">
                                 <Table>
                                     <TableHeader className="bg-muted/30">
@@ -373,7 +371,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                     </TabsContent>
                 </Tabs>
               </div>
-            </ScrollArea>
+            </div>
 
             <DialogFooter className="p-6 border-t bg-muted/10 shrink-0">
               <Button type="submit" disabled={isPending} className="w-full h-12 font-bold">
