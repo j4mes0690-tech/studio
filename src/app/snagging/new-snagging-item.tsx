@@ -140,8 +140,8 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
       const context = canvas.getContext('2d');
       if (!context) return null;
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 800; 
-      canvas.height = 800 / aspectRatio;
+      canvas.width = 1200; 
+      canvas.height = 1200 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: new Date().toISOString() };
     }
@@ -294,19 +294,6 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                             </div>
                         </div>
 
-                        {isItemCameraOpen && (
-                            <div className="space-y-3 border-2 border-primary/20 rounded-xl p-3 bg-primary/5">
-                                <div className="relative aspect-video bg-black rounded-lg overflow-hidden shadow-xl">
-                                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                                </div>
-                                <div className="flex justify-center gap-2">
-                                    <Button type="button" size="sm" onClick={takeItemPhoto} className="font-bold">Capture</Button>
-                                    <Button type="button" variant="secondary" size="sm" onClick={toggleCamera}><RefreshCw className="h-4 w-4 mr-2" />Switch</Button>
-                                    <Button type="button" variant="secondary" size="sm" onClick={() => setIsItemCameraOpen(false)}>Cancel</Button>
-                                </div>
-                            </div>
-                        )}
-
                         <div className="space-y-3">
                             {items.map((item, idx) => (
                                 <div key={idx} className="bg-white p-4 rounded-xl border shadow-sm flex items-center justify-between group animate-in slide-in-from-top-2 duration-300">
@@ -340,18 +327,6 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                                 <span className="text-[10px] font-bold uppercase tracking-tighter text-muted-foreground">Photo</span>
                             </Button>
                         </div>
-                        {isCameraOpen && (
-                            <div className="space-y-3 border-2 border-primary/20 rounded-xl p-3 bg-primary/5 mt-4">
-                                <div className="relative aspect-video bg-black rounded-lg overflow-hidden ring-4 ring-white shadow-xl">
-                                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                                </div>
-                                <div className="flex justify-center gap-3">
-                                    <Button type="button" size="lg" onClick={takeGeneralPhoto} className="h-12 px-8 font-bold">Capture Area</Button>
-                                    <Button type="button" variant="secondary" size="icon" className="h-12 w-12 rounded-full" onClick={toggleCamera}><RefreshCw className="h-5 w-5" /></Button>
-                                    <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)} className="h-12 px-6 font-bold">Cancel</Button>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 </form>
             </Form>
@@ -365,6 +340,46 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
             </Button>
         </DialogFooter>
         <canvas ref={canvasRef} className="hidden" />
+
+        {/* Unified Camera Overlay */}
+        {(isCameraOpen || isItemCameraOpen || itemPhotoTargetIdx !== null) && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
+            <div className="w-full max-w-lg space-y-4">
+              <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border-4 border-white/10 shadow-2xl">
+                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+              </div>
+              <div className="flex justify-center gap-4">
+                <Button 
+                  size="lg" 
+                  onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} 
+                  className="rounded-full h-16 w-16 p-0 border-4 border-white/20"
+                >
+                  <div className="h-10 w-10 rounded-full bg-white" />
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  size="icon" 
+                  className="rounded-full h-12 w-12" 
+                  onClick={toggleCamera} 
+                  title="Switch Camera"
+                >
+                  <RefreshCw className="h-6 w-6" />
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  onClick={() => { 
+                    setIsCameraOpen(false); 
+                    setIsItemCameraOpen(false); 
+                    setItemPhotoTargetIdx(null); 
+                  }} 
+                  className="rounded-full h-12 px-6 font-bold"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

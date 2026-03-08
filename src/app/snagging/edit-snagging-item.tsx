@@ -204,7 +204,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
     if (photo && itemPhotoTargetId) {
       setItems(prev => prev.map(i => {
         if (i.id === itemPhotoTargetId) {
-          const field = i.status === 'closed' ? 'photos' : 'completionPhotos';
+          const field = i.status === 'closed' ? 'completionPhotos' : 'photos';
           return { ...i, [field]: [...(i[field] || []), photo] };
         }
         return i;
@@ -458,6 +458,45 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
             </form>
           </Form>
         </DialogContent>
+
+        {/* Unified Full-Screen Camera Overlay */}
+        {(isCameraOpen || itemPhotoTargetId !== null) && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
+            <div className="w-full max-w-lg space-y-4">
+              <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border-4 border-white/10 shadow-2xl">
+                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+              </div>
+              <div className="flex justify-center gap-4">
+                <Button 
+                  size="lg" 
+                  onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} 
+                  className="rounded-full h-16 w-16 p-0 border-4 border-white/20"
+                >
+                  <div className="h-10 w-10 rounded-full bg-white" />
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  size="icon" 
+                  className="rounded-full h-12 w-12" 
+                  onClick={toggleCamera} 
+                  title="Switch Camera"
+                >
+                  <RefreshCw className="h-6 w-6" />
+                </Button>
+                <Button 
+                  variant="secondary" 
+                  onClick={() => { 
+                    setIsCameraOpen(false); 
+                    setItemPhotoTargetId(null); 
+                  }} 
+                  className="rounded-full h-12 px-6 font-bold"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </Dialog>
 
       {/* Snapshot Details Viewer */}
@@ -537,24 +576,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
               </DialogFooter>
           </DialogContent>
       </Dialog>
-
-      {/* Camera Modal */}
-      {(isCameraOpen || itemPhotoTargetId) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
-          <div className="w-full max-w-lg space-y-4">
-            <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border-4 border-white/10 shadow-2xl">
-              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            </div>
-            <div className="flex justify-center gap-4">
-              <Button size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-16 w-16 p-0 border-4 border-white/20"><div className="h-10 w-10 rounded-full bg-white" /></Button>
-              <Button variant="secondary" size="icon" className="rounded-full h-12 w-12" onClick={toggleCamera} title="Switch Camera">
-                <RefreshCw className="h-6 w-6" />
-              </Button>
-              <Button variant="secondary" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 font-bold">Cancel</Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>

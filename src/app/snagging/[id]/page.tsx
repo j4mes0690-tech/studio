@@ -173,7 +173,7 @@ function EditSnaggingContent() {
     if (p && itemPhotoTargetId) {
       setItems(prev => prev.map(i => {
         if (i.id === itemPhotoTargetId) {
-          const field = i.status === 'closed' ? 'photos' : 'completionPhotos';
+          const field = i.status === 'closed' ? 'completionPhotos' : 'photos';
           return { ...i, [field]: [...(i[field] || []), p] };
         }
         return i;
@@ -605,9 +605,9 @@ function EditSnaggingContent() {
           </DialogContent>
       </Dialog>
 
-      {/* Camera Overlays */}
+      {/* Unified Full-Screen Camera Overlay */}
       {(isCameraOpen || itemPhotoTargetId) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
           <div className="w-full max-w-lg space-y-4">
             <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border-4 border-white/10 shadow-2xl">
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
