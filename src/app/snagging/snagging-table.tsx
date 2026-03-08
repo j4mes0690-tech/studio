@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -32,8 +33,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, CheckCircle2, MapPin } from 'lucide-react';
+import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+type SortKey = 'project' | 'area' | 'title' | 'date' | 'progress';
+type SortOrder = 'asc' | 'desc';
 
 type TableProps = {
   items: SnaggingItem[];
@@ -42,21 +46,103 @@ type TableProps = {
 };
 
 export function SnaggingTable({ items, projects, subContractors }: TableProps) {
+  const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortOrder('asc');
+    }
+  };
+
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      switch (sortKey) {
+        case 'project':
+          valA = projects.find(p => p.id === a.projectId)?.name || '';
+          valB = projects.find(p => p.id === b.projectId)?.name || '';
+          break;
+        case 'area':
+          const projA = projects.find(p => p.id === a.projectId);
+          const projB = projects.find(p => p.id === b.projectId);
+          valA = projA?.areas?.find(ar => ar.id === a.areaId)?.name || 'General Site';
+          valB = projB?.areas?.find(ar => ar.id === b.areaId)?.name || 'General Site';
+          break;
+        case 'title':
+          valA = a.title;
+          valB = b.title;
+          break;
+        case 'date':
+          valA = new Date(a.createdAt).getTime();
+          valB = new Date(b.createdAt).getTime();
+          break;
+        case 'progress':
+          const closedA = a.items?.filter(i => i.status === 'closed').length || 0;
+          const totalA = a.items?.length || 1;
+          const closedB = b.items?.filter(i => i.status === 'closed').length || 0;
+          const totalB = b.items?.length || 1;
+          valA = closedA / totalA;
+          valB = closedB / totalB;
+          break;
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [items, sortKey, sortOrder, projects]);
+
+  const SortIcon = ({ column }: { column: SortKey }) => {
+    if (sortKey !== column) return <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground/50" />;
+    return sortOrder === 'asc' ? <ArrowUp className="ml-2 h-3 w-3" /> : <ArrowDown className="ml-2 h-3 w-3" />;
+  };
+
   return (
     <div className="rounded-md border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[150px]">Project</TableHead>
-            <TableHead className="w-[120px]">Area</TableHead>
-            <TableHead>List Title</TableHead>
-            <TableHead className="w-[120px]">Date</TableHead>
-            <TableHead className="w-[100px]">Progress</TableHead>
+            <TableHead 
+              className="w-[150px] cursor-pointer hover:text-foreground transition-colors"
+              onClick={() => handleSort('project')}
+            >
+              <div className="flex items-center">Project <SortIcon column="project" /></div>
+            </TableHead>
+            <TableHead 
+              className="w-[120px] cursor-pointer hover:text-foreground transition-colors"
+              onClick={() => handleSort('area')}
+            >
+              <div className="flex items-center">Area <SortIcon column="area" /></div>
+            </TableHead>
+            <TableHead 
+              className="cursor-pointer hover:text-foreground transition-colors"
+              onClick={() => handleSort('title')}
+            >
+              <div className="flex items-center">List Title <SortIcon column="title" /></div>
+            </TableHead>
+            <TableHead 
+              className="w-[120px] cursor-pointer hover:text-foreground transition-colors"
+              onClick={() => handleSort('date')}
+            >
+              <div className="flex items-center">Date <SortIcon column="date" /></div>
+            </TableHead>
+            <TableHead 
+              className="w-[100px] cursor-pointer hover:text-foreground transition-colors"
+              onClick={() => handleSort('progress')}
+            >
+              <div className="flex items-center">Progress <SortIcon column="progress" /></div>
+            </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item) => (
+          {sortedItems.map((item) => (
             <SnagRow 
               key={item.id} 
               item={item} 
