@@ -134,6 +134,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
+  const selectedSub = useMemo(() => projectSubs.find(s => s.id === pendingSubId), [projectSubs, pendingSubId]);
+
   useEffect(() => {
     if (selectedProjectId) {
       setAreas(selectedProject?.areas || []);
@@ -340,7 +342,15 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                                 />
                                 <div className="flex gap-1">
                                   <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
-                                      <SelectTrigger className="w-10 px-0 flex justify-center"><UserPlus className="h-4 w-4" /></SelectTrigger>
+                                      <SelectTrigger className={cn("px-2 flex items-center gap-2 transition-all", pendingSubId ? "w-auto min-w-[40px]" : "w-10 justify-center")}>
+                                          {selectedSub ? (
+                                              <Badge variant="secondary" className="h-6 text-[9px] font-black bg-primary/10 text-primary border-primary/20 max-w-[80px] truncate uppercase tracking-tighter">
+                                                  {selectedSub.name}
+                                              </Badge>
+                                          ) : (
+                                              <UserPlus className="h-4 w-4 text-primary" />
+                                          )}
+                                      </SelectTrigger>
                                       <SelectContent>
                                           <SelectItem value="unassigned">Unassigned</SelectItem>
                                           {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}

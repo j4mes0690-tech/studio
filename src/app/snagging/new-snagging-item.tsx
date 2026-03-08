@@ -97,6 +97,8 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
+  const selectedSub = useMemo(() => projectSubs.find(s => s.id === pendingSubId), [projectSubs, pendingSubId]);
+
   useEffect(() => {
     if (selectedProjectId) {
       setAreas(selectedProject?.areas || []);
@@ -276,7 +278,15 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                             </div>
                             <div className="flex gap-1">
                                 <Select value={pendingSubId || 'unassigned'} onValueChange={(val) => setPendingSubId(val === 'unassigned' ? undefined : val)}>
-                                    <SelectTrigger className="w-10 px-0 flex justify-center border-none h-11"><UserPlus className="h-4 w-4 text-primary" /></SelectTrigger>
+                                    <SelectTrigger className={cn("px-2 flex items-center gap-2 border-none h-11 transition-all", pendingSubId ? "w-auto min-w-[40px]" : "w-10 justify-center")}>
+                                        {selectedSub ? (
+                                            <Badge variant="secondary" className="h-6 text-[9px] font-black bg-primary/10 text-primary border-primary/20 max-w-[80px] truncate uppercase tracking-tighter">
+                                                {selectedSub.name}
+                                            </Badge>
+                                        ) : (
+                                            <UserPlus className="h-4 w-4 text-primary" />
+                                        )}
+                                    </SelectTrigger>
                                     <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                 </Select>
                                 <Button type="button" variant="ghost" size="icon" className="h-11 w-11" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>

@@ -17,7 +17,7 @@ import { doc, updateDoc, collection, addDoc, query, orderBy } from 'firebase/fir
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord } from '@/lib/types';
-import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, Loader2, Save, RefreshCw, History, Eye, FileSearch } from 'lucide-react';
+import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, Loader2, Save, RefreshCw, History, Eye, FileSearch, Check } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
@@ -113,6 +113,8 @@ function EditSnaggingContent() {
     if (profile.permissions?.hasFullVisibility) return true;
     return allowedProjects.some(p => p.id === item.projectId);
   }, [profile, item, allowedProjects]);
+
+  const selectedSub = useMemo(() => subContractors?.find(s => s.id === pendingSubId), [subContractors, pendingSubId]);
 
   // Camera handling
   useEffect(() => {
@@ -377,7 +379,15 @@ function EditSnaggingContent() {
                     </div>
                     <div className="flex gap-1">
                     <Select value={pendingSubId || 'unassigned'} onValueChange={val => setPendingSubId(val === 'unassigned' ? undefined : val)}>
-                        <SelectTrigger className="w-10 px-0 flex justify-center"><UserPlus className="h-4 w-4" /></SelectTrigger>
+                        <SelectTrigger className={cn("px-2 flex items-center gap-2 transition-all", pendingSubId ? "w-auto min-w-[40px]" : "w-10 justify-center")}>
+                            {selectedSub ? (
+                                <Badge variant="secondary" className="h-6 text-[9px] font-black bg-primary/10 text-primary border-primary/20 max-w-[80px] truncate uppercase tracking-tighter">
+                                    {selectedSub.name}
+                                </Badge>
+                            ) : (
+                                <UserPlus className="h-4 w-4 text-primary" />
+                            )}
+                        </SelectTrigger>
                         <SelectContent>
                         <SelectItem value="unassigned">Unassigned</SelectItem>
                         {subContractors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
