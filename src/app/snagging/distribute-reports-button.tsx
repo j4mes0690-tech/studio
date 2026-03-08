@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2, Users, FileText, CheckCircle2, List } from 'lucide-react';
+import { Send, Loader2, Users, FileText, CheckCircle2, List, AlertTriangle } from 'lucide-react';
 import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -228,7 +228,7 @@ export function DistributeReportsButton({
         </Tooltip>
       </TooltipProvider>
 
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
             <div className="bg-primary/10 p-2 rounded-lg text-primary">
