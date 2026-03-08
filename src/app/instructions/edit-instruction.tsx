@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -188,17 +187,14 @@ export function EditInstruction({
         if (values.status === 'issued' && sub) {
           try {
             const updatedInstruction = { ...item, ...updates };
-            // 1. Generate high-fidelity PDF
             const pdf = await generateInstructionPDF(updatedInstruction, selectedProject, sub);
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-            // 2. Prepare attachments
             const additionalAttachments = [
               ...uploadedPhotos.map((p, i) => ({ name: `Appendix-Photo-${i + 1}.jpg`, url: p.url })),
               ...uploadedFiles.map(f => ({ name: f.name, url: f.url }))
             ];
 
-            // 3. Distribute to all project personnel
             await sendSiteInstructionEmailAction({ 
               emails: combinedRecipients, 
               projectName: selectedProject?.name || 'Project', 

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -8,9 +7,9 @@ import Link from 'next/link';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import {
   Accordion,
@@ -18,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2, Send, MailCheck } from 'lucide-react';
+import { Camera, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2, MailCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -97,7 +96,6 @@ export function InstructionCard({
     });
   };
 
-  // Identify the instructed party (the external contact)
   const instructedParty = useMemo(() => {
     return subContractors.find(s => instruction.recipients?.includes(s.email));
   }, [subContractors, instruction.recipients]);
@@ -172,7 +170,7 @@ export function InstructionCard({
                   Logged <ClientDate date={instruction.createdAt} />
                 </span>
                 {instruction.clientInstructionId && (
-                    <Link href={`/client-instructions/${instruction.clientInstructionId}`} onClick={(e) => e.stopPropagation()}>
+                    <Link href={`/client-instructions/${instruction.clientInstructionId}`}>
                         <Badge variant="secondary" className="text-[9px] gap-1 h-4 px-1.5 font-normal hover:bg-secondary/80 transition-colors">
                             <LinkIcon className="h-2 w-2" /> Linked to Client Directive
                         </Badge>
@@ -243,7 +241,7 @@ export function InstructionCard({
               </AlertDialog>
             </div>
           </div>
-        </Header>
+        </CardHeader>
         <CardContent>
           <div className="bg-muted/5 p-4 rounded-lg border mb-4">
             <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{instruction.originalText}</p>

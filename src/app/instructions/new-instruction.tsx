@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -166,18 +165,15 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         const sub = subContractors.find(s => s.email === values.externalRecipient);
         if (values.status === 'issued' && sub) {
           try {
-            // 1. Generate high-fidelity PDF
             const fullInstruction = { ...instructionData, id: newDocRef.id } as Instruction;
             const pdf = await generateInstructionPDF(fullInstruction, selectedProject, sub);
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-            // 2. Prepare attachments for email
             const additionalAttachments = [
               ...uploadedPhotos.map((p, i) => ({ name: `Appendix-Photo-${i + 1}.jpg`, url: p.url })),
               ...uploadedFiles.map(f => ({ name: f.name, url: f.url }))
             ];
 
-            // 3. Distribute via Resend to ALL recipients (sub + staff)
             await sendSiteInstructionEmailAction({ 
               emails: combinedRecipients, 
               projectName: selectedProject?.name || 'Project', 
@@ -252,7 +248,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField control={form.control} name="projectId" render={({ field }) => (
-              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+              <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
             )} />
             <FormField control={form.control} name="originalText" render={({ field }) => (
               <FormItem><div className="flex items-center justify-between"><FormLabel>Instruction Text</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} /></FormControl><FormMessage /></FormItem>
