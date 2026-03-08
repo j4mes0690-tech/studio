@@ -9,7 +9,9 @@
         "id": { "type": "string" },
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
-        "requirePasswordChange": { "type": "boolean", "description": "Flag to prompt user to update password after a reset." },
+        "password": { "type": "string" },
+        "userType": { "type": "string", "enum": ["internal", "partner"] },
+        "requirePasswordChange": { "type": "boolean" },
         "permissions": {
           "type": "object",
           "properties": {
@@ -39,6 +41,24 @@
       },
       "required": ["id", "name", "email"]
     },
+    "Invitation": {
+      "title": "Invitation",
+      "description": "A pending request for a user to join the platform.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "userType": { "type": "string", "enum": ["internal", "partner"] },
+        "projectId": { "type": "string", "description": "Optional project to auto-assign upon joining." },
+        "token": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "expired"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "createdByEmail": { "type": "string" }
+      },
+      "required": ["id", "email", "token", "status"]
+    },
     "Project": {
       "title": "Project",
       "description": "Represents a construction project.",
@@ -63,43 +83,6 @@
         "assignedSubContractors": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["id", "name"]
-    },
-    "SubContractor": {
-      "title": "SubContractor",
-      "description": "Represents an external partner such as a subcontractor, designer, or supplier.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "phone": { "type": "string" },
-        "address": { "type": "string" },
-        "isSubContractor": { "type": "boolean" },
-        "isDesigner": { "type": "boolean" },
-        "isSupplier": { "type": "boolean" },
-        "isPlantSupplier": { "type": "boolean" }
-      },
-      "required": ["id", "name", "email"]
-    },
-    "SubContractOrder": {
-      "title": "SubContractOrder",
-      "description": "Represents a formal agreement with a subcontractor.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "reference": { "type": "string" },
-        "projectId": { "type": "string" },
-        "subcontractorId": { "type": "string" },
-        "subcontractorName": { "type": "string" },
-        "description": { "type": "string" },
-        "draftedDate": { "type": ["string", "null"], "format": "date" },
-        "sentForApprovalDate": { "type": ["string", "null"], "format": "date" },
-        "loadedOnDocuSignDate": { "type": ["string", "null"], "format": "date" },
-        "signedDate": { "type": ["string", "null"], "format": "date" },
-        "status": { "type": "string", "enum": ["draft", "pending-approval", "docusign", "completed"] },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["id", "projectId", "subcontractorId"]
     }
   },
   "auth": {
@@ -107,8 +90,7 @@
   },
   "firestore": {
     "/users/{userId}": { "schema": { "$ref": "#/backend/entities/User" }, "description": "System user profiles." },
-    "/projects/{projectId}": { "schema": { "$ref": "#/backend/entities/Project" }, "description": "Construction site project metadata." },
-    "/sub-contractors/{subId}": { "schema": { "$ref": "#/backend/entities/SubContractor" }, "description": "External trade partner directory." },
-    "/subcontract-orders/{id}": { "schema": { "$ref": "#/backend/entities/SubContractOrder" }, "description": "Subcontractor order tracking records." }
+    "/invitations/{id}": { "schema": { "$ref": "#/backend/entities/Invitation" }, "description": "Pending user invites." },
+    "/projects/{projectId}": { "schema": { "$ref": "#/backend/entities/Project" }, "description": "Construction site project metadata." }
   }
 }

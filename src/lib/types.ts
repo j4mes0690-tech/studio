@@ -1,3 +1,4 @@
+
 export type Area = {
   id: string;
   name: string;
@@ -146,8 +147,22 @@ export type DistributionUser = {
   name: string;
   email: string;
   password?: string;
+  userType?: 'internal' | 'partner';
   requirePasswordChange?: boolean;
   permissions?: UserPermissions;
+};
+
+export type Invitation = {
+  id: string;
+  email: string;
+  name: string;
+  userType: 'internal' | 'partner';
+  projectId?: string;
+  token: string;
+  status: 'pending' | 'accepted' | 'expired';
+  createdAt: string;
+  expiresAt: string;
+  createdByEmail: string;
 };
 
 export type SubContractor = {

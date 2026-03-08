@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -22,13 +23,15 @@ import { ProjectsList } from './projects-list';
 import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
-import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate } from '@/lib/types';
-import { Loader2, ShieldAlert, Truck, FileCheck, Tag } from 'lucide-react';
+import { collection, doc, query, where, orderBy } from 'firebase/firestore';
+import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation } from '@/lib/types';
+import { Loader2, ShieldAlert, Truck, FileCheck, Tag, MailPlus, Users } from 'lucide-react';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
 import { Separator } from '@/components/ui/separator';
+import { InviteCollaboratorDialog } from './invite-collaborator-dialog';
+import { InvitationsList } from './invitations-list';
 
 export default function SettingsPage() {
   const db = useFirestore();
@@ -48,6 +51,13 @@ export default function SettingsPage() {
     return collection(db, 'users');
   }, [db]);
   const { data: users, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
+
+  // Fetch Invitations
+  const invitesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'invitations'), orderBy('createdAt', 'desc'));
+  }, [db]);
+  const { data: invitations, isLoading: invitesLoading } = useCollection<Invitation>(invitesQuery);
 
   // Fetch Sub-contractors / Designers / Suppliers
   const subsQuery = useMemoFirebase(() => {
@@ -77,7 +87,7 @@ export default function SettingsPage() {
   }, [db]);
   const { data: permitTemplates, isLoading: permitTemplatesLoading } = useCollection<PermitTemplate>(permitTemplatesQuery);
 
-  const isLoading = profileLoading || usersLoading || subsLoading || projectsLoading || templatesLoading || permitTemplatesLoading;
+  const isLoading = profileLoading || usersLoading || subsLoading || projectsLoading || templatesLoading || permitTemplatesLoading || invitesLoading;
 
   if (isLoading) {
     return (
@@ -130,16 +140,36 @@ export default function SettingsPage() {
           {canManageUsers && (
             <Card>
                 <AccordionItem value="users" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Internal Users</AccordionTrigger>
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Access & Collaborators</AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
-                        <div className="grid gap-8 lg:grid-cols-2">
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-medium">Add New User</h3>
-                                <AddUserForm />
+                        <div className="space-y-12">
+                            <div className="grid gap-12 lg:grid-cols-2">
+                                <div className="space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-primary font-bold">
+                                            <MailPlus className="h-5 w-5" />
+                                            <h3 className="text-lg">Onboard Collaborators</h3>
+                                        </div>
+                                        <InviteCollaboratorDialog projects={projects || []} currentUser={profile!} />
+                                    </div>
+                                    <InvitationsList invitations={invitations || []} />
+                                </div>
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-2 text-muted-foreground font-bold">
+                                        <Users className="h-5 w-5" />
+                                        <h3 className="text-lg">Active System Users</h3>
+                                    </div>
+                                    <UsersList users={users || []} />
+                                </div>
                             </div>
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-medium">Existing Users</h3>
-                                <UsersList users={users || []} />
+
+                            <Separator />
+
+                            <div className="space-y-6">
+                                <h3 className="text-lg font-bold text-primary">Manual Profile Creation</h3>
+                                <div className="max-w-2xl">
+                                    <AddUserForm />
+                                </div>
                             </div>
                         </div>
                     </AccordionContent>
@@ -150,16 +180,16 @@ export default function SettingsPage() {
           {canManageSubcontractors && (
             <Card>
                 <AccordionItem value="subcontractors" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Contacts</AccordionTrigger>
+                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Partners</AccordionTrigger>
                     <AccordionContent className="p-6 pt-0">
                         <div className="space-y-8">
                             <div className="grid gap-8 lg:grid-cols-2">
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-medium">Add New External Contact</h3>
+                                    <h3 className="text-lg font-medium">Add New External Partner</h3>
                                     <AddSubcontractorForm />
                                 </div>
                                 <div className="space-y-4">
-                                    <h3 className="text-lg font-medium">Existing Partners</h3>
+                                    <h3 className="text-lg font-medium">Partner Directory</h3>
                                     <SubcontractorsList subContractors={subContractors || []} />
                                 </div>
                             </div>
