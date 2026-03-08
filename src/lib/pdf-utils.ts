@@ -3,6 +3,7 @@ import type { Instruction, Project, SubContractor } from '@/lib/types';
 /**
  * generateInstructionPDF - Robust utility to create a Site Instruction PDF.
  * Uses a hybrid approach: html2canvas for layout and jsPDF for reliable image embedding.
+ * Now includes a formal Appendices section listing all file names.
  */
 export async function generateInstructionPDF(
   instruction: Instruction,
@@ -35,7 +36,7 @@ export async function generateInstructionPDF(
     });
   }));
 
-  // 2. Prepare the high-fidelity layout element (excluding photos for manual injection)
+  // 2. Prepare the high-fidelity layout element
   const reportElement = document.createElement('div');
   reportElement.style.position = 'absolute';
   reportElement.style.left = '-9999px';
@@ -111,7 +112,7 @@ export async function generateInstructionPDF(
   // 4. Appendix A: Visual Evidence (Photos)
   const filteredPhotos = photoDataUrls.filter(url => !!url);
   if (filteredPhotos.length > 0) {
-    if (currentY + 20 > pdfHeight) {
+    if (currentY + 30 > pdfHeight) {
       pdf.addPage();
       currentY = 20;
     }
@@ -121,7 +122,7 @@ export async function generateInstructionPDF(
     pdf.text("Appendix A: Visual Evidence", 10, currentY);
     currentY += 8;
 
-    for (const url of filteredPhotos) {
+    filteredPhotos.forEach((url, idx) => {
       // Check for page overflow (standard photo height ~120mm + buffer)
       if (currentY + 130 > pdfHeight) {
         pdf.addPage();
@@ -129,8 +130,11 @@ export async function generateInstructionPDF(
       }
       
       pdf.addImage(url, 'JPEG', 10, currentY, 190, 120, undefined, 'FAST');
-      currentY += 130;
-    }
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 116, 139);
+      pdf.text(`Figure ${idx + 1}: Site-Photo-${(idx + 1).toString().padStart(2, '0')}.jpg`, 10, currentY + 125);
+      currentY += 135;
+    });
   }
 
   // 5. Appendix B: Linked Documentation (Files)
@@ -155,10 +159,55 @@ export async function generateInstructionPDF(
       pdf.text(`• ${f.name} (${(f.size / 1024).toFixed(1)} KB)`, 15, currentY);
       currentY += 7;
     });
-    
-    pdf.setFontSize(9);
-    pdf.setTextColor(148, 163, 184);
-    pdf.text("* Note: Documentation files are attached separately to the distribution email.", 15, currentY + 5);
+  }
+
+  // 6. Final Section: Schedule of Attachments (Filenames)
+  if (currentY + 40 > pdfHeight) {
+    pdf.addPage();
+    currentY = 20;
+  } else {
+    currentY += 10;
+  }
+
+  pdf.setDrawColor(226, 232, 240);
+  pdf.line(10, currentY, 200, currentY);
+  currentY += 10;
+
+  pdf.setFontSize(14);
+  pdf.setTextColor(30, 41, 59);
+  pdf.text("Schedule of Attachments", 10, currentY);
+  currentY += 8;
+
+  pdf.setFontSize(9);
+  pdf.setTextColor(100, 116, 139);
+  pdf.text("The following files are attached to the distribution email corresponding to this report:", 10, currentY);
+  currentY += 8;
+
+  pdf.setFontSize(10);
+  pdf.setTextColor(30, 41, 59);
+  
+  // List Photos by generated name
+  if (instruction.photos && instruction.photos.length > 0) {
+    instruction.photos.forEach((_, idx) => {
+      if (currentY + 8 > pdfHeight) {
+        pdf.addPage();
+        currentY = 20;
+      }
+      pdf.text(`• Appendix-Photo-${idx + 1}.jpg`, 15, currentY);
+      currentY += 6;
+    });
+  }
+
+  // List Files by original name
+  if (instruction.files && instruction.files.length > 0) {
+    instruction.files.forEach(f => {
+      if (currentY + 8 > pdfHeight) {
+        pdf.addPage();
+        currentY = 20;
+      }
+      pdf.text(`• ${f.name}`, 15, currentY);
+      currentY += 6;
+    });
   }
 
   return pdf;
