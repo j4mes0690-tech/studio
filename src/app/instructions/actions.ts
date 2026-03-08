@@ -1,11 +1,77 @@
-
 'use server';
 
+import { Resend } from 'resend';
+
 /**
- * Stale server actions removed. 
- * Instructions are now managed directly via the Firestore client SDK in the UI,
- * incorporating AI flows on the client side before persistence.
+ * sendSiteInstructionEmailAction - Uses the Resend API to send a Site Instruction PDF to subcontractors.
  */
+export async function sendSiteInstructionEmailAction({
+  email,
+  name,
+  projectName,
+  reference,
+  pdfBase64,
+  fileName
+}: {
+  email: string;
+  name: string;
+  projectName: string;
+  reference: string;
+  pdfBase64: string;
+  fileName: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.error('RESEND_API_KEY is not set in environment variables.');
+    return { 
+      success: false, 
+      message: 'Email service not configured. Please add RESEND_API_KEY to your system settings.' 
+    };
+  }
+
+  const resend = new Resend(apiKey);
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'instructions@resend.dev',
+      to: [email],
+      subject: `Site Instruction Issued: ${reference} - ${projectName}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #334155;">
+          <h1 style="color: #1e40af; border-bottom: 2px solid #f97316; padding-bottom: 10px;">Site Instruction</h1>
+          <p>Hello <strong>${name}</strong>,</p>
+          <p>A formal <strong>Site Instruction (SI)</strong> has been issued for your attention at <strong>${projectName}</strong>.</p>
+          <p>Reference: <strong>${reference}</strong></p>
+          <p>Please find the formal instruction document attached as a PDF. You are required to review the specific requirements and ensure compliance on-site.</p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; border-radius: 8px; margin: 20px 0;">
+            <p style="margin: 0; font-size: 14px;"><strong>Project:</strong> ${projectName}</p>
+            <p style="margin: 5px 0 0 0; font-size: 14px;"><strong>Instruction Ref:</strong> ${reference}</p>
+          </div>
+          <p style="font-size: 12px; color: #64748b; margin-top: 30px;">
+            This was an automated distribution via SiteCommand.
+          </p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: fileName,
+          content: pdfBase64,
+        },
+      ],
+    });
+
+    if (error) {
+      console.error('Resend Transmission Error:', error);
+      return { success: false, message: error.message };
+    }
+
+    return { success: true, message: `Instruction sent to ${email}.` };
+  } catch (err: any) {
+    console.error('Server Side Email Error:', err);
+    return { success: false, message: err.message || 'An unexpected server error occurred.' };
+  }
+}
 
 export type FormState = {
   message: string;

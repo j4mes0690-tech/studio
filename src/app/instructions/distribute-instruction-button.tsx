@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -12,7 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { sendSubcontractorReportAction } from '@/app/snagging/actions';
+import { sendSiteInstructionEmailAction } from './actions';
 
 /**
  * DistributeInstructionButton - Generates a high-resolution PDF of the site instruction
@@ -121,11 +120,11 @@ export function DistributeInstructionButton({
 
       const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-      const result = await sendSubcontractorReportAction({
+      const result = await sendSiteInstructionEmailAction({
         email: sub.email,
         name: sub.name,
         projectName: project?.name || 'Project',
-        areaName: 'Site Instruction',
+        reference: instruction.reference,
         pdfBase64,
         fileName
       });
