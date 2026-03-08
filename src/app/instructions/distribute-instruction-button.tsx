@@ -55,7 +55,9 @@ export function DistributeInstructionButton({
       const html2canvas = (await import('html2canvas')).default;
 
       // 1. Pre-convert photos to base64 to ensure they render in canvas correctly (CORS bypass)
+      // Added robust error handling to prevent "Failed to fetch" from crashing the flow
       const photoBase64s = await Promise.all((instruction.photos || []).map(async (p) => {
+        if (p.url.startsWith('data:')) return p.url;
         try {
           const resp = await fetch(p.url);
           const blob = await resp.blob();
@@ -65,7 +67,7 @@ export function DistributeInstructionButton({
             reader.readAsDataURL(blob);
           });
         } catch (e) {
-          console.error("Failed to base64 image for PDF", e);
+          console.warn("CORS block or network error for photo, falling back to direct URL", e);
           return p.url;
         }
       }));
@@ -123,7 +125,7 @@ export function DistributeInstructionButton({
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
             ${photoBase64s.map(url => `
               <div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; padding: 10px;">
-                <img src="${url}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" />
+                <img src="${url}" crossorigin="anonymous" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" />
               </div>
             `).join('')}
           </div>
@@ -150,6 +152,7 @@ export function DistributeInstructionButton({
       const canvas = await html2canvas(reportElement, { 
         scale: 2, 
         useCORS: true, 
+        allowTaint: true,
         logging: false
       });
       

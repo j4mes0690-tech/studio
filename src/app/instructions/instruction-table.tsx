@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, FileText, Camera, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2 } from 'lucide-react';
+import { Trash2, FileText, Camera, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, MailCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SortKey = 'reference' | 'project' | 'summary' | 'recipient' | 'date';
@@ -157,6 +157,7 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
   }, [subContractors, item.recipients]);
 
   const isDraft = item.status === 'draft';
+  const isDistributed = !!item.distributedAt;
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -223,11 +224,27 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
         </div>
       </TableCell>
       <TableCell>
-        {isDraft ? (
-          <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
-        ) : (
-          <Badge variant="outline" className="text-[10px] text-green-600 border-green-200">ISSUED</Badge>
-        )}
+        <div className="flex flex-col gap-1">
+            {isDraft ? (
+            <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px] w-fit">DRAFT</Badge>
+            ) : (
+            <Badge variant="outline" className="text-[10px] text-green-600 border-green-200 w-fit">ISSUED</Badge>
+            )}
+            {isDistributed && (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1 h-4 text-[8px] uppercase font-bold tracking-tighter cursor-help w-fit">
+                                <MailCheck className="h-2 w-2" /> Emailed
+                            </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Last sent: {new Date(item.distributedAt!).toLocaleString()}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
+        </div>
       </TableCell>
       <TableCell>
         <span className="text-xs text-muted-foreground">

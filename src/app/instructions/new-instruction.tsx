@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Send, Save, Users2 } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Users2, Send, Save } from 'lucide-react';
 import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -55,6 +55,13 @@ const NewInstructionSchema = z.object({
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
+
+interface NewInstructionProps {
+  projects: Project[];
+  distributionUsers: DistributionUser[];
+  subContractors: SubContractor[];
+  allInstructions: Instruction[];
+}
 
 export function NewInstruction({ projects, distributionUsers, subContractors, allInstructions }: NewInstructionProps) {
   const [open, setOpen] = useState(false);
@@ -178,7 +185,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
             const { jsPDF } = await import('jspdf');
             const html2canvas = (await import('html2canvas')).default;
 
-            // Pre-convert photos to base64 for PDF rendering
+            // Pre-convert photos to base64 for PDF rendering with error safety
             const photoBase64s = await Promise.all(uploadedPhotos.map(async (p) => {
               try {
                 if (p.url.startsWith('data:')) return p.url;
@@ -189,7 +196,10 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                   reader.onloadend = () => resolve(reader.result as string);
                   reader.readAsDataURL(blob);
                 });
-              } catch (e) { return p.url; }
+              } catch (e) { 
+                console.warn("Failed to pre-convert image for PDF", e);
+                return p.url; 
+              }
             }));
 
             const reportElement = document.createElement('div');
@@ -225,7 +235,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               ${photoBase64s.length > 0 ? `
                 <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                  ${photoBase64s.map(url => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${url}" style="width: 100%; height: 200px; object-fit: cover;" /></div>`).join('')}
+                  ${photoBase64s.map(url => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${url}" crossorigin="anonymous" style="width: 100%; height: 200px; object-fit: cover;" /></div>`).join('')}
                 </div>
               ` : ''}
             `;
@@ -237,7 +247,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
             }));
 
-            const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+            const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, allowTaint: true, logging: false });
             const imgData = canvas.toDataURL('image/jpeg', 0.95);
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -307,10 +317,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
       const canvas = canvasRef.current;
       const video = videoRef.current;
       const context = canvas.getContext('2d');
+      if (!context) return;
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 1200;
       canvas.height = 1200 / aspectRatio;
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
@@ -321,7 +332,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     const selectedFiles = e.target.files;
     if (!selectedFiles) return;
     Array.from(selectedFiles).forEach(f => {
-      if (f.size > MAX_FILE_SIZE) {
+      if (f.size > 10 * 1024 * 1024) {
         toast({ title: 'File Too Large', description: `${f.name} exceeds 10MB limit.`, variant: 'destructive' });
         return;
       }
@@ -516,13 +527,4 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
       </DialogContent>
     </Dialog>
   );
-}
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
-interface NewInstructionProps {
-  projects: Project[];
-  distributionUsers: DistributionUser[];
-  subContractors: SubContractor[];
-  allInstructions: Instruction[];
 }

@@ -204,7 +204,7 @@ export function EditInstruction({
             const { jsPDF } = await import('jspdf');
             const html2canvas = (await import('html2canvas')).default;
 
-            // 1. Pre-convert photos to base64 to ensure they render in canvas correctly (CORS bypass)
+            // Pre-convert photos to base64 for PDF rendering with error safety
             const photoBase64s = await Promise.all(uploadedPhotos.map(async (p) => {
               try {
                 if (p.url.startsWith('data:')) return p.url;
@@ -216,7 +216,7 @@ export function EditInstruction({
                   reader.readAsDataURL(blob);
                 });
               } catch (e) {
-                console.error("Failed to base64 image for PDF", e);
+                console.warn("Failed to pre-convert image for PDF", e);
                 return p.url;
               }
             }));
@@ -254,7 +254,7 @@ export function EditInstruction({
               ${photoBase64s.length > 0 ? `
                 <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                  ${photoBase64s.map(url => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${url}" style="width: 100%; height: 200px; object-fit: cover;" /></div>`).join('')}
+                  ${photoBase64s.map(url => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${url}" crossorigin="anonymous" style="width: 100%; height: 200px; object-fit: cover;" /></div>`).join('')}
                 </div>
               ` : ''}
             `;
@@ -268,7 +268,7 @@ export function EditInstruction({
               return new Promise(resolve => { img.onload = resolve; img.onerror = resolve; });
             }));
 
-            const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+            const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, allowTaint: true, logging: false });
             const imgData = canvas.toDataURL('image/jpeg', 0.95);
             const pdf = new jsPDF('p', 'mm', 'a4');
             const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -329,10 +329,11 @@ export function EditInstruction({
       const canvas = canvasRef.current;
       const video = videoRef.current;
       const context = canvas.getContext('2d');
+      if (!context) return;
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 1200;
       canvas.height = 1200 / aspectRatio;
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
       setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
