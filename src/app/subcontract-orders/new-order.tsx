@@ -33,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Separator } from '@/components/ui/separator';
 
 const NewSubContractOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
