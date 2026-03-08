@@ -138,6 +138,7 @@ export type UserPermissions = {
   accessQualityControl: boolean;
   accessInfoRequests: boolean;
   accessPaymentNotices: boolean;
+  accessSubContractOrders: boolean;
 };
 
 export type DistributionUser = {
@@ -410,5 +411,24 @@ export type ValuationPeriod = {
   id: string;
   value: string; // YYYY-MM
   label: string; // Month Year
+  createdAt: string;
+};
+
+// --- SUB CONTRACT ORDER MODULE TYPES ---
+
+export type SubContractOrderStatus = 'draft' | 'pending-approval' | 'docusign' | 'completed';
+
+export type SubContractOrder = {
+  id: string;
+  reference: string;
+  projectId: string;
+  subcontractorId: string;
+  subcontractorName: string;
+  description: string;
+  draftedDate: string | null;
+  sentForApprovalDate: string | null;
+  loadedOnDocuSignDate: string | null;
+  signedDate: string | null;
+  status: SubContractOrderStatus;
   createdAt: string;
 };

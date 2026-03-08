@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -50,6 +51,7 @@ const EditUserSchema = z.object({
   // Module Access
   accessMaterials: z.boolean().default(true),
   accessPlant: z.boolean().default(true),
+  accessSubContractOrders: z.boolean().default(true),
   accessVariations: z.boolean().default(true),
   accessPaymentNotices: z.boolean().default(true),
   accessPermits: z.boolean().default(true),
@@ -90,6 +92,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
       hasFullVisibility: user.permissions?.hasFullVisibility || false,
       accessMaterials: user.permissions?.accessMaterials !== false,
       accessPlant: user.permissions?.accessPlant !== false,
+      accessSubContractOrders: user.permissions?.accessSubContractOrders !== false,
       accessVariations: user.permissions?.accessVariations !== false,
       accessPaymentNotices: user.permissions?.accessPaymentNotices !== false,
       accessPermits: user.permissions?.accessPermits !== false,
@@ -119,6 +122,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
         hasFullVisibility: user.permissions?.hasFullVisibility || false,
         accessMaterials: user.permissions?.accessMaterials !== false,
         accessPlant: user.permissions?.accessPlant !== false,
+        accessSubContractOrders: user.permissions?.accessSubContractOrders !== false,
         accessVariations: user.permissions?.accessVariations !== false,
         accessPaymentNotices: user.permissions?.accessPaymentNotices !== false,
         accessPermits: user.permissions?.accessPermits !== false,
@@ -150,6 +154,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
           hasFullVisibility: values.hasFullVisibility,
           accessMaterials: values.accessMaterials,
           accessPlant: values.accessPlant,
+          accessSubContractOrders: values.accessSubContractOrders,
           accessVariations: values.accessVariations,
           accessPaymentNotices: values.accessPaymentNotices,
           accessPermits: values.accessPermits,
@@ -256,6 +261,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
                             {[
                                 { name: 'accessMaterials', label: 'Materials Orders' },
                                 { name: 'accessPlant', label: 'Plant Hire' },
+                                { name: 'accessSubContractOrders', label: 'Sub Contract Orders' },
                                 { name: 'accessVariations', label: 'Variation Pricing' },
                                 { name: 'accessPaymentNotices', label: 'Payment Notices' },
                                 { name: 'accessPermits', label: 'Permits to Work' },
@@ -273,7 +279,7 @@ export function EditUserForm({ user }: EditUserFormProps) {
                                     name={mod.name as any}
                                     render={({ field }) => (
                                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
-                                        <FormLabel className="text-xs font-semibold">{mod.label}</FormLabel>
+                                        <span className="text-xs font-semibold">{mod.label}</span>
                                         <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                     </FormItem>
                                     )}

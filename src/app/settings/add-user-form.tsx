@@ -49,6 +49,7 @@ const AddUserSchema = z.object({
   accessQualityControl: z.boolean().default(true),
   accessInfoRequests: z.boolean().default(true),
   accessPaymentNotices: z.boolean().default(true),
+  accessSubContractOrders: z.boolean().default(true),
 });
 
 type AddUserFormValues = z.infer<typeof AddUserSchema>;
@@ -83,6 +84,7 @@ export function AddUserForm() {
       accessQualityControl: true,
       accessInfoRequests: true,
       accessPaymentNotices: true,
+      accessSubContractOrders: true,
     },
   });
 
@@ -114,6 +116,7 @@ export function AddUserForm() {
           accessQualityControl: values.accessQualityControl,
           accessInfoRequests: values.accessInfoRequests,
           accessPaymentNotices: values.accessPaymentNotices,
+          accessSubContractOrders: values.accessSubContractOrders,
         }
       };
 
@@ -235,6 +238,7 @@ export function AddUserForm() {
                     {[
                         { name: 'accessMaterials', label: 'Materials Orders' },
                         { name: 'accessPlant', label: 'Plant Hire' },
+                        { name: 'accessSubContractOrders', label: 'Sub Contract Orders' },
                         { name: 'accessVariations', label: 'Variation Pricing' },
                         { name: 'accessPermits', label: 'Permits to Work' },
                         { name: 'accessTraining', label: 'Training & Compliance' },
@@ -252,7 +256,7 @@ export function AddUserForm() {
                             name={mod.name as any}
                             render={({ field }) => (
                             <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
-                                <FormLabel className="text-xs font-semibold">{mod.label}</FormLabel>
+                                <span className="text-xs font-semibold">{mod.label}</span>
                                 <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                             </FormItem>
                             )}

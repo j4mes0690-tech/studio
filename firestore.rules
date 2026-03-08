@@ -17,6 +17,7 @@ service cloud.firestore {
     match /users/{userId} { allow read, write: if isSignedIn(); }
     match /projects/{projectId} { allow read, write: if isSignedIn(); }
     match /sub-contractors/{subId} { allow read, write: if isSignedIn(); }
+    match /subcontract-orders/{id} { allow read, write: if isSignedIn(); }
     match /client-instructions/{id} { allow read, write: if isSignedIn(); }
     match /instructions/{id} { allow read, write: if isSignedIn(); }
     match /cleanup-notices/{id} { allow read, write: if isSignedIn(); }
