@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord } from '@/lib/types';
@@ -58,6 +57,7 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ImageLightbox } from '@/components/image-lightbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type SnaggingItemCardProps = {
   item: SnaggingItem;
