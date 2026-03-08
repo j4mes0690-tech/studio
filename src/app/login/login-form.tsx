@@ -52,54 +52,74 @@ export function LoginForm() {
   const [resetErrorMessage, setResetErrorMessage] = useState<string | null>(null);
   const [prototypePassword, setPrototypePassword] = useState<string | null>(null);
 
-  // Auto-seed the admin account in the background if it doesn't exist
+  // Auto-seed initial accounts in the background
   useEffect(() => {
-    const seedAdmin = async () => {
+    const seedInitialUsers = async () => {
       if (!db) return;
       setIsSeeding(true);
       try {
-        const adminEmail = 'admin@example.com';
-        const userRef = doc(db, 'users', adminEmail);
-        const userSnap = await getDoc(userRef);
-        
-        if (!userSnap.exists()) {
-          await setDoc(userRef, {
-            id: adminEmail,
-            email: adminEmail,
+        const usersToSeed = [
+          {
+            email: 'admin@example.com',
             name: 'System Admin',
             password: '123456',
-            permissions: {
-              canManageUsers: true,
-              canManageSubcontractors: true,
-              canManageProjects: true,
-              canManageChecklists: true,
-              canManageMaterials: true,
-              canManagePermitTemplates: true,
-              canManageTraining: true,
-              hasFullVisibility: true,
-              accessMaterials: true,
-              accessPlant: true,
-              accessVariations: true,
-              accessPermits: true,
-              accessTraining: true,
-              accessClientInstructions: true,
-              accessSiteInstructions: true,
-              accessCleanupNotices: true,
-              accessSnagging: true,
-              accessQualityControl: true,
-              accessInfoRequests: true,
-              accessPaymentNotices: true,
-            }
-          });
+            isAdmin: true
+          },
+          {
+            email: 'james@hallcc.co.uk',
+            name: 'James Hall',
+            password: '123456',
+            isAdmin: false
+          }
+        ];
+
+        for (const u of usersToSeed) {
+          const emailKey = u.email.toLowerCase().trim();
+          const userRef = doc(db, 'users', emailKey);
+          const userSnap = await getDoc(userRef);
+          
+          if (!userSnap.exists()) {
+            await setDoc(userRef, {
+              id: emailKey,
+              email: emailKey,
+              name: u.name,
+              password: u.password,
+              permissions: {
+                canManageUsers: u.isAdmin,
+                canManageSubcontractors: u.isAdmin,
+                canManageProjects: u.isAdmin,
+                canManageChecklists: u.isAdmin,
+                canManageMaterials: u.isAdmin,
+                canManagePermitTemplates: u.isAdmin,
+                canManageTraining: u.isAdmin,
+                hasFullVisibility: u.isAdmin,
+                accessMaterials: true,
+                accessPlant: true,
+                accessVariations: true,
+                accessPermits: true,
+                accessTraining: true,
+                accessClientInstructions: true,
+                accessSiteInstructions: true,
+                accessCleanupNotices: true,
+                accessSnagging: true,
+                accessQualityControl: true,
+                accessInfoRequests: true,
+                accessPaymentNotices: true,
+              }
+            });
+          } else if (u.email === 'james@hallcc.co.uk' && userSnap.data().password !== u.password) {
+            // Ensure James's password is set as requested
+            await updateDoc(userRef, { password: u.password });
+          }
         }
       } catch (err) {
-        console.error('Error seeding admin user:', err);
+        console.error('Error seeding users:', err);
       } finally {
         setIsSeeding(false);
       }
     };
 
-    seedAdmin();
+    seedInitialUsers();
   }, [db]);
 
   const handleLogin = async (e: React.FormEvent) => {
