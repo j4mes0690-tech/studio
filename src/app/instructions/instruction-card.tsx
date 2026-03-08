@@ -160,9 +160,11 @@ export function InstructionCard({
                   Logged <ClientDate date={instruction.createdAt} />
                 </span>
                 {instruction.clientInstructionId && (
-                    <Badge variant="secondary" className="text-[9px] gap-1 h-4 px-1.5 font-normal">
-                        <LinkIcon className="h-2 w-2" /> Linked to Client Directive
-                    </Badge>
+                    <Link href={`/client-instructions/${instruction.clientInstructionId}`} onClick={(e) => e.stopPropagation()}>
+                        <Badge variant="secondary" className="text-[9px] gap-1 h-4 px-1.5 font-normal hover:bg-secondary/80 transition-colors">
+                            <LinkIcon className="h-2 w-2" /> Linked to Client Directive
+                        </Badge>
+                    </Link>
                 )}
               </CardDescription>
               
@@ -207,8 +209,8 @@ export function InstructionCard({
 
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                  <Button variant="ghost" size="icon" className="text-destructive">
+                    <Trash2 className="h-4 w-4" />
                     <span className="sr-only">Delete Instruction</span>
                   </Button>
                 </AlertDialogTrigger>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -179,18 +178,24 @@ export function InformationRequestCard({
       <Card className={cn(isDraft && "border-orange-200 bg-orange-50/10")}>
         <CardHeader>
           <div className="flex justify-between items-start border-b pb-4">
-            <Link href={`/information-requests/${item.id}`} className="space-y-1 flex-1 group">
-              <div className="flex items-center gap-2">
+            <div className="space-y-1 flex-1">
+              <Link href={`/information-requests/${item.id}`} className="group flex items-center gap-2 w-fit">
                 <CardTitle className="text-xl group-hover:text-primary transition-colors">{project?.name || 'Unknown Project'}</CardTitle>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{item.reference}</Badge>
                 <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
+              </Link>
               <CardDescription className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
                   <span className="text-xs text-muted-foreground/80 font-medium">Captured <ClientDate date={item.createdAt} format="date" /></span>
-                  {item.clientInstructionId && <Badge variant="outline" className="text-[9px] gap-1 h-4 px-1.5"><LinkIcon className="h-2 w-2" /> Linked to Client Directive</Badge>}
+                  {item.clientInstructionId && (
+                    <Link href={`/client-instructions/${item.clientInstructionId}`} onClick={(e) => e.stopPropagation()}>
+                      <Badge variant="outline" className="text-[9px] gap-1 h-4 px-1.5 hover:bg-muted transition-colors cursor-pointer">
+                        <LinkIcon className="h-2 w-2" /> Linked to Client Directive
+                      </Badge>
+                    </Link>
+                  )}
               </CardDescription>
               {item.requiredBy && <div className="flex items-center gap-2 text-xs text-destructive mt-2 font-semibold"><CalendarClock className="h-4 w-4" /><span>Due: <ClientDate date={item.requiredBy} format="date" /></span></div>}
-            </Link>
+            </div>
             <div className="flex items-center gap-2">
               {isDraft ? (
                 <>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -325,9 +324,21 @@ export function VariationCard({
         <CardContent>
           <div className="space-y-4">
             {(linkedCIs.length > 0 || linkedSIs.length > 0) && (
-                <div className="flex flex-wrap gap-1.5">
-                    {linkedCIs.map(ci => <Badge key={ci.id} variant="secondary" className="text-[9px] gap-1 h-5"><LinkIcon className="h-2.5 w-2.5" /> CI: {ci.reference}</Badge>)}
-                    {linkedSIs.map(si => <Badge key={si.id} variant="secondary" className="text-[9px] gap-1 h-5"><LinkIcon className="h-2.5 w-2.5" /> SI: {si.reference}</Badge>)}
+                <div className="flex flex-wrap gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    {linkedCIs.map(ci => (
+                      <Link key={ci.id} href={`/client-instructions/${ci.id}`}>
+                        <Badge variant="secondary" className="text-[9px] gap-1 h-5 hover:bg-secondary/80 transition-colors cursor-pointer">
+                          <LinkIcon className="h-2.5 w-2.5" /> CI: {ci.reference}
+                        </Badge>
+                      </Link>
+                    ))}
+                    {linkedSIs.map(si => (
+                      <Link key={si.id} href={`/instructions/${si.id}`}>
+                        <Badge variant="secondary" className="text-[9px] gap-1 h-5 hover:bg-secondary/80 transition-colors cursor-pointer">
+                          <LinkIcon className="h-2.5 w-2.5" /> SI: {si.reference}
+                        </Badge>
+                      </Link>
+                    ))}
                 </div>
             )}
 
