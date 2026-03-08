@@ -1,4 +1,3 @@
-
 export type Area = {
   id: string;
   name: string;
@@ -40,6 +39,7 @@ export type Instruction = {
   files?: FileAttachment[];
   recipients?: string[];
   status?: 'draft' | 'issued';
+  distributedAt?: string;
 };
 
 export type ClientInstruction = {

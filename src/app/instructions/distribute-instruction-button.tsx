@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, CheckCircle2 } from 'lucide-react';
 import type { Instruction, Project, SubContractor } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -12,10 +12,14 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { sendSiteInstructionEmailAction } from './actions';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { cn } from '@/lib/utils';
 
 /**
  * DistributeInstructionButton - Generates a high-resolution PDF of the site instruction
  * and sends it to the primary recipient via the Resend server action.
+ * Tracks distribution status in Firestore to prevent duplicate issuance.
  */
 export function DistributeInstructionButton({
   instruction,
@@ -28,9 +32,11 @@ export function DistributeInstructionButton({
 }) {
   const [isDistributing, setIsDistributing] = useState(false);
   const { toast } = useToast();
+  const db = useFirestore();
 
   // Identify the primary external recipient (Subcontractor/Designer) at component level
   const sub = subContractors.find(s => instruction.recipients?.includes(s.email));
+  const isDistributed = !!instruction.distributedAt;
 
   const handleDistribute = async () => {
     if (!sub) {
@@ -130,6 +136,12 @@ export function DistributeInstructionButton({
       });
 
       if (result.success) {
+        // Track distribution success in Firestore
+        const docRef = doc(db, 'instructions', instruction.id);
+        await updateDoc(docRef, { 
+          distributedAt: new Date().toISOString() 
+        });
+        
         toast({ title: "Distribution Complete", description: `Instruction ${instruction.reference} emailed to ${sub.name}.` });
       } else {
         toast({ title: "Email Error", description: result.message, variant: "destructive" });
@@ -146,13 +158,34 @@ export function DistributeInstructionButton({
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={handleDistribute} disabled={isDistributing}>
-            {isDistributing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            <span className="sr-only">Distribute PDF to partner</span>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleDistribute} 
+            disabled={isDistributing}
+            className={cn(
+                "transition-all",
+                isDistributed ? "text-green-600 hover:text-green-700 hover:bg-green-50" : "text-muted-foreground"
+            )}
+          >
+            {isDistributing ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isDistributed ? (
+                <CheckCircle2 className="h-4 w-4" />
+            ) : (
+                <Send className="h-4 w-4" />
+            )}
+            <span className="sr-only">
+                {isDistributed ? 'Resend distributed instruction' : 'Distribute PDF to partner'}
+            </span>
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Email PDF to {sub?.name || 'Partner'}</p>
+          <p>
+            {isDistributed 
+                ? `Emailed on ${new Date(instruction.distributedAt!).toLocaleDateString()}. Click to resend.` 
+                : `Email PDF to ${sub?.name || 'Partner'}`}
+          </p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

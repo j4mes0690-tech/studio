@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2, Send } from 'lucide-react';
+import { Camera, Users, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2, Send, MailCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -130,10 +130,15 @@ export function InstructionCard({
   };
 
   const isDraft = instruction.status === 'draft';
+  const isDistributed = !!instruction.distributedAt;
 
   return (
     <>
-      <Card className={cn(isDraft && "border-orange-200 bg-orange-50/10")}>
+      <Card className={cn(
+        "border-l-4 transition-all", 
+        isDraft ? "border-orange-200 border-l-orange-400 bg-orange-50/10" : 
+        isDistributed ? "border-l-green-500" : "border-l-primary"
+      )}>
         <CardHeader>
           <div className="flex justify-between items-start">
             <div className="space-y-1 flex-1">
@@ -144,6 +149,11 @@ export function InstructionCard({
                 </Link>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
                 {isDraft && <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>}
+                {isDistributed && (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 gap-1 h-5 text-[9px] uppercase font-bold tracking-tighter">
+                        <MailCheck className="h-2.5 w-2.5" /> Emailed
+                    </Badge>
+                )}
               </div>
               <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
                 <span className="text-xs text-muted-foreground/80">
