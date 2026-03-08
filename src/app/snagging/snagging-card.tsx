@@ -1,6 +1,6 @@
 'use client';
 
-import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord } from '@/lib/types';
+import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -33,7 +33,8 @@ import {
   Check,
   Eye,
   FileSearch,
-  Loader2
+  Loader2,
+  MapPin
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
@@ -266,7 +267,10 @@ export function SnaggingItemCard({
                 {area && (
                   <>
                     <span className="text-muted-foreground">&gt;</span>
-                    <span>{area.name}</span>
+                    <span className="flex items-center gap-1 font-bold text-primary">
+                      <MapPin className="h-3 w-3" />
+                      {area.name}
+                    </span>
                   </>
                 )}
                 <span className="hidden sm:inline text-muted-foreground">•</span>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -33,7 +32,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, CheckCircle2 } from 'lucide-react';
+import { Trash2, CheckCircle2, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type TableProps = {
@@ -49,6 +48,7 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
         <TableHeader>
           <TableRow>
             <TableHead className="w-[150px]">Project</TableHead>
+            <TableHead className="w-[120px]">Area</TableHead>
             <TableHead>List Title</TableHead>
             <TableHead className="w-[120px]">Date</TableHead>
             <TableHead className="w-[100px]">Progress</TableHead>
@@ -72,6 +72,7 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
 
 function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, projects: Project[], subContractors: SubContractor[] }) {
   const project = projects.find((p) => p.id === item.projectId);
+  const area = project?.areas?.find((a) => a.id === item.areaId);
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
@@ -102,6 +103,12 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
       href={`/snagging/${item.id}`}
     >
       <TableCell className="font-medium">{project?.name || 'Unknown'}</TableCell>
+      <TableCell>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <MapPin className="h-3 w-3" />
+          <span>{area?.name || 'General Site'}</span>
+        </div>
+      </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
             <span className="text-sm font-medium group-hover:text-primary transition-colors">{item.title}</span>
