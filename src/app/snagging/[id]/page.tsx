@@ -486,6 +486,11 @@ function EditSnaggingContent() {
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span className="text-[10px] font-black uppercase text-primary">Version {history.length - idx}</span>
+                                                {idx === 0 && (
+                                                  <Badge variant="secondary" className="h-4 px-1.5 text-[8px] bg-green-100 text-green-800 border-green-200 font-black">
+                                                    CURRENT
+                                                  </Badge>
+                                                )}
                                                 <Eye className="h-3.5 w-3.5 text-primary opacity-0 group-hover/hist:opacity-100 transition-opacity" />
                                             </div>
                                             <span className="text-[9px] text-muted-foreground font-medium"><ClientDate date={record.timestamp} /></span>

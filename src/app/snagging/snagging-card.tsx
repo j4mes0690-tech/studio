@@ -419,6 +419,11 @@ export function SnaggingItemCard({
                                         <div className="flex items-center justify-between">
                                             <div className='flex items-center gap-2'>
                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Version {history.length - idx}</span>
+                                                {idx === 0 && (
+                                                  <Badge variant="secondary" className="h-4 px-1.5 text-[8px] bg-green-100 text-green-800 border-green-200 font-black">
+                                                    CURRENT
+                                                  </Badge>
+                                                )}
                                                 <Eye className="h-3 w-3 text-primary group-hover/hist:text-primary transition-colors" />
                                             </div>
                                             <span className="text-[9px] text-muted-foreground"><ClientDate date={record.timestamp} /></span>
@@ -647,6 +652,7 @@ export function SnaggingItemCard({
       </Card>
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
+      <canvas ref={canvasRef} className="hidden" />
     </>
   );
 }

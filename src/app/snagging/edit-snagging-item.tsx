@@ -303,7 +303,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
         <DialogTrigger asChild>
           <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /><span className="sr-only">Edit List</span></Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="p-6 pb-0"><DialogTitle>Edit Snagging List</DialogTitle></DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
@@ -407,6 +407,11 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[10px] font-black uppercase text-primary tracking-tighter">Version {history.length - idx}</span>
+                                                    {idx === 0 && (
+                                                      <Badge variant="secondary" className="h-4 px-1.5 text-[8px] bg-green-100 text-green-800 border-green-200 font-black">
+                                                        CURRENT
+                                                      </Badge>
+                                                    )}
                                                     <Eye className="h-3.5 w-3.5 text-primary opacity-0 group-hover/hist:opacity-100 transition-opacity" />
                                                 </div>
                                                 <span className="text-[9px] text-muted-foreground font-medium"><ClientDate date={record.timestamp} /></span>
