@@ -25,16 +25,24 @@ import {
   ShieldCheck,
   Banknote,
   AlertTriangle,
-  ArrowRight
+  ArrowRight,
+  LayoutGrid,
+  Grid2X2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { DistributionUser } from '@/lib/types';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const DASHBOARD_CARDS = [
   { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, desc: 'Create and manage purchase orders for project materials.', permission: 'accessMaterials' },
@@ -54,6 +62,21 @@ const DASHBOARD_CARDS = [
 export default function Dashboard() {
   const { user, isLoading: userLoading } = useUser();
   const db = useFirestore();
+  const [isCompact, setIsCompact] = useState(false);
+
+  // Load persistence
+  useEffect(() => {
+    const saved = localStorage.getItem('sitecommand_dashboard_compact');
+    if (saved !== null) {
+      setIsCompact(saved === 'true');
+    }
+  }, []);
+
+  const toggleView = () => {
+    const newVal = !isCompact;
+    setIsCompact(newVal);
+    localStorage.setItem('sitecommand_dashboard_compact', String(newVal));
+  };
 
   const profileRef = useMemoFirebase(() => {
     if (!db || !user?.email) return null;
@@ -101,33 +124,62 @@ export default function Dashboard() {
             </Alert>
         )}
 
-        <div className="flex flex-col items-center text-center gap-4 mt-4">
-            <div className="p-4 bg-primary/10 rounded-full">
-                <HardHat className="h-16 w-16 text-primary" />
+        <div className="flex flex-col items-center text-center gap-4 mt-4 relative w-full max-w-6xl">
+            <div className={cn("p-4 bg-primary/10 rounded-full transition-all", isCompact && "p-2")}>
+                <HardHat className={cn("text-primary transition-all", isCompact ? "h-8 w-8" : "h-16 w-16")} />
             </div>
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Welcome to SiteCommand</h1>
-                <p className="text-muted-foreground">Select an action to get started with site operations.</p>
+                <h1 className={cn("font-bold tracking-tight transition-all", isCompact ? "text-xl" : "text-3xl")}>Welcome to SiteCommand</h1>
+                {!isCompact && <p className="text-muted-foreground">Select an action to get started with site operations.</p>}
+            </div>
+
+            <div className="absolute top-0 right-0">
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button 
+                                variant="outline" 
+                                size="icon" 
+                                onClick={toggleView}
+                                className="h-9 w-9"
+                            >
+                                {isCompact ? <LayoutGrid className="h-4 w-4" /> : <Grid2X2 className="h-4 w-4" />}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Switch to {isCompact ? 'Standard' : 'Compact'} View</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
             </div>
         </div>
 
-        <div className="grid max-w-6xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 lg:gap-8 w-full pb-12">
+        <div className={cn(
+            "grid w-full pb-12 transition-all",
+            isCompact 
+                ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3" 
+                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl"
+        )}>
           {allowedCards.map((card) => (
             <Link key={card.href} href={card.href}>
               <Card className={cn(
-                  "flex flex-col items-center justify-center p-8 text-center hover:bg-muted/50 transition-all hover:border-primary/50 hover:shadow-md h-full group"
+                  "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary/50 hover:shadow-md h-full group",
+                  isCompact ? "p-4 text-center" : "p-8 text-center"
               )}>
                 <CardHeader className="p-0">
                   <card.icon className={cn(
-                      "h-12 w-12 mb-4 transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary"
+                      "mb-2 transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary",
+                      isCompact ? "h-8 w-8" : "h-12 w-12 mb-4"
                   )} />
-                  <CardTitle className="text-xl">{card.label}</CardTitle>
+                  <CardTitle className={cn("transition-all", isCompact ? "text-sm" : "text-xl")}>{card.label}</CardTitle>
                 </CardHeader>
-                <CardContent className="p-0 mt-2">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {card.desc}
-                  </p>
-                </CardContent>
+                {!isCompact && (
+                    <CardContent className="p-0 mt-2">
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                            {card.desc}
+                        </p>
+                    </CardContent>
+                )}
               </Card>
             </Link>
           ))}
