@@ -33,10 +33,28 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, AlertTriangle, UserPlus, User, RefreshCw, Loader2, Save } from 'lucide-react';
-import type { Project, SnaggingItem, Photo, Area, SnaggingListItem, SubContractor } from '@/lib/types';
-import { useFirestore, useStorage } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { 
+  Pencil, 
+  Camera, 
+  Upload, 
+  X, 
+  Trash2, 
+  CheckCircle2, 
+  Circle, 
+  Plus, 
+  UserPlus, 
+  User, 
+  RefreshCw, 
+  Loader2, 
+  Save, 
+  History, 
+  Eye, 
+  FileSearch,
+  Check
+} from 'lucide-react';
+import type { Project, SnaggingItem, Photo, Area, SnaggingListItem, SubContractor, SnaggingHistoryRecord } from '@/lib/types';
+import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, updateDoc, collection, query, orderBy, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Separator } from '@/components/ui/separator';
@@ -44,6 +62,9 @@ import { cn } from '@/lib/utils';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { VoiceInput } from '@/components/voice-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { ClientDate } from '@/components/client-date';
+import { ImageLightbox } from '@/components/image-lightbox';
 
 const EditSnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -82,6 +103,17 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
+
+  // Version History Fetching
+  const historyQuery = useMemoFirebase(() => {
+    if (!db || !item.id) return null;
+    return query(collection(db, 'snagging-items', item.id, 'history'), orderBy('timestamp', 'desc'));
+  }, [db, item.id]);
+  const { data: history } = useCollection<SnaggingHistoryRecord>(historyQuery);
+
+  // Snapshot Viewer State
+  const [viewingHistoryRecord, setViewingHistoryRecord] = useState<SnaggingHistoryRecord | null>(null);
+  const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
   const form = useForm<EditSnaggingListFormValues>({
     resolver: zodResolver(EditSnaggingListSchema),
@@ -149,8 +181,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       const context = canvas.getContext('2d');
       if (!context) return null;
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 800;
-      canvas.height = 800 / aspectRatio;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: new Date().toISOString() };
     }
@@ -231,7 +263,19 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
           throw error;
         });
 
-        toast({ title: 'Success', description: 'Snagging list updated.' });
+        // Record History
+        const historyCol = collection(db, 'snagging-items', item.id, 'history');
+        const closed = upItems.filter(i => i.status === 'closed').length;
+        await addDoc(historyCol, {
+          timestamp: new Date().toISOString(),
+          updatedBy: 'System User', 
+          items: upItems,
+          totalCount: upItems.length,
+          closedCount: closed,
+          summary: 'List updated via editor'
+        });
+
+        toast({ title: 'Success', description: 'Snagging list and version history updated.' });
         setOpen(false);
       } catch (err: any) {
         toast({ title: 'Error', description: err.message || 'Failed to save.', variant: 'destructive' });
@@ -254,112 +298,250 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /><span className="sr-only">Edit List</span></Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="p-6 pb-0"><DialogTitle>Edit Snagging List</DialogTitle></DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1 px-6">
-              <div className="space-y-6 py-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="projectId" render={({ field }) => (
-                        <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                    )} />
-                    <FormField control={form.control} name="areaId" render={({ field }) => (
-                        <FormItem><FormLabel>Area</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                    )} />
-                </div>
-                <FormField control={form.control} name="title" render={({ field }) => (
-                    <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-                )} />
-                
-                <Separator />
-                
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
-                        <VoiceInput onResult={(text) => setNewItemText(text)} />
-                    </div>
-                    
-                    <div className="flex gap-2 items-end">
-                        <Input 
-                            placeholder="Add new defect..." 
-                            value={newItemText} 
-                            onChange={(e) => setNewItemText(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
-                        />
-                        <div className="flex gap-1">
-                          <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
-                              <SelectTrigger className="w-10 px-0 flex justify-center"><UserPlus className="h-4 w-4" /></SelectTrigger>
-                              <SelectContent>
-                                  <SelectItem value="unassigned">Unassigned</SelectItem>
-                                  {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                              </SelectContent>
-                          </Select>
-                          <Button type="button" variant="outline" size="icon" onClick={() => setIsCameraOpen(true)}><Camera className="h-4 w-4" /></Button>
-                          <Button type="button" onClick={handleAddItem} size="icon"><Plus className="h-4 w-4" /></Button>
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /><span className="sr-only">Edit List</span></Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+          <DialogHeader className="p-6 pb-0"><DialogTitle>Edit Snagging List</DialogTitle></DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+              <ScrollArea className="flex-1 px-6">
+                <div className="space-y-6 py-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField control={form.control} name="projectId" render={({ field }) => (
+                          <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                      )} />
+                      <FormField control={form.control} name="areaId" render={({ field }) => (
+                          <FormItem><FormLabel>Area</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                      )} />
+                  </div>
+                  <FormField control={form.control} name="title" render={({ field }) => (
+                      <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                  )} />
+                  
+                  <Separator />
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <FormLabel className="text-base font-semibold">Defect Items</FormLabel>
+                                <VoiceInput onResult={(text) => setNewItemText(text)} />
+                            </div>
+                            
+                            <div className="flex gap-2 items-end">
+                                <Input 
+                                    placeholder="Add new defect..." 
+                                    value={newItemText} 
+                                    onChange={(e) => setNewItemText(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
+                                />
+                                <div className="flex gap-1">
+                                  <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
+                                      <SelectTrigger className="w-10 px-0 flex justify-center"><UserPlus className="h-4 w-4" /></SelectTrigger>
+                                      <SelectContent>
+                                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                                          {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                      </SelectContent>
+                                  </Select>
+                                  <Button type="button" variant="outline" size="icon" onClick={() => setIsCameraOpen(true)}><Camera className="h-4 w-4" /></Button>
+                                  <Button type="button" onClick={handleAddItem} size="icon"><Plus className="h-4 w-4" /></Button>
+                                </div>
+                            </div>
+
+                            <div className="space-y-3">
+                                {items.map((listItem, idx) => {
+                                    const sub = subContractors.find(s => s.id === listItem.subContractorId);
+                                    return (
+                                        <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 group">
+                                            <div className="flex items-start justify-between">
+                                                <div className="flex flex-col gap-1">
+                                                    <span className={cn("text-sm font-medium", listItem.status === 'closed' && "line-through text-muted-foreground")}>{listItem.description}</span>
+                                                    {sub && <Badge variant="secondary" className="w-fit text-[10px] gap-1"><User className="h-2 w-2" /> {sub.name}</Badge>}
+                                                </div>
+                                                <div className="flex gap-1 items-center">
+                                                    <Button type="button" variant="ghost" size="icon" className="text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setItems(items.filter(i => i.id !== listItem.id))}><Trash2 className="h-4 w-4" /></Button>
+                                                </div>
+                                            </div>
+                                            {(listItem.photos?.length || 0) > 0 && <div className="flex gap-2 mt-2">{listItem.photos?.map((p, pIdx) => <div key={pIdx} className="relative w-10 h-10"><Image src={p.url} alt="D" fill className="rounded object-cover border" /></div>)}</div>}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        
+                        <Separator />
+                        
+                        <div className="space-y-2">
+                          <FormLabel>Reference Photos</FormLabel>
+                          <div className="flex flex-wrap gap-2">
+                            {photos.map((p, i) => (
+                              <div key={i} className="relative w-20 h-20 group">
+                                <Image src={p.url} alt="S" fill className="rounded-md object-cover" />
+                                <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                              </div>
+                            ))}
+                            <Button type="button" variant="outline" size="icon" className="w-20 h-20 border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6" /></Button>
+                          </div>
                         </div>
                     </div>
 
-                    <div className="space-y-3">
-                        {items.map((listItem, idx) => {
-                            const sub = subContractors.find(s => s.id === listItem.subContractorId);
-                            return (
-                                <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 group">
-                                    <div className="flex items-start justify-between">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">
+                            <History className="h-4 w-4 text-primary" />
+                            <span>Version & Snapshot History</span>
+                        </div>
+                        <ScrollArea className="h-[400px] rounded-lg border bg-muted/5 p-4">
+                            <div className="space-y-4">
+                                {history && history.length > 0 ? history.map((record, idx) => (
+                                    <div 
+                                        key={record.id} 
+                                        className="relative pl-4 border-l-2 border-primary/20 pb-4 last:pb-0 cursor-pointer group/hist transition-all hover:bg-white rounded-r-md hover:shadow-sm"
+                                        onClick={() => setViewingHistoryRecord(record)}
+                                    >
+                                        <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-primary" />
                                         <div className="flex flex-col gap-1">
-                                            <span className={cn("text-sm font-medium", listItem.status === 'closed' && "line-through text-muted-foreground")}>{listItem.description}</span>
-                                            {sub && <Badge variant="secondary" className="w-fit text-[10px] gap-1"><User className="h-2 w-2" /> {sub.name}</Badge>}
-                                        </div>
-                                        <div className="flex gap-1 items-center">
-                                            <Button type="button" variant="ghost" size="icon" className="text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                            <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setItems(items.filter(i => i.id !== listItem.id))}><Trash2 className="h-4 w-4" /></Button>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-black uppercase text-primary tracking-tighter">Version {history.length - idx}</span>
+                                                    <Eye className="h-3.5 w-3.5 text-primary opacity-0 group-hover/hist:opacity-100 transition-opacity" />
+                                                </div>
+                                                <span className="text-[9px] text-muted-foreground font-medium"><ClientDate date={record.timestamp} /></span>
+                                            </div>
+                                            <p className="text-xs font-semibold text-foreground line-clamp-1">{record.summary}</p>
+                                            <div className="flex items-center gap-2 mt-1">
+                                                <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-bold border-green-200 bg-green-50 text-green-700">
+                                                    <Check className="h-2 w-2 mr-1" /> {record.closedCount}/{record.totalCount} points
+                                                </Badge>
+                                            </div>
                                         </div>
                                     </div>
-                                    {(listItem.photos?.length || 0) > 0 && <div className="flex gap-2 mt-2">{listItem.photos?.map((p, pIdx) => <div key={pIdx} className="relative w-10 h-10"><Image src={p.url} alt="D" fill className="rounded object-cover border" /></div>)}</div>}
-                                </div>
-                            );
-                        })}
+                                )) : (
+                                    <div className="flex flex-col items-center justify-center py-12 text-center gap-2 opacity-40">
+                                        <History className="h-8 w-8" />
+                                        <p className="text-[10px] font-bold uppercase">No Snapshots Yet</p>
+                                    </div>
+                                )}
+                            </div>
+                        </ScrollArea>
                     </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-2">
-                  <FormLabel>Reference Photos</FormLabel>
-                  <div className="flex flex-wrap gap-2">
-                    {photos.map((p, i) => (
-                      <div key={i} className="relative w-20 h-20"><Image src={p.url} alt="S" fill className="rounded-md object-cover" /><Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button></div>
-                    ))}
-                    <Button type="button" variant="outline" size="icon" className="w-20 h-20" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6" /></Button>
                   </div>
-                  {(isCameraOpen || itemPhotoTargetId) && (
-                    <div className="space-y-2 border rounded-md p-2 bg-muted/30 mt-2">
-                      <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
-                      <div className="flex gap-2">
-                        <Button type="button" size="sm" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto}>Capture</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={toggleCamera}><RefreshCw className="h-4 w-4 mr-2" />Switch</Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }}>Cancel</Button>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </div>
-            </ScrollArea>
+              </ScrollArea>
 
-            <DialogFooter className="p-6 border-t bg-muted/10">
-              <Button type="submit" disabled={isPending} className="w-full h-12 text-lg font-bold">
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save Changes
+              <DialogFooter className="p-6 border-t bg-muted/10">
+                <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isPending} className="font-bold gap-2">
+                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Save Snapshot & Changes
+                </Button>
+              </DialogFooter>
+              <canvas ref={canvasRef} className="hidden" />
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Snapshot Details Viewer */}
+      <Dialog open={!!viewingHistoryRecord} onOpenChange={() => setViewingHistoryRecord(null)}>
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+              <DialogHeader className="p-6 pb-0 shrink-0">
+                  <div className='flex items-center gap-3 mb-1'>
+                      <div className='bg-primary/10 p-2 rounded-lg'>
+                          <FileSearch className='h-5 w-5 text-primary' />
+                      </div>
+                      <div>
+                          <DialogTitle>Historical Snapshot</DialogTitle>
+                          <DialogDescription>Captured on <ClientDate date={viewingHistoryRecord?.timestamp || ''} /></DialogDescription>
+                      </div>
+                  </div>
+              </DialogHeader>
+              
+              <div className='flex-1 overflow-y-auto px-6 py-4'>
+                  <div className="space-y-4">
+                      <div className='bg-muted/30 p-4 rounded-lg border border-dashed text-center space-y-1'>
+                          <p className='text-[10px] font-black uppercase text-muted-foreground tracking-widest'>Audit Summary</p>
+                          <p className='text-sm font-medium'>"{viewingHistoryRecord?.summary}"</p>
+                          <div className='flex justify-center gap-2 mt-2'>
+                              <Badge variant="secondary" className='bg-background'>{viewingHistoryRecord?.closedCount} / {viewingHistoryRecord?.totalCount} Fixed</Badge>
+                              <Badge variant="outline" className='bg-background'>Authored by: {viewingHistoryRecord?.updatedBy}</Badge>
+                          </div>
+                      </div>
+
+                      <div className="space-y-3 pt-2">
+                          <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest px-1'>Point-in-Time Status</p>
+                          {viewingHistoryRecord?.items.map((histItem) => {
+                              const sub = subContractors.find(s => s.id === histItem.subContractorId);
+                              return (
+                                  <div key={histItem.id} className="p-3 border rounded-lg bg-background shadow-sm space-y-3">
+                                      <div className="flex items-start justify-between">
+                                          <div className="flex items-start gap-3">
+                                              {histItem.status === 'closed' ? (
+                                                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                                              ) : (
+                                                  <Circle className="h-4 w-4 text-muted-foreground mt-0.5" />
+                                              )}
+                                              <div className='flex flex-col gap-1'>
+                                                  <span className={cn("text-sm font-semibold", histItem.status === 'closed' && "line-through text-muted-foreground")}>
+                                                      {histItem.description}
+                                                  </span>
+                                                  {sub && <span className="text-[10px] font-bold text-primary uppercase">{sub.name}</span>}
+                                              </div>
+                                          </div>
+                                          <Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold h-5'>
+                                              {histItem.status}
+                                          </Badge>
+                                      </div>
+
+                                      {(histItem.photos && histItem.photos.length > 0) || (histItem.completionPhotos && histItem.completionPhotos.length > 0) ? (
+                                          <div className='pl-7 flex flex-wrap gap-2 pt-1 border-t border-dashed'>
+                                              {histItem.photos?.map((p, pi) => (
+                                                  <div key={`hist-p-${pi}`} className='relative w-12 h-10 rounded border overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}>
+                                                      <Image src={p.url} alt="Snap" fill className='object-cover' />
+                                                  </div>
+                                              ))}
+                                              {histItem.completionPhotos?.map((p, pi) => (
+                                                  <div key={`hist-c-${pi}`} className='relative w-12 h-10 rounded border-2 border-green-200 overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}>
+                                                      <Image src={p.url} alt="Fix Snap" fill className='object-cover' />
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      ) : null}
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  </div>
+              </div>
+
+              <DialogFooter className='p-6 bg-muted/10 border-t shrink-0'>
+                  <Button variant="outline" className='w-full' onClick={() => setViewingHistoryRecord(null)}>Close Auditor</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+
+      {/* Camera Modal */}
+      {(isCameraOpen || itemPhotoTargetId) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+          <div className="w-full max-w-lg space-y-4">
+            <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border-4 border-white/10 shadow-2xl">
+              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+            </div>
+            <div className="flex justify-center gap-4">
+              <Button size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-16 w-16 p-0 border-4 border-white/20"><div className="h-10 w-10 rounded-full bg-white" /></Button>
+              <Button variant="secondary" size="icon" className="rounded-full h-12 w-12" onClick={toggleCamera} title="Switch Camera">
+                <RefreshCw className="h-6 w-6" />
               </Button>
-            </DialogFooter>
-            <canvas ref={canvasRef} className="hidden" />
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+              <Button variant="secondary" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 font-bold">Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
+    </>
   );
 }
