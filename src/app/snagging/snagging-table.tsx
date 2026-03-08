@@ -10,14 +10,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
+import type { SnaggingItem, Project, SubContractor, SnaggingHistoryRecord } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { PdfReportButton } from './pdf-report-button';
 import { DistributeReportsButton } from './distribute-reports-button';
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, deleteDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import {
@@ -33,10 +33,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type SortKey = 'project' | 'area' | 'title' | 'date' | 'progress';
+type SortKey = 'project' | 'area' | 'title' | 'date' | 'progress' | 'snapshots';
 type SortOrder = 'asc' | 'desc';
 
 type TableProps = {
@@ -90,6 +90,8 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
           valA = closedA / totalA;
           valB = closedB / totalB;
           break;
+        default:
+          return 0;
       }
 
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
@@ -132,11 +134,12 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
             >
               <div className="flex items-center">Date <SortIcon column="date" /></div>
             </TableHead>
+            <TableHead className="w-[100px] text-center">Snapshots</TableHead>
             <TableHead 
-              className="w-[100px] cursor-pointer hover:text-foreground transition-colors"
+              className="w-[100px] cursor-pointer hover:text-foreground transition-colors text-right pr-6"
               onClick={() => handleSort('progress')}
             >
-              <div className="flex items-center">Progress <SortIcon column="progress" /></div>
+              <div className="flex items-center justify-end">Progress <SortIcon column="progress" /></div>
             </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -162,6 +165,13 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
+
+  // Fetch Snapshot Count for this specific list
+  const historyQuery = useMemoFirebase(() => {
+    if (!db || !item.id) return null;
+    return collection(db, 'snagging-items', item.id, 'history');
+  }, [db, item.id]);
+  const { data: history } = useCollection<SnaggingHistoryRecord>(historyQuery);
 
   const totalItems = item.items?.length || 0;
   const closedItems = item.items?.filter(i => i.status === 'closed').length || 0;
@@ -206,7 +216,13 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
             <ClientDate date={item.createdAt} format="date" />
         </span>
       </TableCell>
-      <TableCell>
+      <TableCell className="text-center">
+        <Badge variant="outline" className="text-[10px] gap-1 font-mono">
+          <History className="h-2.5 w-2.5" />
+          {history?.length || 0}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-right pr-6">
         <Badge variant={isComplete ? "secondary" : "outline"} className="text-[10px]">
             {closedItems}/{totalItems}
         </Badge>
