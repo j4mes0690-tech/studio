@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -49,6 +50,7 @@ export function LoginForm() {
   const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsReseting] = useState(false);
   const [resetStatus, setResetStatus] = useState<'idle' | 'success' | 'not-found' | 'error'>('idle');
+  const [resetErrorMessage, setResetErrorMessage] = useState<string | null>(null);
 
   // Auto-seed the admin account in the background if it doesn't exist
   useEffect(() => {
@@ -145,6 +147,7 @@ export function LoginForm() {
       if (!resetEmail) return;
       setIsReseting(true);
       setResetStatus('idle');
+      setResetErrorMessage(null);
 
       try {
           const emailKey = resetEmail.toLowerCase().trim();
@@ -176,14 +179,15 @@ export function LoginForm() {
               if (result.success) {
                   setResetStatus('success');
               } else {
-                  console.error('Reset email failed:', result.message);
+                  setResetErrorMessage(result.message || 'The email service encountered an error.');
                   setResetStatus('error');
               }
           } else {
               setResetStatus('not-found');
           }
-      } catch (err) {
+      } catch (err: any) {
           console.error('Reset workflow error:', err);
+          setResetErrorMessage(err.message || 'An unexpected system error occurred.');
           setResetStatus('error');
       } finally {
           setIsReseting(false);
@@ -222,6 +226,7 @@ export function LoginForm() {
                                 if (!val) {
                                     setResetStatus('idle');
                                     setResetEmail('');
+                                    setResetErrorMessage(null);
                                 }
                             }}>
                                 <DialogTrigger asChild>
@@ -260,9 +265,9 @@ export function LoginForm() {
                                         ) : resetStatus === 'error' ? (
                                             <Alert variant="destructive" className="bg-destructive/5">
                                                 <AlertTriangle className="h-4 w-4" />
-                                                <AlertTitle>System Error</AlertTitle>
+                                                <AlertTitle>Recovery Failed</AlertTitle>
                                                 <AlertDescription className="text-xs">
-                                                    Could not process your reset request. Please contact your administrator.
+                                                    {resetErrorMessage || "Could not process your reset request. Please contact your administrator."}
                                                 </AlertDescription>
                                             </Alert>
                                         ) : (
