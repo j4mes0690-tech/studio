@@ -68,6 +68,7 @@ export default function Dashboard() {
   const [isCompact, setIsCompact] = useState(false);
   const [orderedCardIds, setOrderedCardIds] = useState<string[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [canDragId, setCanDragId] = useState<string | null>(null);
 
   // Load persistence
   useEffect(() => {
@@ -192,7 +193,7 @@ export default function Dashboard() {
             </div>
             <div>
                 <h1 className={cn("font-bold tracking-tight transition-all", isCompact ? "text-xl" : "text-3xl")}>Welcome to SiteCommand</h1>
-                {!isCompact && <p className="text-muted-foreground">Select an action to get started. Drag modules to customize your layout.</p>}
+                {!isCompact && <p className="text-muted-foreground text-sm">Select an action to get started. Use the grip icon in the top-left of modules to reorder.</p>}
             </div>
 
             <div className="absolute top-0 right-0 flex items-center gap-2">
@@ -225,24 +226,30 @@ export default function Dashboard() {
           {allowedCards.map((card) => (
             <div
                 key={card.id}
-                draggable
+                draggable={canDragId === card.id}
                 onDragStart={(e) => handleDragStart(e, card.id)}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, card.id)}
                 onDragEnd={handleDragEnd}
                 className={cn(
-                    "relative transition-opacity",
+                    "relative transition-opacity group",
                     draggedId === card.id ? "opacity-40" : "opacity-100"
                 )}
             >
-                <Link href={card.href}>
+                {/* Drag Handle - Only this area allows reordering cursors and initiation */}
+                <div 
+                    className="absolute top-2 left-2 z-30 p-1.5 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-background/90 rounded border border-border shadow-sm"
+                    onMouseEnter={() => setCanDragId(card.id)}
+                    onMouseLeave={() => setCanDragId(null)}
+                >
+                    <GripVertical className="h-3.5 w-3.5 text-primary" />
+                </div>
+
+                <Link href={card.href} className="block h-full">
                     <Card className={cn(
-                        "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary/50 hover:shadow-md h-full group relative cursor-grab active:cursor-grabbing",
+                        "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary/50 hover:shadow-md h-full relative",
                         isCompact ? "p-4 text-center" : "p-8 text-center"
                     )}>
-                        <div className="absolute top-2 left-2 opacity-0 group-hover:opacity-30 transition-opacity">
-                            <GripVertical className="h-3 w-3" />
-                        </div>
                         <CardHeader className="p-0">
                         <card.icon className={cn(
                             "mb-2 transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary",
@@ -252,7 +259,7 @@ export default function Dashboard() {
                         </CardHeader>
                         {!isCompact && (
                             <CardContent className="p-0 mt-2">
-                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                <p className="text-xs text-muted-foreground leading-relaxed">
                                     {card.desc}
                                 </p>
                             </CardContent>
