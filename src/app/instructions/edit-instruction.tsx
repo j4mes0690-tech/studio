@@ -45,6 +45,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { sendSiteInstructionEmailAction } from './actions';
+import { generateInstructionPDF } from '@/lib/pdf-utils';
 
 const EditInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -170,85 +171,23 @@ export function EditInstruction({
         const sub = subContractors.find(s => s.email === values.externalRecipient);
         if (values.status === 'issued' && sub) {
           try {
-            const { jsPDF } = await import('jspdf');
-            const html2canvas = (await import('html2canvas')).default;
-
-            // Base64 conversion for PDF photos
-            const photoDataUrls = await Promise.all(uploadedPhotos.map(async (p) => {
-              return new Promise<string>((resolve) => {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.onload = () => {
-                  const canvas = document.createElement('canvas');
-                  canvas.width = img.width; canvas.height = img.height;
-                  canvas.getContext('2d')?.drawImage(img, 0, 0);
-                  resolve(canvas.toDataURL('image/jpeg', 0.8));
-                };
-                img.onerror = () => resolve(p.url);
-                img.src = p.url;
-              });
-            }));
-
-            const reportElement = document.createElement('div');
-            reportElement.style.position = 'absolute'; reportElement.style.left = '-9999px';
-            reportElement.style.padding = '40px'; reportElement.style.width = '800px';
-            reportElement.style.background = 'white'; reportElement.style.color = 'black';
-            reportElement.style.fontFamily = 'sans-serif';
-
-            reportElement.innerHTML = `
-              <div style="border-bottom: 3px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
-                <h1 style="margin: 0; color: #1e40af; font-size: 32px;">Site Instruction</h1>
-                <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Reference: ${item.reference}</p>
-              </div>
-              <div style="margin-bottom: 40px;">
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="width: 50%; vertical-align: top; padding-right: 20px;">
-                      <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; height: 120px;">
-                        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project Location</p>
-                        <p style="margin: 0; font-size: 16px; font-weight: bold;">${selectedProject?.name || 'Unknown'}</p>
-                        <p style="margin: 5px 0 0 0; font-size: 11px; color: #475569;">${selectedProject?.address || ''}</p>
-                      </div>
-                    </td>
-                    <td style="width: 50%; vertical-align: top;">
-                      <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; height: 120px;">
-                        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Issued To</p>
-                        <p style="margin: 0; font-size: 16px; font-weight: bold;">${sub.name}</p>
-                        <p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">${sub.email}</p>
-                      </div>
-                    </td>
-                  </tr>
-                </table>
-              </div>
-              <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px; min-height: 150px;">
-                <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b;">Instruction Details</h2>
-                <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${values.originalText}</p>
-              </div>
-              ${photoDataUrls.length > 0 ? `
-                <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
-                <div style="text-align: center;">
-                  ${photoDataUrls.map(url => `<div style="display: inline-block; width: 340px; margin: 10px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${url}" crossorigin="anonymous" style="width: 100%; height: 240px; object-fit: cover; display: block;" /></div>`).join('')}
-                </div>
-              ` : ''}
-            `;
-
-            document.body.appendChild(reportElement);
-            const images = reportElement.getElementsByTagName('img');
-            await Promise.all(Array.from(images).map(img => img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; })));
-
-            const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-            document.body.removeChild(reportElement);
-
+            const updatedInstruction = { ...item, ...updates };
+            const pdf = await generateInstructionPDF(updatedInstruction, selectedProject, sub);
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
-            await sendSiteInstructionEmailAction({ email: sub.email, name: sub.name, projectName: selectedProject?.name || 'Project', reference: item.reference, pdfBase64, fileName: `SiteInstruction-${item.reference}.pdf` });
+
+            await sendSiteInstructionEmailAction({ 
+              email: sub.email, 
+              name: sub.name, 
+              projectName: selectedProject?.name || 'Project', 
+              reference: item.reference, 
+              pdfBase64, 
+              fileName: `SiteInstruction-${item.reference}.pdf` 
+            });
+            
             await updateDoc(docRef, { distributedAt: new Date().toISOString() });
             toast({ title: 'Success', description: `Instruction updated and sent to ${sub.name}.` });
           } catch (err) {
+            console.error(err);
             toast({ title: 'Updated with Warning', description: 'Saved, but email distribution failed.', variant: 'destructive' });
           }
         } else {
@@ -285,7 +224,7 @@ export function EditInstruction({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField control={form.control} name="projectId" render={({ field }) => (
-              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
             )} />
             <FormField control={form.control} name="originalText" render={({ field }) => (
               <FormItem><div className="flex items-center justify-between"><FormLabel>Instruction Text</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl><FormMessage /></FormItem>
