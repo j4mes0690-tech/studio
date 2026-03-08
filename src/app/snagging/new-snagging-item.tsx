@@ -343,28 +343,11 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
 
         {/* Unified Camera Overlay */}
         {(isCameraOpen || isItemCameraOpen || itemPhotoTargetIdx !== null) && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
-            <div className="w-full max-w-lg space-y-4">
-              <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border-4 border-white/10 shadow-2xl">
-                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-              </div>
-              <div className="flex justify-center gap-4">
-                <Button 
-                  size="lg" 
-                  onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} 
-                  className="rounded-full h-16 w-16 p-0 border-4 border-white/20"
-                >
-                  <div className="h-10 w-10 rounded-full bg-white" />
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  size="icon" 
-                  className="rounded-full h-12 w-12" 
-                  onClick={toggleCamera} 
-                  title="Switch Camera"
-                >
-                  <RefreshCw className="h-6 w-6" />
-                </Button>
+          <div className="fixed inset-0 z-[100] bg-black">
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+            
+            <div className="absolute inset-0 flex flex-col justify-between p-6">
+              <div className="flex justify-end">
                 <Button 
                   variant="secondary" 
                   onClick={() => { 
@@ -372,10 +355,32 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                     setIsItemCameraOpen(false); 
                     setItemPhotoTargetIdx(null); 
                   }} 
-                  className="rounded-full h-12 px-6 font-bold"
+                  className="rounded-full h-12 px-6 font-bold shadow-lg"
                 >
                   Cancel
                 </Button>
+              </div>
+              
+              <div className="flex items-center justify-center gap-8 mb-8">
+                <Button 
+                  variant="secondary" 
+                  size="icon" 
+                  className="rounded-full h-14 w-14 shadow-lg" 
+                  onClick={toggleCamera} 
+                  title="Switch Camera"
+                >
+                  <RefreshCw className="h-7 w-7" />
+                </Button>
+                
+                <Button 
+                  size="lg" 
+                  onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} 
+                  className="rounded-full h-20 w-20 p-0 border-4 border-white/20 shadow-2xl bg-white hover:bg-white/90"
+                >
+                  <div className="h-14 w-14 rounded-full border-2 border-black/10" />
+                </Button>
+                
+                <div className="w-14" /> {/* Spacer */}
               </div>
             </div>
           </div>

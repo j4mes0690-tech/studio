@@ -524,29 +524,57 @@ export function SnaggingItemCard({
               </div>
 
               {isCameraOpen && (
-                <div className="space-y-3 border-2 border-primary/20 rounded-xl p-3 bg-primary/5 mt-4">
+                <div className="fixed inset-0 z-[100] bg-black">
                   {hasCameraPermission === false && (
-                    <Alert variant="destructive">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Access Denied</AlertTitle>
-                      <AlertDescription>Enable camera permissions to capture evidence.</AlertDescription>
-                    </Alert>
+                    <div className="absolute top-20 left-6 right-6 z-[110]">
+                      <Alert variant="destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        <AlertTitle>Access Denied</AlertTitle>
+                        <AlertDescription>Enable camera permissions to capture evidence.</AlertDescription>
+                      </Alert>
+                    </div>
                   )}
-                  <div className="relative aspect-video bg-black rounded-lg overflow-hidden ring-4 ring-white shadow-xl">
-                    <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                  </div>
-                  <div className="flex justify-center gap-3">
-                    <Button size="lg" className="h-12 px-8 font-bold" onClick={() => {
-                      const p = capturePhoto();
-                      if (p) {
-                        setCompletionPhotos(prev => [...prev, p]);
-                        setIsCameraOpen(false);
-                      }
-                    }}>Capture Frame</Button>
-                    <Button variant="secondary" size="icon" className="h-12 w-12 rounded-full" onClick={toggleCamera} title="Switch Camera">
-                      <RefreshCw className="h-5 w-5" />
-                    </Button>
-                    <Button variant="secondary" onClick={() => setIsCameraOpen(false)} className="h-12 font-bold px-6">Cancel</Button>
+                  
+                  <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                  
+                  <div className="absolute inset-0 flex flex-col justify-between p-6">
+                    <div className="flex justify-end">
+                      <Button 
+                        variant="secondary" 
+                        onClick={() => setIsCameraOpen(false)} 
+                        className="rounded-full h-12 px-6 font-bold shadow-lg"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    
+                    <div className="flex items-center justify-center gap-8 mb-8">
+                      <Button 
+                        variant="secondary" 
+                        size="icon" 
+                        className="rounded-full h-14 w-14 shadow-lg" 
+                        onClick={toggleCamera} 
+                        title="Switch Camera"
+                      >
+                        <RefreshCw className="h-7 w-7" />
+                      </Button>
+                      
+                      <Button 
+                        size="lg" 
+                        className="rounded-full h-20 w-20 p-0 border-4 border-white/20 shadow-2xl bg-white hover:bg-white/90"
+                        onClick={() => {
+                          const p = capturePhoto();
+                          if (p) {
+                            setCompletionPhotos(prev => [...prev, p]);
+                            setIsCameraOpen(false);
+                          }
+                        }}
+                      >
+                        <div className="h-14 w-14 rounded-full border-2 border-black/10" />
+                      </Button>
+                      
+                      <div className="w-14" />
+                    </div>
                   </div>
                 </div>
               )}
