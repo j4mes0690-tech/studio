@@ -33,18 +33,17 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Users2, Loader2, Save, Send } from 'lucide-react';
-import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
-import { Checkbox } from '@/components/ui/checkbox';
+import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Send, Save } from 'lucide-react';
+import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useStorage } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
+import { sendSiteInstructionEmailAction } from './actions';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -169,7 +168,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         };
 
         const colRef = collection(db, 'instructions');
-        await addDoc(colRef, instructionData).catch((error) => {
+        const docRef = await addDoc(colRef, instructionData).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: colRef.path,
             operation: 'create',
@@ -178,17 +177,85 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           throw error;
         });
 
-        toast({ 
-          title: 'Success', 
-          description: values.status === 'draft' 
-            ? 'Instruction saved as draft.' 
-            : 'Instruction recorded and issued.' 
-        });
-        setOpen(false);
+        // AUTOMATED DISTRIBUTION FLOW
+        const sub = subContractors.find(s => s.email === values.externalRecipient);
+        if (values.status === 'issued' && sub) {
+          try {
+            const { jsPDF } = await import('jspdf');
+            const html2canvas = (await import('html2canvas')).default;
 
+            const reportElement = document.createElement('div');
+            reportElement.style.position = 'absolute';
+            reportElement.style.left = '-9999px';
+            reportElement.style.padding = '40px';
+            reportElement.style.width = '800px';
+            reportElement.style.background = 'white';
+            reportElement.style.color = 'black';
+            reportElement.style.fontFamily = 'sans-serif';
+
+            reportElement.innerHTML = `
+              <div style="border-bottom: 2px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="margin: 0; color: #1e40af; font-size: 28px;">Site Instruction</h1>
+                <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Reference: ${reference}</p>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
+                <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                  <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project Location</p>
+                  <p style="margin: 0; font-size: 16px; font-weight: bold;">${selectedProject?.name || 'Unknown'}</p>
+                  ${selectedProject?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569;">${selectedProject.address}</p>` : ''}
+                </div>
+                <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                  <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Issued To</p>
+                  <p style="margin: 0; font-size: 16px; font-weight: bold;">${sub.name}</p>
+                  <p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">${sub.email}</p>
+                </div>
+              </div>
+              <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px; min-height: 200px;">
+                <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b;">Instruction Details</h2>
+                <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${values.originalText}</p>
+              </div>
+              ${uploadedPhotos.length > 0 ? `
+                <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                  ${uploadedPhotos.map(p => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover;" /></div>`).join('')}
+                </div>
+              ` : ''}
+            `;
+
+            document.body.appendChild(reportElement);
+            const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            document.body.removeChild(reportElement);
+
+            const pdfBase64 = pdf.output('datauristring').split(',')[1];
+            
+            await sendSiteInstructionEmailAction({
+              email: sub.email,
+              name: sub.name,
+              projectName: selectedProject?.name || 'Project',
+              reference,
+              pdfBase64,
+              fileName: `SiteInstruction-${reference}.pdf`
+            });
+
+            await updateDoc(docRef, { distributedAt: new Date().toISOString() });
+            toast({ title: 'Success', description: `Instruction issued and emailed to ${sub.name}.` });
+          } catch (err) {
+            console.error('Auto-email error:', err);
+            toast({ title: 'Issued with Warning', description: 'Instruction saved, but email distribution encountered an error.', variant: 'destructive' });
+          }
+        } else {
+          toast({ title: 'Success', description: values.status === 'draft' ? 'Instruction saved as draft.' : 'Instruction recorded and issued.' });
+        }
+
+        setOpen(false);
       } catch (err) {
         console.error(err);
-        toast({ title: 'Error', description: 'Failed to process instruction documentation.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to process instruction.', variant: 'destructive' });
       }
     });
   };
@@ -344,7 +411,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                   <div className="flex gap-2 flex-wrap">
                     <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
                     <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files (Max 10MB)</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
                     
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
                       const selected = e.target.files;
@@ -415,7 +482,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                 disabled={isPending}
                 onClick={() => form.setValue('status', 'draft')}
               >
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Save as Draft
               </Button>
               <Button 

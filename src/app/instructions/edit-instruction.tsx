@@ -44,6 +44,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { sendSiteInstructionEmailAction } from './actions';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -174,7 +175,7 @@ export function EditInstruction({
             ...internalStaffEmails
         ].filter(Boolean);
 
-        const updates = {
+        const updates: any = {
           projectId: values.projectId,
           originalText: values.originalText || '',
           summary: values.originalText && values.originalText.length > 100 
@@ -196,7 +197,81 @@ export function EditInstruction({
           throw error;
         });
 
-        toast({ title: 'Success', description: values.status === 'draft' ? 'Instruction updated as draft.' : 'Instruction updated and issued.' });
+        // AUTOMATED DISTRIBUTION FLOW (If issuing or re-issuing)
+        const sub = subContractors.find(s => s.email === values.externalRecipient);
+        if (values.status === 'issued' && sub) {
+          try {
+            const { jsPDF } = await import('jspdf');
+            const html2canvas = (await import('html2canvas')).default;
+
+            const reportElement = document.createElement('div');
+            reportElement.style.position = 'absolute';
+            reportElement.style.left = '-9999px';
+            reportElement.style.padding = '40px';
+            reportElement.style.width = '800px';
+            reportElement.style.background = 'white';
+            reportElement.style.color = 'black';
+            reportElement.style.fontFamily = 'sans-serif';
+
+            reportElement.innerHTML = `
+              <div style="border-bottom: 2px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
+                <h1 style="margin: 0; color: #1e40af; font-size: 28px;">Site Instruction</h1>
+                <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Reference: ${item.reference}</p>
+              </div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
+                <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                  <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project Location</p>
+                  <p style="margin: 0; font-size: 16px; font-weight: bold;">${selectedProject?.name || 'Unknown'}</p>
+                  ${selectedProject?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569;">${selectedProject.address}</p>` : ''}
+                </div>
+                <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                  <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Issued To</p>
+                  <p style="margin: 0; font-size: 16px; font-weight: bold;">${sub.name}</p>
+                  <p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">${sub.email}</p>
+                </div>
+              </div>
+              <div style="background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px; min-height: 200px;">
+                <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b;">Instruction Details</h2>
+                <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${values.originalText}</p>
+              </div>
+              ${uploadedPhotos.length > 0 ? `
+                <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                  ${uploadedPhotos.map(p => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;"><img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover;" /></div>`).join('')}
+                </div>
+              ` : ''}
+            `;
+
+            document.body.appendChild(reportElement);
+            const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
+            const imgData = canvas.toDataURL('image/jpeg', 0.95);
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+            document.body.removeChild(reportElement);
+
+            const pdfBase64 = pdf.output('datauristring').split(',')[1];
+            
+            await sendSiteInstructionEmailAction({
+              email: sub.email,
+              name: sub.name,
+              projectName: selectedProject?.name || 'Project',
+              reference: item.reference,
+              pdfBase64,
+              fileName: `SiteInstruction-${item.reference}.pdf`
+            });
+
+            await updateDoc(docRef, { distributedAt: new Date().toISOString() });
+            toast({ title: 'Success', description: `Instruction updated and emailed to ${sub.name}.` });
+          } catch (err) {
+            console.error('Auto-email error:', err);
+            toast({ title: 'Updated with Warning', description: 'Instruction saved, but email distribution encountered an error.', variant: 'destructive' });
+          }
+        } else {
+          toast({ title: 'Success', description: values.status === 'draft' ? 'Instruction updated as draft.' : 'Instruction updated and issued.' });
+        }
+
         setOpen(false);
 
       } catch (err) {
@@ -377,7 +452,7 @@ export function EditInstruction({
                         <Users2 className="h-4 w-4 text-accent" />
                         <FormLabel className="font-bold">Primary Recipient (External Partner)</FormLabel>
                     </div>
-                    <p className='text-[10px] text-muted-foreground'>Select the trade partner to issue this SI to. All project staff are CC'd automatically.</p>
+                    <p className='text-[10px] text-muted-foreground'>Select the contractor or designer to issue this instruction to. All project staff are CC'd automatically.</p>
                 </div>
                 <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
                     {availableSubContractors.map((sub) => (
