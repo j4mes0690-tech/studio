@@ -63,17 +63,21 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7); // 7 day expiry
 
-        const inviteData: Omit<Invitation, 'id'> = {
+        const inviteData: any = {
           email: values.email.toLowerCase().trim(),
           name: values.name,
           userType: values.userType,
-          projectId: (values.projectId && values.projectId !== 'none') ? values.projectId : undefined,
           token,
           status: 'pending',
           createdAt: new Date().toISOString(),
           expiresAt: expiresAt.toISOString(),
           createdByEmail: currentUser.email,
         };
+
+        // Only include projectId if it's not 'none' and exists
+        if (values.projectId && values.projectId !== 'none') {
+          inviteData.projectId = values.projectId;
+        }
 
         // 1. Save to database
         const colRef = collection(db, 'invitations');
