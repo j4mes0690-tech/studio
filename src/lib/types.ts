@@ -115,6 +115,7 @@ export type InformationRequest = {
   reference: string;
   projectId: string;
   clientInstructionId?: string;
+  irsItemId?: string;
   description: string;
   assignedTo: string[];
   raisedBy: string;
@@ -135,6 +136,7 @@ export type UserPermissions = {
   canManageMaterials: boolean;
   canManagePermitTemplates: boolean;
   canManageTraining: boolean;
+  canManageIRS: boolean;
   hasFullVisibility: boolean;
   // Module Access
   accessMaterials: boolean;
@@ -150,6 +152,7 @@ export type UserPermissions = {
   accessInfoRequests: boolean;
   accessPaymentNotices: boolean;
   accessSubContractOrders: boolean;
+  accessIRS: boolean;
 };
 
 export type DistributionUser = {
@@ -213,6 +216,25 @@ export type QualityChecklist = {
 export type Trade = {
   id: string;
   name: string;
+};
+
+// --- IRS MODULE TYPES ---
+
+export type IRSItemStatus = 'open' | 'provided' | 'overdue' | 'escalated';
+
+export type IRSItem = {
+  id: string;
+  reference: string;
+  projectId: string;
+  title: string;
+  description: string;
+  assignedToEmail: string;
+  requiredByDate: string;
+  notificationLeadDays: number;
+  status: IRSItemStatus;
+  escalatedRfiId?: string | null;
+  createdAt: string;
+  createdByEmail: string;
 };
 
 // --- PROCUREMENT MODULE TYPES ---

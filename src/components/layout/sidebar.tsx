@@ -30,6 +30,7 @@ import {
   GraduationCap,
   Banknote,
   FileSignature,
+  CalendarClock,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -39,6 +40,7 @@ import { useMemo } from 'react';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
+  { href: '/irs', label: 'IRS Schedule', icon: CalendarClock, permission: 'accessIRS' },
   { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, permission: 'accessMaterials' },
   { href: '/plant-orders', label: 'Plant Orders', icon: Truck, permission: 'accessPlant' },
   { href: '/subcontract-orders', label: 'Sub Contract Orders', icon: FileSignature, permission: 'accessSubContractOrders' },

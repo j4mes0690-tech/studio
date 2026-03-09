@@ -22,6 +22,7 @@
             "canManageMaterials": { "type": "boolean" },
             "canManagePermitTemplates": { "type": "boolean" },
             "canManageTraining": { "type": "boolean" },
+            "canManageIRS": { "type": "boolean" },
             "hasFullVisibility": { "type": "boolean" },
             "accessMaterials": { "type": "boolean" },
             "accessPlant": { "type": "boolean" },
@@ -35,29 +36,32 @@
             "accessQualityControl": { "type": "boolean" },
             "accessInfoRequests": { "type": "boolean" },
             "accessPaymentNotices": { "type": "boolean" },
-            "accessSubContractOrders": { "type": "boolean" }
+            "accessSubContractOrders": { "type": "boolean" },
+            "accessIRS": { "type": "boolean" }
           }
         }
       },
       "required": ["id", "name", "email"]
     },
-    "Invitation": {
-      "title": "Invitation",
-      "description": "A pending request for a user to join the platform.",
+    "IRSItem": {
+      "title": "IRS Item",
+      "description": "Information Required Schedule item tracking design deliverables.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "name": { "type": "string" },
-        "userType": { "type": "string", "enum": ["internal", "partner"] },
+        "reference": { "type": "string" },
         "projectId": { "type": "string" },
-        "token": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "accepted", "expired"] },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "assignedToEmail": { "type": "string" },
+        "requiredByDate": { "type": "string", "format": "date" },
+        "notificationLeadDays": { "type": "number" },
+        "status": { "type": "string", "enum": ["open", "provided", "overdue", "escalated"] },
+        "escalatedRfiId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "expiresAt": { "type": "string", "format": "date-time" },
         "createdByEmail": { "type": "string" }
       },
-      "required": ["id", "email", "token", "status"]
+      "required": ["id", "projectId", "title", "requiredByDate", "status"]
     },
     "Project": {
       "title": "Project",
@@ -83,20 +87,6 @@
         "assignedSubContractors": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["id", "name"]
-    },
-    "SnaggingHistoryRecord": {
-      "title": "Snagging History Record",
-      "description": "A timestamped version snapshot of a snagging list.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "updatedBy": { "type": "string" },
-        "totalCount": { "type": "number" },
-        "closedCount": { "type": "number" },
-        "summary": { "type": "string" }
-      },
-      "required": ["id", "timestamp", "updatedBy"]
     }
   },
   "auth": {
@@ -104,8 +94,7 @@
   },
   "firestore": {
     "/users/{userId}": { "schema": { "$ref": "#/backend/entities/User" }, "description": "System user profiles." },
-    "/invitations/{id}": { "schema": { "$ref": "#/backend/entities/Invitation" }, "description": "Pending user invites." },
     "/projects/{projectId}": { "schema": { "$ref": "#/backend/entities/Project" }, "description": "Construction site project metadata." },
-    "/snagging-items/{snagId}/history/{id}": { "schema": { "$ref": "#/backend/entities/SnaggingHistoryRecord" }, "description": "Version history snapshots for snagging lists." }
+    "/irs-items/{id}": { "schema": { "$ref": "#/backend/entities/IRSItem" }, "description": "Information Required Schedule tracking items." }
   }
 }
