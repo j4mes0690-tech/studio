@@ -11,7 +11,6 @@ import {
     Card,
 } from '@/components/ui/card';
 import { UsersList } from './users-list';
-import { AddUserForm } from './add-user-form';
 import { AddSubcontractorForm } from './add-subcontractor-form';
 import { SubcontractorsList } from './subcontractors-list';
 import { AddProjectForm } from './add-project-form';
@@ -21,7 +20,7 @@ import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation } from '@/lib/types';
-import { Loader2, ShieldAlert, FileCheck, Tag, MailPlus, Users, UserCog, UserPlus } from 'lucide-react';
+import { Loader2, ShieldAlert, FileCheck, Tag, MailPlus, Users, UserCog, UserPlus, ShieldCheck } from 'lucide-react';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
@@ -29,8 +28,10 @@ import { Separator } from '@/components/ui/separator';
 import { InviteCollaboratorDialog } from './invite-collaborator-dialog';
 import { InvitationsList } from './invitations-list';
 import { AddUserDialog } from './add-user-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Suspense } from 'react';
 
-export default function SettingsPage() {
+function SettingsContent() {
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   
@@ -88,7 +89,7 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-        <div className="flex flex-col w-full h-screen items-center justify-center">
+        <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
     );
@@ -110,15 +111,16 @@ export default function SettingsPage() {
   if (!hasAnyAdminPermission) {
     return (
         <div className="flex flex-col w-full">
-            <Header title="Settings" />
             <main className="flex-1 p-4 md:p-8 flex items-center justify-center">
-                <Card className="max-w-md w-full p-6">
+                <Card className="max-w-md w-full p-6 border-destructive/20 bg-destructive/5">
                     <div className="flex flex-col items-center text-center space-y-4">
                         <div className="flex justify-center">
                             <ShieldAlert className="h-12 w-12 text-destructive" />
                         </div>
                         <h2 className="text-xl font-bold">Access Denied</h2>
-                        <p className="text-muted-foreground">You do not have administrative permissions to manage system settings.</p>
+                        <p className="text-muted-foreground text-sm leading-relaxed">
+                            Administrative oversight is required to modify system settings. Please contact your administrator to request access to this module.
+                        </p>
                     </div>
                 </Card>
             </main>
@@ -127,66 +129,70 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col w-full">
-      <Header title="Settings" />
-      <main className="flex-1 p-4 md:p-8">
-        <Accordion type="single" collapsible className="w-full space-y-4">
+    <main className="flex-1 p-4 md:p-8">
+        <Accordion type="single" collapsible className="w-full space-y-4" defaultValue="users">
           
           {canManageUsers && (
-            <>
-              <Card>
-                  <AccordionItem value="users" className="border-b-0">
-                      <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Active Users</AccordionTrigger>
-                      <AccordionContent className="p-6 pt-0">
-                          <div className="space-y-6">
-                              <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2 text-muted-foreground font-bold">
-                                      <Users className="h-5 w-5" />
-                                      <h3 className="text-lg">System User Directory</h3>
-                                  </div>
-                                  <AddUserDialog />
-                              </div>
-                              <UsersList users={users || []} />
-                          </div>
-                      </AccordionContent>
-                  </AccordionItem>
-              </Card>
+            <Card className="overflow-hidden">
+                <AccordionItem value="users" className="border-b-0">
+                    <AccordionTrigger className="px-6 py-5 text-xl font-bold hover:no-underline group">
+                        <div className="flex items-center gap-3">
+                            <Users className="h-6 w-6 text-primary" />
+                            <span>System User Management</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6 pt-0">
+                        <Tabs defaultValue="active" className="w-full">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b pb-4">
+                                <TabsList className="bg-muted/50">
+                                    <TabsTrigger value="active" className="gap-2 font-bold px-4">
+                                        <Users className="h-4 w-4" />
+                                        Active Directory
+                                    </TabsTrigger>
+                                    <TabsTrigger value="pending" className="gap-2 font-bold px-4">
+                                        <MailPlus className="h-4 w-4" />
+                                        Pending Invitations
+                                        {invitations && invitations.filter(i => i.status === 'pending').length > 0 && (
+                                            <Badge className="ml-1 h-5 px-1.5 min-w-[20px] justify-center bg-primary text-white border-none">
+                                                {invitations.filter(i => i.status === 'pending').length}
+                                            </Badge>
+                                        )}
+                                    </TabsTrigger>
+                                </TabsList>
+                                
+                                <div className="flex items-center gap-2">
+                                    <TabsContent value="active" className="m-0 p-0">
+                                        <AddUserDialog />
+                                    </TabsContent>
+                                    <TabsContent value="pending" className="m-0 p-0">
+                                        <InviteCollaboratorDialog projects={projects || []} currentUser={profile!} />
+                                    </TabsContent>
+                                </div>
+                            </div>
 
-              <Card>
-                  <AccordionItem value="invitations" className="border-b-0">
-                      <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Collaborator Onboarding</AccordionTrigger>
-                      <AccordionContent className="p-6 pt-0">
-                          <div className="space-y-6">
-                              <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2 text-primary font-bold">
-                                      <MailPlus className="h-5 w-5" />
-                                      <h3 className="text-lg">Pending Invitations</h3>
-                                  </div>
-                                  <InviteCollaboratorDialog projects={projects || []} currentUser={profile!} />
-                              </div>
-                              <InvitationsList invitations={invitations || []} />
-                          </div>
-                      </AccordionContent>
-                  </AccordionItem>
-              </Card>
-
-              <Card>
-                  <AccordionItem value="manual-profile" className="border-b-0">
-                      <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manual Profile Setup</AccordionTrigger>
-                      <AccordionContent className="p-6 pt-0">
-                          <div className="space-y-6">
-                              <div className="flex items-center gap-2 text-primary font-bold">
-                                  <UserCog className="h-5 w-5" />
-                                  <h3 className="text-lg">New Account Configuration</h3>
-                              </div>
-                              <div className="max-w-2xl border rounded-lg p-6 bg-muted/5">
-                                  <AddUserForm />
-                              </div>
-                          </div>
-                      </AccordionContent>
-                  </AccordionItem>
-              </Card>
-            </>
+                            <TabsContent value="active" className="mt-0 focus-visible:ring-0">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">
+                                        <ShieldCheck className="h-3.5 w-3.5" />
+                                        Verified System Profiles
+                                    </div>
+                                    <UsersList users={users || []} />
+                                </div>
+                            </TabsContent>
+                            
+                            <TabsContent value="pending" className="mt-0 focus-visible:ring-0">
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">
+                                        <Clock className="h-3.5 w-3.5" />
+                                        Awaiting Collaboration Acceptance
+                                    </div>
+                                    <InvitationsList invitations={invitations || []} />
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
           )}
 
           {canManageSubcontractors && (
@@ -284,6 +290,20 @@ export default function SettingsPage() {
           )}
         </Accordion>
       </main>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <div className="flex flex-col w-full min-h-screen">
+      <Header title="Settings" />
+      <Suspense fallback={
+        <div className="flex flex-col w-full h-screen items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }>
+        <SettingsContent />
+      </Suspense>
     </div>
   );
 }
