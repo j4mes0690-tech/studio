@@ -24,11 +24,9 @@ import {
   FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, CalendarClock, UserCheck, ShieldCheck, Users2 } from 'lucide-react';
+import { PlusCircle, Loader2, Save, ShieldCheck, Users2 } from 'lucide-react';
 import type { Project, DistributionUser, SubContractor, IRSItem } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -140,48 +138,110 @@ export function NewIRSItemDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField control={form.control} name="projectId" render={({ field }) => (
-              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</Select></FormItem>
-            )} />
+            <FormField 
+              control={form.control} 
+              name="projectId" 
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Project</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select project" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {projects.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )} 
+            />
 
-            <FormField control={form.control} name="title" render={({ field }) => (
-              <FormItem>
-                <div className="flex items-center justify-between"><FormLabel>Information Required</FormLabel><VoiceInput onResult={field.onChange} /></div>
-                <FormControl><Input placeholder="e.g. Kitchen finish choices or Lighting Layout" {...field} /></FormControl>
-              </FormItem>
-            )} />
+            <FormField 
+              control={form.control} 
+              name="title" 
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Information Required</FormLabel>
+                    <VoiceInput onResult={field.onChange} />
+                  </div>
+                  <FormControl>
+                    <Input placeholder="e.g. Kitchen finish choices or Lighting Layout" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} 
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="assignedToEmail" render={({ field }) => (
+                <FormField 
+                  control={form.control} 
+                  name="assignedToEmail" 
+                  render={({ field }) => (
                     <FormItem>
                         <FormLabel>Required From</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Assignee" /></SelectTrigger></FormControl>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Assignee" />
+                              </SelectTrigger>
+                            </FormControl>
                             <SelectContent>
-                                <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1 border-b"><ShieldCheck className="h-3 w-3" /> Project Staff</div>
-                                {availableStaff.map(u => <SelectItem key={u.id} value={u.email}>{u.name}</SelectItem>)}
-                                <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1 border-b mt-2"><Users2 className="h-3 w-3" /> Trade Partners</div>
-                                {availablePartners.map(s => <SelectItem key={s.id} value={s.email}>{s.name}</SelectItem>)}
+                                <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1 border-b">
+                                  <ShieldCheck className="h-3 w-3" /> Project Staff
+                                </div>
+                                {availableStaff.map(u => (
+                                  <SelectItem key={u.id} value={u.email}>{u.name}</SelectItem>
+                                ))}
+                                <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1 border-b mt-2">
+                                  <Users2 className="h-3 w-3" /> Trade Partners
+                                </div>
+                                {availablePartners.map(s => (
+                                  <SelectItem key={s.id} value={s.email}>{s.name}</SelectItem>
+                                ))}
                             </SelectContent>
                         </Select>
+                        <FormMessage />
                     </FormItem>
                 )} />
-                <FormField control={form.control} name="requiredByDate" render={({ field }) => (
-                    <FormItem><FormLabel>Target Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
+                <FormField 
+                  control={form.control} 
+                  name="requiredByDate" 
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Target Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                 )} />
             </div>
 
-            <FormField control={form.control} name="notificationLeadDays" render={({ field }) => (
+            <FormField 
+              control={form.control} 
+              name="notificationLeadDays" 
+              render={({ field }) => (
                 <FormItem>
                     <FormLabel>Warning Period (Days)</FormLabel>
-                    <FormControl><Input type="number" {...field} /></FormControl>
-                    <FormDescription className="text-[10px]">Days before target date to flag as a priority warning.</FormDescription>
+                    <FormControl>
+                      <Input type="number" {...field} />
+                    </FormControl>
+                    <FormDescription className="text-[10px]">
+                      Days before target date to flag as a priority warning.
+                    </FormDescription>
+                    <FormMessage />
                 </FormItem>
             )} />
 
             <DialogFooter>
               <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Save to Schedule
               </Button>
             </DialogFooter>

@@ -3,10 +3,10 @@
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, addDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, doc, addDoc, writeBatch } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense, useTransition } from 'react';
 import type { IRSItem, Project, DistributionUser, SubContractor, InformationRequest } from '@/lib/types';
-import { Loader2, CalendarClock, LayoutGrid, List, ShieldCheck, Filter, AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Loader2, CalendarClock, LayoutGrid, List, ShieldCheck, Filter, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -106,7 +106,6 @@ function IRSContent() {
         const project = allProjects?.find(p => p.id === item.projectId);
         const initials = getProjectInitials(project?.name || 'PRJ');
         
-        // Use sequential reference for RFIs
         const existingRefs = allRFIs.map(r => ({ reference: r.reference, projectId: r.projectId }));
         const rfiRef = getNextReference(existingRefs, item.projectId, 'RFI', initials);
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -105,7 +106,7 @@ function PlantOrdersContent() {
             Plant Orders
           </h2>
           {hasFullVisibility && (
-            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em]">
+            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Administrative Oversight Active
             </div>
@@ -139,7 +140,7 @@ function PlantOrdersContent() {
             Filter By:
           </div>
           <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-full sm:w-[200px] bg-background">
+            <SelectTrigger className="w-full sm:w-[250px] bg-background">
               <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent>
@@ -200,13 +201,8 @@ export default function PlantOrdersPage() {
     <div className="flex flex-col w-full min-h-screen">
       <Header title="Plant Orders" />
       <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-        <MaterialsOrdersContent />
+        <PlantOrdersContent />
       </Suspense>
     </div>
   );
-}
-
-function MaterialsOrdersContent() {
-    // This is a duplicate function from the file - removing during logic consolidation
-    return <PlantOrdersContent />;
 }
