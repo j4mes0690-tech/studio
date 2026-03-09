@@ -352,8 +352,8 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
-        <DialogHeader className="p-6 pb-0">
+      <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-4 border-b shrink-0">
           <div className="flex items-center justify-between">
             <div>
                 <DialogTitle>Edit User Profile</DialogTitle>
@@ -373,8 +373,8 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
-            <ScrollArea className="flex-1 px-6">
-              <div className="space-y-8 py-6">
+            <ScrollArea className="flex-1">
+              <div className="p-6 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="name" render={({ field }) => (
                         <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>

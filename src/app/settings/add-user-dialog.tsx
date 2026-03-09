@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -24,16 +25,15 @@ export function AddUserDialog() {
           Add New User
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-6 pb-4 border-b shrink-0">
           <DialogTitle>Create System User</DialogTitle>
           <DialogDescription>
-            Manually create a internal user profile and configure their system-wide permissions.
+            Manually create an internal user profile and configure their system-wide permissions.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
-          {/* Note: In a real app, we might want to pass a callback to close the dialog on success */}
-          <AddUserForm />
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <AddUserForm onSuccess={() => setOpen(false)} />
         </div>
       </DialogContent>
     </Dialog>

@@ -84,7 +84,7 @@ const AddUserSchema = z.object({
 
 type AddUserFormValues = z.infer<typeof AddUserSchema>;
 
-export function AddUserForm() {
+export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
@@ -202,6 +202,7 @@ export function AddUserForm() {
         .then(() => {
           toast({ title: 'Success', description: 'User profile created.' });
           form.reset();
+          if (onSuccess) onSuccess();
         })
         .catch(async (error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -215,53 +216,54 @@ export function AddUserForm() {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <div className="space-y-4 px-1">
-            <FormField control={form.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="email" render={({ field }) => (
-                <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="password" render={({ field }) => (
-                <FormItem><FormLabel>Initial Password</FormLabel><FormControl><Input type="password" placeholder="System password" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-        </div>
-
-        <Separator />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-1">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+        <ScrollArea className="flex-1">
+          <div className="p-6 space-y-8">
             <div className="space-y-4">
-                <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Admin Permissions</FormLabel>
-                <div className="space-y-3">
-                    <FormField control={form.control} name="hasFullVisibility" render={({ field }) => (
-                        <FormItem className="flex items-center justify-between rounded-lg border-2 border-primary/20 p-3 bg-primary/5">
-                            <div className="space-y-0.5"><FormLabel className="text-primary font-bold">Admin Visibility</FormLabel><FormDescription className="text-[10px]">Full data access.</FormDescription></div>
-                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                        </FormItem>
-                    )} />
-                    {[
-                        { name: 'canManageUsers', label: 'Manage Users', desc: 'Internal staff control.' },
-                        { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Subcontractors & Suppliers.' },
-                        { name: 'canManageProjects', label: 'Manage Projects', desc: 'Setup and assignments.' },
-                        { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Master checklist setup.' },
-                        { name: 'canManagePermitTemplates', label: 'Manage Permits', desc: 'Permit form setup.' },
-                        { name: 'canManageTraining', label: 'Manage Training', desc: 'Compliance oversight.' },
-                        { name: 'canManageIRS', label: 'Manage IRS', desc: 'Master schedule control.' },
-                    ].map(perm => (
-                        <FormField key={perm.name} control={form.control} name={perm.name as any} render={({ field }) => (
-                        <FormItem className="flex items-center justify-between rounded-lg border p-3 bg-background">
-                            <div className="space-y-0.5"><FormLabel className="text-xs font-semibold">{perm.label}</FormLabel><FormDescription className="text-[10px]">{perm.desc}</FormDescription></div>
-                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                        </FormItem>
-                        )} />
-                    ))}
-                </div>
+                <FormField control={form.control} name="name" render={({ field }) => (
+                    <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="email" render={({ field }) => (
+                    <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="password" render={({ field }) => (
+                    <FormItem><FormLabel>Initial Password</FormLabel><FormControl><Input type="password" placeholder="System password" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
             </div>
 
-            <div className="space-y-4">
-                <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Module Access & Mode</FormLabel>
-                <ScrollArea className="h-[450px] pr-4">
+            <Separator />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Admin Permissions</FormLabel>
+                    <div className="space-y-3">
+                        <FormField control={form.control} name="hasFullVisibility" render={({ field }) => (
+                            <FormItem className="flex items-center justify-between rounded-lg border-2 border-primary/20 p-3 bg-primary/5">
+                                <div className="space-y-0.5"><FormLabel className="text-primary font-bold">Admin Visibility</FormLabel><FormDescription className="text-[10px]">Full data access.</FormDescription></div>
+                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            </FormItem>
+                        )} />
+                        {[
+                            { name: 'canManageUsers', label: 'Manage Users', desc: 'Internal staff control.' },
+                            { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Subcontractors & Suppliers.' },
+                            { name: 'canManageProjects', label: 'Manage Projects', desc: 'Setup and assignments.' },
+                            { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Master checklist setup.' },
+                            { name: 'canManagePermitTemplates', label: 'Manage Permits', desc: 'Permit form setup.' },
+                            { name: 'canManageTraining', label: 'Manage Training', desc: 'Compliance oversight.' },
+                            { name: 'canManageIRS', label: 'Manage IRS', desc: 'Master schedule control.' },
+                        ].map(perm => (
+                            <FormField key={perm.name} control={form.control} name={perm.name as any} render={({ field }) => (
+                            <FormItem className="flex items-center justify-between rounded-lg border p-3 bg-background">
+                                <div className="space-y-0.5"><FormLabel className="text-xs font-semibold">{perm.label}</FormLabel><FormDescription className="text-[10px]">{perm.desc}</FormDescription></div>
+                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            </FormItem>
+                            )} />
+                        ))}
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Module Access & Mode</FormLabel>
                     <div className="space-y-2">
                         {[
                             { access: 'accessMaterials', ro: 'materialsReadOnly', label: 'Materials' },
@@ -309,14 +311,17 @@ export function AddUserForm() {
                             </div>
                         ))}
                     </div>
-                </ScrollArea>
+                </div>
             </div>
-        </div>
+          </div>
+        </ScrollArea>
 
-        <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
-          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-          Create User Profile
-        </Button>
+        <DialogFooter className="p-6 border-t bg-muted/5 shrink-0">
+          <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
+            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+            Create User Profile
+          </Button>
+        </DialogFooter>
       </form>
     </Form>
   );

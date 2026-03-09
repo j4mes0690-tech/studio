@@ -3,7 +3,7 @@
 
 import type { DistributionUser, Invitation } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, Clock, CheckCircle2, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Trash2, Clock, CheckCircle2, ShieldCheck, ShieldAlert, Eye } from 'lucide-react';
 import { useTransition, useMemo } from 'react';
 import {
   AlertDialog,
@@ -30,6 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { ClientDate } from '@/components/client-date';
 
 export function UsersList({ users }: { users: DistributionUser[] }) {
   const [isPending, startTransition] = useTransition();
@@ -60,6 +61,15 @@ export function UsersList({ users }: { users: DistributionUser[] }) {
         });
     });
   };
+
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
+    }
+    return name.charAt(0).toUpperCase();
+  };
   
   return (
     <div className="space-y-3">
@@ -70,6 +80,7 @@ export function UsersList({ users }: { users: DistributionUser[] }) {
         );
         
         const isAdmin = user.permissions && (user.permissions.hasFullVisibility || Object.entries(user.permissions).some(([k,v]) => k.startsWith('canManage') && v === true));
+        const initials = getInitials(user.name);
 
         return (
           <div key={user.id || user.email} className={cn(
@@ -78,10 +89,10 @@ export function UsersList({ users }: { users: DistributionUser[] }) {
           )}>
             <div className="flex items-center gap-4 min-w-0">
                 <div className={cn(
-                    "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                    "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0 tracking-tighter",
                     isPendingOnboarding ? "bg-muted text-muted-foreground" : "bg-primary/10 text-primary"
                 )}>
-                    {isPendingOnboarding ? <Clock className="h-5 w-5" /> : user.name.charAt(0).toUpperCase()}
+                    {isPendingOnboarding ? <Clock className="h-5 w-5" /> : initials}
                 </div>
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
@@ -143,7 +154,7 @@ export function UsersList({ users }: { users: DistributionUser[] }) {
         )
       })}
       {users.length === 0 && (
-          <p className="text-muted-foreground text-center py-12 text-sm italic border-2 border-dashed rounded-lg">No users found in directory.</p>
+          <p className="text-muted-foreground text-center py-12 text-sm italic border-2 border-dashed rounded-lg bg-muted/5">No users found in directory.</p>
       )}
     </div>
   );
