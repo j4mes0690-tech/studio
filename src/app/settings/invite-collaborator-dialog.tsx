@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserPlus, Loader2, Send, Mail, ShieldCheck, Users2, Sparkles } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Project, DistributionUser, Invitation } from '@/lib/types';
@@ -51,7 +51,7 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
 
   const form = useForm<InviteFormValues>({
     resolver: zodResolver(InviteSchema),
-    defaultValues: { email: '', name: '', userType: 'partner', projectId: '' },
+    defaultValues: { email: '', name: '', userType: 'partner', projectId: 'none' },
   });
 
   const selectedUserType = form.watch('userType');
@@ -67,7 +67,7 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
           email: values.email.toLowerCase().trim(),
           name: values.name,
           userType: values.userType,
-          projectId: values.projectId || undefined,
+          projectId: (values.projectId && values.projectId !== 'none') ? values.projectId : undefined,
           token,
           status: 'pending',
           createdAt: new Date().toISOString(),
@@ -94,8 +94,7 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
         if (result.success) {
           toast({ title: 'Invitation Sent', description: `An onboarding link has been emailed to ${values.email}.` });
         } else {
-          // Prototype fallback: Show the link in a copyable area if Resend fails/isn't configured
-          console.warn("Invite link (fallback):", inviteLink);
+          // Prototype fallback
           toast({ 
             title: 'Invite Logged', 
             description: 'Invitation recorded. Email service is not configured, but the collaborator can join via the system log.',
@@ -178,7 +177,7 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
                     <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Optional: Select project" /></SelectTrigger></FormControl>
                         <SelectContent>
-                            <SelectItem value="">No initial assignment</SelectItem>
+                            <SelectItem value="none">No initial assignment</SelectItem>
                             {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
