@@ -253,7 +253,7 @@ export function SnaggingItemCard({
 
   return (
     <>
-      <Card className={cn("transition-colors hover:border-primary/50 shadow-md", isComplete && "bg-muted/30")}>
+      <Card className="transition-all hover:bg-muted/5 hover:border-primary/50 shadow-md">
         <CardHeader>
           <div className="flex justify-between items-start">
             <Link href={`/snagging/${item.id}`} className="space-y-1 flex-1 group">

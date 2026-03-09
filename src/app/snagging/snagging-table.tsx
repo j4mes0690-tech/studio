@@ -195,7 +195,7 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
 
   return (
     <TableRow 
-      className={cn("group cursor-pointer", isComplete && "opacity-60")}
+      className="group cursor-pointer"
       href={`/snagging/${item.id}`}
     >
       <TableCell className="font-medium">{project?.name || 'Unknown'}</TableCell>
@@ -236,11 +236,9 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </AlertDialogTrigger>
+                  <Button variant="ghost" size="icon">
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
                 </TooltipTrigger>
                 <TooltipContent><p>Delete List</p></TooltipContent>
               </Tooltip>
