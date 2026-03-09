@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useTransition } from 'react';
-import type { Invitation } from '@/lib/types';
+import { useTransition, useState } from 'react';
+import type { Invitation, DistributionUser } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, Clock, Mail, CheckCircle2, XCircle, Link as LinkIcon, Copy, ShieldCheck, Users2 } from 'lucide-react';
+import { Trash2, Clock, Mail, CheckCircle2, XCircle, Link as LinkIcon, Copy, ShieldCheck, Users2, Send, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -17,16 +17,58 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { sendInvitationEmailAction } from './actions';
 
 export function InvitationsList({ invitations }: { invitations: Invitation[] }) {
   const db = useFirestore();
+  const { user: sessionUser } = useUser();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [resendingId, setResendingId] = useState<string | null>(null);
+
+  // Fetch current user profile for inviter name
+  const profileRef = useMemoFirebase(() => {
+    if (!db || !sessionUser?.email) return null;
+    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
+  }, [db, sessionUser?.email]);
+  const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   const handleRemove = (id: string) => {
     startTransition(async () => {
       await deleteDoc(doc(db, 'invitations', id));
       toast({ title: 'Invite Cancelled', description: 'The onboarding link has been invalidated.' });
+    });
+  };
+
+  const handleResend = (invite: Invitation) => {
+    setResendingId(invite.id);
+    startTransition(async () => {
+      try {
+        const host = typeof window !== 'undefined' ? window.location.origin : '';
+        const inviteLink = `${host}/join?token=${invite.token}`;
+
+        const result = await sendInvitationEmailAction({
+          email: invite.email,
+          name: invite.name,
+          inviteLink,
+          inviterName: profile?.name || sessionUser?.email || 'A colleague',
+          userType: invite.userType
+        });
+
+        if (result.success) {
+          toast({ title: 'Invite Resent', description: `Invitation emailed to ${invite.email}.` });
+        } else {
+          toast({ 
+            title: 'Resend Failed', 
+            description: result.message || 'Check your email service configuration.', 
+            variant: 'destructive' 
+          });
+        }
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to resend invitation.', variant: 'destructive' });
+      } finally {
+        setResendingId(null);
+      }
     });
   };
 
@@ -41,8 +83,9 @@ export function InvitationsList({ invitations }: { invitations: Invitation[] }) 
     <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
       {invitations.map((invite) => {
         const isExpired = new Date(invite.expiresAt) < new Date() && invite.status === 'pending';
-        const isPending = invite.status === 'pending';
+        const isPendingStatus = invite.status === 'pending';
         const isAccepted = invite.status === 'accepted';
+        const isCurrentlyResending = resendingId === invite.id;
 
         return (
           <div key={invite.id} className={cn(
@@ -76,15 +119,27 @@ export function InvitationsList({ invitations }: { invitations: Invitation[] }) 
               </div>
 
               <div className="flex items-center gap-2 pt-1">
-                {isPending && !isExpired && (
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="h-6 text-[10px] gap-1.5 px-2 font-bold"
-                        onClick={() => copyLink(invite.token)}
-                    >
-                        <Copy className="h-2.5 w-2.5" /> Copy Join Link
-                    </Button>
+                {isPendingStatus && !isExpired && (
+                    <>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-6 text-[10px] gap-1.5 px-2 font-bold"
+                            onClick={() => handleResend(invite)}
+                            disabled={isCurrentlyResending}
+                        >
+                            {isCurrentlyResending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Send className="h-2.5 w-2.5" />}
+                            Resend Email
+                        </Button>
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 text-[10px] gap-1.5 px-2 font-bold"
+                            onClick={() => copyLink(invite.token)}
+                        >
+                            <Copy className="h-2.5 w-2.5" /> Copy Link
+                        </Button>
+                    </>
                 )}
                 {isAccepted && (
                     <Badge className="bg-green-100 text-green-800 border-green-200 text-[9px] gap-1 h-5">
@@ -108,6 +163,7 @@ export function InvitationsList({ invitations }: { invitations: Invitation[] }) 
                         size="icon" 
                         className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={() => handleRemove(invite.id)}
+                        disabled={isPending}
                     >
                         <Trash2 className="h-4 w-4" />
                     </Button>
