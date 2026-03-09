@@ -38,5 +38,6 @@ service cloud.firestore {
     match /payment-notices/{id} { allow read, write: if isSignedIn(); }
     match /valuation-periods/{id} { allow read, write: if isSignedIn(); }
     match /invitations/{id} { allow read, write: if isSignedIn(); }
+    match /irs-items/{id} { allow read, write: if isSignedIn(); }
   }
 }
