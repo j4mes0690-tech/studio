@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -25,7 +26,7 @@ import {
   FormDescription,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Loader2, Save, Send, MailPlus } from 'lucide-react';
+import { Pencil, Loader2, Save, Send, MailPlus, ShieldCheck, Eye, Edit3 } from 'lucide-react';
 import type { DistributionUser, Invitation } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
@@ -34,43 +35,69 @@ import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { sendInvitationEmailAction } from './actions';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 const EditUserSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
-  // Administrative
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
   canManagePermitTemplates: z.boolean().default(false),
   canManageTraining: z.boolean().default(false),
+  canManageIRS: z.boolean().default(false),
   hasFullVisibility: z.boolean().default(false),
-  // Module Access
+  
   accessMaterials: z.boolean().default(true),
+  materialsReadOnly: z.boolean().default(false),
+  
   accessPlant: z.boolean().default(true),
+  plantReadOnly: z.boolean().default(false),
+  
   accessSubContractOrders: z.boolean().default(true),
+  subContractOrdersReadOnly: z.boolean().default(false),
+  
   accessVariations: z.boolean().default(true),
+  variationsReadOnly: z.boolean().default(false),
+  
   accessPaymentNotices: z.boolean().default(true),
+  paymentNoticesReadOnly: z.boolean().default(false),
+  
   accessPermits: z.boolean().default(true),
+  permitsReadOnly: z.boolean().default(false),
+  
   accessTraining: z.boolean().default(true),
+  trainingReadOnly: z.boolean().default(false),
+  
   accessClientInstructions: z.boolean().default(true),
+  clientInstructionsReadOnly: z.boolean().default(false),
+  
   accessSiteInstructions: z.boolean().default(true),
+  siteInstructionsReadOnly: z.boolean().default(false),
+  
   accessCleanupNotices: z.boolean().default(true),
+  cleanupNoticesReadOnly: z.boolean().default(false),
+  
   accessSnagging: z.boolean().default(true),
+  snaggingReadOnly: z.boolean().default(false),
+  
   accessQualityControl: z.boolean().default(true),
+  qualityControlReadOnly: z.boolean().default(false),
+  
   accessInfoRequests: z.boolean().default(true),
+  infoRequestsReadOnly: z.boolean().default(false),
+  
+  accessIRS: z.boolean().default(true),
+  irsReadOnly: z.boolean().default(false),
 });
 
 type EditUserFormValues = z.infer<typeof EditUserSchema>;
 
-type EditUserFormProps = {
-  user: DistributionUser;
-};
-
-export function EditUserForm({ user }: EditUserFormProps) {
+export function EditUserForm({ user }: { user: DistributionUser }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
@@ -91,20 +118,50 @@ export function EditUserForm({ user }: EditUserFormProps) {
       canManageChecklists: user.permissions?.canManageChecklists || false,
       canManagePermitTemplates: user.permissions?.canManagePermitTemplates || false,
       canManageTraining: user.permissions?.canManageTraining || false,
+      canManageIRS: user.permissions?.canManageIRS || false,
       hasFullVisibility: user.permissions?.hasFullVisibility || false,
+      
       accessMaterials: user.permissions?.accessMaterials !== false,
+      materialsReadOnly: !!user.permissions?.materialsReadOnly,
+      
       accessPlant: user.permissions?.accessPlant !== false,
+      plantReadOnly: !!user.permissions?.plantReadOnly,
+      
       accessSubContractOrders: user.permissions?.accessSubContractOrders !== false,
+      subContractOrdersReadOnly: !!user.permissions?.subContractOrdersReadOnly,
+      
       accessVariations: user.permissions?.accessVariations !== false,
+      variationsReadOnly: !!user.permissions?.variationsReadOnly,
+      
       accessPaymentNotices: user.permissions?.accessPaymentNotices !== false,
+      paymentNoticesReadOnly: !!user.permissions?.paymentNoticesReadOnly,
+      
       accessPermits: user.permissions?.accessPermits !== false,
+      permitsReadOnly: !!user.permissions?.permitsReadOnly,
+      
       accessTraining: user.permissions?.accessTraining !== false,
+      trainingReadOnly: !!user.permissions?.trainingReadOnly,
+      
       accessClientInstructions: user.permissions?.accessClientInstructions !== false,
+      clientInstructionsReadOnly: !!user.permissions?.clientInstructionsReadOnly,
+      
       accessSiteInstructions: user.permissions?.accessSiteInstructions !== false,
+      siteInstructionsReadOnly: !!user.permissions?.siteInstructionsReadOnly,
+      
       accessCleanupNotices: user.permissions?.accessCleanupNotices !== false,
+      cleanupNoticesReadOnly: !!user.permissions?.cleanupNoticesReadOnly,
+      
       accessSnagging: user.permissions?.accessSnagging !== false,
+      snaggingReadOnly: !!user.permissions?.snaggingReadOnly,
+      
       accessQualityControl: user.permissions?.accessQualityControl !== false,
+      qualityControlReadOnly: !!user.permissions?.qualityControlReadOnly,
+      
       accessInfoRequests: user.permissions?.accessInfoRequests !== false,
+      infoRequestsReadOnly: !!user.permissions?.infoRequestsReadOnly,
+      
+      accessIRS: user.permissions?.accessIRS !== false,
+      irsReadOnly: !!user.permissions?.irsReadOnly,
     },
   });
   
@@ -121,20 +178,50 @@ export function EditUserForm({ user }: EditUserFormProps) {
         canManageChecklists: user.permissions?.canManageChecklists || false,
         canManagePermitTemplates: user.permissions?.canManagePermitTemplates || false,
         canManageTraining: user.permissions?.canManageTraining || false,
+        canManageIRS: user.permissions?.canManageIRS || false,
         hasFullVisibility: user.permissions?.hasFullVisibility || false,
+        
         accessMaterials: user.permissions?.accessMaterials !== false,
+        materialsReadOnly: !!user.permissions?.materialsReadOnly,
+        
         accessPlant: user.permissions?.accessPlant !== false,
+        plantReadOnly: !!user.permissions?.plantReadOnly,
+        
         accessSubContractOrders: user.permissions?.accessSubContractOrders !== false,
+        subContractOrdersReadOnly: !!user.permissions?.subContractOrdersReadOnly,
+        
         accessVariations: user.permissions?.accessVariations !== false,
+        variationsReadOnly: !!user.permissions?.variationsReadOnly,
+        
         accessPaymentNotices: user.permissions?.accessPaymentNotices !== false,
+        paymentNoticesReadOnly: !!user.permissions?.paymentNoticesReadOnly,
+        
         accessPermits: user.permissions?.accessPermits !== false,
+        permitsReadOnly: !!user.permissions?.permitsReadOnly,
+        
         accessTraining: user.permissions?.accessTraining !== false,
+        trainingReadOnly: !!user.permissions?.trainingReadOnly,
+        
         accessClientInstructions: user.permissions?.accessClientInstructions !== false,
+        clientInstructionsReadOnly: !!user.permissions?.clientInstructionsReadOnly,
+        
         accessSiteInstructions: user.permissions?.accessSiteInstructions !== false,
+        siteInstructionsReadOnly: !!user.permissions?.siteInstructionsReadOnly,
+        
         accessCleanupNotices: user.permissions?.accessCleanupNotices !== false,
+        cleanupNoticesReadOnly: !!user.permissions?.cleanupNoticesReadOnly,
+        
         accessSnagging: user.permissions?.accessSnagging !== false,
+        snaggingReadOnly: !!user.permissions?.snaggingReadOnly,
+        
         accessQualityControl: user.permissions?.accessQualityControl !== false,
+        qualityControlReadOnly: !!user.permissions?.qualityControlReadOnly,
+        
         accessInfoRequests: user.permissions?.accessInfoRequests !== false,
+        infoRequestsReadOnly: !!user.permissions?.infoRequestsReadOnly,
+        
+        accessIRS: user.permissions?.accessIRS !== false,
+        irsReadOnly: !!user.permissions?.irsReadOnly,
       });
     }
   }, [open, user, form]);
@@ -158,14 +245,9 @@ export function EditUserForm({ user }: EditUserFormProps) {
         createdByEmail: sessionUser?.email || 'admin@site-command.com',
       };
 
-      // 1. Create invitation record
       await addDoc(collection(db, 'invitations'), inviteData);
+      await updateDoc(doc(db, 'users', email), { requirePasswordChange: true });
 
-      // 2. Mark user as needing password change
-      const userRef = doc(db, 'users', email);
-      await updateDoc(userRef, { requirePasswordChange: true });
-
-      // 3. Send the email
       const host = typeof window !== 'undefined' ? window.location.origin : '';
       const inviteLink = `${host}/join?token=${token}`;
 
@@ -178,12 +260,11 @@ export function EditUserForm({ user }: EditUserFormProps) {
       });
 
       if (result.success) {
-        toast({ title: 'Invite Sent', description: `Collaborator invitation emailed to ${email}.` });
+        toast({ title: 'Invite Sent', description: `Invitation emailed to ${email}.` });
       } else {
         toast({ title: 'Invite Logged', description: 'Record created. Email service unavailable.' });
       }
     } catch (err) {
-      console.error(err);
       toast({ title: 'Error', description: 'Failed to process invitation.', variant: 'destructive' });
     } finally {
       setIsInviting(false);
@@ -204,20 +285,50 @@ export function EditUserForm({ user }: EditUserFormProps) {
           canManageChecklists: values.canManageChecklists,
           canManagePermitTemplates: values.canManagePermitTemplates,
           canManageTraining: values.canManageTraining,
+          canManageIRS: values.canManageIRS,
           hasFullVisibility: values.hasFullVisibility,
+          
           accessMaterials: values.accessMaterials,
+          materialsReadOnly: values.materialsReadOnly,
+          
           accessPlant: values.accessPlant,
+          plantReadOnly: values.plantReadOnly,
+          
           accessSubContractOrders: values.accessSubContractOrders,
+          subContractOrdersReadOnly: values.subContractOrdersReadOnly,
+          
           accessVariations: values.accessVariations,
+          variationsReadOnly: values.variationsReadOnly,
+          
           accessPaymentNotices: values.accessPaymentNotices,
+          paymentNoticesReadOnly: values.paymentNoticesReadOnly,
+          
           accessPermits: values.accessPermits,
+          permitsReadOnly: values.permitsReadOnly,
+          
           accessTraining: values.accessTraining,
+          trainingReadOnly: values.trainingReadOnly,
+          
           accessClientInstructions: values.accessClientInstructions,
+          clientInstructionsReadOnly: values.clientInstructionsReadOnly,
+          
           accessSiteInstructions: values.accessSiteInstructions,
+          siteInstructionsReadOnly: values.siteInstructionsReadOnly,
+          
           accessCleanupNotices: values.accessCleanupNotices,
+          cleanupNoticesReadOnly: values.cleanupNoticesReadOnly,
+          
           accessSnagging: values.accessSnagging,
+          snaggingReadOnly: values.snaggingReadOnly,
+          
           accessQualityControl: values.accessQualityControl,
+          qualityControlReadOnly: values.qualityControlReadOnly,
+          
           accessInfoRequests: values.accessInfoRequests,
+          infoRequestsReadOnly: values.infoRequestsReadOnly,
+          
+          accessIRS: values.accessIRS,
+          irsReadOnly: values.irsReadOnly,
         }
       };
 
@@ -227,12 +338,11 @@ export function EditUserForm({ user }: EditUserFormProps) {
           setOpen(false);
         })
         .catch(async (error) => {
-          const permissionError = new FirestorePermissionError({
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: docRef.path,
             operation: 'update',
             requestResourceData: updates,
-          } satisfies SecurityRuleContext);
-          errorEmitter.emit('permission-error', permissionError);
+          } satisfies SecurityRuleContext));
         });
     });
   };
@@ -242,12 +352,12 @@ export function EditUserForm({ user }: EditUserFormProps) {
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-6 pb-0">
           <div className="flex items-center justify-between">
             <div>
                 <DialogTitle>Edit User Profile</DialogTitle>
-                <DialogDescription>Update credentials and granular module permissions for {user.name}.</DialogDescription>
+                <DialogDescription>Manage permissions and onboarding for {user.name}.</DialogDescription>
             </div>
             <Button 
                 variant="outline" 
@@ -257,63 +367,46 @@ export function EditUserForm({ user }: EditUserFormProps) {
                 disabled={isInviting}
             >
                 {isInviting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MailPlus className="h-3.5 w-3.5" />}
-                Send Collaborator Invite
+                Send Onboarding Invite
             </Button>
           </div>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-            <div className="flex-1 overflow-y-auto px-6 py-4">
-              <div className="space-y-8 pb-10">
-                <input type="hidden" {...form.register('id')} />
-                
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+            <ScrollArea className="flex-1 px-6">
+              <div className="space-y-8 py-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl><Input {...field} /></FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField
-                    control={form.control}
-                    name="password"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>System Password</FormLabel>
-                        <FormControl><Input type="password" {...field} /></FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                    )} />
+                    <FormField control={form.control} name="password" render={({ field }) => (
+                        <FormItem><FormLabel>Initial Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl></FormItem>
+                    )} />
                 </div>
 
                 <Separator />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="space-y-4">
-                        <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Admin Rights</FormLabel>
+                        <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Administrative Rights</FormLabel>
                         <div className="space-y-3">
                             <FormField control={form.control} name="hasFullVisibility" render={({ field }) => (
                                 <FormItem className="flex items-center justify-between rounded-lg border-2 border-primary/20 p-3 bg-primary/5">
-                                    <div className="space-y-0.5"><FormLabel className="text-primary font-bold">Admin Visibility</FormLabel><FormDescription className="text-[10px]">Access to ALL projects.</FormDescription></div>
+                                    <div className="space-y-0.5"><FormLabel className="text-primary font-bold">Global Visibility</FormLabel><FormDescription className="text-[10px]">Access ALL project data.</FormDescription></div>
                                     <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                 </FormItem>
                             )} />
                             {[
                                 { name: 'canManageUsers', label: 'Manage Users', desc: 'Internal staff control.' },
-                                { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Directory of sub-contractors and suppliers.' },
-                                { name: 'canManageProjects', label: 'Manage Projects', desc: 'Site setup and assignments.' },
-                                { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'QC master lists.' },
-                                { name: 'canManagePermitTemplates', label: 'Manage Permits', desc: 'Master permit definitions.' },
-                                { name: 'canManageTraining', label: 'Manage Training', desc: 'Staff compliance oversight.' },
+                                { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Manage subcontractors & suppliers.' },
+                                { name: 'canManageProjects', label: 'Manage Projects', desc: 'Project setup and assignment.' },
+                                { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Master checklist control.' },
+                                { name: 'canManagePermitTemplates', label: 'Manage Permits', desc: 'Permit form definitions.' },
+                                { name: 'canManageTraining', label: 'Manage Training', desc: 'Compliance oversight.' },
+                                { name: 'canManageIRS', label: 'Manage IRS', desc: 'Master schedule control.' },
                             ].map(perm => (
                                 <FormField key={perm.name} control={form.control} name={perm.name as any} render={({ field }) => (
-                                <FormItem className="flex items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
+                                <FormItem className="flex items-center justify-between rounded-lg border p-3 bg-background">
                                     <div className="space-y-0.5"><FormLabel className="text-xs font-semibold">{perm.label}</FormLabel><FormDescription className="text-[10px]">{perm.desc}</FormDescription></div>
                                     <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                 </FormItem>
@@ -323,45 +416,63 @@ export function EditUserForm({ user }: EditUserFormProps) {
                     </div>
 
                     <div className="space-y-4">
-                        <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Module Visibility</FormLabel>
-                        <div className="space-y-3">
+                        <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Module Permissions</FormLabel>
+                        <div className="space-y-2">
                             {[
-                                { name: 'accessMaterials', label: 'Materials Orders' },
-                                { name: 'accessPlant', label: 'Plant Hire' },
-                                { name: 'accessSubContractOrders', label: 'Sub Contract Orders' },
-                                { name: 'accessVariations', label: 'Variation Pricing' },
-                                { name: 'accessPaymentNotices', label: 'Payment Notices' },
-                                { name: 'accessPermits', label: 'Permits to Work' },
-                                { name: 'accessTraining', label: 'Training & Compliance' },
-                                { name: 'accessClientInstructions', label: 'Client Instructions' },
-                                { name: 'accessSiteInstructions', label: 'Site Instructions' },
-                                { name: 'accessCleanupNotices', label: 'Clean Up Notices' },
-                                { name: 'accessSnagging', label: 'Snagging Lists' },
-                                { name: 'accessQualityControl', label: 'Quality Control' },
-                                { name: 'accessInfoRequests', label: 'Information Requests' },
+                                { access: 'accessMaterials', ro: 'materialsReadOnly', label: 'Materials' },
+                                { access: 'accessPlant', ro: 'plantReadOnly', label: 'Plant Hire' },
+                                { access: 'accessSubContractOrders', ro: 'subContractOrdersReadOnly', label: 'Sub Contract Orders' },
+                                { access: 'accessVariations', ro: 'variationsReadOnly', label: 'Variations' },
+                                { access: 'accessPaymentNotices', ro: 'paymentNoticesReadOnly', label: 'Payment Notices' },
+                                { access: 'accessPermits', ro: 'permitsReadOnly', label: 'Permits' },
+                                { access: 'accessTraining', ro: 'trainingReadOnly', label: 'Training' },
+                                { access: 'accessClientInstructions', ro: 'clientInstructionsReadOnly', label: 'Client Inst' },
+                                { access: 'accessSiteInstructions', ro: 'siteInstructionsReadOnly', label: 'Site Inst' },
+                                { access: 'accessCleanupNotices', ro: 'cleanupNoticesReadOnly', label: 'Cleanup Notices' },
+                                { access: 'accessSnagging', ro: 'snaggingReadOnly', label: 'Snagging' },
+                                { access: 'accessQualityControl', ro: 'qualityControlReadOnly', label: 'Quality Control' },
+                                { access: 'accessInfoRequests', ro: 'infoRequestsReadOnly', label: 'Info Requests' },
+                                { access: 'accessIRS', ro: 'irsReadOnly', label: 'IRS Schedule' },
                             ].map(mod => (
-                                <FormField
-                                    key={mod.name}
-                                    control={form.control}
-                                    name={mod.name as any}
-                                    render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
-                                        <span className="text-xs font-semibold">{mod.label}</span>
-                                        <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                    </FormItem>
-                                    )}
-                                />
+                                <div key={mod.access} className="flex flex-col p-3 rounded-lg border bg-background gap-3">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-bold">{mod.label}</span>
+                                        <FormField
+                                            control={form.control}
+                                            name={mod.access as any}
+                                            render={({ field }) => (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[9px] font-bold uppercase text-muted-foreground">Visible</span>
+                                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                                </div>
+                                            )}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between border-t pt-2">
+                                        <div className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                                            {form.watch(mod.ro as any) ? <Eye className="h-3 w-3" /> : <Edit3 className="h-3 w-3" />}
+                                            {form.watch(mod.ro as any) ? "Read Only" : "Read / Write"}
+                                        </div>
+                                        <FormField
+                                            control={form.control}
+                                            name={mod.ro as any}
+                                            render={({ field }) => (
+                                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={!form.watch(mod.access as any)} /></FormControl>
+                                            )}
+                                        />
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     </div>
                 </div>
               </div>
-            </div>
+            </ScrollArea>
 
-            <DialogFooter className="p-6 border-t bg-muted/10 shrink-0">
-              <Button type="submit" disabled={isPending} className="w-full h-12 text-lg font-bold">
+            <DialogFooter className="p-6 border-t bg-muted/5 shrink-0">
+              <Button type="submit" disabled={isPending} className="w-full h-12 font-bold">
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                Save Profile Changes
+                Save All Changes
               </Button>
             </DialogFooter>
           </form>

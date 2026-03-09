@@ -153,6 +153,21 @@ export type UserPermissions = {
   accessPaymentNotices: boolean;
   accessSubContractOrders: boolean;
   accessIRS: boolean;
+  // Read Only Flags
+  materialsReadOnly?: boolean;
+  plantReadOnly?: boolean;
+  variationsReadOnly?: boolean;
+  permitsReadOnly?: boolean;
+  trainingReadOnly?: boolean;
+  clientInstructionsReadOnly?: boolean;
+  siteInstructionsReadOnly?: boolean;
+  cleanupNoticesReadOnly?: boolean;
+  snaggingReadOnly?: boolean;
+  qualityControlReadOnly?: boolean;
+  infoRequestsReadOnly?: boolean;
+  paymentNoticesReadOnly?: boolean;
+  subContractOrdersReadOnly?: boolean;
+  irsReadOnly?: boolean;
 };
 
 export type DistributionUser = {

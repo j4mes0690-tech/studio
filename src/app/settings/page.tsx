@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -20,15 +21,12 @@ import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation } from '@/lib/types';
-import { Loader2, ShieldAlert, FileCheck, Tag, MailPlus, Users, UserCog, UserPlus, ShieldCheck, Clock } from 'lucide-react';
+import { Loader2, ShieldAlert, FileCheck, Tag, Users, UserPlus, ShieldCheck } from 'lucide-react';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
 import { Separator } from '@/components/ui/separator';
-import { InviteCollaboratorDialog } from './invite-collaborator-dialog';
-import { InvitationsList } from './invitations-list';
 import { AddUserDialog } from './add-user-dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Suspense } from 'react';
 import { Badge } from '@/components/ui/badge';
 
@@ -36,7 +34,6 @@ function SettingsContent() {
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   
-  // Fetch current user's profile to check permissions
   const currentUserRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
@@ -44,49 +41,37 @@ function SettingsContent() {
 
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(currentUserRef);
 
-  // Fetch all users list
   const usersQuery = useMemoFirebase(() => {
     if (!db) return null;
-    return collection(db, 'users');
+    return query(collection(db, 'users'), orderBy('name', 'asc'));
   }, [db]);
   const { data: users, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  // Fetch Invitations
-  const invitesQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, 'invitations'), orderBy('createdAt', 'desc'));
-  }, [db]);
-  const { data: invitations, isLoading: invitesLoading } = useCollection<Invitation>(invitesQuery);
-
-  // Fetch Sub-contractors / Designers / Suppliers
   const subsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'sub-contractors');
   }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
-  // Fetch Projects
   const projsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'projects');
   }, [db]);
   const { data: projects, isLoading: projectsLoading } = useCollection<Project>(projsQuery);
 
-  // Fetch Checklist Templates
   const templatesQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'quality-checklists'), where('isTemplate', '==', true));
   }, [db]);
   const { data: checklistTemplates, isLoading: templatesLoading } = useCollection<QualityChecklist>(templatesQuery);
 
-  // Fetch Permit Templates
   const permitTemplatesQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'permit-templates');
   }, [db]);
   const { data: permitTemplates, isLoading: permitTemplatesLoading } = useCollection<PermitTemplate>(permitTemplatesQuery);
 
-  const isLoading = profileLoading || usersLoading || subsLoading || projectsLoading || templatesLoading || permitTemplatesLoading || invitesLoading;
+  const isLoading = profileLoading || usersLoading || subsLoading || projectsLoading || templatesLoading || permitTemplatesLoading;
 
   if (isLoading) {
     return (
@@ -97,8 +82,6 @@ function SettingsContent() {
   }
 
   const permissions = profile?.permissions;
-  
-  // Resilient permission check
   const isAdmin = profile?.email.toLowerCase().trim() === 'admin@example.com';
   const canManageUsers = !!permissions?.canManageUsers || isAdmin;
   const canManageSubcontractors = !!permissions?.canManageSubcontractors || isAdmin;
@@ -120,7 +103,7 @@ function SettingsContent() {
                         </div>
                         <h2 className="text-xl font-bold">Access Denied</h2>
                         <p className="text-muted-foreground text-sm leading-relaxed">
-                            Administrative oversight is required to modify system settings. Please contact your administrator to request access to this module.
+                            Administrative oversight is required to modify system settings.
                         </p>
                     </div>
                 </Card>
@@ -139,58 +122,20 @@ function SettingsContent() {
                     <AccordionTrigger className="px-6 py-5 text-xl font-bold hover:no-underline group">
                         <div className="flex items-center gap-3">
                             <Users className="h-6 w-6 text-primary" />
-                            <span>User Management & Onboarding</span>
+                            <span>System User Directory</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="px-6 pb-6 pt-0">
-                        <Tabs defaultValue="active" className="w-full">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b pb-4">
-                                <TabsList className="bg-muted/50">
-                                    <TabsTrigger value="active" className="gap-2 font-bold px-4">
-                                        <Users className="h-4 w-4" />
-                                        Active Directory
-                                    </TabsTrigger>
-                                    <TabsTrigger value="pending" className="gap-2 font-bold px-4">
-                                        <MailPlus className="h-4 w-4" />
-                                        Pending Invitations
-                                        {invitations && invitations.filter(i => i.status === 'pending').length > 0 && (
-                                            <Badge className="ml-1 h-5 px-1.5 min-w-[20px] justify-center bg-primary text-white border-none">
-                                                {invitations.filter(i => i.status === 'pending').length}
-                                            </Badge>
-                                        )}
-                                    </TabsTrigger>
-                                </TabsList>
-                                
-                                <div className="flex items-center gap-2">
-                                    <TabsContent value="active" className="m-0 p-0">
-                                        <AddUserDialog />
-                                    </TabsContent>
-                                    <TabsContent value="pending" className="m-0 p-0">
-                                        <InviteCollaboratorDialog projects={projects || []} currentUser={profile!} />
-                                    </TabsContent>
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between border-b pb-4">
+                                <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">
+                                    <ShieldCheck className="h-3.5 w-3.5" />
+                                    Active System Profiles & Onboarding
                                 </div>
+                                <AddUserDialog />
                             </div>
-
-                            <TabsContent value="active" className="mt-0 focus-visible:ring-0">
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">
-                                        <ShieldCheck className="h-3.5 w-3.5" />
-                                        Verified System Profiles
-                                    </div>
-                                    <UsersList users={users || []} />
-                                </div>
-                            </TabsContent>
-                            
-                            <TabsContent value="pending" className="mt-0 focus-visible:ring-0">
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">
-                                        <Clock className="h-3.5 w-3.5" />
-                                        Awaiting Collaboration Acceptance
-                                    </div>
-                                    <InvitationsList invitations={invitations || []} />
-                                </div>
-                            </TabsContent>
-                        </Tabs>
+                            <UsersList users={users || []} />
+                        </div>
                     </AccordionContent>
                 </AccordionItem>
             </Card>

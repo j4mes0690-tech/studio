@@ -23,33 +23,63 @@ import { useFirestore } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Eye, Edit3, Loader2, Save } from 'lucide-react';
 
 const AddUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
-  // Administrative
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
   canManageChecklists: z.boolean().default(false),
   canManagePermitTemplates: z.boolean().default(false),
   canManageTraining: z.boolean().default(false),
+  canManageIRS: z.boolean().default(false),
   hasFullVisibility: z.boolean().default(false),
-  // Module Access
+  
   accessMaterials: z.boolean().default(true),
+  materialsReadOnly: z.boolean().default(false),
+  
   accessPlant: z.boolean().default(true),
-  accessVariations: z.boolean().default(true),
-  accessPermits: z.boolean().default(true),
-  accessTraining: z.boolean().default(true),
-  accessClientInstructions: z.boolean().default(true),
-  accessSiteInstructions: z.boolean().default(true),
-  accessCleanupNotices: z.boolean().default(true),
-  accessSnagging: z.boolean().default(true),
-  accessQualityControl: z.boolean().default(true),
-  accessInfoRequests: z.boolean().default(true),
-  accessPaymentNotices: z.boolean().default(true),
+  plantReadOnly: z.boolean().default(false),
+  
   accessSubContractOrders: z.boolean().default(true),
+  subContractOrdersReadOnly: z.boolean().default(false),
+  
+  accessVariations: z.boolean().default(true),
+  variationsReadOnly: z.boolean().default(false),
+  
+  accessPaymentNotices: z.boolean().default(true),
+  paymentNoticesReadOnly: z.boolean().default(false),
+  
+  accessPermits: z.boolean().default(true),
+  permitsReadOnly: z.boolean().default(false),
+  
+  accessTraining: z.boolean().default(true),
+  trainingReadOnly: z.boolean().default(false),
+  
+  accessClientInstructions: z.boolean().default(true),
+  clientInstructionsReadOnly: z.boolean().default(false),
+  
+  accessSiteInstructions: z.boolean().default(true),
+  siteInstructionsReadOnly: z.boolean().default(false),
+  
+  accessCleanupNotices: z.boolean().default(true),
+  cleanupNoticesReadOnly: z.boolean().default(false),
+  
+  accessSnagging: z.boolean().default(true),
+  snaggingReadOnly: z.boolean().default(false),
+  
+  accessQualityControl: z.boolean().default(true),
+  qualityControlReadOnly: z.boolean().default(false),
+  
+  accessInfoRequests: z.boolean().default(true),
+  infoRequestsReadOnly: z.boolean().default(false),
+  
+  accessIRS: z.boolean().default(true),
+  irsReadOnly: z.boolean().default(false),
 });
 
 type AddUserFormValues = z.infer<typeof AddUserSchema>;
@@ -71,20 +101,36 @@ export function AddUserForm() {
       canManageChecklists: false,
       canManagePermitTemplates: false,
       canManageTraining: false,
+      canManageIRS: false,
       hasFullVisibility: false,
       accessMaterials: true,
+      materialsReadOnly: false,
       accessPlant: true,
+      plantReadOnly: false,
       accessVariations: true,
+      variationsReadOnly: false,
       accessPermits: true,
+      permitsReadOnly: false,
       accessTraining: true,
+      trainingReadOnly: false,
       accessClientInstructions: true,
+      clientInstructionsReadOnly: false,
       accessSiteInstructions: true,
+      siteInstructionsReadOnly: false,
       accessCleanupNotices: true,
+      cleanupNoticesReadOnly: false,
       accessSnagging: true,
+      snaggingReadOnly: false,
       accessQualityControl: true,
+      qualityControlReadOnly: false,
       accessInfoRequests: true,
+      infoRequestsReadOnly: false,
       accessPaymentNotices: true,
+      paymentNoticesReadOnly: false,
       accessSubContractOrders: true,
+      subContractOrdersReadOnly: false,
+      accessIRS: true,
+      irsReadOnly: false,
     },
   });
 
@@ -103,20 +149,50 @@ export function AddUserForm() {
           canManageChecklists: values.canManageChecklists,
           canManagePermitTemplates: values.canManagePermitTemplates,
           canManageTraining: values.canManageTraining,
+          canManageIRS: values.canManageIRS,
           hasFullVisibility: values.hasFullVisibility,
+          
           accessMaterials: values.accessMaterials,
+          materialsReadOnly: values.materialsReadOnly,
+          
           accessPlant: values.accessPlant,
-          accessVariations: values.accessVariations,
-          accessPermits: values.accessPermits,
-          accessTraining: values.accessTraining,
-          accessClientInstructions: values.accessClientInstructions,
-          accessSiteInstructions: values.accessSiteInstructions,
-          accessCleanupNotices: values.accessCleanupNotices,
-          accessSnagging: values.accessSnagging,
-          accessQualityControl: values.accessQualityControl,
-          accessInfoRequests: values.accessInfoRequests,
-          accessPaymentNotices: values.accessPaymentNotices,
+          plantReadOnly: values.plantReadOnly,
+          
           accessSubContractOrders: values.accessSubContractOrders,
+          subContractOrdersReadOnly: values.subContractOrdersReadOnly,
+          
+          accessVariations: values.accessVariations,
+          variationsReadOnly: values.variationsReadOnly,
+          
+          accessPaymentNotices: values.accessPaymentNotices,
+          paymentNoticesReadOnly: values.paymentNoticesReadOnly,
+          
+          accessPermits: values.accessPermits,
+          permitsReadOnly: values.permitsReadOnly,
+          
+          accessTraining: values.accessTraining,
+          trainingReadOnly: values.trainingReadOnly,
+          
+          accessClientInstructions: values.accessClientInstructions,
+          clientInstructionsReadOnly: values.clientInstructionsReadOnly,
+          
+          accessSiteInstructions: values.accessSiteInstructions,
+          siteInstructionsReadOnly: values.siteInstructionsReadOnly,
+          
+          accessCleanupNotices: values.accessCleanupNotices,
+          cleanupNoticesReadOnly: values.cleanupNoticesReadOnly,
+          
+          accessSnagging: values.accessSnagging,
+          snaggingReadOnly: values.snaggingReadOnly,
+          
+          accessQualityControl: values.accessQualityControl,
+          qualityControlReadOnly: values.qualityControlReadOnly,
+          
+          accessInfoRequests: values.accessInfoRequests,
+          infoRequestsReadOnly: values.infoRequestsReadOnly,
+          
+          accessIRS: values.accessIRS,
+          irsReadOnly: values.irsReadOnly,
         }
       };
 
@@ -128,146 +204,118 @@ export function AddUserForm() {
           form.reset();
         })
         .catch(async (error) => {
-          const permissionError = new FirestorePermissionError({
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: docRef.path,
             operation: 'create',
             requestResourceData: profile,
-          } satisfies SecurityRuleContext);
-          errorEmitter.emit('permission-error', permissionError);
+          } satisfies SecurityRuleContext));
         });
     });
   };
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-6"
-      >
-        <div className="space-y-4">
-            <FormField
-            control={form.control}
-            name="name"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Full Name</FormLabel>
-                <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Email</FormLabel>
-                <FormControl>
-                    <Input placeholder="john.doe@example.com" {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
-            <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Initial Password</FormLabel>
-                <FormControl>
-                    <Input type="password" placeholder="System password" {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
-            />
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="space-y-4 px-1">
+            <FormField control={form.control} name="name" render={({ field }) => (
+                <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="password" render={({ field }) => (
+                <FormItem><FormLabel>Initial Password</FormLabel><FormControl><Input type="password" placeholder="System password" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
         </div>
 
         <Separator />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 px-1">
             <div className="space-y-4">
-                <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Administrative Permissions</FormLabel>
+                <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Admin Permissions</FormLabel>
                 <div className="space-y-3">
-                    <FormField
-                        control={form.control}
-                        name="hasFullVisibility"
-                        render={({ field }) => (
-                        <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-primary/20 p-3 shadow-sm bg-primary/5">
-                            <div className="space-y-0.5">
-                                <FormLabel className="text-primary font-bold">Admin Visibility</FormLabel>
-                                <FormDescription className="text-[10px]">Access to ALL projects and data.</FormDescription>
-                            </div>
+                    <FormField control={form.control} name="hasFullVisibility" render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border-2 border-primary/20 p-3 bg-primary/5">
+                            <div className="space-y-0.5"><FormLabel className="text-primary font-bold">Admin Visibility</FormLabel><FormDescription className="text-[10px]">Full data access.</FormDescription></div>
                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                         </FormItem>
-                        )}
-                    />
-                    
+                    )} />
                     {[
-                        { name: 'canManageUsers', label: 'Manage Users', desc: 'Internal staff and passwords.' },
-                        { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Manage sub-contractors, designers, and suppliers.' },
-                        { name: 'canManageProjects', label: 'Manage Projects', desc: 'Site setup and assignments.' },
-                        { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Master checklist definitions.' },
-                        { name: 'canManagePermitTemplates', label: 'Manage Permit Forms', desc: 'Master permit-to-work setup.' },
-                        { name: 'canManageTraining', label: 'Manage Training', desc: 'Staff compliance oversight.' },
+                        { name: 'canManageUsers', label: 'Manage Users', desc: 'Internal staff control.' },
+                        { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Subcontractors & Suppliers.' },
+                        { name: 'canManageProjects', label: 'Manage Projects', desc: 'Setup and assignments.' },
+                        { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Master checklist setup.' },
+                        { name: 'canManagePermitTemplates', label: 'Manage Permits', desc: 'Permit form setup.' },
+                        { name: 'canManageTraining', label: 'Manage Training', desc: 'Compliance oversight.' },
+                        { name: 'canManageIRS', label: 'Manage IRS', desc: 'Master schedule control.' },
                     ].map(perm => (
-                        <FormField
-                            key={perm.name}
-                            control={form.control}
-                            name={perm.name as any}
-                            render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
-                                <div className="space-y-0.5">
-                                    <FormLabel className="text-xs font-semibold">{perm.label}</FormLabel>
-                                    <FormDescription className="text-[10px]">{perm.desc}</FormDescription>
-                                </div>
-                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            </FormItem>
-                            )}
-                        />
+                        <FormField key={perm.name} control={form.control} name={perm.name as any} render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border p-3 bg-background">
+                            <div className="space-y-0.5"><FormLabel className="text-xs font-semibold">{perm.label}</FormLabel><FormDescription className="text-[10px]">{perm.desc}</FormDescription></div>
+                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                        </FormItem>
+                        )} />
                     ))}
                 </div>
             </div>
 
             <div className="space-y-4">
-                <FormLabel className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Module Access</FormLabel>
-                <div className="space-y-3">
-                    {[
-                        { name: 'accessMaterials', label: 'Materials Orders' },
-                        { name: 'accessPlant', label: 'Plant Hire' },
-                        { name: 'accessSubContractOrders', label: 'Sub Contract Orders' },
-                        { name: 'accessVariations', label: 'Variation Pricing' },
-                        { name: 'accessPermits', label: 'Permits to Work' },
-                        { name: 'accessTraining', label: 'Training & Compliance' },
-                        { name: 'accessClientInstructions', label: 'Client Instructions' },
-                        { name: 'accessSiteInstructions', label: 'Site Instructions' },
-                        { name: 'accessCleanupNotices', label: 'Clean Up Notices' },
-                        { name: 'accessSnagging', label: 'Snagging Lists' },
-                        { name: 'accessQualityControl', label: 'Quality Control' },
-                        { name: 'accessInfoRequests', label: 'Information Requests' },
-                        { name: 'accessPaymentNotices', label: 'Payment Notices' },
-                    ].map(mod => (
-                        <FormField
-                            key={mod.name}
-                            control={form.control}
-                            name={mod.name as any}
-                            render={({ field }) => (
-                            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm bg-background">
-                                <span className="text-xs font-semibold">{mod.label}</span>
-                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            </FormItem>
-                            )}
-                        />
-                    ))}
-                </div>
+                <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Module Access & Mode</FormLabel>
+                <ScrollArea className="h-[450px] pr-4">
+                    <div className="space-y-2">
+                        {[
+                            { access: 'accessMaterials', ro: 'materialsReadOnly', label: 'Materials' },
+                            { access: 'accessPlant', ro: 'plantReadOnly', label: 'Plant Hire' },
+                            { access: 'accessSubContractOrders', ro: 'subContractOrdersReadOnly', label: 'Sub Contract Orders' },
+                            { access: 'accessVariations', ro: 'variationsReadOnly', label: 'Variations' },
+                            { access: 'accessPaymentNotices', ro: 'paymentNoticesReadOnly', label: 'Payment Notices' },
+                            { access: 'accessPermits', ro: 'permitsReadOnly', label: 'Permits' },
+                            { access: 'accessTraining', ro: 'trainingReadOnly', label: 'Training' },
+                            { access: 'accessClientInstructions', ro: 'clientInstructionsReadOnly', label: 'Client Inst' },
+                            { access: 'accessSiteInstructions', ro: 'siteInstructionsReadOnly', label: 'Site Inst' },
+                            { access: 'accessCleanupNotices', ro: 'cleanupNoticesReadOnly', label: 'Cleanup Notices' },
+                            { access: 'accessSnagging', ro: 'snaggingReadOnly', label: 'Snagging' },
+                            { access: 'accessQualityControl', ro: 'qualityControlReadOnly', label: 'Quality Control' },
+                            { access: 'accessInfoRequests', ro: 'infoRequestsReadOnly', label: 'Info Requests' },
+                            { access: 'accessIRS', ro: 'irsReadOnly', label: 'IRS Schedule' },
+                        ].map(mod => (
+                            <div key={mod.access} className="flex flex-col p-3 rounded-lg border bg-background gap-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-bold">{mod.label}</span>
+                                    <FormField
+                                        control={form.control}
+                                        name={mod.access as any}
+                                        render={({ field }) => (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-[9px] font-bold uppercase text-muted-foreground">Visible</span>
+                                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                            </div>
+                                        )}
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between border-t pt-2">
+                                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                                        {form.watch(mod.ro as any) ? <Eye className="h-3 w-3" /> : <Edit3 className="h-3 w-3" />}
+                                        {form.watch(mod.ro as any) ? "Read Only" : "Read / Write"}
+                                    </div>
+                                    <FormField
+                                        control={form.control}
+                                        name={mod.ro as any}
+                                        render={({ field }) => (
+                                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={!form.watch(mod.access as any)} /></FormControl>
+                                        )}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
             </div>
         </div>
 
         <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
-          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Add User Profile'}
+          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+          Create User Profile
         </Button>
       </form>
     </Form>
