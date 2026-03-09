@@ -25,6 +25,8 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Eye, Edit3, Loader2, Save } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 const AddUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
@@ -214,6 +216,23 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
     });
   };
 
+  const modules = [
+    { access: 'accessMaterials', ro: 'materialsReadOnly', label: 'Materials' },
+    { access: 'accessPlant', ro: 'plantReadOnly', label: 'Plant Hire' },
+    { access: 'accessSubContractOrders', ro: 'subContractOrdersReadOnly', label: 'Sub Contract Orders' },
+    { access: 'accessVariations', ro: 'variationsReadOnly', label: 'Variations' },
+    { access: 'accessPaymentNotices', ro: 'paymentNoticesReadOnly', label: 'Payment Notices' },
+    { access: 'accessPermits', ro: 'permitsReadOnly', label: 'Permits' },
+    { access: 'accessTraining', ro: 'trainingReadOnly', label: 'Training' },
+    { access: 'accessClientInstructions', ro: 'clientInstructionsReadOnly', label: 'Client Inst' },
+    { access: 'accessSiteInstructions', ro: 'siteInstructionsReadOnly', label: 'Site Inst' },
+    { access: 'accessCleanupNotices', ro: 'cleanupNoticesReadOnly', label: 'Cleanup Notices' },
+    { access: 'accessSnagging', ro: 'snaggingReadOnly', label: 'Snagging' },
+    { access: 'accessQualityControl', ro: 'qualityControlReadOnly', label: 'Quality Control' },
+    { access: 'accessInfoRequests', ro: 'infoRequestsReadOnly', label: 'Info Requests' },
+    { access: 'accessIRS', ro: 'irsReadOnly', label: 'IRS Schedule' },
+  ];
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
@@ -264,23 +283,8 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
 
                 <div className="space-y-4">
                     <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Module Access & Mode</FormLabel>
-                    <div className="space-y-2">
-                        {[
-                            { access: 'accessMaterials', ro: 'materialsReadOnly', label: 'Materials' },
-                            { access: 'accessPlant', ro: 'plantReadOnly', label: 'Plant Hire' },
-                            { access: 'accessSubContractOrders', ro: 'subContractOrdersReadOnly', label: 'Sub Contract Orders' },
-                            { access: 'accessVariations', ro: 'variationsReadOnly', label: 'Variations' },
-                            { access: 'accessPaymentNotices', ro: 'paymentNoticesReadOnly', label: 'Payment Notices' },
-                            { access: 'accessPermits', ro: 'permitsReadOnly', label: 'Permits' },
-                            { access: 'accessTraining', ro: 'trainingReadOnly', label: 'Training' },
-                            { access: 'accessClientInstructions', ro: 'clientInstructionsReadOnly', label: 'Client Inst' },
-                            { access: 'accessSiteInstructions', ro: 'siteInstructionsReadOnly', label: 'Site Inst' },
-                            { access: 'accessCleanupNotices', ro: 'cleanupNoticesReadOnly', label: 'Cleanup Notices' },
-                            { access: 'accessSnagging', ro: 'snaggingReadOnly', label: 'Snagging' },
-                            { access: 'accessQualityControl', ro: 'qualityControlReadOnly', label: 'Quality Control' },
-                            { access: 'accessInfoRequests', ro: 'infoRequestsReadOnly', label: 'Info Requests' },
-                            { access: 'accessIRS', ro: 'irsReadOnly', label: 'IRS Schedule' },
-                        ].map(mod => (
+                    <div className="space-y-3">
+                        {modules.map(mod => (
                             <div key={mod.access} className="flex flex-col p-3 rounded-lg border bg-background gap-3">
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-bold">{mod.label}</span>
@@ -289,25 +293,40 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
                                         name={mod.access as any}
                                         render={({ field }) => (
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[9px] font-bold uppercase text-muted-foreground">Visible</span>
+                                                <span className="text-[9px] font-bold uppercase text-muted-foreground">Enabled</span>
                                                 <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                             </div>
                                         )}
                                     />
                                 </div>
-                                <div className="flex items-center justify-between border-t pt-2">
-                                    <div className="flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
-                                        {form.watch(mod.ro as any) ? <Eye className="h-3 w-3" /> : <Edit3 className="h-3 w-3" />}
-                                        {form.watch(mod.ro as any) ? "Read Only" : "Read / Write"}
+                                {form.watch(mod.access as any) && (
+                                    <div className={cn(
+                                        "flex items-center justify-between border-t pt-2 transition-all",
+                                        form.watch(mod.ro as any) ? "bg-muted/30 -mx-3 -mb-3 p-3 rounded-b-lg border-t-0" : ""
+                                    )}>
+                                        <div className="flex items-center gap-2">
+                                            {form.watch(mod.ro as any) ? (
+                                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[9px] font-black px-1.5 h-5 gap-1">
+                                                    <Eye className="h-2.5 w-2.5" /> READ ONLY
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-[9px] font-black px-1.5 h-5 gap-1">
+                                                    <Edit3 className="h-2.5 w-2.5" /> READ / WRITE
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <FormField
+                                            control={form.control}
+                                            name={mod.ro as any}
+                                            render={({ field }) => (
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[9px] font-bold text-muted-foreground uppercase">Restrict</span>
+                                                    <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                                </div>
+                                            )}
+                                        />
                                     </div>
-                                    <FormField
-                                        control={form.control}
-                                        name={mod.ro as any}
-                                        render={({ field }) => (
-                                            <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={!form.watch(mod.access as any)} /></FormControl>
-                                        )}
-                                    />
-                                </div>
+                                )}
                             </div>
                         ))}
                     </div>
