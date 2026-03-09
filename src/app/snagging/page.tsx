@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -73,6 +74,7 @@ function SnaggingContent() {
     if (!allItems || !profile || !allProjects) return [];
     
     const email = profile.email.toLowerCase().trim();
+    const subId = profile.subContractorId;
     const hasFullVisibility = !!profile.permissions?.hasFullVisibility;
 
     const allowedProjectIds = allProjects
@@ -83,11 +85,15 @@ function SnaggingContent() {
         })
         .map(p => p.id);
 
-    return allItems.filter(item => {
-        const isAllowed = allowedProjectIds.includes(item.projectId);
-        const matchesFilter = projectId ? item.projectId === projectId : true;
-        return isAllowed && matchesFilter;
-    });
+    return allItems.filter(list => {
+        const isProjectAllowed = allowedProjectIds.includes(list.projectId);
+        if (!isProjectAllowed) return false;
+
+        if (hasFullVisibility || profile.userType === 'internal') return true;
+
+        // For partners, only show if at least one item in the list is assigned to their company
+        return subId ? list.items.some(item => item.subContractorId === subId) : false;
+    }).filter(item => projectId ? item.projectId === projectId : true);
   }, [allItems, profile, allProjects, projectId]);
 
   const isLoading = projectsLoading || snaggingLoading || subsLoading || profileLoading;

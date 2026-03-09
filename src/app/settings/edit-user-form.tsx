@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTransition, useEffect, useState } from 'react';
+import { useTransition, useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -25,12 +25,19 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Loader2, Save, Send, MailPlus, ShieldCheck, Eye, Edit3 } from 'lucide-react';
-import type { DistributionUser, Invitation } from '@/lib/types';
+import { Pencil, Loader2, Save, Send, MailPlus, ShieldCheck, Eye, Edit3, Building2 } from 'lucide-react';
+import type { DistributionUser, Invitation, SubContractor } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { useFirestore, useUser as useSession } from '@/firebase';
+import { useFirestore, useUser as useSession, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
@@ -44,6 +51,8 @@ const EditUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
+  userType: z.enum(['internal', 'partner']).default('internal'),
+  subContractorId: z.string().optional(),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -106,6 +115,12 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
   const [isPending, startTransition] = useTransition();
   const [isInviting, setIsInviting] = useState(false);
 
+  const subsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
+  const { data: subContractors } = useCollection<SubContractor>(subsQuery);
+
   const form = useForm<EditUserFormValues>({
     resolver: zodResolver(EditUserSchema),
     defaultValues: {
@@ -113,6 +128,8 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
       name: user.name,
       email: user.email,
       password: user.password || '',
+      userType: user.userType || 'internal',
+      subContractorId: user.subContractorId || 'none',
       canManageUsers: user.permissions?.canManageUsers || false,
       canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
       canManageProjects: user.permissions?.canManageProjects || false,
@@ -173,6 +190,8 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         name: user.name,
         email: user.email,
         password: user.password || '',
+        userType: user.userType || 'internal',
+        subContractorId: user.subContractorId || 'none',
         canManageUsers: user.permissions?.canManageUsers || false,
         canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
         canManageProjects: user.permissions?.canManageProjects || false,
@@ -227,6 +246,8 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
     }
   }, [open, user, form]);
 
+  const selectedUserType = form.watch('userType');
+
   const handleSendInvite = async () => {
     setIsInviting(true);
     try {
@@ -279,6 +300,8 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
       const updates = {
         name: values.name,
         password: values.password,
+        userType: values.userType,
+        subContractorId: values.subContractorId !== 'none' ? values.subContractorId : null,
         permissions: {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,
@@ -393,14 +416,44 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
             <ScrollArea className="flex-1">
               <div className="p-6 space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={form.control} name="name" render={({ field }) => (
                         <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="password" render={({ field }) => (
                         <FormItem><FormLabel>Initial Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl></FormItem>
                     )} />
+                    <FormField control={form.control} name="userType" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Account Type</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="internal">Internal Staff</SelectItem>
+                                    <SelectItem value="partner">External Partner</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
                 </div>
+
+                {selectedUserType === 'partner' && (
+                    <FormField control={form.control} name="subContractorId" render={({ field }) => (
+                        <FormItem className="animate-in fade-in slide-in-from-top-2">
+                            <FormLabel className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Company Association</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select partner company" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="none">Independent / Freelance</SelectItem>
+                                    {subContractors?.map(s => (
+                                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormDescription className="text-[10px]">Users associated with a company automatically see records linked to that partner.</FormDescription>
+                        </FormItem>
+                    )} />
+                )}
 
                 <Separator />
 

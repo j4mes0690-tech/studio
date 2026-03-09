@@ -11,6 +11,7 @@
         "email": { "type": "string", "format": "email" },
         "password": { "type": "string" },
         "userType": { "type": "string", "enum": ["internal", "partner"] },
+        "subContractorId": { "type": "string", "description": "Association with an external partner or designer company." },
         "requirePasswordChange": { "type": "boolean" },
         "permissions": {
           "type": "object",

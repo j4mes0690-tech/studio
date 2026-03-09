@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -9,7 +10,7 @@ import { InstructionTable } from './instruction-table';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { Instruction, Project, DistributionUser, SubContractor } from '@/lib/types';
-import { Loader2, LayoutGrid, List } from 'lucide-react';
+import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -99,13 +100,24 @@ function InstructionsContent() {
 
   // CLIENT-SIDE FILTERING (Security & Selection)
   const filteredInstructions = useMemo(() => {
-    if (!allInstructions) return [];
+    if (!allInstructions || !profile) return [];
+    
+    const email = profile.email.toLowerCase().trim();
+    const subId = profile.subContractorId;
+    const subEmail = subContractors?.find(s => s.id === subId)?.email.toLowerCase().trim();
+    const hasFullVisibility = !!profile.permissions?.hasFullVisibility;
+
     return allInstructions.filter(inst => {
-        const isAllowed = allowedProjectIds.includes(inst.projectId);
-        const matchesFilter = projectId ? inst.projectId === projectId : true;
-        return isAllowed && matchesFilter;
-    });
-  }, [allInstructions, allowedProjectIds, projectId]);
+        const isProjectAllowed = allowedProjectIds.includes(inst.projectId);
+        if (!isProjectAllowed) return false;
+
+        if (hasFullVisibility || profile.userType === 'internal') return true;
+
+        // Partners only see instructions sent to them or their company email
+        const recipients = inst.recipients?.map(e => e.toLowerCase().trim()) || [];
+        return recipients.includes(email) || (subEmail ? recipients.includes(subEmail) : false);
+    }).filter(inst => projectId ? inst.projectId === projectId : true);
+  }, [allInstructions, allowedProjectIds, projectId, profile, subContractors]);
 
   const isLoading = usersLoading || projectsLoading || instructionsLoading || profileLoading || subsLoading;
 
@@ -120,9 +132,17 @@ function InstructionsContent() {
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">
-            Instruction Log
-          </h2>
+          <div className="flex flex-col gap-1">
+            <h2 className="text-2xl font-bold tracking-tight">
+                Instruction Log
+            </h2>
+            {profile?.permissions?.hasFullVisibility && (
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest">
+                    <ShieldCheck className="h-3 w-3" />
+                    Administrative Visibility Active
+                </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <TooltipProvider>
               <Tooltip>

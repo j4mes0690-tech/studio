@@ -4,7 +4,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useTransition } from 'react';
+import { useTransition, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -16,22 +16,32 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { useFirestore } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, setDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Eye, Edit3, Loader2, Save } from 'lucide-react';
+import { Eye, Edit3, Loader2, Save, Building2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import type { SubContractor } from '@/lib/types';
 
 const AddUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
   email: z.string().email('Invalid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
+  userType: z.enum(['internal', 'partner']).default('internal'),
+  subContractorId: z.string().optional(),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -91,12 +101,20 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
+  const subsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
+  const { data: subContractors } = useCollection<SubContractor>(subsQuery);
+
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(AddUserSchema),
     defaultValues: {
       name: '',
       email: '',
       password: '',
+      userType: 'internal',
+      subContractorId: 'none',
       canManageUsers: false,
       canManageSubcontractors: false,
       canManageProjects: false,
@@ -136,6 +154,8 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
     },
   });
 
+  const selectedUserType = form.watch('userType');
+
   const onSubmit = (values: AddUserFormValues) => {
     startTransition(async () => {
       const email = values.email.toLowerCase().trim();
@@ -144,6 +164,8 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
         name: values.name,
         email: email,
         password: values.password,
+        userType: values.userType,
+        subContractorId: values.subContractorId !== 'none' ? values.subContractorId : null,
         permissions: {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,
@@ -239,15 +261,49 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
         <ScrollArea className="flex-1">
           <div className="p-6 space-y-8">
             <div className="space-y-4">
-                <FormField control={form.control} name="name" render={({ field }) => (
-                    <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="email" render={({ field }) => (
-                    <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="password" render={({ field }) => (
-                    <FormItem><FormLabel>Initial Password</FormLabel><FormControl><Input type="password" placeholder="System password" {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="name" render={({ field }) => (
+                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input placeholder="John Doe" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="email" render={({ field }) => (
+                        <FormItem><FormLabel>Email</FormLabel><FormControl><Input placeholder="john.doe@example.com" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="password" render={({ field }) => (
+                        <FormItem><FormLabel>Initial Password</FormLabel><FormControl><Input type="password" placeholder="System password" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="userType" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Account Type</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="internal">Internal Staff</SelectItem>
+                                    <SelectItem value="partner">External Partner</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                </div>
+
+                {selectedUserType === 'partner' && (
+                    <FormField control={form.control} name="subContractorId" render={({ field }) => (
+                        <FormItem className="animate-in fade-in slide-in-from-top-2">
+                            <FormLabel className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Company Association</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue placeholder="Select partner company" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="none">Independent / Freelance</SelectItem>
+                                    {subContractors?.map(s => (
+                                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormDescription className="text-[10px]">Users associated with a company automatically see records linked to that partner.</FormDescription>
+                        </FormItem>
+                    )} />
+                )}
             </div>
 
             <Separator />

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -81,6 +82,9 @@ function InfoRequestsContent() {
     if (!allItems || !currentUser || !allProjects) return [];
     
     const email = currentUser.email.toLowerCase().trim();
+    const subId = currentUser.subContractorId;
+    const subEmail = subContractors?.find(s => s.id === subId)?.email.toLowerCase().trim();
+    
     const hasFullVisibility = !!currentUser.permissions?.hasFullVisibility;
 
     const allowedProjectIds = allProjects
@@ -92,11 +96,25 @@ function InfoRequestsContent() {
         .map(p => p.id);
 
     return allItems.filter(item => {
-        const isAllowed = allowedProjectIds.includes(item.projectId);
-        const matchesFilter = projectId ? item.projectId === projectId : true;
-        return isAllowed && matchesFilter;
-    });
-  }, [allItems, currentUser, allProjects, projectId]);
+        const isProjectAllowed = allowedProjectIds.includes(item.projectId);
+        if (!isProjectAllowed) return false;
+
+        // If internal with full visibility, allow
+        if (hasFullVisibility) return true;
+
+        // If partner user, only show if specifically assigned to them OR their company
+        const assigned = item.assignedTo.map(e => e.toLowerCase().trim());
+        const isAssignedDirectly = assigned.includes(email);
+        const isAssignedToCompany = subEmail ? assigned.includes(subEmail) : false;
+        const raisedByMe = item.raisedBy.toLowerCase().trim() === email;
+
+        // Internal staff without full visibility see all RFIs in their projects
+        if (currentUser.userType === 'internal') return true;
+
+        // Partners only see what they are part of
+        return isAssignedDirectly || isAssignedToCompany || raisedByMe;
+    }).filter(item => projectId ? item.projectId === projectId : true);
+  }, [allItems, currentUser, allProjects, projectId, subContractors]);
 
   // Sort for display (Active/Open status first)
   const sortedItems = useMemo(() => {
