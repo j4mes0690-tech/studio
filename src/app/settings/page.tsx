@@ -20,7 +20,7 @@ import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation } from '@/lib/types';
-import { Loader2, ShieldAlert, FileCheck, Tag, MailPlus, Users, UserCog, UserPlus, ShieldCheck } from 'lucide-react';
+import { Loader2, ShieldAlert, FileCheck, Tag, MailPlus, Users, UserCog, UserPlus, ShieldCheck, Clock } from 'lucide-react';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
@@ -30,6 +30,7 @@ import { InvitationsList } from './invitations-list';
 import { AddUserDialog } from './add-user-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Suspense } from 'react';
+import { Badge } from '@/components/ui/badge';
 
 function SettingsContent() {
   const db = useFirestore();
@@ -138,7 +139,7 @@ function SettingsContent() {
                     <AccordionTrigger className="px-6 py-5 text-xl font-bold hover:no-underline group">
                         <div className="flex items-center gap-3">
                             <Users className="h-6 w-6 text-primary" />
-                            <span>System User Management</span>
+                            <span>User Management & Onboarding</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="px-6 pb-6 pt-0">
