@@ -1,3 +1,4 @@
+
 'use server';
 
 import { Resend } from 'resend';
@@ -24,7 +25,7 @@ export async function sendPermitEmailAction({
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
-  if (!apiKey) {
+  if (!apiKey || apiKey === 'your_resend_api_key_here' || apiKey === '') {
     console.error('RESEND_API_KEY is not set in environment variables.');
     return { 
       success: false, 
@@ -36,7 +37,7 @@ export async function sendPermitEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'permits@site-command.com',
+      from: 'onboarding@resend.dev',
       to: [email],
       subject: `Permit to Work Issued: ${permitRef} (${permitType}) - ${projectName}`,
       html: `

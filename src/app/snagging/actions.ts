@@ -1,3 +1,4 @@
+
 'use server';
 
 import { Resend } from 'resend';
@@ -23,7 +24,7 @@ export async function sendSubcontractorReportAction({
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
-  if (!apiKey) {
+  if (!apiKey || apiKey === 'your_resend_api_key_here' || apiKey === '') {
     console.error('RESEND_API_KEY is not set in environment variables.');
     return { 
       success: false, 
@@ -35,7 +36,7 @@ export async function sendSubcontractorReportAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'snagging@site-command.com',
+      from: 'onboarding@resend.dev',
       to: [email],
       subject: `Snagging Tasks: ${projectName} - ${areaName}`,
       html: `

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { Resend } from 'resend';
@@ -29,7 +30,7 @@ export async function sendSiteInstructionEmailAction({
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
-  if (!apiKey) {
+  if (!apiKey || apiKey === 'your_resend_api_key_here' || apiKey === '') {
     console.error('RESEND_API_KEY is not set in environment variables.');
     return { 
       success: false, 
@@ -57,7 +58,7 @@ export async function sendSiteInstructionEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'instructions@site-command.com',
+      from: 'onboarding@resend.dev',
       to: emails,
       subject: `Site Instruction Issued: ${reference} - ${projectName}`,
       html: `

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { Resend } from 'resend';
@@ -7,6 +8,8 @@ import { Resend } from 'resend';
 
 /**
  * sendInvitationEmailAction - Sends an onboarding link to a new collaborator via Resend.
+ * Using onboarding@resend.dev as the default sender to ensure delivery in environments
+ * where site-command.com is not a verified domain.
  */
 export async function sendInvitationEmailAction({
   email,
@@ -23,11 +26,12 @@ export async function sendInvitationEmailAction({
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
-  if (!apiKey || apiKey === 'your_resend_api_key_here') {
+  if (!apiKey || apiKey === 'your_resend_api_key_here' || apiKey === '') {
     console.warn('RESEND_API_KEY is not set. Invitation email skipped.');
     return { 
       success: false, 
-      message: 'Email service not configured. Please contact your administrator.' 
+      isConfigError: true,
+      message: 'Email service not configured. Please add RESEND_API_KEY to system settings.' 
     };
   }
 
@@ -36,7 +40,8 @@ export async function sendInvitationEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'collaborate@site-command.com',
+      // Fallback to onboarding@resend.dev for prototype delivery
+      from: 'onboarding@resend.dev',
       to: [email],
       subject: `Collaborate on SiteCommand: ${name}`,
       html: `

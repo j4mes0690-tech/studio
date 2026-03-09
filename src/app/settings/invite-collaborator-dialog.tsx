@@ -26,13 +26,14 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { UserPlus, Loader2, Send, Mail, ShieldCheck, Users2, Sparkles } from 'lucide-react';
+import { UserPlus, Loader2, Send, Mail, ShieldCheck, Users2, Sparkles, AlertCircle } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Project, DistributionUser, Invitation } from '@/lib/types';
 import { sendInvitationEmailAction } from './actions';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const InviteSchema = z.object({
   email: z.string().email('Valid email required.'),
@@ -48,6 +49,7 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
+  const [errorStatus, setErrorStatus] = useState<string | null>(null);
 
   const form = useForm<InviteFormValues>({
     resolver: zodResolver(InviteSchema),
@@ -57,6 +59,7 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
   const selectedUserType = form.watch('userType');
 
   const onSubmit = (values: InviteFormValues) => {
+    setErrorStatus(null);
     startTransition(async () => {
       try {
         const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -97,26 +100,27 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
 
         if (result.success) {
           toast({ title: 'Invitation Sent', description: `An onboarding link has been emailed to ${values.email}.` });
+          setOpen(false);
+          form.reset();
         } else {
-          // Prototype fallback
+          // Transmission failed or Config error
+          setErrorStatus(result.message);
           toast({ 
-            title: 'Invite Logged', 
-            description: 'Invitation recorded. Email service is not configured, but the collaborator can join via the system log.',
-            variant: 'default' 
+            title: result.isConfigError ? 'Service Not Configured' : 'Delivery Failed', 
+            description: result.message,
+            variant: 'destructive' 
           });
         }
-
-        setOpen(false);
-        form.reset();
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        toast({ title: 'Error', description: 'Failed to generate invitation.', variant: 'destructive' });
+        setErrorStatus(err.message || 'System error occurred.');
+        toast({ title: 'System Error', description: 'Failed to generate invitation.', variant: 'destructive' });
       }
     });
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(val) => { setOpen(val); if(!val) setErrorStatus(null); }}>
       <DialogTrigger asChild>
         <Button className="gap-2 shadow-lg shadow-primary/20">
           <UserPlus className="h-4 w-4" />
@@ -135,6 +139,17 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
             Send a secure onboarding link to a new staff member or trade partner.
           </DialogDescription>
         </DialogHeader>
+
+        {errorStatus && (
+            <Alert variant="destructive" className="my-2">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Onboarding Issues</AlertTitle>
+                <AlertDescription className="text-xs">
+                    {errorStatus}
+                    <p className="mt-2 font-bold">The invitation has been logged in the system. You can copy the join link manually from the Invitations list below.</p>
+                </AlertDescription>
+            </Alert>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { Resend } from 'resend';
@@ -23,7 +24,7 @@ export async function sendClientInstructionEmailAction({
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
-  if (!apiKey || apiKey === 'your_resend_api_key_here') {
+  if (!apiKey || apiKey === 'your_resend_api_key_here' || apiKey === '') {
     console.warn('RESEND_API_KEY is not set. Email notification skipped.');
     return { 
       success: false, 
@@ -36,7 +37,7 @@ export async function sendClientInstructionEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'directives@site-command.com',
+      from: 'onboarding@resend.dev',
       to: emails,
       subject: `${isAccepted ? 'Directive Accepted' : 'New Client Directive'}: ${reference} - ${projectName}`,
       html: `
