@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -26,14 +25,15 @@ import {
   FormDescription,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Loader2, Save } from 'lucide-react';
-import type { DistributionUser } from '@/lib/types';
+import { Pencil, Loader2, Save, Send, MailPlus } from 'lucide-react';
+import type { DistributionUser, Invitation } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { useFirestore } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useFirestore, useUser as useSession } from '@/firebase';
+import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
+import { sendInvitationEmailAction } from './actions';
 
 const EditUserSchema = z.object({
   id: z.string().min(1),
@@ -74,7 +74,9 @@ export function EditUserForm({ user }: EditUserFormProps) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
+  const { user: sessionUser } = useSession();
   const [isPending, startTransition] = useTransition();
+  const [isInviting, setIsInviting] = useState(false);
 
   const form = useForm<EditUserFormValues>({
     resolver: zodResolver(EditUserSchema),
@@ -137,6 +139,57 @@ export function EditUserForm({ user }: EditUserFormProps) {
     }
   }, [open, user, form]);
 
+  const handleSendInvite = async () => {
+    setIsInviting(true);
+    try {
+      const email = user.email.toLowerCase().trim();
+      const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const inviteData: Omit<Invitation, 'id'> = {
+        email,
+        name: user.name,
+        userType: user.userType || 'internal',
+        token,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        createdByEmail: sessionUser?.email || 'admin@site-command.com',
+      };
+
+      // 1. Create invitation record
+      await addDoc(collection(db, 'invitations'), inviteData);
+
+      // 2. Mark user as needing password change
+      const userRef = doc(db, 'users', email);
+      await updateDoc(userRef, { requirePasswordChange: true });
+
+      // 3. Send the email
+      const host = typeof window !== 'undefined' ? window.location.origin : '';
+      const inviteLink = `${host}/join?token=${token}`;
+
+      const result = await sendInvitationEmailAction({
+        email,
+        name: user.name,
+        inviteLink,
+        inviterName: sessionUser?.email || 'System Administrator',
+        userType: user.userType || 'internal'
+      });
+
+      if (result.success) {
+        toast({ title: 'Invite Sent', description: `Collaborator invitation emailed to ${email}.` });
+      } else {
+        toast({ title: 'Invite Logged', description: 'Record created. Email service unavailable.' });
+      }
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Error', description: 'Failed to process invitation.', variant: 'destructive' });
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
   const onSubmit = (values: EditUserFormValues) => {
     startTransition(async () => {
       const docId = user.id || user.email;
@@ -191,8 +244,22 @@ export function EditUserForm({ user }: EditUserFormProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-6 pb-0">
-          <DialogTitle>Edit User Profile</DialogTitle>
-          <DialogDescription>Update credentials and granular module permissions for {user.name}.</DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+                <DialogTitle>Edit User Profile</DialogTitle>
+                <DialogDescription>Update credentials and granular module permissions for {user.name}.</DialogDescription>
+            </div>
+            <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2 text-primary border-primary/20 hover:bg-primary/5 font-bold"
+                onClick={handleSendInvite}
+                disabled={isInviting}
+            >
+                {isInviting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MailPlus className="h-3.5 w-3.5" />}
+                Send Collaborator Invite
+            </Button>
+          </div>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">

@@ -36,7 +36,7 @@ export async function sendInvitationEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@site-command.com',
+      from: 'collaborate@site-command.com',
       to: [email],
       subject: `Collaborate on SiteCommand: ${name}`,
       html: `
@@ -52,12 +52,12 @@ export async function sendInvitationEmailAction({
 
             <div style="text-align: center; margin: 35px 0;">
               <a href="${inviteLink}" style="background: #1e40af; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                Accept Invitation & Join Platform
+                Accept Invitation & Set Password
               </a>
             </div>
 
             <p style="font-size: 13px; color: #64748b;">
-              This link is unique to you and will expire in 7 days. If you have any trouble joining, please contact your project manager.
+              This link is unique to you and will expire in 7 days. You will be prompted to set your secure password upon joining.
             </p>
             
             <p style="font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
