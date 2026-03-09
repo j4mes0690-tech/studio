@@ -34,7 +34,7 @@ export async function sendCleanUpNoticeEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'cleanup@site-command.com',
       to: [email],
       subject: `Clean Up Notice: ${projectName} - ${reference}`,
       html: `

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { Resend } from 'resend';
@@ -58,7 +57,7 @@ export async function sendSiteInstructionEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'instructions@resend.dev',
+      from: 'instructions@site-command.com',
       to: emails,
       subject: `Site Instruction Issued: ${reference} - ${projectName}`,
       html: `

@@ -1,4 +1,3 @@
-
 'use server';
 
 import { Resend } from 'resend';
@@ -37,7 +36,7 @@ export async function sendInvitationEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'onboarding@site-command.com',
       to: [email],
       subject: `Collaborate on SiteCommand: ${name}`,
       html: `

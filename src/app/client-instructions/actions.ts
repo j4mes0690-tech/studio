@@ -1,4 +1,3 @@
-
 'use server';
 
 import { Resend } from 'resend';
@@ -37,7 +36,7 @@ export async function sendClientInstructionEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'directives@resend.dev',
+      from: 'directives@site-command.com',
       to: emails,
       subject: `${isAccepted ? 'Directive Accepted' : 'New Client Directive'}: ${reference} - ${projectName}`,
       html: `
