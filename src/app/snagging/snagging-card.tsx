@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -34,7 +35,9 @@ import {
   Eye,
   FileSearch,
   Loader2,
-  MapPin
+  MapPin,
+  ClipboardCheck,
+  Undo2
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
@@ -49,7 +52,7 @@ import {
 import { ClientDate } from '@/components/client-date';
 import { cn } from '@/lib/utils';
 import { useTransition, useState, useRef, useEffect } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, deleteDoc, collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -78,6 +81,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { Textarea } from '@/components/ui/textarea';
 
 type SnaggingItemCardProps = {
   item: SnaggingItem;
@@ -95,6 +99,16 @@ export function SnaggingItemCard({
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const { user: sessionUser } = useUser();
+
+  // Profile check for permissions
+  const profileRef = useMemoFirebase(() => {
+    if (!db || !sessionUser?.email) return null;
+    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
+  }, [db, sessionUser?.email]);
+  const { data: profile } = useDoc<DistributionUser>(profileRef);
+
+  const isInternal = profile?.userType === 'internal' || !!profile?.permissions?.hasFullVisibility;
 
   // Version History Fetching
   const historyQuery = useMemoFirebase(() => {
@@ -112,6 +126,7 @@ export function SnaggingItemCard({
   // Completion Dialog State
   const [completingItem, setCompletingItem] = useState<SnaggingListItem | null>(null);
   const [completionPhotos, setCompletionPhotos] = useState<Photo[]>([]);
+  const [completionComment, setCompletionComment] = useState('');
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
@@ -171,69 +186,87 @@ export function SnaggingItemCard({
 
   const handleToggleStatus = (subItem: SnaggingListItem) => {
     if (subItem.status === 'open') {
+      // Trade partner reporting completion
       setCompletingItem(subItem);
       setCompletionPhotos([]);
+      setCompletionComment('');
       setIsCameraOpen(false);
-    } else {
-      updateItemOnServer(subItem.id, 'open', []);
+    } else if (subItem.status === 'provisionally-complete' && isInternal) {
+      // Site team signing off
+      updateItemOnServer(subItem.id, 'closed', subItem.completionPhotos || [], subItem.subContractorComment);
+    } else if (isInternal) {
+      // Site team reopening
+      updateItemOnServer(subItem.id, 'open', [], '');
     }
   };
 
-  const updateItemOnServer = (itemId: string, status: 'open' | 'closed', photos: Photo[]) => {
+  const updateItemOnServer = (itemId: string, status: SnaggingListItem['status'], photos: Photo[], comment?: string) => {
     startTransition(async () => {
-      const updatedItems = item.items.map(i => {
-        if (i.id === itemId) {
-          return { 
-            ...i, 
-            status, 
-            completionPhotos: status === 'closed' ? photos : [],
-            subContractorId: i.subContractorId || null,
-            photos: i.photos || []
-          };
-        }
-        return {
-          ...i,
-          subContractorId: i.subContractorId || null,
-          photos: i.photos || [],
-          completionPhotos: i.completionPhotos || []
-        };
-      });
-      
-      const docRef = doc(db, 'snagging-items', item.id);
-      
-      await updateDoc(docRef, { items: updatedItems })
-        .catch((error) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'update',
-            requestResourceData: { items: updatedItems },
-          }));
+      try {
+        const uploadedPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `snagging/completions/${item.id}-${itemId}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
+
+        const updatedItems = item.items.map(i => {
+          if (i.id === itemId) {
+            const updates: any = { 
+              ...i, 
+              status,
+              subContractorComment: comment || null
+            };
+            if (status === 'closed') {
+              updates.closedAt = new Date().toISOString();
+            } else if (status === 'provisionally-complete') {
+              updates.provisionallyCompletedAt = new Date().toISOString();
+              updates.completionPhotos = uploadedPhotos;
+            } else {
+              updates.completionPhotos = [];
+              updates.subContractorComment = null;
+            }
+            return updates;
+          }
+          return i;
+        });
+        
+        const docRef = doc(db, 'snagging-items', item.id);
+        await updateDoc(docRef, { items: updatedItems });
+
+        // Record Version Snapshot
+        const historyCol = collection(db, 'snagging-items', item.id, 'history');
+        const closedCount = updatedItems.filter(i => i.status === 'closed').length;
+        await addDoc(historyCol, {
+          timestamp: new Date().toISOString(),
+          updatedBy: profile?.name || 'System User', 
+          items: updatedItems,
+          totalCount: updatedItems.length,
+          closedCount,
+          summary: `Item ${status.replace('-', ' ')}: ${item.items.find(i => i.id === itemId)?.description}`
         });
 
-      const historyCol = collection(db, 'snagging-items', item.id, 'history');
-      const closed = updatedItems.filter(i => i.status === 'closed').length;
-      const historyData = {
-        timestamp: new Date().toISOString(),
-        updatedBy: 'System User', 
-        items: updatedItems,
-        totalCount: updatedItems.length,
-        closedCount: closed,
-        summary: status === 'closed' ? `Item marked complete: ${item.items.find(i => i.id === itemId)?.description}` : `Item reopened: ${item.items.find(i => i.id === itemId)?.description}`
-      };
-      
-      await addDoc(historyCol, historyData).catch(() => {});
+        toast({ title: 'Success', description: `Item is now ${status.replace('-', ' ')}.` });
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Error', description: 'Failed to update item.', variant: 'destructive' });
+      }
     });
   };
 
   const finalizeCompletion = () => {
     if (completingItem) {
-      updateItemOnServer(completingItem.id, 'closed', completionPhotos);
+      updateItemOnServer(completingItem.id, 'provisionally-complete', completionPhotos, completionComment);
       setCompletingItem(null);
     }
   };
 
-  const toggleCamera = () => {
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  const handleReopen = (subItem: SnaggingListItem) => {
+    updateItemOnServer(subItem.id, 'open', [], '');
   };
 
   const handleDeleteList = () => {
@@ -242,11 +275,10 @@ export function SnaggingItemCard({
       deleteDoc(docRef)
         .then(() => toast({ title: 'Success', description: 'Snagging list deleted.' }))
         .catch((error) => {
-          const permissionError = new FirestorePermissionError({
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: docRef.path,
             operation: 'delete',
-          });
-          errorEmitter.emit('permission-error', permissionError);
+          }));
         });
     });
   };
@@ -281,7 +313,7 @@ export function SnaggingItemCard({
             </Link>
             <div className="flex items-center gap-2">
               <Badge variant={isComplete ? "secondary" : "outline"} className="capitalize text-[10px] font-bold">
-                  {isComplete ? "Handover Ready" : `${closedItems}/${totalItems} Verified`}
+                  {isComplete ? "Handover Ready" : `${closedItems}/${totalItems} Sign-offs`}
               </Badge>
               
               <PdfReportButton 
@@ -332,64 +364,91 @@ export function SnaggingItemCard({
               </div>
               {item.items?.map((subItem) => {
                   const sub = subContractors.find(s => s.id === subItem.subContractorId);
+                  const isAwaitingSignOff = subItem.status === 'provisionally-complete';
+                  
                   return (
-                      <div key={subItem.id} className="space-y-2 group">
-                          <div className="flex items-start gap-2">
-                              <button 
-                                  onClick={() => handleToggleStatus(subItem)}
-                                  disabled={isPending}
-                                  className="mt-0.5 flex-shrink-0 transition-colors"
-                              >
-                                  {subItem.status === 'closed' ? (
-                                      <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                      <Circle className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                                  )}
-                              </button>
-                              <div className="flex flex-col">
-                                  <span className={cn("text-sm font-medium", subItem.status === 'closed' && "line-through text-muted-foreground")}>
-                                      {subItem.description}
-                                  </span>
-                                  {sub && (
-                                      <div className="flex items-center gap-1 mt-0.5">
-                                          <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-auto font-bold gap-1 bg-primary/10 text-primary border-primary/20">
-                                              <User className="h-2 w-2" />
-                                              {sub.name}
+                      <div key={subItem.id} className="space-y-3 p-3 rounded-lg bg-background border shadow-sm group">
+                          <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-start gap-3">
+                                  <div className="mt-0.5 flex-shrink-0">
+                                      {subItem.status === 'closed' ? (
+                                          <CheckCircle2 className="h-5 w-5 text-green-500" />
+                                      ) : subItem.status === 'provisionally-complete' ? (
+                                          <Clock className="h-5 w-5 text-amber-500 animate-pulse" />
+                                      ) : (
+                                          <Circle className="h-5 w-5 text-muted-foreground" />
+                                      )}
+                                  </div>
+                                  <div className="flex flex-col">
+                                      <span className={cn("text-sm font-semibold", subItem.status === 'closed' && "line-through text-muted-foreground")}>
+                                          {subItem.description}
+                                      </span>
+                                      {sub && (
+                                          <Badge variant="secondary" className="w-fit text-[9px] mt-1 gap-1 font-bold bg-primary/10 text-primary border-primary/20">
+                                              <User className="h-2 w-2" /> {sub.name}
                                           </Badge>
-                                      </div>
-                                  )}
+                                      )}
+                                  </div>
+                              </div>
+                              
+                              <div className="flex flex-col items-end gap-2 shrink-0">
+                                  <Badge variant="outline" className={cn(
+                                      "text-[9px] font-black uppercase tracking-tighter",
+                                      subItem.status === 'closed' ? "bg-green-50 text-green-700 border-green-200" :
+                                      subItem.status === 'provisionally-complete' ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-muted text-muted-foreground"
+                                  )}>
+                                      {subItem.status.replace('-', ' ')}
+                                  </Badge>
+                                  
+                                  <div className="flex gap-1">
+                                      {subItem.status === 'open' && (
+                                          <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold" onClick={() => handleToggleStatus(subItem)} disabled={isPending}>
+                                              Update Progress
+                                          </Button>
+                                      )}
+                                      {subItem.status === 'provisionally-complete' && isInternal && (
+                                          <>
+                                              <Button size="sm" className="h-7 text-[10px] font-bold bg-green-600 hover:bg-green-700 gap-1" onClick={() => handleToggleStatus(subItem)} disabled={isPending}>
+                                                  <ClipboardCheck className="h-3 w-3" /> Sign-off
+                                              </Button>
+                                              <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold text-destructive hover:bg-destructive/5 gap-1" onClick={() => handleReopen(subItem)} disabled={isPending}>
+                                                  <Undo2 className="h-3 w-3" /> Reject
+                                              </Button>
+                                          </>
+                                      )}
+                                      {subItem.status === 'closed' && isInternal && (
+                                          <Button size="sm" variant="ghost" className="h-7 text-[10px] font-bold text-muted-foreground hover:text-primary" onClick={() => handleReopen(subItem)} disabled={isPending}>
+                                              Re-open
+                                          </Button>
+                                      )}
+                                  </div>
                               </div>
                           </div>
                           
+                          {subItem.subContractorComment && (
+                              <div className="ml-8 p-2 rounded bg-muted/30 border-l-2 border-primary/20 text-xs italic text-muted-foreground">
+                                  "{subItem.subContractorComment}"
+                              </div>
+                          )}
+
                           {(subItem.photos && subItem.photos.length > 0) || (subItem.completionPhotos && subItem.completionPhotos.length > 0) ? (
-                            <div className="pl-6 space-y-2">
-                              {subItem.photos && subItem.photos.length > 0 && (
-                                <div className="flex flex-wrap gap-2">
-                                  {subItem.photos.map((p, idx) => (
-                                    <div key={idx} className="relative w-16 h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
-                                      <Image src={p.url} alt="Defect" fill className="object-cover" />
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <Maximize2 className="h-4 w-4 text-white" />
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              {subItem.completionPhotos && subItem.completionPhotos.length > 0 && (
-                                <div className="space-y-1">
-                                  <p className="text-[9px] font-black text-green-600 uppercase tracking-tighter">Completion Evidence</p>
-                                  <div className="flex flex-wrap gap-2">
-                                    {subItem.completionPhotos.map((p, idx) => (
-                                      <div key={idx} className="relative w-16 h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border border-green-200 bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
-                                        <Image src={p.url} alt="Fixed" fill className="object-cover" />
-                                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                          <Maximize2 className="h-4 w-4 text-white" />
-                                        </div>
-                                      </div>
-                                    ))}
+                            <div className="pl-8 flex flex-wrap gap-2">
+                              {subItem.photos?.map((p, idx) => (
+                                <div key={idx} className="relative w-16 h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
+                                  <Image src={p.url} alt="Defect" fill className="object-cover" />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Maximize2 className="h-4 w-4 text-white" />
                                   </div>
                                 </div>
-                              )}
+                              ))}
+                              {subItem.completionPhotos?.map((p, idx) => (
+                                <div key={idx} className="relative w-16 h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border-2 border-green-200 bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
+                                  <Image src={p.url} alt="Fixed" fill className="object-cover" />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Maximize2 className="h-4 w-4 text-white" />
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           ) : null}
                       </div>
@@ -497,30 +556,40 @@ export function SnaggingItemCard({
         <Dialog open={!!completingItem} onOpenChange={() => setCompletingItem(null)}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Mark Item as Verified</DialogTitle>
+              <DialogTitle>Submit Completion Evidence</DialogTitle>
               <DialogDescription>
-                Confirm completion for: "{completingItem?.description}"
+                Confirm your work for: "{completingItem?.description}"
               </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4 py-4">
-              <p className="text-sm text-muted-foreground">Add completion evidence to the version history (Optional):</p>
-              
-              <div className="flex flex-wrap gap-2">
-                {completionPhotos.map((p, idx) => (
-                  <div key={idx} className="relative w-20 h-20 group">
-                    <Image src={p.url} alt="Fixed" fill className="rounded-md object-cover border" />
-                    <button type="button" className="absolute -top-2 -right-2 h-6 w-6 bg-destructive text-white rounded-full flex items-center justify-center shadow-lg" onClick={() => setCompletionPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></button>
+              <div className="space-y-2">
+                  <Label>Completion Notes</Label>
+                  <Textarea 
+                    placeholder="Describe the fix or action taken..." 
+                    value={completionComment}
+                    onChange={(e) => setCompletionComment(e.target.value)}
+                  />
+              </div>
+
+              <div className="space-y-2">
+                  <Label>Photo Evidence</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {completionPhotos.map((p, idx) => (
+                      <div key={idx} className="relative w-20 h-20 group">
+                        <Image src={p.url} alt="Fixed" fill className="rounded-md object-cover border" />
+                        <button type="button" className="absolute -top-2 -right-2 h-6 w-6 bg-destructive text-white rounded-full flex items-center justify-center shadow-lg" onClick={() => setCompletionPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></button>
+                      </div>
+                    ))}
+                    <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed hover:bg-muted/50" onClick={() => setIsCameraOpen(true)}>
+                      <Camera className="h-6 w-6 text-primary" />
+                      <span className="text-[10px] font-bold uppercase">Camera</span>
+                    </Button>
+                    <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed hover:bg-muted/50" onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="h-6 w-6 text-primary" />
+                      <span className="text-[10px] font-bold uppercase">Upload</span>
+                    </Button>
                   </div>
-                ))}
-                <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed hover:bg-muted/50" onClick={() => setIsCameraOpen(true)}>
-                  <Camera className="h-6 w-6 text-primary" />
-                  <span className="text-[10px] font-bold uppercase">Camera</span>
-                </Button>
-                <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed hover:bg-muted/50" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="h-6 w-6 text-primary" />
-                  <span className="text-[10px] font-bold uppercase">Upload</span>
-                </Button>
               </div>
 
               {isCameraOpen && (
@@ -582,10 +651,10 @@ export function SnaggingItemCard({
 
             <DialogFooter className="gap-2 sm:gap-0 border-t pt-4">
               <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setCompletingItem(null)}>Cancel</Button>
-              <div className="flex gap-2">
-                <Button variant="outline" className="font-bold border-2" onClick={() => { setCompletionPhotos([]); finalizeCompletion(); }}>Skip & Complete</Button>
-                <Button className="font-bold shadow-lg shadow-primary/20" onClick={finalizeCompletion} disabled={completionPhotos.length === 0 && !isCameraOpen}>Commit & Close Item</Button>
-              </div>
+              <Button className="font-bold shadow-lg shadow-primary/20" onClick={finalizeCompletion} disabled={isPending}>
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                  Submit for Approval
+              </Button>
             </DialogFooter>
             
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {

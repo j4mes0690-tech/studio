@@ -70,13 +70,18 @@ export type CleanUpNotice = {
   status?: 'draft' | 'issued';
 };
 
+export type SnaggingListItemStatus = 'open' | 'provisionally-complete' | 'closed';
+
 export type SnaggingListItem = {
   id: string;
   description: string;
-  status: 'open' | 'closed';
+  status: SnaggingListItemStatus;
   photos?: Photo[];
   completionPhotos?: Photo[];
   subContractorId?: string;
+  subContractorComment?: string;
+  provisionallyCompletedAt?: string;
+  closedAt?: string;
 };
 
 export type SnaggingItem = {

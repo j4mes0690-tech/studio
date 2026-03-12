@@ -6,6 +6,7 @@ import { SnaggingItemCard } from './snagging-card';
 import { NewSnaggingItem } from './new-snagging-item';
 import { SnaggingFilters } from './snagging-filters';
 import { SnaggingTable } from './snagging-table';
+import { ProjectReportButton } from './project-report-button';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
@@ -113,6 +114,8 @@ function SnaggingContent() {
       return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email);
   }) || [];
 
+  const selectedProject = allProjects?.find(p => p.id === projectId);
+
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
@@ -126,6 +129,14 @@ function SnaggingContent() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {selectedProject && (
+              <ProjectReportButton 
+                project={selectedProject} 
+                snaggingLists={allItems?.filter(list => list.projectId === projectId) || []}
+                subContractors={subContractors || []}
+              />
+            )}
+
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -133,7 +144,7 @@ function SnaggingContent() {
                     variant="outline" 
                     size="icon" 
                     onClick={toggleView}
-                    className="flex"
+                    className="flex h-9 w-9"
                   >
                     {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                   </Button>
