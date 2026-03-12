@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { FileText, Loader2, Download, CheckCircle2, LayoutGrid, Users, Filter, Building2 } from 'lucide-react';
+import { FileText, Loader2, Download, CheckCircle2, LayoutGrid, Users, Filter, Building2, Send } from 'lucide-react';
 import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -19,10 +19,12 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { sendSubcontractorReportAction } from './actions';
 
 /**
  * ProjectReportButton - A reporting center accessible from the Snagging Log.
  * Allows generating aggregated PDF reports across multiple lists for a project.
+ * Now supports direct email distribution to trade partners.
  */
 export function ProjectReportButton({
   projects,
@@ -37,6 +39,7 @@ export function ProjectReportButton({
 }) {
   const [open, setOpen] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDistributing, setIsDistributing] = useState(false);
   const [reportType, setReportType] = useState<'global' | 'partner'>('global');
   const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId || '');
   const [selectedSubId, setSelectedSubId] = useState<string>('all');
@@ -67,9 +70,12 @@ export function ProjectReportButton({
     return subContractors.filter(s => ids.has(s.id));
   }, [projectLists, selectedProjectId, subContractors]);
 
-  const generatePdf = async () => {
+  const generateReport = async (mode: 'download' | 'email') => {
     if (!activeProject) return;
-    setIsGenerating(true);
+    
+    if (mode === 'download') setIsGenerating(true);
+    else setIsDistributing(true);
+
     try {
       const { jsPDF } = await import('jspdf');
       const html2canvas = (await import('html2canvas')).default;
@@ -92,6 +98,7 @@ export function ProjectReportButton({
       if (aggregatedItems.length === 0) {
         toast({ title: "Report Empty", description: "No snagging items found for this selection.", variant: "destructive" });
         setIsGenerating(false);
+        setIsDistributing(false);
         return;
       }
 
@@ -163,14 +170,43 @@ export function ProjectReportButton({
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       document.body.removeChild(reportElement);
-      pdf.save(`ProjectSnagging-${activeProject.name.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`);
-      toast({ title: "Report Ready", description: "The aggregated project snag report has been generated." });
+
+      const timestamp = new Date().toISOString().split('T')[0];
+      const fileName = `ProjectSnagging-${activeProject.name.replace(/\s+/g, '-')}-${timestamp}.pdf`;
+
+      if (mode === 'download') {
+        pdf.save(fileName);
+        toast({ title: "Report Ready", description: "The aggregated project snag report has been generated." });
+      } else {
+        // Email Distribution
+        const sub = subContractors.find(s => s.id === selectedSubId);
+        if (!sub) throw new Error("No subcontractor selected for distribution.");
+
+        const pdfBase64 = pdf.output('datauristring').split(',')[1];
+        
+        const result = await sendSubcontractorReportAction({
+          email: sub.email,
+          name: sub.name,
+          projectName: activeProject.name,
+          areaName: 'Project-wide Aggregated',
+          pdfBase64,
+          fileName
+        });
+
+        if (result.success) {
+          toast({ title: "Distribution Successful", description: `Aggregated report emailed to ${sub.name}.` });
+        } else {
+          toast({ title: "Email Error", description: result.message, variant: "destructive" });
+        }
+      }
+      
       setOpen(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast({ title: "Error", description: "Failed to generate aggregated report.", variant: "destructive" });
+      toast({ title: "Error", description: err.message || "Failed to process report.", variant: "destructive" });
     } finally {
       setIsGenerating(false);
+      setIsDistributing(false);
     }
   };
 
@@ -278,25 +314,48 @@ export function ProjectReportButton({
           )}
         </div>
 
-        <DialogFooter className="bg-muted/10 p-6 border-t rounded-b-lg">
-          <Button variant="ghost" onClick={() => setOpen(false)} disabled={isGenerating}>Cancel</Button>
-          <Button 
-            className="flex-1 sm:flex-none h-11 px-8 font-bold gap-2 shadow-lg shadow-primary/20" 
-            onClick={generatePdf}
-            disabled={isGenerating || !selectedProjectId || (reportType === 'partner' && (selectedSubId === 'all' || !selectedSubId))}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Processing Report...
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4" />
-                Download PDF
-              </>
+        <DialogFooter className="bg-muted/10 p-6 border-t rounded-b-lg gap-3 sm:gap-0">
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={isGenerating || isDistributing}>Cancel</Button>
+          <div className="flex-1" />
+          <div className="flex flex-col sm:flex-row gap-2">
+            {reportType === 'partner' && (
+              <Button 
+                variant="outline"
+                className="h-11 px-6 font-bold gap-2 border-primary/30 text-primary" 
+                onClick={() => generateReport('email')}
+                disabled={isGenerating || isDistributing || !selectedProjectId || selectedSubId === 'all' || !selectedSubId}
+              >
+                {isDistributing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Sending Email...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Distribute to Partner
+                  </>
+                )}
+              </Button>
             )}
-          </Button>
+            <Button 
+              className="h-11 px-8 font-bold gap-2 shadow-lg shadow-primary/20" 
+              onClick={() => generateReport('download')}
+              disabled={isGenerating || isDistributing || !selectedProjectId}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Download PDF
+                </>
+              )}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
