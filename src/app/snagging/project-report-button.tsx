@@ -231,9 +231,9 @@ export function ProjectReportButton({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2 border-primary/20 text-primary hover:bg-primary/5 font-bold h-9">
+        <Button variant="outline" className="gap-2 border-primary/20 text-primary hover:bg-primary/5 font-bold h-9 px-2 sm:px-4">
           <FileText className="h-4 w-4" />
-          Project Reports
+          <span className="hidden xs:inline">Project Reports</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">

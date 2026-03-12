@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -128,16 +127,14 @@ function SnaggingContent() {
             )}
           </div>
           <div className="flex items-center gap-1.5 md:gap-2">
-            <div className="hidden sm:block">
-                {allowedProjects.length > 0 && (
-                <ProjectReportButton 
-                    projects={allowedProjects} 
-                    allSnaggingLists={allItems || []}
-                    subContractors={subContractors || []}
-                    initialProjectId={projectId}
-                />
-                )}
-            </div>
+            {allowedProjects.length > 0 && (
+              <ProjectReportButton 
+                  projects={allowedProjects} 
+                  allSnaggingLists={allItems || []}
+                  subContractors={subContractors || []}
+                  initialProjectId={projectId}
+              />
+            )}
 
             <TooltipProvider>
               <Tooltip>
