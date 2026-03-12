@@ -74,8 +74,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [isItemCameraOpen, setIsItemCameraOpen] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false); 
+  const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); 
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
 
@@ -212,7 +212,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="p-6 pb-0"><DialogTitle>Edit Snagging List</DialogTitle></DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
@@ -223,7 +223,17 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                           <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
                       )} />
                       <FormField control={form.control} name="areaId" render={({ field }) => (
-                          <FormItem><FormLabel>Area</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                          <FormItem>
+                            <FormLabel>Area</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                              <SelectContent>
+                                {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                {availableAreas.length > 0 && <Separator className="my-1" />}
+                                <SelectItem value="other">Other / Not Listed</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </FormItem>
                       )} />
                   </div>
                   <FormField control={form.control} name="title" render={({ field }) => (

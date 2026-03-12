@@ -111,7 +111,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
   useEffect(() => {
     if (selectedAreaId && selectedAreaId !== 'none' && selectedAreaId !== '') {
       if (selectedAreaId === 'other') {
-        // manual title
+        // manual title - do not auto-overwrite
       } else {
         const area = availableAreas.find(a => a.id === selectedAreaId);
         if (area) {
@@ -252,7 +252,21 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                                 <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
                             )} />
                             <FormField control={form.control} name="areaId" render={({ field }) => (
-                                <FormItem><FormLabel>Area / Level</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}<Separator className="my-1" /><SelectItem value="other">Other / Not Listed</SelectItem></SelectContent></FormItem>
+                                <FormItem>
+                                  <FormLabel>Area / Level</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                                    <FormControl>
+                                      <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {availableAreas.map(a => (
+                                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                                      ))}
+                                      {availableAreas.length > 0 && <Separator className="my-1" />}
+                                      <SelectItem value="other">Other / Not Listed</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </FormItem>
                             )} />
                         </div>
                         <FormField control={form.control} name="title" render={({ field }) => (
@@ -315,7 +329,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
 
                     <div className="flex flex-col sm:flex-row gap-3 pt-4">
                         <Button type="button" variant="ghost" className="font-bold text-muted-foreground" onClick={() => setOpen(false)}>Discard</Button>
-                        <Button type="button" className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending || items.length === 0} onClick={form.handleSubmit(onSubmit)}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}Save List</Button>
+                        <Button type="button" className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending || items.length === 0} onClick={form.handleSubmit(onSubmit)}>{isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}Save List</Button>
                     </div>
                 </form>
             </Form>

@@ -20,7 +20,7 @@ import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Are
 import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, Loader2, Save, RefreshCw, History, Eye, FileSearch, Check } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import {
   Dialog,
   DialogContent,
@@ -356,6 +356,8 @@ function EditSnaggingContent() {
                         {availableAreas.length > 0 ? availableAreas.map(a => (
                             <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
                         )) : <SelectItem value="none" disabled>No areas defined</SelectItem>}
+                        <Separator className="my-1" />
+                        <SelectItem value="other">Other / Not Listed</SelectItem>
                         </SelectContent>
                     </Select>
                     </div>
