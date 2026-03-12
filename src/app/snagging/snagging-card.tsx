@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -16,6 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
+import { Badge } from '@/components/ui/badge';
 import { 
   Camera, 
   ListChecks, 
@@ -39,7 +41,6 @@ import {
   Undo2,
   Send
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
 import {
@@ -366,7 +367,6 @@ export function SnaggingItemCard({
               </div>
               {item.items?.map((subItem) => {
                   const sub = subContractors.find(s => s.id === subItem.subContractorId);
-                  const isAwaitingSignOff = subItem.status === 'provisionally-complete';
                   
                   return (
                       <div key={subItem.id} className="space-y-3 p-3 rounded-lg bg-background border shadow-sm group">
@@ -554,200 +554,201 @@ export function SnaggingItemCard({
             )}
           </Accordion>
         </CardContent>
+      </Card>
 
-        <Dialog open={!!completingItem} onOpenChange={() => setCompletingItem(null)}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Submit Completion Evidence</DialogTitle>
-              <DialogDescription>
-                Confirm your work for: "{completingItem?.description}"
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                  <Label>Completion Notes</Label>
-                  <Textarea 
-                    placeholder="Describe the fix or action taken..." 
-                    value={completionComment}
-                    onChange={(e) => setCompletionComment(e.target.value)}
-                  />
-              </div>
-
-              <div className="space-y-2">
-                  <Label>Photo Evidence</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {completionPhotos.map((p, idx) => (
-                      <div key={idx} className="relative w-20 h-20 group">
-                        <Image src={p.url} alt="Fixed" fill className="rounded-md object-cover border" />
-                        <button type="button" className="absolute -top-2 -right-2 h-6 w-6 bg-destructive text-white rounded-full flex items-center justify-center shadow-lg" onClick={() => setCompletionPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></button>
-                      </div>
-                    ))}
-                    <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed hover:bg-muted/50" onClick={() => setIsCameraOpen(true)}>
-                      <Camera className="h-6 w-6 text-primary" />
-                      <span className="text-[10px] font-bold uppercase">Camera</span>
-                    </Button>
-                    <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed hover:bg-muted/50" onClick={() => fileInputRef.current?.click()}>
-                      <Upload className="h-6 w-6 text-primary" />
-                      <span className="text-[10px] font-bold uppercase">Upload</span>
-                    </Button>
-                  </div>
-              </div>
-
-              {isCameraOpen && (
-                <div className="fixed inset-0 z-[100] bg-black">
-                  {hasCameraPermission === false && (
-                    <div className="absolute top-20 left-6 right-6 z-[110]">
-                      <Alert variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle>Access Denied</AlertTitle>
-                        <AlertDescription>Enable camera permissions to capture evidence.</AlertDescription>
-                      </Alert>
-                    </div>
-                  )}
-                  
-                  <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                  
-                  <div className="absolute inset-0 flex flex-col justify-between p-6">
-                    <div className="flex justify-end">
-                      <Button 
-                        variant="secondary" 
-                        onClick={() => setIsCameraOpen(false)} 
-                        className="rounded-full h-12 px-6 font-bold shadow-lg"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                    
-                    <div className="flex items-center justify-center gap-8 mb-8">
-                      <Button 
-                        variant="secondary" 
-                        size="icon" 
-                        className="rounded-full h-14 w-14 shadow-lg" 
-                        onClick={toggleCamera} 
-                        title="Switch Camera"
-                      >
-                        <RefreshCw className="h-7 w-7" />
-                      </Button>
-                      
-                      <Button 
-                        size="lg" 
-                        className="rounded-full h-20 w-20 p-0 border-4 border-white/20 shadow-2xl bg-white hover:bg-white/90"
-                        onClick={() => {
-                          const p = capturePhoto();
-                          if (p) {
-                            setCompletionPhotos(prev => [...prev, p]);
-                            setIsCameraOpen(false);
-                          }
-                        }}
-                      >
-                        <div className="h-14 w-14 rounded-full border-2 border-black/10" />
-                      </Button>
-                      
-                      <div className="w-14" />
-                    </div>
-                  </div>
-                </div>
-              )}
+      <Dialog open={!!completingItem} onOpenChange={() => setCompletingItem(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Submit Completion Evidence</DialogTitle>
+            <DialogDescription>
+              Confirm your work for: "{completingItem?.description}"
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+                <Label>Completion Notes</Label>
+                <Textarea 
+                  placeholder="Describe the fix or action taken..." 
+                  value={completionComment}
+                  onChange={(e) => setCompletionComment(e.target.value)}
+                />
             </div>
 
-            <DialogFooter className="gap-2 sm:gap-0 border-t pt-4">
-              <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setCompletingItem(null)}>Cancel</Button>
-              <Button className="font-bold shadow-lg shadow-primary/20" onClick={finalizeCompletion} disabled={isPending}>
-                  {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
-                  Submit for Approval
-              </Button>
-            </DialogFooter>
-            
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-              const files = e.target.files;
-              if (!files) return;
-              Array.from(files).forEach(f => {
-                const reader = new FileReader();
-                reader.onload = (re) => setCompletionPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                reader.readAsDataURL(f);
-              });
-            }} />
-            <canvas ref={canvasRef} className="hidden" />
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={!!viewingHistoryRecord} onOpenChange={() => setViewingHistoryRecord(null)}>
-            <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
-                <DialogHeader className="p-6 pb-0 shrink-0">
-                    <div className='flex items-center gap-3 mb-1'>
-                        <div className='bg-primary/10 p-2 rounded-lg'>
-                            <FileSearch className='h-5 w-5 text-primary' />
-                        </div>
-                        <div>
-                            <DialogTitle>Historical Snapshot</DialogTitle>
-                            <DialogDescription>Captured on <ClientDate date={viewingHistoryRecord?.timestamp || ''} /></DialogDescription>
-                        </div>
+            <div className="space-y-2">
+                <Label>Photo Evidence</Label>
+                <div className="flex flex-wrap gap-2">
+                  {completionPhotos.map((p, idx) => (
+                    <div key={idx} className="relative w-20 h-20 group">
+                      <Image src={p.url} alt="Fixed" fill className="rounded-md object-cover border" />
+                      <button type="button" className="absolute -top-2 -right-2 h-6 w-6 bg-destructive text-white rounded-full flex items-center justify-center shadow-lg" onClick={() => setCompletionPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></button>
                     </div>
-                </DialogHeader>
-                
-                <div className='flex-1 overflow-y-auto px-6 py-4'>
-                    <div className="space-y-4">
-                        <div className='bg-muted/30 p-4 rounded-lg border border-dashed text-center space-y-1'>
-                            <p className='text-[10px] font-black uppercase text-muted-foreground tracking-widest'>Audit Summary</p>
-                            <p className='text-sm font-medium'>"{viewingHistoryRecord?.summary}"</p>
-                            <div className='flex justify-center gap-2 mt-2'>
-                                <Badge variant="secondary" className='bg-background'>{viewingHistoryRecord?.closedCount} / {viewingHistoryRecord?.totalCount} Fixed</Badge>
-                                <Badge variant="outline" className='bg-background'>Authored by: {viewingHistoryRecord?.updatedBy}</Badge>
-                            </div>
-                        </div>
-
-                        <div className="space-y-3 pt-2">
-                            <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest px-1'>Point-in-Time Status</p>
-                            {viewingHistoryRecord?.items.map((histItem) => {
-                                const sub = subContractors.find(s => s.id === histItem.subContractorId);
-                                return (
-                                    <div key={histItem.id} className="p-3 border rounded-lg bg-background shadow-sm space-y-3">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex items-start gap-3">
-                                                {histItem.status === 'closed' ? (
-                                                    <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
-                                                ) : (
-                                                    <Circle className="h-4 w-4 text-muted-foreground mt-0.5" />
-                                                )}
-                                                <div className='flex flex-col gap-1'>
-                                                    <span className={cn("text-sm font-semibold", histItem.status === 'closed' && "line-through text-muted-foreground")}>
-                                                        {histItem.description}
-                                                    </span>
-                                                    {sub && <span className="text-[10px] font-bold text-primary uppercase">{sub.name}</span>}
-                                                </div>
-                                            </div>
-                                            <Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold h-5'>
-                                                {histItem.status}
-                                            </Badge>
-                                        </div>
-
-                                        {(histItem.photos && histItem.photos.length > 0) || (histItem.completionPhotos && histItem.completionPhotos.length > 0) ? (
-                                            <div className='pl-7 flex flex-wrap gap-2 pt-1 border-t border-dashed'>
-                                                {histItem.photos?.map((p, pi) => (
-                                                    <div key={`hist-p-${pi}`} className='relative w-12 h-10 rounded border overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}>
-                                                        <Image src={p.url} alt="Snap" fill className='object-cover' />
-                                                    </div>
-                                                ))}
-                                                {histItem.completionPhotos?.map((p, pi) => (
-                                                    <div key={`hist-c-${pi}`} className='relative w-12 h-10 rounded border-2 border-green-200 overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}>
-                                                        <Image src={p.url} alt="Fix Snap" fill className='object-cover' />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : null}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
+                  ))}
+                  <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed hover:bg-muted/50" onClick={() => setIsCameraOpen(true)}>
+                    <Camera className="h-6 w-6 text-primary" />
+                    <span className="text-[10px] font-bold uppercase">Camera</span>
+                  </Button>
+                  <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed hover:bg-muted/50" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="h-6 w-6 text-primary" />
+                    <span className="text-[10px] font-bold uppercase">Upload</span>
+                  </Button>
                 </div>
+            </div>
 
-                <DialogFooter className='p-6 bg-muted/10 border-t shrink-0'>
-                    <Button variant="outline" className='w-full' onClick={() => setViewingHistoryRecord(null)}>Close Auditor</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+            {isCameraOpen && (
+              <div className="fixed inset-0 z-[100] bg-black">
+                {hasCameraPermission === false && (
+                  <div className="absolute top-20 left-6 right-6 z-[110]">
+                    <Alert variant="destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTitle>Access Denied</AlertTitle>
+                      <AlertDescription>Enable camera permissions to capture evidence.</AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+                
+                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                
+                <div className="absolute inset-0 flex flex-col justify-between p-6">
+                  <div className="flex justify-end">
+                    <Button 
+                      variant="secondary" 
+                      onClick={() => setIsCameraOpen(false)} 
+                      className="rounded-full h-12 px-6 font-bold shadow-lg"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-center gap-8 mb-8">
+                    <Button 
+                      variant="secondary" 
+                      size="icon" 
+                      className="rounded-full h-14 w-14 shadow-lg" 
+                      onClick={toggleCamera} 
+                      title="Switch Camera"
+                    >
+                      <RefreshCw className="h-7 w-7" />
+                    </Button>
+                    
+                    <Button 
+                      size="lg" 
+                      className="rounded-full h-20 w-20 p-0 border-4 border-white/20 shadow-2xl bg-white hover:bg-white/90"
+                      onClick={() => {
+                        const p = capturePhoto();
+                        if (p) {
+                          setCompletionPhotos(prev => [...prev, p]);
+                          setIsCameraOpen(false);
+                        }
+                      }}
+                    >
+                      <div className="h-14 w-14 rounded-full border-2 border-black/10" />
+                    </Button>
+                    
+                    <div className="w-14" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 border-t pt-4">
+            <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setCompletingItem(null)}>Cancel</Button>
+            <Button className="font-bold shadow-lg shadow-primary/20" onClick={finalizeCompletion} disabled={isPending}>
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                Submit for Approval
+            </Button>
+          </DialogFooter>
+          
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+            const files = e.target.files;
+            if (!files) return;
+            Array.from(files).forEach(f => {
+              const reader = new FileReader();
+              reader.onload = (re) => setCompletionPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+              reader.readAsDataURL(f);
+            });
+          }} />
+          <canvas ref={canvasRef} className="hidden" />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!viewingHistoryRecord} onOpenChange={() => setViewingHistoryRecord(null)}>
+          <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
+              <DialogHeader className="p-6 pb-0 shrink-0">
+                  <div className='flex items-center gap-3 mb-1'>
+                      <div className='bg-primary/10 p-2 rounded-lg'>
+                          <FileSearch className='h-5 w-5 text-primary' />
+                      </div>
+                      <div>
+                          <DialogTitle>Historical Snapshot</DialogTitle>
+                          <DialogDescription>Captured on <ClientDate date={viewingHistoryRecord?.timestamp || ''} /></DialogDescription>
+                      </div>
+                  </div>
+              </DialogHeader>
+              
+              <div className='flex-1 overflow-y-auto px-6 py-4'>
+                  <div className="space-y-4">
+                      <div className='bg-muted/30 p-4 rounded-lg border border-dashed text-center space-y-1'>
+                          <p className='text-[10px] font-black uppercase text-muted-foreground tracking-widest'>Audit Summary</p>
+                          <p className='text-sm font-medium'>"{viewingHistoryRecord?.summary}"</p>
+                          <div className='flex justify-center gap-2 mt-2'>
+                              <Badge variant="secondary" className='bg-background'>{viewingHistoryRecord?.closedCount} / {viewingHistoryRecord?.totalCount} Fixed</Badge>
+                              <Badge variant="outline" className='bg-background'>Authored by: {viewingHistoryRecord?.updatedBy}</Badge>
+                          </div>
+                      </div>
+
+                      <div className="space-y-3 pt-2">
+                          <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest px-1'>Point-in-Time Status</p>
+                          {viewingHistoryRecord?.items.map((histItem) => {
+                              const sub = subContractors.find(s => s.id === histItem.subContractorId);
+                              return (
+                                  <div key={histItem.id} className="p-3 border rounded-lg bg-background shadow-sm space-y-3">
+                                      <div className="flex items-start justify-between">
+                                          <div className="flex items-start gap-3">
+                                              {histItem.status === 'closed' ? (
+                                                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
+                                              ) : (
+                                                  <Circle className="h-4 w-4 text-muted-foreground mt-0.5" />
+                                              )}
+                                              <div className='flex flex-col gap-1'>
+                                                  <span className={cn("text-sm font-semibold", histItem.status === 'closed' && "line-through text-muted-foreground")}>
+                                                      {histItem.description}
+                                                  </span>
+                                                  {sub && <span className="text-[10px] font-bold text-primary uppercase">{sub.name}</span>}
+                                              </div>
+                                          </div>
+                                          <Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold h-5'>
+                                              {histItem.status}
+                                          </Badge>
+                                      </div>
+
+                                      {(histItem.photos && histItem.photos.length > 0) || (histItem.completionPhotos && histItem.completionPhotos.length > 0) ? (
+                                          <div className='pl-7 flex flex-wrap gap-2 pt-1 border-t border-dashed'>
+                                              {histItem.photos?.map((p, pi) => (
+                                                  <div key={`hist-p-${pi}`} className='relative w-12 h-10 rounded border overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}>
+                                                      <Image src={p.url} alt="Snap" fill className='object-cover' />
+                                                  </div>
+                                              ))}
+                                              {histItem.completionPhotos?.map((p, pi) => (
+                                                  <div key={`hist-c-${pi}`} className='relative w-12 h-10 rounded border-2 border-green-200 overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}>
+                                                      <Image src={p.url} alt="Fix Snap" fill className='object-cover' />
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      ) : null}
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  </div>
+              </div>
+
+              <DialogFooter className='p-6 bg-muted/10 border-t shrink-0'>
+                  <Button variant="outline" className='w-full' onClick={() => setViewingHistoryRecord(null)}>Close Auditor</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>

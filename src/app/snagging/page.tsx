@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -9,7 +10,7 @@ import { ProjectReportButton } from './project-report-button';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
-import { Loader2, LayoutGrid, List, ShieldCheck, FileStack } from 'lucide-react';
+import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
