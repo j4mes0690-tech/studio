@@ -27,7 +27,7 @@ import { Badge } from '@/components/ui/badge';
 /**
  * ProjectReportButton - A reporting center accessible from the Snagging Log.
  * Allows generating aggregated PDF reports across multiple lists for a project.
- * Now supports distributing the full project report to multiple selected partners.
+ * Supports distributing reports to selected partners.
  */
 export function ProjectReportButton({
   projects,
@@ -45,11 +45,10 @@ export function ProjectReportButton({
   const [isDistributing, setIsDistributing] = useState(false);
   const [reportType, setReportType] = useState<'global' | 'partner'>('global');
   const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId || '');
-  const [selectedSubId, setSelectedSubId] = useState<string>(''); // For targeted report
-  const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]); // For multi-distribute
+  const [selectedSubId, setSelectedSubId] = useState<string>(''); 
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]); 
   const { toast } = useToast();
 
-  // Sync state if initial project changes via filter
   useEffect(() => {
     if (initialProjectId) {
       setSelectedProjectId(initialProjectId);
@@ -74,7 +73,6 @@ export function ProjectReportButton({
     return subContractors.filter(s => ids.has(s.id));
   }, [projectLists, selectedProjectId, subContractors]);
 
-  // Handle single partner selection for targeted report
   useEffect(() => {
     if (reportType === 'partner' && selectedSubId) {
       setSelectedRecipientIds([selectedSubId]);
@@ -99,8 +97,6 @@ export function ProjectReportButton({
       const { jsPDF } = await import('jspdf');
       const html2canvas = (await import('html2canvas')).default;
 
-      // Aggregating all items based on filter (Global vs Partner items)
-      // Note: If emailed, we use the specific sub's filter if strategy is 'partner'
       let aggregatedItems: { listTitle: string, areaName: string, snag: any }[] = [];
       
       projectLists.forEach(list => {
@@ -200,7 +196,6 @@ export function ProjectReportButton({
         pdf.save(fileName);
         toast({ title: "Report Ready", description: "The aggregated project snag report has been generated." });
       } else {
-        // Email Distribution to all selected partners
         const recipients = subContractors.filter(s => selectedRecipientIds.includes(s.id));
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
         
@@ -401,12 +396,18 @@ export function ProjectReportButton({
               </div>
             </>
           )}
-        </div>
 
-        <DialogFooter className="p-6 bg-muted/10 border-t shrink-0 gap-3 sm:gap-0">
-          <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setOpen(false)} disabled={isGenerating || isDistributing}>Cancel</Button>
-          <div className="flex-1" />
-          <div className="flex flex-col sm:flex-row gap-3">
+          {/* Action Area: Now integrated into the scrollable div */}
+          <div className="pt-8 border-t flex flex-col sm:flex-row gap-3">
+            <Button 
+              variant="ghost" 
+              className="font-bold text-muted-foreground order-last sm:order-first" 
+              onClick={() => setOpen(false)} 
+              disabled={isGenerating || isDistributing}
+            >
+              Cancel
+            </Button>
+            <div className="hidden sm:block flex-1" />
             <Button 
               variant="outline"
               className="h-12 px-6 font-bold gap-2 border-primary/30 text-primary shadow-sm hover:bg-primary/5" 
@@ -444,7 +445,7 @@ export function ProjectReportButton({
               )}
             </Button>
           </div>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
