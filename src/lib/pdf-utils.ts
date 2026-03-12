@@ -1,31 +1,16 @@
-
 'use client';
 
-import type { Instruction, Project, SubContractor, SnaggingItem, SnaggingListItem, Photo } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingListItem, Photo } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 
 /**
  * safeLoadImage - Proxies an image via server action to bypass CORS.
+ * Returns a base64 Data URI.
  */
 async function safeLoadImage(url: string): Promise<string | null> {
   if (!url) return null;
+  if (url.startsWith('data:')) return url;
   return await proxyImageAction(url);
-}
-
-/**
- * getImageElement - Loads an image into a DOM element for jsPDF processing.
- */
-async function getImageElement(url: string): Promise<HTMLImageElement | null> {
-  const dataUri = await safeLoadImage(url);
-  if (!dataUri) return null;
-  
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = dataUri;
-  });
 }
 
 /**
@@ -36,7 +21,7 @@ export async function generateInstructionPDF(
   project?: Project,
   recipient?: SubContractor
 ) {
-  const { jsPDF } = await import('jspdf');
+  const { jsPDF } = await import('jsPDF');
   const html2canvas = (await import('html2canvas')).default;
 
   const reportElement = document.createElement('div');
@@ -85,7 +70,7 @@ export async function generateInstructionPDF(
   `;
 
   document.body.appendChild(reportElement);
-  const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+  const headerCanvas = await html2canvas(reportElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
   document.body.removeChild(reportElement);
 
   const pdf = new jsPDF('p', 'mm', 'a4');
@@ -93,32 +78,30 @@ export async function generateInstructionPDF(
   const pdfHeight = pdf.internal.pageSize.getHeight();
   const canvasHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
   
-  pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, canvasHeightInPdf);
+  pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, canvasHeightInPdf);
 
   let currentY = canvasHeightInPdf + 15;
 
   const photos = instruction.photos || [];
   if (photos.length > 0) {
-    if (currentY + 30 > pdfHeight) { pdf.addPage(); currentY = 20; }
     pdf.setFontSize(14);
     pdf.setTextColor(30, 41, 59);
-    pdf.text("Appendix A: Visual Evidence", 10, currentY);
+    pdf.text("Visual Evidence Appendix", 10, currentY);
     currentY += 10;
 
     for (const p of photos) {
-      const img = await getImageElement(p.url);
-      if (currentY + 130 > pdfHeight) { pdf.addPage(); currentY = 20; }
+      const dataUri = await safeLoadImage(p.url);
+      if (currentY + 110 > pdfHeight) { pdf.addPage(); currentY = 20; }
       
-      if (img) {
-        pdf.addImage(img, 'PNG', 10, currentY, 190, 120, undefined, 'FAST');
+      if (dataUri) {
+        pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 100);
       } else {
-        pdf.setFillColor(241, 245, 249);
-        pdf.rect(10, currentY, 190, 120, 'F');
+        pdf.setFillColor(245, 245, 245);
+        pdf.rect(10, currentY, 190, 100, 'F');
         pdf.setFontSize(10);
-        pdf.setTextColor(148, 163, 184);
-        pdf.text("Image failed to load via proxy.", 105, currentY + 60, { align: 'center' });
+        pdf.text("Photo failed to load.", 105, currentY + 50, { align: 'center' });
       }
-      currentY += 130;
+      currentY += 110;
     }
   }
 
@@ -126,7 +109,7 @@ export async function generateInstructionPDF(
 }
 
 /**
- * generateSnaggingPDF - Specialized engine for snagging reports using proxy image injection.
+ * generateSnaggingPDF - Direct drawing engine for high-reliability photo embedding.
  */
 export async function generateSnaggingPDF(
   params: {
@@ -139,9 +122,10 @@ export async function generateSnaggingPDF(
   }
 ) {
   const { title, project, subContractors, aggregatedEntries, generalPhotos, scopeLabel } = params;
-  const { jsPDF } = await import('jspdf');
+  const { jsPDF } = await import('jsPDF');
   const html2canvas = (await import('html2canvas')).default;
 
+  // 1. Create Layout Header via html2canvas for rich styling
   const headerElement = document.createElement('div');
   headerElement.style.position = 'absolute';
   headerElement.style.left = '-9999px';
@@ -153,20 +137,13 @@ export async function generateSnaggingPDF(
 
   headerElement.innerHTML = `
     <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px;">
-      <h1 style="margin: 0; color: #1e40af; font-size: 28px; text-transform: uppercase;">${title}</h1>
+      <h1 style="margin: 0; color: #1e40af; font-size: 28px;">${title}</h1>
       <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Project: ${project?.name || 'Unknown'}</p>
       ${scopeLabel ? `<p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Scope: ${scopeLabel}</p>` : ''}
     </div>
-
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
-      <div>
-        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Contract Authority</p>
-        <p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${project?.siteManager || '---'}</p>
-      </div>
-      <div>
-        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Report Date</p>
-        <p style="margin: 2px 0 0 0; font-size: 14px;">${new Date().toLocaleDateString()}</p>
-      </div>
+      <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Contract Authority</p><p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${project?.siteManager || '---'}</p></div>
+      <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Report Date</p><p style="margin: 2px 0 0 0; font-size: 14px;">${new Date().toLocaleDateString()}</p></div>
     </div>
   `;
 
@@ -183,11 +160,12 @@ export async function generateSnaggingPDF(
 
   let currentY = headerHeightInPdf + 10;
 
+  // 2. Iterate and draw snag items
   for (const entry of aggregatedEntries) {
     const sub = subContractors.find(s => s.id === entry.snag.subContractorId);
     const photos = [...(entry.snag.photos || []), ...(entry.snag.completionPhotos || [])];
     
-    // Check if we need a new page for the text header
+    // Header block for snag
     if (currentY + 25 > pdfHeight) { pdf.addPage(); currentY = 20; }
 
     pdf.setFillColor(248, 250, 252);
@@ -203,18 +181,18 @@ export async function generateSnaggingPDF(
     pdf.setFontSize(8);
     pdf.setTextColor(100, 116, 139);
     pdf.setFont("helvetica", "normal");
-    pdf.text(`Trade: ${sub?.name || 'Unassigned'} | Location: ${entry.areaName} | ${entry.listTitle}`, 15, currentY + 12);
+    pdf.text(`Trade: ${sub?.name || 'Unassigned'} | Location: ${entry.areaName}`, 15, currentY + 12);
     
     const statusLabel = entry.snag.status.toUpperCase().replace('-', ' ');
     pdf.setFontSize(8);
     pdf.setFont("helvetica", "bold");
     if (entry.snag.status === 'closed') pdf.setTextColor(22, 101, 52);
-    else if (entry.snag.status === 'provisionally-complete') pdf.setTextColor(146, 64, 14);
     else pdf.setTextColor(153, 27, 27);
     pdf.text(statusLabel, 195 - pdf.getTextWidth(statusLabel), currentY + 9);
 
     currentY += 20;
 
+    // Draw images for this snag
     if (photos.length > 0) {
       const imgWidth = 60;
       const imgHeight = 45;
@@ -232,35 +210,30 @@ export async function generateSnaggingPDF(
           imgX = 15;
         }
 
-        const img = await getImageElement(p.url);
-        if (img) {
-          pdf.addImage(img, 'PNG', imgX, currentY, imgWidth, imgHeight, undefined, 'FAST');
+        const dataUri = await safeLoadImage(p.url);
+        if (dataUri) {
+          pdf.addImage(dataUri, 'JPEG', imgX, currentY, imgWidth, imgHeight);
         } else {
-          pdf.setFillColor(241, 245, 249);
+          pdf.setFillColor(240, 240, 240);
           pdf.rect(imgX, currentY, imgWidth, imgHeight, 'F');
-          pdf.setFontSize(7);
-          pdf.setTextColor(148, 163, 184);
-          pdf.text("Photo Unavailable", imgX + (imgWidth/2), currentY + (imgHeight/2), { align: 'center' });
         }
         imgX += imgWidth + 5;
       }
       currentY += imgHeight + 10;
     } else {
       pdf.setFontSize(9);
-      pdf.setTextColor(148, 163, 184);
+      pdf.setTextColor(150, 150, 150);
       pdf.setFont("helvetica", "italic");
-      pdf.text("No visual evidence recorded for this item.", 15, currentY);
+      pdf.text("No visual evidence for this item.", 15, currentY);
       currentY += 10;
     }
     
-    pdf.setDrawColor(241, 245, 249);
-    pdf.line(10, currentY, 200, currentY);
     currentY += 5;
   }
 
-  // General Documentation Photos
+  // 3. Draw General Documentation
   if (generalPhotos.length > 0) {
-    if (currentY + 40 > pdfHeight) { pdf.addPage(); currentY = 20; }
+    if (currentY + 30 > pdfHeight) { pdf.addPage(); currentY = 20; }
     else { currentY += 10; }
 
     pdf.setFontSize(14);
@@ -270,19 +243,12 @@ export async function generateSnaggingPDF(
     currentY += 10;
 
     for (const p of generalPhotos) {
-      if (currentY + 125 > pdfHeight) { pdf.addPage(); currentY = 20; }
-      
-      const img = await getImageElement(p.url);
-      if (img) {
-        pdf.addImage(img, 'PNG', 10, currentY, 190, 120, undefined, 'FAST');
-      } else {
-        pdf.setFillColor(241, 245, 249);
-        pdf.rect(10, currentY, 190, 120, 'F');
-        pdf.setFontSize(10);
-        pdf.setTextColor(148, 163, 184);
-        pdf.text("Evidence photo failed to load.", 105, currentY + 60, { align: 'center' });
+      if (currentY + 110 > pdfHeight) { pdf.addPage(); currentY = 20; }
+      const dataUri = await safeLoadImage(p.url);
+      if (dataUri) {
+        pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 100);
       }
-      currentY += 130;
+      currentY += 110;
     }
   }
 
