@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, Loader2 } from 'lucide-react';
-import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
+import type { SnaggingItem, Project, SubContractor, Photo } from '@/lib/types';
 import {
   Tooltip,
   TooltipContent,
@@ -13,26 +13,36 @@ import {
 } from '@/components/ui/tooltip';
 
 /**
- * toDataUri - Helper to convert external URLs to Data URIs for reliable PDF embedding.
+ * toDataUri - Robust helper to convert external URLs to Data URIs for reliable PDF embedding.
+ * Falls back to original URL if conversion fails (e.g. CORS).
  */
 const toDataUri = (url: string): Promise<string> => {
+  if (!url) return Promise.resolve('');
   if (url.startsWith('data:')) return Promise.resolve(url);
+  
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0);
+        // If this fails due to tainted canvas, catch block handles it
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      } catch (e) {
+        // Server doesn't support CORS for this file
+        console.warn("PDF Generation: Using fallback URL for", url);
+        resolve(url);
+      }
     };
     img.onerror = () => {
       console.warn("PDF Generation: Image load failed", url);
-      resolve(''); 
+      resolve(url); // Return original URL as fallback
     };
-    img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+    img.src = url;
   });
 };
 
@@ -53,16 +63,20 @@ export function PdfReportButton({
       const { jsPDF } = await import('jspdf');
       const html2canvas = (await import('html2canvas')).default;
 
-      // 1. Pre-convert all images to avoid CORS issues in PDF rendering
+      // 1. Pre-convert all images
       const generalPhotoData = await Promise.all((item.photos || []).map(async p => ({
         ...p,
         dataUrl: await toDataUri(p.url)
       })));
 
-      const itemsWithDataUrls = await Promise.all(item.items.map(async i => {
+      const itemsWithProcessedUrls = await Promise.all(item.items.map(async i => {
         const photos = await Promise.all((i.photos || []).map(async p => await toDataUri(p.url)));
         const completionPhotos = await Promise.all((i.completionPhotos || []).map(async p => await toDataUri(p.url)));
-        return { ...i, dataUrlPhotos: photos.filter(Boolean), dataUrlCompletion: completionPhotos.filter(Boolean) };
+        return { 
+          ...i, 
+          processedPhotos: photos, 
+          processedCompletion: completionPhotos 
+        };
       }));
 
       const reportElement = document.createElement('div');
@@ -90,13 +104,12 @@ export function PdfReportButton({
             ${project?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${project.address}</p>` : ''}
           </div>
           <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Contract Authority</p>
-            ${project?.siteManager ? `<p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${project.siteManager}</p>` : ''}
-            ${project?.siteManagerPhone ? `<p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">Tel: ${project.siteManagerPhone}</p>` : ''}
-          </div>
-          <div>
             <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Area / Plot</p>
             <p style="margin: 2px 0 0 0; font-size: 16px;">${area?.name || 'General Site'}</p>
+          </div>
+          <div>
+            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">List Identifier</p>
+            <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold;">${item.title}</p>
           </div>
           <div>
             <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Report Date</p>
@@ -107,10 +120,10 @@ export function PdfReportButton({
         <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Defect Log</h2>
         
         <div style="margin-bottom: 40px;">
-          ${itemsWithDataUrls.map(listItem => {
+          ${itemsWithProcessedUrls.map(listItem => {
             const sub = subContractors.find(s => s.id === listItem.subContractorId);
-            const hasIssuePhotos = listItem.dataUrlPhotos.length > 0;
-            const hasCompletionPhotos = listItem.dataUrlCompletion.length > 0;
+            const originalHasPhotos = (listItem.photos?.length || 0) > 0;
+            const originalHasCompletion = (listItem.completionPhotos?.length || 0) > 0;
             
             return `
               <div style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 25px; overflow: hidden; page-break-inside: avoid;">
@@ -125,10 +138,10 @@ export function PdfReportButton({
                 </div>
                 
                 <div style="padding: 12px;">
-                  ${hasIssuePhotos ? `
+                  ${originalHasPhotos ? `
                     <p style="margin: 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Issue Photos</p>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px;">
-                      ${listItem.dataUrlPhotos.map(url => `
+                      ${listItem.processedPhotos.map(url => `
                         <div style="border: 1px solid #f1f5f9; border-radius: 4px; overflow: hidden;">
                           <img src="${url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
                         </div>
@@ -136,15 +149,19 @@ export function PdfReportButton({
                     </div>
                   ` : ''}
 
-                  ${hasCompletionPhotos ? `
+                  ${originalHasCompletion ? `
                     <p style="margin: 0; font-size: 9px; font-weight: bold; color: #16a34a; text-transform: uppercase; margin-bottom: 8px;">Completion Evidence</p>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                      ${listItem.dataUrlCompletion.map(url => `
+                      ${listItem.processedCompletion.map(url => `
                         <div style="border: 2px solid #dcfce7; border-radius: 4px; overflow: hidden;">
                           <img src="${url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
                         </div>
                       `).join('')}
                     </div>
+                  ` : ''}
+
+                  ${(!originalHasPhotos && !originalHasCompletion) ? `
+                    <p style="margin: 0; font-size: 10px; color: #94a3b8; font-style: italic;">No specific visual evidence provided for this point.</p>
                   ` : ''}
                 </div>
               </div>
@@ -158,7 +175,7 @@ export function PdfReportButton({
             ${generalPhotoData.map(p => `
               <div style="border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px;">
                 <img src="${p.dataUrl}" style="width: 100%; border-radius: 4px; object-fit: cover; aspect-ratio: 4/3; display: block;" />
-                <p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b;">Captured: ${new Date(p.takenAt).toLocaleString()}</p>
+                <p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b; text-align: center;">Captured: ${new Date(p.takenAt).toLocaleString()}</p>
               </div>
             `).join('')}
           </div>
@@ -166,7 +183,12 @@ export function PdfReportButton({
       `;
 
       document.body.appendChild(reportElement);
-      const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+      const canvas = await html2canvas(reportElement, { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        allowTaint: true
+      });
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();

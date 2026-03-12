@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, Loader2, Download, CheckCircle2, LayoutGrid, Users, Filter, Building2, Send, Check } from 'lucide-react';
-import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
+import type { SnaggingItem, Project, SubContractor, Photo } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -26,23 +26,29 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 
 /**
- * toDataUri - Helper to convert external URLs to Data URIs for reliable PDF embedding.
+ * toDataUri - Robust helper to convert external URLs to Data URIs for reliable PDF embedding.
  */
 const toDataUri = (url: string): Promise<string> => {
+  if (!url) return Promise.resolve('');
   if (url.startsWith('data:')) return Promise.resolve(url);
+  
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      ctx?.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/jpeg', 0.8));
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/jpeg', 0.85));
+      } catch (e) {
+        resolve(url);
+      }
     };
-    img.onerror = () => resolve(''); 
-    img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+    img.onerror = () => resolve(url);
+    img.src = url;
   });
 };
 
@@ -135,18 +141,25 @@ export function ProjectReportButton({
         return;
       }
 
-      // 1. Bulk convert all images to Data URIs for this aggregated report
-      toast({ title: "Processing Images", description: "Standardizing visual evidence for PDF rendering..." });
+      // 1. Process images for defects
+      toast({ title: "Processing Images", description: "Formatting evidence for PDF distribution..." });
       
       const processedItems = await Promise.all(aggregatedItems.map(async (entry) => {
         const photos = await Promise.all((entry.snag.photos || []).map(async p => await toDataUri(p.url)));
         const completionPhotos = await Promise.all((entry.snag.completionPhotos || []).map(async p => await toDataUri(p.url)));
         return {
           ...entry,
-          dataUrlPhotos: photos.filter(Boolean),
-          dataUrlCompletion: completionPhotos.filter(Boolean)
+          dataUrlPhotos: photos,
+          dataUrlCompletion: completionPhotos
         };
       }));
+
+      // 2. Aggregate General Photos from all lists
+      const allGeneralPhotos = projectLists.flatMap(l => l.photos || []);
+      const processedGeneralPhotos = await Promise.all(allGeneralPhotos.map(async p => ({
+        ...p,
+        dataUrl: await toDataUri(p.url)
+      })));
 
       const reportElement = document.createElement('div');
       reportElement.style.position = 'absolute';
@@ -180,6 +193,8 @@ export function ProjectReportButton({
         <div style="margin-bottom: 40px;">
           ${processedItems.map(({ listTitle, areaName, snag, dataUrlPhotos, dataUrlCompletion }) => {
             const itemSub = subContractors.find(s => s.id === snag.subContractorId);
+            const originalHasAny = (snag.photos?.length || 0) > 0 || (snag.completionPhotos?.length || 0) > 0;
+            
             return `
               <div style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; overflow: hidden; page-break-inside: avoid;">
                 <div style="background: #f8fafc; padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
@@ -193,17 +208,29 @@ export function ProjectReportButton({
                   </div>
                 </div>
                 <div style="padding: 12px;">
-                  ${(dataUrlPhotos.length > 0 || dataUrlCompletion.length > 0) ? `
+                  ${originalHasAny ? `
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                      ${dataUrlPhotos.map(url => `<img src="${url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px;" />`).join('')}
-                      ${dataUrlCompletion.map(url => `<img src="${url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 2px solid #dcfce7;" />`).join('')}
+                      ${dataUrlPhotos.map(url => `<img src="${url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; display: block;" />`).join('')}
+                      ${dataUrlCompletion.map(url => `<img src="${url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 2px solid #dcfce7; display: block;" />`).join('')}
                     </div>
-                  ` : '<p style="margin: 0; font-size: 10px; color: #94a3b8; font-style: italic;">No visual evidence recorded.</p>'}
+                  ` : '<p style="margin: 0; font-size: 10px; color: #94a3b8; font-style: italic;">No item-specific visual evidence recorded.</p>'}
                 </div>
               </div>
             `;
           }).join('')}
         </div>
+
+        ${processedGeneralPhotos.length > 0 ? `
+          <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">General Site Documentation</h2>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; page-break-inside: avoid;">
+            ${processedGeneralPhotos.map(p => `
+              <div style="border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px;">
+                <img src="${p.dataUrl}" style="width: 100%; border-radius: 4px; object-fit: cover; aspect-ratio: 4/3; display: block;" />
+                <p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b; text-align: center;">Captured: ${new Date(p.takenAt).toLocaleString()}</p>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
 
         <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
           <p style="font-size: 12px; color: #64748b;">This project-wide summary was generated via SiteCommand.</p>
@@ -211,7 +238,12 @@ export function ProjectReportButton({
       `;
 
       document.body.appendChild(reportElement);
-      const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+      const canvas = await html2canvas(reportElement, { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        allowTaint: true 
+      });
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
