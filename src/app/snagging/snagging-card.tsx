@@ -6,9 +6,9 @@ import Link from 'next/link';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import {
   Accordion,
@@ -38,7 +38,8 @@ import {
   MapPin,
   ClipboardCheck,
   Undo2,
-  Send
+  Send,
+  Clock
 } from 'lucide-react';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
@@ -52,7 +53,7 @@ import {
 import { ClientDate } from '@/components/client-date';
 import { cn } from '@/lib/utils';
 import { useTransition, useState, useRef, useEffect } from 'react';
-import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection, useStorage } from '@/firebase';
 import { doc, updateDoc, deleteDoc, collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -98,6 +99,7 @@ export function SnaggingItemCard({
   const project = projects.find((p) => p.id === item.projectId);
   const area = project?.areas?.find((a) => a.id === item.areaId);
   const db = useFirestore();
+  const storage = useStorage();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const { user: sessionUser } = useUser();
@@ -167,7 +169,6 @@ export function SnaggingItemCard({
       const context = canvas.getContext('2d');
       if (!context) return null;
 
-      // Robust check for active video content
       if (video.videoWidth === 0 || video.videoHeight === 0) return null;
 
       const aspectRatio = video.videoWidth / video.videoHeight;
@@ -190,16 +191,13 @@ export function SnaggingItemCard({
 
   const handleToggleStatus = (subItem: SnaggingListItem) => {
     if (subItem.status === 'open') {
-      // Trade partner reporting completion
       setCompletingItem(subItem);
       setCompletionPhotos([]);
       setCompletionComment('');
       setIsCameraOpen(false);
     } else if (subItem.status === 'provisionally-complete' && isInternal) {
-      // Site team signing off
       updateItemOnServer(subItem.id, 'closed', subItem.completionPhotos || [], subItem.subContractorComment);
     } else if (isInternal) {
-      // Site team reopening
       updateItemOnServer(subItem.id, 'open', [], '');
     }
   };
@@ -242,7 +240,6 @@ export function SnaggingItemCard({
         const docRef = doc(db, 'snagging-items', item.id);
         await updateDoc(docRef, { items: updatedItems });
 
-        // Record Version Snapshot
         const historyCol = collection(db, 'snagging-items', item.id, 'history');
         const closedCount = updatedItems.filter(i => i.status === 'closed').length;
         await addDoc(historyCol, {
@@ -714,7 +711,7 @@ export function SnaggingItemCard({
                                                   <Circle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
                                               )}
                                               <div className='flex flex-col min-w-0'>
-                                                  <span className={cn("text-xs md:text-sm font-semibold leading-snug break-words", histItem.status === 'closed' && "line-through text-muted-foreground")}>
+                                                  <span className={cn("text-xs md:text-sm font-semibold", histItem.status === 'closed' && "line-through text-muted-foreground")}>
                                                       {histItem.description}
                                                   </span>
                                                   {sub && <span className="text-[9px] font-bold text-primary uppercase tracking-tight truncate">{sub.name}</span>}
