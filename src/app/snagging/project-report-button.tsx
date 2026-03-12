@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { FileText, Loader2, Download, CheckCircle2, LayoutGrid, Users, Filter, Building2, Send } from 'lucide-react';
+import { FileText, Loader2, Download, CheckCircle2, LayoutGrid, Users, Filter, Building2, Send, Check } from 'lucide-react';
 import type { SnaggingItem, Project, SubContractor } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -20,11 +20,13 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { sendSubcontractorReportAction } from './actions';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 
 /**
  * ProjectReportButton - A reporting center accessible from the Snagging Log.
  * Allows generating aggregated PDF reports across multiple lists for a project.
- * Now supports direct email distribution to trade partners.
+ * Now supports distributing the full project report to multiple selected partners.
  */
 export function ProjectReportButton({
   projects,
@@ -42,7 +44,8 @@ export function ProjectReportButton({
   const [isDistributing, setIsDistributing] = useState(false);
   const [reportType, setReportType] = useState<'global' | 'partner'>('global');
   const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId || '');
-  const [selectedSubId, setSelectedSubId] = useState<string>('all');
+  const [selectedSubId, setSelectedSubId] = useState<string>(''); // For targeted report
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]); // For multi-distribute
   const { toast } = useToast();
 
   // Sync state if initial project changes via filter
@@ -70,6 +73,21 @@ export function ProjectReportButton({
     return subContractors.filter(s => ids.has(s.id));
   }, [projectLists, selectedProjectId, subContractors]);
 
+  // Handle single partner selection for targeted report
+  useEffect(() => {
+    if (reportType === 'partner' && selectedSubId) {
+      setSelectedRecipientIds([selectedSubId]);
+    } else if (reportType === 'partner') {
+      setSelectedRecipientIds([]);
+    }
+  }, [reportType, selectedSubId]);
+
+  const toggleRecipient = (id: string) => {
+    setSelectedRecipientIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
   const generateReport = async (mode: 'download' | 'email') => {
     if (!activeProject) return;
     
@@ -80,7 +98,8 @@ export function ProjectReportButton({
       const { jsPDF } = await import('jspdf');
       const html2canvas = (await import('html2canvas')).default;
 
-      // Aggregating all items based on filter
+      // Aggregating all items based on filter (Global vs Partner items)
+      // Note: If emailed, we use the specific sub's filter if strategy is 'partner'
       let aggregatedItems: { listTitle: string, areaName: string, snag: any }[] = [];
       
       projectLists.forEach(list => {
@@ -103,19 +122,21 @@ export function ProjectReportButton({
       }
 
       const reportElement = document.createElement('div');
+      reportElement.style.position = 'absolute';
+      reportElement.style.left = '-9999px';
       reportElement.style.padding = '40px';
       reportElement.style.width = '800px';
       reportElement.style.background = 'white';
       reportElement.style.color = 'black';
       reportElement.style.fontFamily = 'sans-serif';
 
-      const partnerName = reportType === 'partner' ? subContractors.find(s => s.id === selectedSubId)?.name : 'All Trade Disciplines';
+      const scopeLabel = reportType === 'partner' ? subContractors.find(s => s.id === selectedSubId)?.name : 'All Trade Disciplines';
 
       reportElement.innerHTML = `
         <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px;">
           <h1 style="margin: 0; color: #1e40af; font-size: 28px;">PROJECT AGGREGATED SNAG REPORT</h1>
           <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Project: ${activeProject.name}</p>
-          <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Scope: ${partnerName}</p>
+          <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Scope: ${scopeLabel}</p>
         </div>
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -178,26 +199,27 @@ export function ProjectReportButton({
         pdf.save(fileName);
         toast({ title: "Report Ready", description: "The aggregated project snag report has been generated." });
       } else {
-        // Email Distribution
-        const sub = subContractors.find(s => s.id === selectedSubId);
-        if (!sub) throw new Error("No subcontractor selected for distribution.");
-
+        // Email Distribution to all selected partners
+        const recipients = subContractors.filter(s => selectedRecipientIds.includes(s.id));
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
         
-        const result = await sendSubcontractorReportAction({
-          email: sub.email,
-          name: sub.name,
-          projectName: activeProject.name,
-          areaName: 'Project-wide Aggregated',
-          pdfBase64,
-          fileName
-        });
-
-        if (result.success) {
-          toast({ title: "Distribution Successful", description: `Aggregated report emailed to ${sub.name}.` });
-        } else {
-          toast({ title: "Email Error", description: result.message, variant: "destructive" });
+        let successCount = 0;
+        for (const sub of recipients) {
+          const result = await sendSubcontractorReportAction({
+            email: sub.email,
+            name: sub.name,
+            projectName: activeProject.name,
+            areaName: reportType === 'global' ? 'Full Project' : 'Targeted Items',
+            pdfBase64,
+            fileName
+          });
+          if (result.success) successCount++;
         }
+
+        toast({ 
+          title: "Distribution Complete", 
+          description: `Successfully distributed ${reportType} report to ${successCount} partners.` 
+        });
       }
       
       setOpen(false);
@@ -218,8 +240,8 @@ export function ProjectReportButton({
           Project Reports
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
           <div className="flex items-center gap-3 mb-1">
             <div className="bg-primary/10 p-2 rounded-lg text-primary">
               <LayoutGrid className="h-5 w-5" />
@@ -227,13 +249,13 @@ export function ProjectReportButton({
             <DialogTitle>Aggregated Snagging Wizard</DialogTitle>
           </div>
           <DialogDescription>
-            Generate combined reports across multiple areas and trades.
+            Generate combined reports across multiple areas. Distribute the full audit or targeted items.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
           <div className="space-y-3">
-            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">1. Select Target Project</Label>
+            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">1. Select Target Project</Label>
             <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
               <SelectTrigger className="bg-background h-11 border-primary/20">
                 <div className="flex items-center gap-2">
@@ -253,12 +275,12 @@ export function ProjectReportButton({
             <>
               <Separator />
               <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">2. Choose Report Strategy</Label>
-                <RadioGroup value={reportType} onValueChange={(v: any) => setReportType(v)} className="grid grid-cols-1 gap-2">
+                <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">2. Choose Report Strategy</Label>
+                <RadioGroup value={reportType} onValueChange={(v: any) => setReportType(v)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div 
                     className={cn(
-                      "flex items-start space-x-3 p-3 rounded-lg border-2 transition-all cursor-pointer",
-                      reportType === 'global' ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/30"
+                      "flex items-start space-x-3 p-4 rounded-xl border-2 transition-all cursor-pointer",
+                      reportType === 'global' ? "border-primary bg-primary/5 shadow-md" : "border-muted hover:border-muted-foreground/30"
                     )}
                     onClick={() => setReportType('global')}
                   >
@@ -268,25 +290,25 @@ export function ProjectReportButton({
                         <Filter className="h-3.5 w-3.5" /> Full Project Audit
                       </Label>
                       <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Includes all recorded defects across every area and trade in the project.
+                        Consolidates every outstanding snag from every area in the project.
                       </p>
                     </div>
                   </div>
 
                   <div 
                     className={cn(
-                      "flex items-start space-x-3 p-3 rounded-lg border-2 transition-all cursor-pointer",
-                      reportType === 'partner' ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/30"
+                      "flex items-start space-x-3 p-4 rounded-xl border-2 transition-all cursor-pointer",
+                      reportType === 'partner' ? "border-primary bg-primary/5 shadow-md" : "border-muted hover:border-muted-foreground/30"
                     )}
                     onClick={() => setReportType('partner')}
                   >
                     <RadioGroupItem value="partner" id="rt-partner" className="mt-1" />
                     <div className="flex flex-col gap-1">
                       <Label htmlFor="rt-partner" className="text-sm font-bold flex items-center gap-2 cursor-pointer">
-                        <Users className="h-3.5 w-3.5" /> Targeted Trade Report
+                        <Users className="h-3.5 w-3.5" /> Targeted Partner Report
                       </Label>
                       <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Consolidates only the defects assigned to a specific trade partner across the whole site.
+                        Includes only the defects assigned to a specific trade partner.
                       </p>
                     </div>
                   </div>
@@ -295,7 +317,7 @@ export function ProjectReportButton({
 
               {reportType === 'partner' && (
                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                  <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">3. Select Trade Partner</Label>
+                  <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">3. Select Lead Partner</Label>
                   <Select value={selectedSubId} onValueChange={setSelectedSubId}>
                     <SelectTrigger className="bg-background h-11 border-primary/20">
                       <SelectValue placeholder="Select a trade partner..." />
@@ -310,36 +332,101 @@ export function ProjectReportButton({
                   </Select>
                 </div>
               )}
+
+              <Separator />
+
+              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                <div className="flex items-center justify-between">
+                    <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
+                        {reportType === 'global' ? 'Select Recipients for Full Audit' : 'Confirm Recipient'}
+                    </Label>
+                    {reportType === 'global' && (
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 text-[9px] uppercase font-black tracking-widest px-2"
+                            onClick={() => {
+                                if (selectedRecipientIds.length === subsInProject.length) setSelectedRecipientIds([]);
+                                else setSelectedRecipientIds(subsInProject.map(s => s.id));
+                            }}
+                        >
+                            {selectedRecipientIds.length === subsInProject.length ? 'Clear All' : 'Select All Partners'}
+                        </Button>
+                    )}
+                </div>
+                
+                <ScrollArea className="h-48 rounded-xl border bg-muted/5 p-4 shadow-inner">
+                    <div className="space-y-3">
+                        {subsInProject.length > 0 ? subsInProject.map((sub) => {
+                            const isAutoChecked = reportType === 'partner' && selectedSubId === sub.id;
+                            const isChecked = selectedRecipientIds.includes(sub.id);
+                            
+                            return (
+                                <div 
+                                    key={sub.id} 
+                                    className={cn(
+                                        "flex items-center space-x-3 p-2 rounded-lg border border-transparent transition-all",
+                                        isChecked ? "bg-background border-border shadow-sm" : "opacity-70"
+                                    )}
+                                >
+                                    <Checkbox 
+                                        id={`rec-${sub.id}`} 
+                                        checked={isChecked}
+                                        disabled={reportType === 'partner' && selectedSubId !== sub.id}
+                                        onCheckedChange={() => toggleRecipient(sub.id)}
+                                    />
+                                    <div 
+                                        className="flex-1 flex flex-col cursor-pointer" 
+                                        onClick={() => {
+                                            if (reportType === 'global') toggleRecipient(sub.id);
+                                        }}
+                                    >
+                                        <Label htmlFor={`rec-${sub.id}`} className="text-sm font-bold cursor-pointer">{sub.name}</Label>
+                                        <span className="text-[10px] text-muted-foreground">{sub.email}</span>
+                                    </div>
+                                    {isAutoChecked && (
+                                        <Badge variant="secondary" className="h-5 px-1.5 bg-primary/10 text-primary border-none text-[8px] font-black uppercase">Selected</Badge>
+                                    )}
+                                </div>
+                            );
+                        }) : (
+                            <div className="flex flex-col items-center justify-center py-10 text-center gap-2 opacity-40">
+                                <Users className="h-8 w-8" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest">No Partners Found</p>
+                            </div>
+                        )}
+                    </div>
+                </ScrollArea>
+              </div>
             </>
           )}
         </div>
 
-        <DialogFooter className="bg-muted/10 p-6 border-t rounded-b-lg gap-3 sm:gap-0">
-          <Button variant="ghost" onClick={() => setOpen(false)} disabled={isGenerating || isDistributing}>Cancel</Button>
+        <DialogFooter className="bg-muted/10 p-6 border-t shrink-0 gap-3 sm:gap-0">
+          <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setOpen(false)} disabled={isGenerating || isDistributing}>Cancel</Button>
           <div className="flex-1" />
-          <div className="flex flex-col sm:flex-row gap-2">
-            {reportType === 'partner' && (
-              <Button 
-                variant="outline"
-                className="h-11 px-6 font-bold gap-2 border-primary/30 text-primary" 
-                onClick={() => generateReport('email')}
-                disabled={isGenerating || isDistributing || !selectedProjectId || selectedSubId === 'all' || !selectedSubId}
-              >
-                {isDistributing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Sending Email...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    Distribute to Partner
-                  </>
-                )}
-              </Button>
-            )}
+          <div className="flex flex-col sm:flex-row gap-3">
             <Button 
-              className="h-11 px-8 font-bold gap-2 shadow-lg shadow-primary/20" 
+              variant="outline"
+              className="h-12 px-6 font-bold gap-2 border-primary/30 text-primary shadow-sm hover:bg-primary/5" 
+              onClick={() => generateReport('email')}
+              disabled={isGenerating || isDistributing || !selectedProjectId || selectedRecipientIds.length === 0}
+            >
+              {isDistributing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending Emails...
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Distribute to {selectedRecipientIds.length > 1 ? `${selectedRecipientIds.length} Partners` : 'Partner'}
+                </>
+              )}
+            </Button>
+            
+            <Button 
+              className="h-12 px-8 font-bold gap-2 shadow-lg shadow-primary/20" 
               onClick={() => generateReport('download')}
               disabled={isGenerating || isDistributing || !selectedProjectId}
             >
