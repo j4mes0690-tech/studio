@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -53,7 +52,7 @@ import {
 import { ClientDate } from '@/components/client-date';
 import { cn } from '@/lib/utils';
 import { useTransition, useState, useRef, useEffect } from 'react';
-import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, deleteDoc, collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -748,9 +747,9 @@ export function SnaggingItemCard({
                     <Button variant="outline" className='w-full' onClick={() => setViewingHistoryRecord(null)}>Close Auditor</Button>
                 </DialogFooter>
             </DialogContent>
-        </DropdownMenu> // Wait, the Dialog ends with a </DropdownMenu> in the source? No, looking at my preparado code above, it's correct. 
-        // Re-reading source src/app/snagging/snagging-card.tsx...
-        // Ah, I see a tag mismatch in my prepare. Let me fix it.
+        </Dialog>
+
+      <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
   );
 }

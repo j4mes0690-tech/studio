@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -10,7 +9,7 @@ import { ProjectReportButton } from './project-report-button';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
-import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
+import { Loader2, LayoutGrid, List, ShieldCheck, FileStack } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -114,8 +113,6 @@ function SnaggingContent() {
       return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email);
   }) || [];
 
-  const selectedProject = allProjects?.find(p => p.id === projectId);
-
   return (
     <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
         <div className="flex items-center justify-between">
@@ -129,11 +126,12 @@ function SnaggingContent() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {selectedProject && (
+            {allowedProjects.length > 0 && (
               <ProjectReportButton 
-                project={selectedProject} 
-                snaggingLists={allItems?.filter(list => list.projectId === projectId) || []}
+                projects={allowedProjects} 
+                allSnaggingLists={allItems || []}
                 subContractors={subContractors || []}
+                initialProjectId={projectId}
               />
             )}
 
