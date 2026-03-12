@@ -74,6 +74,27 @@ export async function sendSubcontractorReportAction({
   }
 }
 
+/**
+ * proxyImageAction - Fetches an external image URL from the server side
+ * to bypass browser CORS restrictions during PDF generation.
+ */
+export async function proxyImageAction(url: string): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Fetch failed with status ${response.status}`);
+    
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    
+    return `data:${contentType};base64,${base64}`;
+  } catch (err) {
+    console.error("PDF Image Proxy Error:", err);
+    return null;
+  }
+}
+
 export type FormState = {
   message: string;
   success: boolean;
