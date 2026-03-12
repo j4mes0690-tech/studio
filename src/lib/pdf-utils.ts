@@ -21,7 +21,7 @@ export async function generateInstructionPDF(
   project?: Project,
   recipient?: SubContractor
 ) {
-  const { jsPDF } = await import('jsPDF');
+  const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
 
   const reportElement = document.createElement('div');
@@ -122,7 +122,7 @@ export async function generateSnaggingPDF(
   }
 ) {
   const { title, project, subContractors, aggregatedEntries, generalPhotos, scopeLabel } = params;
-  const { jsPDF } = await import('jsPDF');
+  const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
 
   // 1. Create Layout Header via html2canvas for rich styling
