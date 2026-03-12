@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { sendSubcontractorReportAction } from './actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 
 /**
  * ProjectReportButton - A reporting center accessible from the Snagging Log.
@@ -402,7 +403,7 @@ export function ProjectReportButton({
           )}
         </div>
 
-        <DialogFooter className="bg-muted/10 p-6 border-t shrink-0 gap-3 sm:gap-0">
+        <DialogFooter className="p-6 bg-muted/10 border-t shrink-0 gap-3 sm:gap-0">
           <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setOpen(false)} disabled={isGenerating || isDistributing}>Cancel</Button>
           <div className="flex-1" />
           <div className="flex flex-col sm:flex-row gap-3">
