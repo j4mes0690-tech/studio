@@ -306,7 +306,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
           <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /><span className="sr-only">Edit List</span></Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
-          <DialogHeader className="p-6 pb-0"><DialogTitle>Edit Snagging List</DialogTitle></DialogHeader>
+          <DialogHeader className="p-6 pb-0 shrink-0"><DialogTitle>Edit Snagging List</DialogTitle></DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
               <ScrollArea className="flex-1 px-6">
@@ -444,16 +444,19 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                         </ScrollArea>
                     </div>
                   </div>
+
+                  <Separator />
+
+                  <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                    <Button variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={isPending} className="w-full sm:flex-1 h-12 font-bold gap-2">
+                      {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                      Save Snapshot & Changes
+                    </Button>
+                  </div>
                 </div>
               </ScrollArea>
 
-              <DialogFooter className="p-6 border-t bg-muted/10">
-                <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isPending} className="font-bold gap-2">
-                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Save Snapshot & Changes
-                </Button>
-              </DialogFooter>
               <canvas ref={canvasRef} className="hidden" />
             </form>
           </Form>

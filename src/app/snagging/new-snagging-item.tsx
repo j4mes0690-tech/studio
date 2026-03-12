@@ -248,7 +248,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
         <Button className="font-bold shadow-lg shadow-primary/20"><PlusCircle className="mr-2 h-4 w-4" />New List</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
-        <DialogHeader className="p-6 pb-4 bg-primary/5 border-b">
+        <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
           <DialogTitle>Record New Snagging List</DialogTitle>
           <DialogDescription>Initiate a new verification list for a specific area.</DialogDescription>
         </DialogHeader>
@@ -259,14 +259,29 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                     <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField control={form.control} name="projectId" render={({ field }) => (
-                                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                                <FormItem>
+                                  <FormLabel>Project</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                                    <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                </FormItem>
                             )} />
                             <FormField control={form.control} name="areaId" render={({ field }) => (
-                                <FormItem><FormLabel>Area / Level</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                                <FormItem>
+                                  <FormLabel>Area / Level</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger></FormControl>
+                                    <SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                </FormItem>
                             )} />
                         </div>
                         <FormField control={form.control} name="title" render={({ field }) => (
-                            <FormItem><FormLabel>Identifier / Title</FormLabel><FormControl><Input placeholder="e.g. Master Suite Snags" className="h-11" {...field} /></FormControl></FormItem>
+                            <FormItem>
+                              <FormLabel>Identifier / Title</FormLabel>
+                              <FormControl><Input placeholder="e.g. Master Suite Snags" className="h-11" {...field} /></FormControl>
+                            </FormItem>
                         )} />
                     </div>
 
@@ -328,17 +343,23 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                             </Button>
                         </div>
                     </div>
+
+                    <Separator />
+
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                        <Button type="button" variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
+                        <Button type="button" variant="outline" className="w-full sm:w-auto h-12 font-bold" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
+                            <Save className="mr-2 h-4 w-4" /> Save as Draft
+                        </Button>
+                        <Button type="button" className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending || items.length === 0} onClick={form.handleSubmit(onSubmit)}>
+                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                            Save Snagging List
+                        </Button>
+                    </div>
                 </form>
             </Form>
         </div>
 
-        <DialogFooter className="p-6 bg-white border-t shrink-0 gap-3 shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.05)]">
-            <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
-            <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending || items.length === 0} onClick={form.handleSubmit(onSubmit)}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                Save Snagging List
-            </Button>
-        </DialogFooter>
         <canvas ref={canvasRef} className="hidden" />
 
         {/* Unified Camera Overlay */}
