@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import { FileText, Loader2, Download, CheckCircle2, LayoutGrid, Users, Filter, Building2, Send, Check } from 'lucide-react';
 import type { SnaggingItem, Project, SubContractor, Photo } from '@/lib/types';
@@ -24,33 +24,7 @@ import { sendSubcontractorReportAction } from './actions';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-
-/**
- * toDataUri - Robust helper to convert external URLs to Data URIs for reliable PDF embedding.
- */
-const toDataUri = (url: string): Promise<string> => {
-  if (!url) return Promise.resolve('');
-  if (url.startsWith('data:')) return Promise.resolve(url);
-  
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
-      } catch (e) {
-        resolve(url);
-      }
-    };
-    img.onerror = () => resolve(url);
-    img.src = url;
-  });
-};
+import { generateSnaggingPDF } from '@/lib/pdf-utils';
 
 export function ProjectReportButton({
   projects,
@@ -110,23 +84,20 @@ export function ProjectReportButton({
     );
   };
 
-  const generateReport = async (mode: 'download' | 'email') => {
+  const handleAction = async (mode: 'download' | 'email') => {
     if (!activeProject) return;
     
     if (mode === 'download') setIsGenerating(true);
     else setIsDistributing(true);
 
     try {
-      const { jsPDF } = await import('jspdf');
-      const html2canvas = (await import('html2canvas')).default;
-
-      // Filter and aggregate data
-      let aggregatedItems: { listTitle: string, areaName: string, snag: any }[] = [];
+      // 1. Aggregation Logic
+      const aggregatedEntries: { listTitle: string, areaName: string, snag: any }[] = [];
       projectLists.forEach(list => {
         const area = activeProject.areas?.find(a => a.id === list.areaId);
         list.items.forEach(item => {
           if (reportType === 'partner' && item.subContractorId !== selectedSubId) return;
-          aggregatedItems.push({
+          aggregatedEntries.push({
             listTitle: list.title,
             areaName: area?.name || 'General Site',
             snag: item
@@ -134,129 +105,28 @@ export function ProjectReportButton({
         });
       });
 
-      if (aggregatedItems.length === 0) {
-        toast({ title: "Report Empty", description: "No snagging items found for this selection.", variant: "destructive" });
-        setIsGenerating(false);
-        setIsDistributing(false);
+      if (aggregatedEntries.length === 0) {
+        toast({ title: "Report Empty", description: "No items match your criteria.", variant: "destructive" });
         return;
       }
 
-      // 1. Process images for defects
-      toast({ title: "Processing Images", description: "Formatting evidence for PDF distribution..." });
-      
-      const processedItems = await Promise.all(aggregatedItems.map(async (entry) => {
-        const photos = await Promise.all((entry.snag.photos || []).map(async p => await toDataUri(p.url)));
-        const completionPhotos = await Promise.all((entry.snag.completionPhotos || []).map(async p => await toDataUri(p.url)));
-        return {
-          ...entry,
-          dataUrlPhotos: photos,
-          dataUrlCompletion: completionPhotos
-        };
-      }));
-
-      // 2. Aggregate General Photos from all lists
-      const allGeneralPhotos = projectLists.flatMap(l => l.photos || []);
-      const processedGeneralPhotos = await Promise.all(allGeneralPhotos.map(async p => ({
-        ...p,
-        dataUrl: await toDataUri(p.url)
-      })));
-
-      const reportElement = document.createElement('div');
-      reportElement.style.position = 'absolute';
-      reportElement.style.left = '-9999px';
-      reportElement.style.padding = '40px';
-      reportElement.style.width = '800px';
-      reportElement.style.background = 'white';
-      reportElement.style.color = 'black';
-      reportElement.style.fontFamily = 'sans-serif';
-
+      // 2. Generate PDF
       const scopeLabel = reportType === 'partner' ? subContractors.find(s => s.id === selectedSubId)?.name : 'All Trade Disciplines';
-
-      reportElement.innerHTML = `
-        <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px;">
-          <h1 style="margin: 0; color: #1e40af; font-size: 28px;">PROJECT AGGREGATED SNAG REPORT</h1>
-          <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Project: ${activeProject.name}</p>
-          <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Scope: ${scopeLabel}</p>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
-          <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Contract Authority</p>
-            <p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${activeProject.siteManager || '---'}</p>
-          </div>
-          <div>
-            <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Export Date</p>
-            <p style="margin: 2px 0 0 0; font-size: 14px;">${new Date().toLocaleDateString()}</p>
-          </div>
-        </div>
-
-        <div style="margin-bottom: 40px;">
-          ${processedItems.map(({ listTitle, areaName, snag, dataUrlPhotos, dataUrlCompletion }) => {
-            const itemSub = subContractors.find(s => s.id === snag.subContractorId);
-            const originalHasAny = (snag.photos?.length || 0) > 0 || (snag.completionPhotos?.length || 0) > 0;
-            
-            return `
-              <div style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; overflow: hidden; page-break-inside: avoid;">
-                <div style="background: #f8fafc; padding: 12px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                  <div style="flex: 1;">
-                    <p style="margin: 0; font-size: 13px; font-weight: bold; color: #1e293b;">${snag.description}</p>
-                    <p style="margin: 4px 0 0 0; font-size: 10px; color: #64748b; font-weight: bold;">Trade: ${itemSub?.name || 'Unassigned'}</p>
-                    <p style="margin: 2px 0 0 0; font-size: 9px; color: #94a3b8;">Area: ${areaName} | ${listTitle}</p>
-                  </div>
-                  <div style="background: ${snag.status === 'closed' ? '#dcfce7' : snag.status === 'provisionally-complete' ? '#fef3c7' : '#fee2e2'}; color: ${snag.status === 'closed' ? '#166534' : snag.status === 'provisionally-complete' ? '#92400e' : '#991b1b'}; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
-                    ${snag.status.replace('-', ' ')}
-                  </div>
-                </div>
-                <div style="padding: 12px;">
-                  ${originalHasAny ? `
-                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                      ${dataUrlPhotos.map(url => `<img src="${url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; display: block;" />`).join('')}
-                      ${dataUrlCompletion.map(url => `<img src="${url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 2px solid #dcfce7; display: block;" />`).join('')}
-                    </div>
-                  ` : '<p style="margin: 0; font-size: 10px; color: #94a3b8; font-style: italic;">No item-specific visual evidence recorded.</p>'}
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-
-        ${processedGeneralPhotos.length > 0 ? `
-          <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">General Site Documentation</h2>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; page-break-inside: avoid;">
-            ${processedGeneralPhotos.map(p => `
-              <div style="border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px;">
-                <img src="${p.dataUrl}" style="width: 100%; border-radius: 4px; object-fit: cover; aspect-ratio: 4/3; display: block;" />
-                <p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b; text-align: center;">Captured: ${new Date(p.takenAt).toLocaleString()}</p>
-              </div>
-            `).join('')}
-          </div>
-        ` : ''}
-
-        <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
-          <p style="font-size: 12px; color: #64748b;">This project-wide summary was generated via SiteCommand.</p>
-        </div>
-      `;
-
-      document.body.appendChild(reportElement);
-      const canvas = await html2canvas(reportElement, { 
-        scale: 2, 
-        useCORS: true, 
-        logging: false,
-        allowTaint: true 
+      const pdf = await generateSnaggingPDF({
+        title: 'Project Snagging Audit',
+        project: activeProject,
+        subContractors,
+        aggregatedEntries,
+        generalPhotos: projectLists.flatMap(l => l.photos || []),
+        scopeLabel
       });
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      document.body.removeChild(reportElement);
 
       const timestamp = new Date().toISOString().split('T')[0];
       const fileName = `ProjectSnagging-${activeProject.name.replace(/\s+/g, '-')}-${timestamp}.pdf`;
 
       if (mode === 'download') {
         pdf.save(fileName);
-        toast({ title: "Report Ready", description: "The aggregated project snag report has been generated." });
+        toast({ title: "Success", description: "Project report generated." });
       } else {
         const recipients = subContractors.filter(s => selectedRecipientIds.includes(s.id));
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
@@ -267,23 +137,18 @@ export function ProjectReportButton({
             email: sub.email,
             name: sub.name,
             projectName: activeProject.name,
-            areaName: reportType === 'global' ? 'Full Project' : 'Targeted Items',
+            areaName: 'Project-wide Audit',
             pdfBase64,
             fileName
           });
           if (result.success) successCount++;
         }
-
-        toast({ 
-          title: "Distribution Complete", 
-          description: `Successfully distributed ${reportType} report to ${successCount} partners.` 
-        });
+        toast({ title: "Distribution Complete", description: `Emailed to ${successCount} partners.` });
       }
-      
       setOpen(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
-      toast({ title: "Error", description: err.message || "Failed to process report.", variant: "destructive" });
+      toast({ title: "Generation Error", description: "Failed to build high-fidelity PDF report.", variant: "destructive" });
     } finally {
       setIsGenerating(false);
       setIsDistributing(false);
@@ -304,16 +169,14 @@ export function ProjectReportButton({
             <div className="bg-primary/10 p-2 rounded-lg text-primary">
               <LayoutGrid className="h-5 w-5" />
             </div>
-            <DialogTitle>Aggregated Snagging Wizard</DialogTitle>
+            <DialogTitle>Aggregated Reporting</DialogTitle>
           </div>
-          <DialogDescription>
-            Generate combined reports across multiple areas. Distribute the full audit or targeted items.
-          </DialogDescription>
+          <DialogDescription>Consolidate snagging items across multiple site lists into one high-fidelity audit.</DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
           <div className="space-y-3">
-            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">1. Select Target Project</Label>
+            <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">1. Target Project</Label>
             <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
               <SelectTrigger className="bg-background h-11 border-primary/20">
                 <div className="flex items-center gap-2">
@@ -321,53 +184,28 @@ export function ProjectReportButton({
                   <SelectValue placeholder="Choose project..." />
                 </div>
               </SelectTrigger>
-              <SelectContent>
-                {projects.map(p => (
-                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                ))}
-              </SelectContent>
+              <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
 
           {selectedProjectId && (
             <>
               <Separator />
-              <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">2. Choose Report Strategy</Label>
+              <div className="space-y-3">
+                <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">2. Reporting Strategy</Label>
                 <RadioGroup value={reportType} onValueChange={(v: any) => setReportType(v)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div 
-                    className={cn(
-                      "flex items-start space-x-3 p-4 rounded-xl border-2 transition-all cursor-pointer",
-                      reportType === 'global' ? "border-primary bg-primary/5 shadow-md" : "border-muted hover:border-muted-foreground/30"
-                    )}
-                    onClick={() => setReportType('global')}
-                  >
+                  <div className={cn("flex items-start space-x-3 p-4 rounded-xl border-2 cursor-pointer transition-all", reportType === 'global' ? "border-primary bg-primary/5 shadow-md" : "border-muted hover:border-muted-foreground/30")} onClick={() => setReportType('global')}>
                     <RadioGroupItem value="global" id="rt-global" className="mt-1" />
                     <div className="flex flex-col gap-1">
-                      <Label htmlFor="rt-global" className="text-sm font-bold flex items-center gap-2 cursor-pointer">
-                        <Filter className="h-3.5 w-3.5" /> Full Project Audit
-                      </Label>
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Consolidates every outstanding snag from every area in the project.
-                      </p>
+                      <Label htmlFor="rt-global" className="text-sm font-bold flex items-center gap-2 cursor-pointer"><Filter className="h-3.5 w-3.5" /> Full Audit</Label>
+                      <p className="text-[10px] text-muted-foreground">Every outstanding item in the project.</p>
                     </div>
                   </div>
-
-                  <div 
-                    className={cn(
-                      "flex items-start space-x-3 p-4 rounded-xl border-2 transition-all cursor-pointer",
-                      reportType === 'partner' ? "border-primary bg-primary/5 shadow-md" : "border-muted hover:border-muted-foreground/30"
-                    )}
-                    onClick={() => setReportType('partner')}
-                  >
+                  <div className={cn("flex items-start space-x-3 p-4 rounded-xl border-2 cursor-pointer transition-all", reportType === 'partner' ? "border-primary bg-primary/5 shadow-md" : "border-muted hover:border-muted-foreground/30")} onClick={() => setReportType('partner')}>
                     <RadioGroupItem value="partner" id="rt-partner" className="mt-1" />
                     <div className="flex flex-col gap-1">
-                      <Label htmlFor="rt-partner" className="text-sm font-bold flex items-center gap-2 cursor-pointer">
-                        <Users className="h-3.5 w-3.5" /> Targeted Partner Report
-                      </Label>
-                      <p className="text-[10px] text-muted-foreground leading-relaxed">
-                        Includes only the defects assigned to a specific trade partner.
-                      </p>
+                      <Label htmlFor="rt-partner" className="text-sm font-bold flex items-center gap-2 cursor-pointer"><Users className="h-3.5 w-3.5" /> Partner Specific</Label>
+                      <p className="text-[10px] text-muted-foreground">Filter by a single trade partner.</p>
                     </div>
                   </div>
                 </RadioGroup>
@@ -375,137 +213,49 @@ export function ProjectReportButton({
 
               {reportType === 'partner' && (
                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                  <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">3. Select Lead Partner</Label>
+                  <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">3. Lead Partner</Label>
                   <Select value={selectedSubId} onValueChange={setSelectedSubId}>
-                    <SelectTrigger className="bg-background h-11 border-primary/20">
-                      <SelectValue placeholder="Select a trade partner..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subsInProject.length > 0 ? subsInProject.map(s => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                      )) : (
-                        <div className="p-2 text-xs text-muted-foreground italic text-center">No assigned partners found.</div>
-                      )}
-                    </SelectContent>
+                    <SelectTrigger className="bg-background h-11"><SelectValue placeholder="Select partner..." /></SelectTrigger>
+                    <SelectContent>{subsInProject.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               )}
 
               <Separator />
 
-              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center justify-between">
-                    <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">
-                        {reportType === 'global' ? 'Select Recipients for Full Audit' : 'Confirm Recipient'}
-                    </Label>
-                    {reportType === 'global' && (
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-6 text-[9px] uppercase font-black tracking-widest px-2"
-                            onClick={() => {
-                                if (selectedRecipientIds.length === subsInProject.length) setSelectedRecipientIds([]);
-                                else setSelectedRecipientIds(subsInProject.map(s => s.id));
-                            }}
-                        >
-                            {selectedRecipientIds.length === subsInProject.length ? 'Clear All' : 'Select All Partners'}
-                        </Button>
-                    )}
-                </div>
-                
-                <ScrollArea className="h-48 rounded-xl border bg-muted/5 p-4 shadow-inner">
+              <div className="space-y-4">
+                <Label className="text-xs font-black uppercase tracking-widest text-muted-foreground">Select Distribution</Label>
+                <ScrollArea className="h-40 rounded-xl border bg-muted/5 p-4">
                     <div className="space-y-3">
-                        {subsInProject.length > 0 ? subsInProject.map((sub) => {
-                            const isAutoChecked = reportType === 'partner' && selectedSubId === sub.id;
+                        {subsInProject.map((sub) => {
                             const isChecked = selectedRecipientIds.includes(sub.id);
-                            
                             return (
-                                <div 
-                                    key={sub.id} 
-                                    className={cn(
-                                        "flex items-center space-x-3 p-2 rounded-lg border border-transparent transition-all",
-                                        isChecked ? "bg-background border-border shadow-sm" : "opacity-70"
-                                    )}
-                                >
-                                    <Checkbox 
-                                        id={`rec-${sub.id}`} 
-                                        checked={isChecked}
-                                        disabled={reportType === 'partner' && selectedSubId !== sub.id}
-                                        onCheckedChange={() => toggleRecipient(sub.id)}
-                                    />
-                                    <div 
-                                        className="flex-1 flex flex-col cursor-pointer" 
-                                        onClick={() => {
-                                            if (reportType === 'global') toggleRecipient(sub.id);
-                                        }}
-                                    >
+                                <div key={sub.id} className={cn("flex items-center space-x-3 p-2 rounded-lg border border-transparent transition-all", isChecked ? "bg-background border-border shadow-sm" : "opacity-70")}>
+                                    <Checkbox id={`rec-${sub.id}`} checked={isChecked} disabled={reportType === 'partner' && selectedSubId !== sub.id} onCheckedChange={() => toggleRecipient(sub.id)} />
+                                    <div className="flex-1 flex flex-col cursor-pointer" onClick={() => reportType === 'global' && toggleRecipient(sub.id)}>
                                         <Label htmlFor={`rec-${sub.id}`} className="text-sm font-bold cursor-pointer">{sub.name}</Label>
                                         <span className="text-[10px] text-muted-foreground">{sub.email}</span>
                                     </div>
-                                    {isAutoChecked && (
-                                        <Badge variant="secondary" className="h-5 px-1.5 bg-primary/10 text-primary border-none text-[8px] font-black uppercase">Selected</Badge>
-                                    )}
+                                    {reportType === 'partner' && selectedSubId === sub.id && <Badge variant="secondary" className="h-5 px-1.5 bg-primary/10 text-primary text-[8px] font-black uppercase">Selected</Badge>}
                                 </div>
                             );
-                        }) : (
-                            <div className="flex flex-col items-center justify-center py-10 text-center gap-2 opacity-40">
-                                <Users className="h-8 w-8" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest">No Partners Found</p>
-                            </div>
-                        )}
+                        })}
                     </div>
                 </ScrollArea>
               </div>
+
+              <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                <Button variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)}>Cancel</Button>
+                <div className="hidden sm:block flex-1" />
+                <Button variant="outline" className="h-12 px-6 font-bold gap-2 border-primary/30 text-primary" onClick={() => handleAction('email')} disabled={isGenerating || isDistributing || selectedRecipientIds.length === 0}>
+                  {isDistributing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Distribute
+                </Button>
+                <Button className="h-12 px-8 font-bold gap-2 shadow-lg shadow-primary/20" onClick={() => handleAction('download')} disabled={isGenerating || isDistributing}>
+                  {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Download
+                </Button>
+              </div>
             </>
           )}
-
-          <div className="pt-8 border-t flex flex-col sm:flex-row gap-3">
-            <Button 
-              variant="ghost" 
-              className="font-bold text-muted-foreground order-last sm:order-first" 
-              onClick={() => setOpen(false)} 
-              disabled={isGenerating || isDistributing}
-            >
-              Cancel
-            </Button>
-            <div className="hidden sm:block flex-1" />
-            <Button 
-              variant="outline"
-              className="h-12 px-6 font-bold gap-2 border-primary/30 text-primary shadow-sm hover:bg-primary/5" 
-              onClick={() => generateReport('email')}
-              disabled={isGenerating || isDistributing || !selectedProjectId || selectedRecipientIds.length === 0}
-            >
-              {isDistributing ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Sending Emails...
-                </>
-              ) : (
-                <>
-                  <Send className="h-4 w-4" />
-                  Distribute to {selectedRecipientIds.length > 1 ? `${selectedRecipientIds.length} Partners` : 'Partner'}
-                </>
-              )}
-            </Button>
-            
-            <Button 
-              className="h-12 px-8 font-bold gap-2 shadow-lg shadow-primary/20" 
-              onClick={() => generateReport('download')}
-              disabled={isGenerating || isDistributing || !selectedProjectId}
-            >
-              {isGenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4" />
-                  Download PDF
-                </>
-              )}
-            </Button>
-          </div>
         </div>
       </DialogContent>
     </Dialog>

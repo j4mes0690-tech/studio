@@ -1,9 +1,31 @@
-import type { Instruction, Project, SubContractor } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingItem, SnaggingListItem, Photo } from '@/lib/types';
+
+/**
+ * toDataUri - Robust helper to convert external URLs to Data URIs for reliable PDF embedding.
+ * Bypasses canvas tainting by using fetch() to get the blob directly.
+ */
+async function toDataUri(url: string): Promise<string> {
+  if (!url) return '';
+  if (url.startsWith('data:')) return url;
+  
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn("PDF Generation: Image fetch failed", url, e);
+    return '';
+  }
+}
 
 /**
  * generateInstructionPDF - Robust utility to create a Site Instruction PDF.
- * Uses a hybrid approach: html2canvas for layout and jsPDF for reliable image embedding.
- * Now includes a formal Appendices section listing all file names.
  */
 export async function generateInstructionPDF(
   instruction: Instruction,
@@ -13,30 +35,8 @@ export async function generateInstructionPDF(
   const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
 
-  // 1. Robust Image Pre-conversion with Cache Busting
-  const photoDataUrls = await Promise.all((instruction.photos || []).map(async (p) => {
-    if (p.url.startsWith('data:')) return p.url;
-    return new Promise<string>((resolve) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
-      };
-      img.onerror = () => {
-        console.warn("PDF Generation: Image load failed", p.url);
-        resolve(''); // Skip failed images
-      };
-      // Append cache buster to ensure fresh CORS response
-      img.src = p.url + (p.url.includes('?') ? '&' : '?') + 't=' + Date.now();
-    });
-  }));
+  const photoDataUrls = await Promise.all((instruction.photos || []).map(p => toDataUri(p.url)));
 
-  // 2. Prepare the high-fidelity layout element
   const reportElement = document.createElement('div');
   reportElement.style.position = 'absolute';
   reportElement.style.left = '-9999px';
@@ -80,134 +80,188 @@ export async function generateInstructionPDF(
       <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px;">Instruction Details</h2>
       <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap; color: #334155;">${instruction.originalText}</p>
     </div>
-
-    <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
-      <p style="font-size: 12px; color: #64748b;">This instruction was generated via SiteCommand.</p>
-    </div>
   `;
 
   document.body.appendChild(reportElement);
-  
-  const canvas = await html2canvas(reportElement, { 
-    scale: 2, 
-    useCORS: true, 
-    backgroundColor: '#ffffff',
-    logging: false 
-  });
-  
+  const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
   document.body.removeChild(reportElement);
 
-  // 3. Assemble PDF using Hybrid Method
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
-  
-  const imgData = canvas.toDataURL('image/jpeg', 0.95);
   const canvasHeightInPdf = (canvas.height * pdfWidth) / canvas.width;
   
-  pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, canvasHeightInPdf);
+  pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, canvasHeightInPdf);
 
   let currentY = canvasHeightInPdf + 15;
 
-  // 4. Appendix A: Visual Evidence (Photos)
-  const filteredPhotos = photoDataUrls.filter(url => !!url);
-  if (filteredPhotos.length > 0) {
-    if (currentY + 30 > pdfHeight) {
-      pdf.addPage();
-      currentY = 20;
+  const validPhotos = photoDataUrls.filter(url => !!url);
+  if (validPhotos.length > 0) {
+    if (currentY + 30 > pdfHeight) { pdf.addPage(); currentY = 20; }
+    pdf.setFontSize(14); pdf.setTextColor(30, 41, 59);
+    pdf.text("Appendix A: Visual Evidence", 10, currentY);
+    currentY += 10;
+
+    for (const url of validPhotos) {
+      if (currentY + 130 > pdfHeight) { pdf.addPage(); currentY = 20; }
+      pdf.addImage(url, 'JPEG', 10, currentY, 190, 120, undefined, 'FAST');
+      currentY += 130;
+    }
+  }
+
+  return pdf;
+}
+
+/**
+ * generateSnaggingPDF - Specialized engine for comprehensive snagging reports.
+ * Features Pagination, Trade grouping, and reliable image embedding.
+ */
+export async function generateSnaggingPDF(
+  params: {
+    title: string;
+    project?: Project;
+    subContractors: SubContractor[];
+    aggregatedEntries: { listTitle: string, areaName: string, snag: SnaggingListItem }[];
+    generalPhotos: Photo[];
+    scopeLabel?: string;
+  }
+) {
+  const { title, project, subContractors, aggregatedEntries, generalPhotos, scopeLabel } = params;
+  const { jsPDF } = await import('jspdf');
+  const html2canvas = (await import('html2canvas')).default;
+
+  // 1. Create Cover Page / Header
+  const headerElement = document.createElement('div');
+  headerElement.style.position = 'absolute';
+  headerElement.style.left = '-9999px';
+  headerElement.style.padding = '40px';
+  headerElement.style.width = '800px';
+  headerElement.style.background = 'white';
+  headerElement.style.color = 'black';
+  headerElement.style.fontFamily = 'sans-serif';
+
+  headerElement.innerHTML = `
+    <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px;">
+      <h1 style="margin: 0; color: #1e40af; font-size: 28px; text-transform: uppercase;">${title}</h1>
+      <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Project: ${project?.name || 'Unknown'}</p>
+      ${scopeLabel ? `<p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Scope: ${scopeLabel}</p>` : ''}
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+      <div>
+        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Contract Authority</p>
+        <p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${project?.siteManager || '---'}</p>
+      </div>
+      <div>
+        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Report Date</p>
+        <p style="margin: 2px 0 0 0; font-size: 14px;">${new Date().toLocaleDateString()}</p>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(headerElement);
+  const headerCanvas = await html2canvas(headerElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+  document.body.removeChild(headerElement);
+
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  const headerHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
+  
+  pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, headerHeightInPdf);
+
+  let currentY = headerHeightInPdf + 10;
+
+  // 2. Loop through entries and add to PDF
+  for (const entry of aggregatedEntries) {
+    const sub = subContractors.find(s => s.id === entry.snag.subContractorId);
+    
+    // Check for page break before new item
+    if (currentY + 40 > pdfHeight) { pdf.addPage(); currentY = 20; }
+
+    // Item Header
+    pdf.setFillColor(248, 250, 252);
+    pdf.rect(10, currentY, 190, 15, 'F');
+    pdf.setDrawColor(226, 232, 240);
+    pdf.rect(10, currentY, 190, 15, 'S');
+    
+    pdf.setFontSize(11);
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(entry.snag.description, 15, currentY + 7);
+    
+    pdf.setFontSize(8);
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`Trade: ${sub?.name || 'Unassigned'} | Location: ${entry.areaName} | ${entry.listTitle}`, 15, currentY + 12);
+    
+    const statusLabel = entry.snag.status.toUpperCase().replace('-', ' ');
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    if (entry.snag.status === 'closed') pdf.setTextColor(22, 101, 52);
+    else if (entry.snag.status === 'provisionally-complete') pdf.setTextColor(146, 64, 14);
+    else pdf.setTextColor(153, 27, 27);
+    pdf.text(statusLabel, 195 - pdf.getTextWidth(statusLabel), currentY + 9);
+
+    currentY += 20;
+
+    // Photos
+    const photos = [...(entry.snag.photos || []), ...(entry.snag.completionPhotos || [])];
+    if (photos.length > 0) {
+      const imgWidth = 60;
+      const imgHeight = 45;
+      let imgX = 15;
+
+      for (const p of photos) {
+        const dataUri = await toDataUri(p.url);
+        if (!dataUri) continue;
+
+        if (imgX + imgWidth > 195) {
+          imgX = 15;
+          currentY += imgHeight + 5;
+        }
+
+        if (currentY + imgHeight > pdfHeight - 20) {
+          pdf.addPage();
+          currentY = 20;
+          imgX = 15;
+        }
+
+        pdf.addImage(dataUri, 'JPEG', imgX, currentY, imgWidth, imgHeight, undefined, 'FAST');
+        imgX += imgWidth + 5;
+      }
+      currentY += imgHeight + 10;
+    } else {
+      pdf.setFontSize(9);
+      pdf.setTextColor(148, 163, 184);
+      pdf.setFont("helvetica", "italic");
+      pdf.text("No visual evidence recorded for this item.", 15, currentY);
+      currentY += 10;
     }
     
-    pdf.setFontSize(14);
-    pdf.setTextColor(30, 41, 59);
-    pdf.text("Appendix A: Visual Evidence", 10, currentY);
-    currentY += 8;
-
-    filteredPhotos.forEach((url, idx) => {
-      // Check for page overflow (standard photo height ~120mm + buffer)
-      if (currentY + 130 > pdfHeight) {
-        pdf.addPage();
-        currentY = 20;
-      }
-      
-      pdf.addImage(url, 'JPEG', 10, currentY, 190, 120, undefined, 'FAST');
-      pdf.setFontSize(8);
-      pdf.setTextColor(100, 116, 139);
-      pdf.text(`Figure ${idx + 1}: Site-Photo-${(idx + 1).toString().padStart(2, '0')}.jpg`, 10, currentY + 125);
-      currentY += 135;
-    });
+    // Separator
+    pdf.setDrawColor(241, 245, 249);
+    pdf.line(10, currentY, 200, currentY);
+    currentY += 5;
   }
 
-  // 5. Appendix B: Linked Documentation (Files)
-  if (instruction.files && instruction.files.length > 0) {
-    if (currentY + 30 > pdfHeight) {
-      pdf.addPage();
-      currentY = 20;
+  // 3. General Site Photos
+  if (generalPhotos.length > 0) {
+    if (currentY + 30 > pdfHeight) { pdf.addPage(); currentY = 20; }
+    pdf.setFontSize(14);
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("General Site Documentation", 10, currentY);
+    currentY += 10;
+
+    for (const p of generalPhotos) {
+      const dataUri = await toDataUri(p.url);
+      if (!dataUri) continue;
+
+      if (currentY + 120 > pdfHeight) { pdf.addPage(); currentY = 20; }
+      pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 120, undefined, 'FAST');
+      currentY += 130;
     }
-
-    pdf.setFontSize(14);
-    pdf.setTextColor(30, 41, 59);
-    pdf.text("Appendix B: Linked Documentation", 10, currentY);
-    currentY += 10;
-
-    pdf.setFontSize(10);
-    pdf.setTextColor(71, 85, 105);
-    instruction.files.forEach(f => {
-      if (currentY + 10 > pdfHeight) {
-        pdf.addPage();
-        currentY = 20;
-      }
-      pdf.text(`• ${f.name} (${(f.size / 1024).toFixed(1)} KB)`, 15, currentY);
-      currentY += 7;
-    });
-  }
-
-  // 6. Final Section: Schedule of Attachments (Filenames)
-  if (currentY + 40 > pdfHeight) {
-    pdf.addPage();
-    currentY = 20;
-  } else {
-    currentY += 10;
-  }
-
-  pdf.setDrawColor(226, 232, 240);
-  pdf.line(10, currentY, 200, currentY);
-  currentY += 10;
-
-  pdf.setFontSize(14);
-  pdf.setTextColor(30, 41, 59);
-  pdf.text("Schedule of Attachments", 10, currentY);
-  currentY += 8;
-
-  pdf.setFontSize(9);
-  pdf.setTextColor(100, 116, 139);
-  pdf.text("The following files are attached to the distribution email corresponding to this report:", 10, currentY);
-  currentY += 8;
-
-  pdf.setFontSize(10);
-  pdf.setTextColor(30, 41, 59);
-  
-  // List Photos by generated name
-  if (instruction.photos && instruction.photos.length > 0) {
-    instruction.photos.forEach((_, idx) => {
-      if (currentY + 8 > pdfHeight) {
-        pdf.addPage();
-        currentY = 20;
-      }
-      pdf.text(`• Appendix-Photo-${idx + 1}.jpg`, 15, currentY);
-      currentY += 6;
-    });
-  }
-
-  // List Files by original name
-  if (instruction.files && instruction.files.length > 0) {
-    instruction.files.forEach(f => {
-      if (currentY + 8 > pdfHeight) {
-        pdf.addPage();
-        currentY = 20;
-      }
-      pdf.text(`• ${f.name}`, 15, currentY);
-      currentY += 6;
-    });
   }
 
   return pdf;
