@@ -110,9 +110,13 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
 
   useEffect(() => {
     if (selectedAreaId && selectedAreaId !== 'none') {
-      const area = availableAreas.find(a => a.id === selectedAreaId);
-      if (area) {
-        form.setValue('title', `${area.name} Completion Snags`);
+      if (selectedAreaId === 'other') {
+        // Let user type manually or keep empty
+      } else {
+        const area = availableAreas.find(a => a.id === selectedAreaId);
+        if (area) {
+          form.setValue('title', `${area.name} Completion Snags`);
+        }
       }
     }
   }, [selectedAreaId, availableAreas, form]);
@@ -272,7 +276,11 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                                   <FormLabel>Area / Level</FormLabel>
                                   <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
                                     <FormControl><SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger></FormControl>
-                                    <SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent>
+                                    <SelectContent>
+                                      {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                      {availableAreas.length > 0 && <Separator className="my-1" />}
+                                      <SelectItem value="other">Other / Not Listed</SelectItem>
+                                    </SelectContent>
                                   </Select>
                                 </FormItem>
                             )} />

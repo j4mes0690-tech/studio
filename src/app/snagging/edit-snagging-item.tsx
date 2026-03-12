@@ -316,7 +316,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                           <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
                       )} />
                       <FormField control={form.control} name="areaId" render={({ field }) => (
-                          <FormItem><FormLabel>Area</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                          <FormItem><FormLabel>Area</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}<Separator className="my-1" /><SelectItem value="other">Other / Not Listed</SelectItem></SelectContent></FormItem>
                       )} />
                   </div>
                   <FormField control={form.control} name="title" render={({ field }) => (
@@ -404,7 +404,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                             <History className="h-4 w-4 text-primary" />
                             <span>Version & Snapshot History</span>
                         </div>
-                        <ScrollArea className="h-[400px] rounded-lg border bg-muted/5 p-4">
+                        <ScrollArea className="h-[400px] rounded-lg border bg-muted/5 p-4 shadow-inner">
                             <div className="space-y-4">
                                 {history && history.length > 0 ? history.map((record, idx) => (
                                     <div 
@@ -507,7 +507,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
           <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
               <DialogHeader className="p-6 pb-0 shrink-0">
                   <div className='flex items-center gap-3 mb-1'>
-                      <div className='bg-primary/10 p-2 rounded-lg'>
+                      <div className='bg-primary/10 p-2 rounded-lg text-primary'>
                           <FileSearch className='h-5 w-5 text-primary' />
                       </div>
                       <div>
@@ -520,7 +520,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
               <div className='flex-1 overflow-y-auto px-6 py-4'>
                   <div className="space-y-4">
                       <div className='bg-muted/30 p-4 rounded-lg border border-dashed text-center space-y-1'>
-                          <p className='text-[10px] font-black uppercase text-muted-foreground tracking-widest'>Audit Summary</p>
+                          <p className='text-[10px] font-black uppercase text-muted-foreground tracking-widest'>Snapshot Context</p>
                           <p className='text-sm font-medium'>"{viewingHistoryRecord?.summary}"</p>
                           <div className='flex justify-center gap-2 mt-2'>
                               <Badge variant="secondary" className='bg-background'>{viewingHistoryRecord?.closedCount} / {viewingHistoryRecord?.totalCount} Fixed</Badge>
@@ -528,8 +528,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                           </div>
                       </div>
 
-                      <div className="space-y-3 pt-2">
-                          <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest px-1'>Point-in-Time Status</p>
+                      <div className="space-y-3 pt-2 pb-10">
                           {viewingHistoryRecord?.items.map((histItem) => {
                               const sub = subContractors.find(s => s.id === histItem.subContractorId);
                               return (
@@ -575,7 +574,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
               </div>
 
               <DialogFooter className='p-6 bg-muted/10 border-t shrink-0'>
-                  <Button variant="outline" className='w-full' onClick={() => setViewingHistoryRecord(null)}>Close Auditor</Button>
+                  <Button variant="outline" className='w-full' onClick={() => setViewingHistoryRecord(null)}>Close Audit Log</Button>
               </DialogFooter>
           </DialogContent>
       </Dialog>
