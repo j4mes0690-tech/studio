@@ -104,7 +104,6 @@ export function SnaggingItemCard({
   const [isPending, startTransition] = useTransition();
   const { user: sessionUser } = useUser();
 
-  // Profile check for permissions
   const profileRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
@@ -113,20 +112,15 @@ export function SnaggingItemCard({
 
   const isInternal = profile?.userType === 'internal' || !!profile?.permissions?.hasFullVisibility;
 
-  // Version History Fetching
   const historyQuery = useMemoFirebase(() => {
     if (!db || !item.id) return null;
     return query(collection(db, 'snagging-items', item.id, 'history'), orderBy('timestamp', 'desc'));
   }, [db, item.id]);
   const { data: history } = useCollection<SnaggingHistoryRecord>(historyQuery);
 
-  // Snapshot Viewer State
   const [viewingHistoryRecord, setViewingHistoryRecord] = useState<SnaggingHistoryRecord | null>(null);
-
-  // Lightbox State
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
-  // Completion Dialog State
   const [completingItem, setCompletingItem] = useState<SnaggingListItem | null>(null);
   const [completionPhotos, setCompletionPhotos] = useState<Photo[]>([]);
   const [completionComment, setCompletionComment] = useState('');
@@ -145,9 +139,7 @@ export function SnaggingItemCard({
     let stream: MediaStream | null = null;
     const getCameraPermission = async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode } 
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
         setHasCameraPermission(true);
         if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
@@ -155,11 +147,7 @@ export function SnaggingItemCard({
       }
     };
     if (isCameraOpen) getCameraPermission();
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
+    return () => stream?.getTracks().forEach((track) => track.stop());
   }, [isCameraOpen, facingMode]);
 
   const capturePhoto = () => {
@@ -167,15 +155,11 @@ export function SnaggingItemCard({
       const canvas = canvasRef.current;
       const video = videoRef.current;
       const context = canvas.getContext('2d');
-      if (!context) return null;
-
-      if (video.videoWidth === 0 || video.videoHeight === 0) return null;
-
+      if (!context || video.videoWidth === 0 || video.videoHeight === 0) return null;
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 1200;
       canvas.height = 1200 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
       const now = new Date();
       const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
       context.font = 'bold 24px sans-serif';
@@ -183,23 +167,9 @@ export function SnaggingItemCard({
       context.shadowColor = 'black';
       context.shadowBlur = 6;
       context.fillText(timestamp, canvas.width - context.measureText(timestamp).width - 20, canvas.height - 20);
-      
       return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: now.toISOString() };
     }
     return null;
-  };
-
-  const handleToggleStatus = (subItem: SnaggingListItem) => {
-    if (subItem.status === 'open') {
-      setCompletingItem(subItem);
-      setCompletionPhotos([]);
-      setCompletionComment('');
-      setIsCameraOpen(false);
-    } else if (subItem.status === 'provisionally-complete' && isInternal) {
-      updateItemOnServer(subItem.id, 'closed', subItem.completionPhotos || [], subItem.subContractorComment);
-    } else if (isInternal) {
-      updateItemOnServer(subItem.id, 'open', [], '');
-    }
   };
 
   const updateItemOnServer = (itemId: string, status: SnaggingListItem['status'], photos: Photo[], comment?: string) => {
@@ -225,6 +195,7 @@ export function SnaggingItemCard({
             };
             if (status === 'closed') {
               updates.closedAt = new Date().toISOString();
+              updates.completionPhotos = uploadedPhotos; // Internal sign-off includes photos directly
             } else if (status === 'provisionally-complete') {
               updates.provisionallyCompletedAt = new Date().toISOString();
               updates.completionPhotos = uploadedPhotos;
@@ -259,9 +230,27 @@ export function SnaggingItemCard({
     });
   };
 
+  const handleToggleStatus = (subItem: SnaggingListItem) => {
+    if (subItem.status === 'open') {
+      setCompletingItem(subItem);
+      setCompletionPhotos([]);
+      setCompletionComment('');
+      setIsCameraOpen(false);
+    } else if (subItem.status === 'provisionally-complete' && isInternal) {
+      // Internal user signs off partner submission
+      updateItemOnServer(subItem.id, 'closed', subItem.completionPhotos || [], subItem.subContractorComment);
+    } else if (isInternal) {
+      // Re-open if internal clicks a closed item
+      updateItemOnServer(subItem.id, 'open', [], '');
+    }
+  };
+
   const finalizeCompletion = () => {
     if (completingItem) {
-      updateItemOnServer(completingItem.id, 'provisionally-complete', completionPhotos, completionComment);
+      // IF internal signs off or takes a picture, it automatically closes.
+      // IF partner signs off, it goes to provisional.
+      const targetStatus = isInternal ? 'closed' : 'provisionally-complete';
+      updateItemOnServer(completingItem.id, targetStatus, completionPhotos, completionComment);
       setCompletingItem(null);
     }
   };
@@ -323,16 +312,8 @@ export function SnaggingItemCard({
               </Badge>
               
               <div className="hidden sm:flex items-center gap-1">
-                <PdfReportButton 
-                    item={item} 
-                    project={project} 
-                    subContractors={subContractors} 
-                />
-                <DistributeReportsButton
-                    item={item}
-                    project={project}
-                    subContractors={subContractors}
-                />
+                <PdfReportButton item={item} project={project} subContractors={subContractors} />
+                <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
               </div>
               
               <AlertDialog>
@@ -345,9 +326,7 @@ export function SnaggingItemCard({
                 <AlertDialogContent className="w-[95vw] max-w-lg rounded-xl">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Snagging List?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently remove this entire list. This action cannot be undone.
-                    </AlertDialogDescription>
+                    <AlertDialogDescription>This will permanently remove this entire list.</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -519,14 +498,7 @@ export function SnaggingItemCard({
                           <div className="p-1">
                              <div className="space-y-2">
                               <div className="relative cursor-pointer hover:opacity-95 transition-opacity group" onClick={() => setViewingPhoto(photo)}>
-                                  <Image
-                                  src={photo.url}
-                                  alt={`Defect asset ${index + 1}`}
-                                  width={600}
-                                  height={400}
-                                  className="rounded-md border object-cover aspect-video"
-                                  data-ai-hint="construction defect"
-                                  />
+                                  <Image src={photo.url} alt="asset" width={600} height={400} className="rounded-md border object-cover aspect-video" />
                                   <div className="absolute top-2 right-2 p-1 bg-black/50 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
                                       <Maximize2 className="h-3.5 w-3.5 text-white" />
                                   </div>
@@ -553,7 +525,6 @@ export function SnaggingItemCard({
         </CardContent>
       </Card>
 
-      {/* Completion Evidence Dialog */}
       <Dialog open={!!completingItem} onOpenChange={() => setCompletingItem(null)}>
         <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto rounded-xl p-4 md:p-6">
           <DialogHeader className="mb-4">
@@ -566,12 +537,7 @@ export function SnaggingItemCard({
           <div className="space-y-5">
             <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Completion Notes</Label>
-                <Textarea 
-                  placeholder="Describe the fix or action taken..." 
-                  value={completionComment}
-                  onChange={(e) => setCompletionComment(e.target.value)}
-                  className="text-sm min-h-[80px]"
-                />
+                <Textarea placeholder="Describe the fix or action taken..." value={completionComment} onChange={(e) => setCompletionComment(e.target.value)} className="text-sm min-h-[80px]" />
             </div>
 
             <div className="space-y-2">
@@ -596,54 +562,14 @@ export function SnaggingItemCard({
 
             {isCameraOpen && (
               <div className="fixed inset-0 z-[100] bg-black">
-                {hasCameraPermission === false && (
-                  <div className="absolute top-20 left-6 right-6 z-[110]">
-                    <Alert variant="destructive">
-                      <AlertTriangle className="h-4 w-4" />
-                      <AlertTitle>Microphone Access Required</AlertTitle>
-                      <AlertDescription>Please enable camera access in your settings to capture verification photos.</AlertDescription>
-                    </Alert>
-                  </div>
-                )}
-                
                 <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                
                 <div className="absolute inset-0 flex flex-col justify-between p-6">
-                  <div className="flex justify-end">
-                    <Button 
-                      variant="secondary" 
-                      onClick={() => setIsCameraOpen(false)} 
-                      className="rounded-full h-12 px-6 font-bold shadow-lg"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                  
+                  <div className="flex justify-end"><Button variant="secondary" onClick={() => setIsCameraOpen(false)} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
                   <div className="flex items-center justify-center gap-8 mb-8">
-                    <Button 
-                      variant="secondary" 
-                      size="icon" 
-                      className="rounded-full h-14 w-14 shadow-lg" 
-                      onClick={toggleCamera} 
-                      title="Switch"
-                    >
-                      <RefreshCw className="h-7 w-7" />
-                    </Button>
-                    
-                    <Button 
-                      size="lg" 
-                      className="rounded-full h-20 w-20 p-0 border-4 border-white/20 shadow-2xl bg-white hover:bg-white/90"
-                      onClick={() => {
-                        const p = capturePhoto();
-                        if (p) {
-                          setCompletionPhotos(prev => [...prev, p]);
-                          setIsCameraOpen(false);
-                        }
-                      }}
-                    >
+                    <Button variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}><RefreshCw className="h-7 w-7" /></Button>
+                    <Button size="lg" className="rounded-full h-20 w-20 p-0 border-4 border-white/20 shadow-2xl bg-white hover:bg-white/90" onClick={() => { const p = capturePhoto(); if (p) { setCompletionPhotos(prev => [...prev, p]); setIsCameraOpen(false); } }}>
                       <div className="h-14 w-14 rounded-full border-2 border-black/10" />
                     </Button>
-                    
                     <div className="w-14" />
                   </div>
                 </div>
@@ -658,35 +584,22 @@ export function SnaggingItemCard({
                 Post Verification
             </Button>
           </DialogFooter>
-          
-          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-            const files = e.target.files;
-            if (!files) return;
-            Array.from(files).forEach(f => {
-              const reader = new FileReader();
-              reader.onload = (re) => setCompletionPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-              reader.readAsDataURL(f);
-            });
-          }} />
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => { const files = e.target.files; if (!files) return; Array.from(files).forEach(f => { const reader = new FileReader(); reader.onload = (re) => setCompletionPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]); reader.readAsDataURL(f); }); }} />
           <canvas ref={canvasRef} className="hidden" />
         </DialogContent>
       </Dialog>
 
-      {/* Audit Snapshot Viewer */}
       <Dialog open={!!viewingHistoryRecord} onOpenChange={() => setViewingHistoryRecord(null)}>
           <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-xl shadow-2xl">
               <DialogHeader className="p-4 md:p-6 pb-0 shrink-0">
                   <div className='flex items-center gap-3 mb-1'>
-                      <div className='bg-primary/10 p-2 rounded-lg text-primary'>
-                          <FileSearch className='h-5 w-5' />
-                      </div>
+                      <div className='bg-primary/10 p-2 rounded-lg text-primary'><FileSearch className='h-5 w-5' /></div>
                       <div>
                           <DialogTitle className="text-base md:text-lg">Historical Snapshot</DialogTitle>
                           <DialogDescription className="text-[10px] md:text-xs">Audit record from <ClientDate date={viewingHistoryRecord?.timestamp || ''} /></DialogDescription>
                       </div>
                   </div>
               </DialogHeader>
-              
               <div className='flex-1 overflow-y-auto px-4 md:px-6 py-4'>
                   <div className="space-y-4">
                       <div className='bg-muted/30 p-3 md:p-4 rounded-lg border border-dashed text-center space-y-1'>
@@ -697,7 +610,6 @@ export function SnaggingItemCard({
                               <Badge variant="outline" className='bg-background text-[10px] truncate max-w-[150px]'>User: {viewingHistoryRecord?.updatedBy}</Badge>
                           </div>
                       </div>
-
                       <div className="space-y-3 pt-2 pb-10">
                           {viewingHistoryRecord?.items.map((histItem) => {
                               const sub = subContractors.find(s => s.id === histItem.subContractorId);
@@ -705,35 +617,18 @@ export function SnaggingItemCard({
                                   <div key={histItem.id} className="p-3 border rounded-lg bg-background shadow-sm space-y-3">
                                       <div className="flex items-start justify-between gap-3">
                                           <div className="flex items-start gap-2.5 min-w-0">
-                                              {histItem.status === 'closed' ? (
-                                                  <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
-                                              ) : (
-                                                  <Circle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                                              )}
+                                              {histItem.status === 'closed' ? <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />}
                                               <div className='flex flex-col min-w-0'>
-                                                  <span className={cn("text-xs md:text-sm font-semibold", histItem.status === 'closed' && "line-through text-muted-foreground")}>
-                                                      {histItem.description}
-                                                  </span>
+                                                  <span className={cn("text-xs md:text-sm font-semibold", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span>
                                                   {sub && <span className="text-[9px] font-bold text-primary uppercase tracking-tight truncate">{sub.name}</span>}
                                               </div>
                                           </div>
-                                          <Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[8px] md:text-[9px] uppercase font-bold h-4 px-1 whitespace-nowrap shrink-0'>
-                                              {histItem.status}
-                                          </Badge>
+                                          <Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[8px] md:text-[9px] uppercase font-bold h-4 px-1 whitespace-nowrap shrink-0'>{histItem.status}</Badge>
                                       </div>
-
                                       {(histItem.photos && histItem.photos.length > 0) || (histItem.completionPhotos && histItem.completionPhotos.length > 0) ? (
                                           <div className='pl-6 flex flex-wrap gap-1.5 pt-1 border-t border-dashed'>
-                                              {histItem.photos?.map((p, pi) => (
-                                                  <div key={`hist-p-${pi}`} className='relative w-10 h-8 md:w-12 md:h-10 rounded border overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}>
-                                                      <Image src={p.url} alt="Snap" fill className='object-cover' />
-                                                  </div>
-                                              ))}
-                                              {histItem.completionPhotos?.map((p, pi) => (
-                                                  <div key={`hist-c-${pi}`} className='relative w-10 h-8 md:w-12 md:h-10 rounded border-2 border-green-200 overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}>
-                                                      <Image src={p.url} alt="Fix" fill className='object-cover' />
-                                                  </div>
-                                              ))}
+                                              {histItem.photos?.map((p, pi) => <div key={`h-p-${pi}`} className='relative w-10 h-8 md:w-12 md:h-10 rounded border overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}><Image src={p.url} alt="Snap" fill className='object-cover' /></div>)}
+                                              {histItem.completionPhotos?.map((p, pi) => <div key={`h-c-${pi}`} className='relative w-10 h-8 md:w-12 md:h-10 rounded border-2 border-green-200 overflow-hidden cursor-pointer' onClick={() => setViewingPhoto(p)}><Image src={p.url} alt="Fix" fill className='object-cover' /></div>)}
                                           </div>
                                       ) : null}
                                   </div>
@@ -742,7 +637,6 @@ export function SnaggingItemCard({
                       </div>
                   </div>
               </div>
-
               <DialogFooter className='p-4 md:p-6 bg-muted/10 border-t shrink-0'>
                   <Button variant="outline" className='w-full font-bold h-11' onClick={() => setViewingHistoryRecord(null)}>Close Audit Log</Button>
               </DialogFooter>
