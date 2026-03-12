@@ -111,7 +111,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
   useEffect(() => {
     if (selectedAreaId && selectedAreaId !== 'none') {
       if (selectedAreaId === 'other') {
-        // Let user type manually or keep empty
+        // Let user type manually
       } else {
         const area = availableAreas.find(a => a.id === selectedAreaId);
         if (area) {
@@ -143,11 +143,24 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
       const video = videoRef.current;
       const context = canvas.getContext('2d');
       if (!context) return null;
+
+      // Ensure video is ready
+      if (video.videoWidth === 0 || video.videoHeight === 0) return null;
+
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 1200; 
       canvas.height = 1200 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: new Date().toISOString() };
+      
+      const now = new Date();
+      const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+      context.font = 'bold 24px sans-serif';
+      context.fillStyle = 'white';
+      context.shadowColor = 'black';
+      context.shadowBlur = 6;
+      context.fillText(timestamp, canvas.width - context.measureText(timestamp).width - 20, canvas.height - 20);
+
+      return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: now.toISOString() };
     }
     return null;
   };
@@ -316,6 +329,23 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                                 <Button type="button" size="icon" className="h-11 w-11 rounded-lg" onClick={handleAddItem}><Plus className="h-5 w-5" /></Button>
                             </div>
                         </div>
+
+                        {/* Pending Item Previews */}
+                        {pendingItemPhotos.length > 0 && (
+                          <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed animate-in fade-in duration-300">
+                            {pendingItemPhotos.map((p, idx) => (
+                              <div key={idx} className="relative w-16 h-12">
+                                <Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" />
+                                <button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5 shadow-sm" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}>
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </div>
+                            ))}
+                            <div className="flex items-center text-[10px] text-muted-foreground italic pl-2">
+                              {pendingItemPhotos.length} photo(s) ready for next item
+                            </div>
+                          </div>
+                        )}
 
                         <div className="space-y-3">
                             {items.map((item, idx) => (

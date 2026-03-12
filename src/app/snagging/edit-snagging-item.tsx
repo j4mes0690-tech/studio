@@ -97,9 +97,11 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   
   const [items, setItems] = useState<SnaggingListItem[]>(item.items || []);
   const [newItemText, setNewItemText] = useState('');
+  const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isItemCameraOpen, setIsItemCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
@@ -154,6 +156,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       });
       setPhotos(item.photos || []);
       setItems(item.items || []);
+      setPendingItemPhotos([]);
     }
   }, [open, item, form]);
 
@@ -168,13 +171,13 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
         setHasCameraPermission(false);
       }
     };
-    if (isCameraOpen || itemPhotoTargetId !== null) getCameraPermission();
+    if (isCameraOpen || isItemCameraOpen || itemPhotoTargetId !== null) getCameraPermission();
     return () => {
       if (stream) {
         stream.getTracks().forEach(t => t.stop());
       }
     };
-  }, [isCameraOpen, itemPhotoTargetId, facingMode]);
+  }, [isCameraOpen, isItemCameraOpen, itemPhotoTargetId, facingMode]);
 
   const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
@@ -182,11 +185,23 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       const video = videoRef.current;
       const context = canvas.getContext('2d');
       if (!context) return null;
+
+      if (video.videoWidth === 0 || video.videoHeight === 0) return null;
+
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 1200;
       canvas.height = 1200 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: new Date().toISOString() };
+      
+      const now = new Date();
+      const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
+      context.font = 'bold 24px sans-serif';
+      context.fillStyle = 'white';
+      context.shadowColor = 'black';
+      context.shadowBlur = 6;
+      context.fillText(timestamp, canvas.width - context.measureText(timestamp).width - 20, canvas.height - 20);
+
+      return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: now.toISOString() };
     }
     return null;
   };
@@ -201,15 +216,20 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
 
   const takeItemPhoto = () => {
     const photo = capturePhoto();
-    if (photo && itemPhotoTargetId) {
-      setItems(prev => prev.map(i => {
-        if (i.id === itemPhotoTargetId) {
-          const field = i.status === 'closed' ? 'completionPhotos' : 'photos';
-          return { ...i, [field]: [...(i[field] || []), photo] };
-        }
-        return i;
-      }));
-      setItemPhotoTargetId(null);
+    if (photo) {
+      if (itemPhotoTargetId) {
+        setItems(prev => prev.map(i => {
+          if (i.id === itemPhotoTargetId) {
+            const field = i.status === 'closed' ? 'completionPhotos' : 'photos';
+            return { ...i, [field]: [...(i[field] || []), photo] };
+          }
+          return i;
+        }));
+        setItemPhotoTargetId(null);
+      } else {
+        setPendingItemPhotos(prev => [...prev, photo]);
+        setIsItemCameraOpen(false);
+      }
     }
   };
 
@@ -286,15 +306,16 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   };
 
   const handleAddItem = () => {
-    if (newItemText.trim()) {
+    if (newItemText.trim() || pendingItemPhotos.length > 0) {
       setItems([...items, { 
         id: `item-${Date.now()}`, 
         description: newItemText.trim(), 
         status: 'open', 
-        photos: [],
+        photos: pendingItemPhotos,
         subContractorId: pendingSubId
       }]);
       setNewItemText('');
+      setPendingItemPhotos([]);
       setPendingSubId(undefined);
     }
   };
@@ -356,10 +377,27 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                                           {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                       </SelectContent>
                                   </Select>
-                                  <Button type="button" variant="outline" size="icon" onClick={() => setIsCameraOpen(true)}><Camera className="h-4 w-4" /></Button>
+                                  <Button type="button" variant="outline" size="icon" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-4 w-4" /></Button>
                                   <Button type="button" onClick={handleAddItem} size="icon"><Plus className="h-4 w-4" /></Button>
                                 </div>
                             </div>
+
+                            {/* Pending Previews */}
+                            {pendingItemPhotos.length > 0 && (
+                              <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed animate-in fade-in duration-300">
+                                {pendingItemPhotos.map((p, idx) => (
+                                  <div key={idx} className="relative w-16 h-12">
+                                    <Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" />
+                                    <button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5 shadow-sm" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}>
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                ))}
+                                <div className="flex items-center text-[10px] text-muted-foreground italic pl-2">
+                                  {pendingItemPhotos.length} photo(s) ready
+                                </div>
+                              </div>
+                            )}
 
                             <div className="space-y-3">
                                 {items.map((listItem, idx) => {
@@ -463,39 +501,45 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
         </DialogContent>
 
         {/* Unified Full-Screen Camera Overlay */}
-        {(isCameraOpen || itemPhotoTargetId !== null) && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
-            <div className="w-full max-w-lg space-y-4">
-              <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border-4 border-white/10 shadow-2xl">
-                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-              </div>
-              <div className="flex justify-center gap-4">
-                <Button 
-                  size="lg" 
-                  onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} 
-                  className="rounded-full h-16 w-16 p-0 border-4 border-white/20"
-                >
-                  <div className="h-10 w-10 rounded-full bg-white" />
-                </Button>
-                <Button 
-                  variant="secondary" 
-                  size="icon" 
-                  className="rounded-full h-12 w-12" 
-                  onClick={toggleCamera} 
-                  title="Switch Camera"
-                >
-                  <RefreshCw className="h-6 w-6" />
-                </Button>
+        {(isCameraOpen || isItemCameraOpen || itemPhotoTargetId !== null) && (
+          <div className="fixed inset-0 z-[100] bg-black">
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+            
+            <div className="absolute inset-0 flex flex-col justify-between p-6">
+              <div className="flex justify-end">
                 <Button 
                   variant="secondary" 
                   onClick={() => { 
                     setIsCameraOpen(false); 
+                    setIsItemCameraOpen(false);
                     setItemPhotoTargetId(null); 
                   }} 
-                  className="rounded-full h-12 px-6 font-bold"
+                  className="rounded-full h-12 px-6 font-bold shadow-lg"
                 >
                   Cancel
                 </Button>
+              </div>
+              
+              <div className="flex items-center justify-center gap-8 mb-8">
+                <Button 
+                  variant="secondary" 
+                  size="icon" 
+                  className="rounded-full h-14 w-14 shadow-lg" 
+                  onClick={toggleCamera} 
+                  title="Switch Camera"
+                >
+                  <RefreshCw className="h-7 w-7" />
+                </Button>
+                
+                <Button 
+                  size="lg" 
+                  onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} 
+                  className="rounded-full h-20 w-20 p-0 border-4 border-white/20 shadow-2xl bg-white hover:bg-white/90"
+                >
+                  <div className="h-14 w-14 rounded-full border-2 border-black/10" />
+                </Button>
+                
+                <div className="w-14" /> {/* Spacer */}
               </div>
             </div>
           </div>
@@ -520,7 +564,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
               <div className='flex-1 overflow-y-auto px-6 py-4'>
                   <div className="space-y-4">
                       <div className='bg-muted/30 p-4 rounded-lg border border-dashed text-center space-y-1'>
-                          <p className='text-[10px] font-black uppercase text-muted-foreground tracking-widest'>Snapshot Context</p>
+                          <p className='text-[10px] font-black uppercase text-muted-foreground tracking-widest'>Audit Summary</p>
                           <p className='text-sm font-medium'>"{viewingHistoryRecord?.summary}"</p>
                           <div className='flex justify-center gap-2 mt-2'>
                               <Badge variant="secondary" className='bg-background'>{viewingHistoryRecord?.closedCount} / {viewingHistoryRecord?.totalCount} Fixed</Badge>
@@ -528,7 +572,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                           </div>
                       </div>
 
-                      <div className="space-y-3 pt-2 pb-10">
+                      <div className="space-y-3 pt-2">
+                          <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest px-1'>Point-in-Time Status</p>
                           {viewingHistoryRecord?.items.map((histItem) => {
                               const sub = subContractors.find(s => s.id === histItem.subContractorId);
                               return (
@@ -574,12 +619,13 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
               </div>
 
               <DialogFooter className='p-6 bg-muted/10 border-t shrink-0'>
-                  <Button variant="outline" className='w-full' onClick={() => setViewingHistoryRecord(null)}>Close Audit Log</Button>
+                  <Button variant="outline" className='w-full' onClick={() => setViewingHistoryRecord(null)}>Close Auditor</Button>
               </DialogFooter>
           </DialogContent>
       </Dialog>
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
+      <canvas ref={canvasRef} className="hidden" />
     </>
   );
 }

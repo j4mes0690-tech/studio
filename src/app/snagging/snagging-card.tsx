@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -168,6 +167,9 @@ export function SnaggingItemCard({
       const context = canvas.getContext('2d');
       if (!context) return null;
 
+      // Robust check for active video content
+      if (video.videoWidth === 0 || video.videoHeight === 0) return null;
+
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 1200;
       canvas.height = 1200 / aspectRatio;
@@ -209,7 +211,7 @@ export function SnaggingItemCard({
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
               const blob = await dataUriToBlob(p.url);
-              url = await uploadFile(storage, `snagging/completions/${item.id}-${itemId}-${i}.jpg`, blob);
+              const url = await uploadFile(storage, `snagging/completions/${item.id}-${itemId}-${i}.jpg`, blob);
               return { ...p, url };
             }
             return p;
@@ -352,7 +354,7 @@ export function SnaggingItemCard({
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteList} className="bg-destructive" disabled={isPending}>
+                    <AlertDialogAction onClick={handleDeleteList} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
                       {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                       Delete
                     </AlertDialogAction>
@@ -568,7 +570,7 @@ export function SnaggingItemCard({
             <div className="space-y-2">
                 <Label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Completion Notes</Label>
                 <Textarea 
-                  placeholder="What was the resolution?" 
+                  placeholder="Describe the fix or action taken..." 
                   value={completionComment}
                   onChange={(e) => setCompletionComment(e.target.value)}
                   className="text-sm min-h-[80px]"
@@ -655,7 +657,7 @@ export function SnaggingItemCard({
           <DialogFooter className="gap-3 sm:gap-0 border-t pt-5 mt-2">
             <Button variant="ghost" className="font-bold text-muted-foreground sm:order-first" onClick={() => setCompletingItem(null)}>Discard</Button>
             <Button className="font-bold shadow-lg shadow-primary/20 flex-1 sm:flex-none h-11" onClick={finalizeCompletion} disabled={isPending}>
-                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <Send className="mr-2 h-4 w-4 mr-2" />}
                 Post Verification
             </Button>
           </DialogFooter>
