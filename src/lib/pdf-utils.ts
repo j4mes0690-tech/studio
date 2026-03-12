@@ -1,22 +1,35 @@
 
+'use client';
+
 import type { Instruction, Project, SubContractor, SnaggingItem, SnaggingListItem, Photo } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 
 /**
- * safeLoadImage - The most robust way to get an external URL into a PDF.
- * It uses a server action proxy to fetch the image bytes and return a 
- * Base64 string, completely bypassing browser CORS security rules.
+ * safeLoadImage - Proxies an image via server action to bypass CORS.
  */
 async function safeLoadImage(url: string): Promise<string | null> {
   if (!url) return null;
-  if (url.startsWith('data:')) return url;
-  
-  // Call the server action to proxy the request
   return await proxyImageAction(url);
 }
 
 /**
- * generateInstructionPDF - Robust utility to create a Site Instruction PDF.
+ * getImageElement - Loads an image into a DOM element for jsPDF processing.
+ */
+async function getImageElement(url: string): Promise<HTMLImageElement | null> {
+  const dataUri = await safeLoadImage(url);
+  if (!dataUri) return null;
+  
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = dataUri;
+  });
+}
+
+/**
+ * generateInstructionPDF - Creates a Site Instruction PDF with visual appendices.
  */
 export async function generateInstructionPDF(
   instruction: Instruction,
@@ -78,7 +91,7 @@ export async function generateInstructionPDF(
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
-  const canvasHeightInPdf = (canvas.height * pdfWidth) / canvas.width;
+  const canvasHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
   
   pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, canvasHeightInPdf);
 
@@ -93,18 +106,17 @@ export async function generateInstructionPDF(
     currentY += 10;
 
     for (const p of photos) {
-      const dataUri = await safeLoadImage(p.url);
-      
+      const img = await getImageElement(p.url);
       if (currentY + 130 > pdfHeight) { pdf.addPage(); currentY = 20; }
       
-      if (dataUri) {
-        pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 120, undefined, 'FAST');
+      if (img) {
+        pdf.addImage(img, 'PNG', 10, currentY, 190, 120, undefined, 'FAST');
       } else {
         pdf.setFillColor(241, 245, 249);
         pdf.rect(10, currentY, 190, 120, 'F');
         pdf.setFontSize(10);
         pdf.setTextColor(148, 163, 184);
-        pdf.text("Image failed to load (Proxy Exception)", 105, currentY + 60, { align: 'center' });
+        pdf.text("Image failed to load via proxy.", 105, currentY + 60, { align: 'center' });
       }
       currentY += 130;
     }
@@ -114,8 +126,7 @@ export async function generateInstructionPDF(
 }
 
 /**
- * generateSnaggingPDF - Specialized engine for comprehensive snagging reports.
- * Uses a server-side proxy to reliably embed high-resolution photos.
+ * generateSnaggingPDF - Specialized engine for snagging reports using proxy image injection.
  */
 export async function generateSnaggingPDF(
   params: {
@@ -176,6 +187,7 @@ export async function generateSnaggingPDF(
     const sub = subContractors.find(s => s.id === entry.snag.subContractorId);
     const photos = [...(entry.snag.photos || []), ...(entry.snag.completionPhotos || [])];
     
+    // Check if we need a new page for the text header
     if (currentY + 25 > pdfHeight) { pdf.addPage(); currentY = 20; }
 
     pdf.setFillColor(248, 250, 252);
@@ -220,14 +232,12 @@ export async function generateSnaggingPDF(
           imgX = 15;
         }
 
-        const dataUri = await safeLoadImage(p.url);
-        if (dataUri) {
-          pdf.addImage(dataUri, 'JPEG', imgX, currentY, imgWidth, imgHeight, undefined, 'FAST');
+        const img = await getImageElement(p.url);
+        if (img) {
+          pdf.addImage(img, 'PNG', imgX, currentY, imgWidth, imgHeight, undefined, 'FAST');
         } else {
           pdf.setFillColor(241, 245, 249);
           pdf.rect(imgX, currentY, imgWidth, imgHeight, 'F');
-          pdf.setDrawColor(226, 232, 240);
-          pdf.rect(imgX, currentY, imgWidth, imgHeight, 'S');
           pdf.setFontSize(7);
           pdf.setTextColor(148, 163, 184);
           pdf.text("Photo Unavailable", imgX + (imgWidth/2), currentY + (imgHeight/2), { align: 'center' });
@@ -248,6 +258,7 @@ export async function generateSnaggingPDF(
     currentY += 5;
   }
 
+  // General Documentation Photos
   if (generalPhotos.length > 0) {
     if (currentY + 40 > pdfHeight) { pdf.addPage(); currentY = 20; }
     else { currentY += 10; }
@@ -261,15 +272,15 @@ export async function generateSnaggingPDF(
     for (const p of generalPhotos) {
       if (currentY + 125 > pdfHeight) { pdf.addPage(); currentY = 20; }
       
-      const dataUri = await safeLoadImage(p.url);
-      if (dataUri) {
-        pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 120, undefined, 'FAST');
+      const img = await getImageElement(p.url);
+      if (img) {
+        pdf.addImage(img, 'PNG', 10, currentY, 190, 120, undefined, 'FAST');
       } else {
         pdf.setFillColor(241, 245, 249);
         pdf.rect(10, currentY, 190, 120, 'F');
         pdf.setFontSize(10);
         pdf.setTextColor(148, 163, 184);
-        pdf.text("Full-size documentation photo failed to load.", 105, currentY + 60, { align: 'center' });
+        pdf.text("Evidence photo failed to load.", 105, currentY + 60, { align: 'center' });
       }
       currentY += 130;
     }

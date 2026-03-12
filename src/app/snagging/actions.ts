@@ -80,12 +80,19 @@ export async function sendSubcontractorReportAction({
  */
 export async function proxyImageAction(url: string): Promise<string | null> {
   if (!url) return null;
+  if (url.startsWith('data:')) return url;
+
   try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Fetch failed with status ${response.status}`);
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+    if (!response.ok) return null;
     
     const arrayBuffer = await response.arrayBuffer();
-    const base64 = Buffer.from(arrayBuffer).toString('base64');
+    const buffer = Buffer.from(arrayBuffer);
+    const base64 = buffer.toString('base64');
     const contentType = response.headers.get('content-type') || 'image/jpeg';
     
     return `data:${contentType};base64,${base64}`;
