@@ -24,13 +24,13 @@ import {
   Loader2,
   ShieldCheck,
   Banknote,
-  AlertTriangle,
   ArrowRight,
   LayoutGrid,
   Grid2X2,
   GripVertical,
   FileSignature,
-  CalendarClock
+  CalendarClock,
+  AlertTriangle
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -172,33 +172,33 @@ export default function Dashboard() {
   return (
     <div className="flex flex-col w-full">
       <Header title="Dashboard" />
-      <main className="flex flex-1 flex-col items-center gap-8 p-4 md:p-8">
+      <main className="flex flex-1 flex-col items-center gap-4 p-3 md:gap-8 md:p-8">
         
         {profile?.requirePasswordChange && (
             <Alert variant="destructive" className="max-w-6xl w-full border-2 bg-destructive/5 animate-in fade-in slide-in-from-top-4 duration-500">
                 <AlertTriangle className="h-5 w-5" />
                 <AlertTitle className="font-bold">Security Action Required</AlertTitle>
                 <AlertDescription className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
-                    <p>You are currently using a temporary password. Please update your account credentials immediately to secure your access.</p>
+                    <p>You are currently using a temporary password. Please update your account credentials immediately.</p>
                     <Button asChild variant="destructive" size="sm" className="font-bold gap-2 shrink-0">
                         <Link href="/account">
-                            Update Password <ArrowRight className="h-4 w-4" />
+                            Update Account <ArrowRight className="h-4 w-4" />
                         </Link>
                     </Button>
                 </AlertDescription>
             </Alert>
         )}
 
-        <div className="flex flex-col items-center text-center gap-4 mt-4 relative w-full max-w-6xl">
-            <div className={cn("p-4 bg-primary/10 rounded-full transition-all", isCompact && "p-2")}>
-                <HardHat className={cn("text-primary transition-all", isCompact ? "h-8 w-8" : "h-16 w-16")} />
+        <div className="flex flex-col items-center text-center gap-3 mt-2 md:mt-4 relative w-full max-w-6xl">
+            <div className={cn("p-3 bg-primary/10 rounded-full transition-all md:p-4", isCompact && "p-2")}>
+                <HardHat className={cn("text-primary transition-all", isCompact ? "h-6 w-6" : "h-10 w-10 md:h-16 md:w-16")} />
             </div>
-            <div>
-                <h1 className={cn("font-bold tracking-tight transition-all", isCompact ? "text-xl" : "text-3xl")}>Welcome to SiteCommand</h1>
-                {!isCompact && <p className="text-muted-foreground text-sm">Select an action to get started. Use the grip icon in the top-left of modules to reorder.</p>}
+            <div className="px-4">
+                <h1 className={cn("font-bold tracking-tight transition-all", isCompact ? "text-lg md:text-xl" : "text-xl md:text-3xl")}>Welcome to SiteCommand</h1>
+                {!isCompact && <p className="text-muted-foreground text-xs md:text-sm mt-1 max-w-sm md:max-w-none">Select an action to get started. Long-press or use grip to reorder.</p>}
             </div>
 
-            <div className="absolute top-0 right-0 flex items-center gap-2">
+            <div className="absolute top-0 right-0 hidden md:flex items-center gap-2">
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -222,8 +222,8 @@ export default function Dashboard() {
         <div className={cn(
             "grid w-full pb-12 transition-all",
             isCompact 
-                ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3" 
-                : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl"
+                ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3" 
+                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 max-w-6xl"
         )}>
           {allowedCards.map((card) => (
             <div
@@ -240,7 +240,7 @@ export default function Dashboard() {
             >
                 {/* Drag Handle - Only this area allows reordering cursors and initiation */}
                 <div 
-                    className="absolute top-2 left-2 z-30 p-1.5 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-background/90 rounded border border-border shadow-sm"
+                    className="absolute top-2 left-2 z-30 p-1.5 opacity-0 md:group-hover:opacity-40 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-background/90 rounded border border-border shadow-sm hidden md:block"
                     onMouseEnter={() => setCanDragId(card.id)}
                     onMouseLeave={() => setCanDragId(null)}
                 >
@@ -250,18 +250,18 @@ export default function Dashboard() {
                 <Link href={card.href} className="block h-full">
                     <Card className={cn(
                         "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary/50 hover:shadow-md h-full relative",
-                        isCompact ? "p-4 text-center" : "p-8 text-center"
+                        isCompact ? "p-3 md:p-4 text-center" : "p-5 md:p-8 text-center"
                     )}>
                         <CardHeader className="p-0">
                         <card.icon className={cn(
                             "mb-2 transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary",
-                            isCompact ? "h-8 w-8" : "h-12 w-12 mb-4"
+                            isCompact ? "h-6 w-6" : "h-8 w-8 mb-2 md:h-12 md:w-12 md:mb-4"
                         )} />
-                        <CardTitle className={cn("transition-all", isCompact ? "text-sm" : "text-xl")}>{card.label}</CardTitle>
+                        <CardTitle className={cn("transition-all", isCompact ? "text-xs md:text-sm" : "text-sm md:text-xl")}>{card.label}</CardTitle>
                         </CardHeader>
                         {!isCompact && (
-                            <CardContent className="p-0 mt-2">
-                                <p className="text-xs text-muted-foreground leading-relaxed">
+                            <CardContent className="p-0 mt-2 hidden sm:block">
+                                <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">
                                     {card.desc}
                                 </p>
                             </CardContent>
@@ -273,7 +273,7 @@ export default function Dashboard() {
         </div>
 
         {allowedCards.length === 0 && (
-            <div className="text-center py-12 px-6 border-2 border-dashed rounded-xl bg-muted/5">
+            <div className="text-center py-12 px-6 border-2 border-dashed rounded-xl bg-muted/5 w-full max-w-md">
                 <p className="font-bold text-muted-foreground">No Modules Assigned</p>
                 <p className="text-xs text-muted-foreground mt-1">Please contact your system administrator to assign module access to your profile.</p>
             </div>

@@ -115,26 +115,29 @@ function SnaggingContent() {
   }) || [];
 
   return (
-    <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
+    <main className="flex-1 p-3 md:p-6 lg:p-8 flex flex-col gap-4 md:gap-6">
         <div className="flex items-center justify-between">
           <div className='flex flex-col gap-1'>
-            <h2 className="text-2xl font-bold tracking-tight">Snagging Log</h2>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight">Snagging Log</h2>
             {hasFullVisibility && (
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest">
+                <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest">
                     <ShieldCheck className="h-3 w-3" />
-                    Administrative Visibility Active
+                    <span className="hidden xs:inline">Administrative Visibility Active</span>
+                    <span className="xs:hidden">Admin Access</span>
                 </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
-            {allowedProjects.length > 0 && (
-              <ProjectReportButton 
-                projects={allowedProjects} 
-                allSnaggingLists={allItems || []}
-                subContractors={subContractors || []}
-                initialProjectId={projectId}
-              />
-            )}
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <div className="hidden sm:block">
+                {allowedProjects.length > 0 && (
+                <ProjectReportButton 
+                    projects={allowedProjects} 
+                    allSnaggingLists={allItems || []}
+                    subContractors={subContractors || []}
+                    initialProjectId={projectId}
+                />
+                )}
+            </div>
 
             <TooltipProvider>
               <Tooltip>
@@ -143,7 +146,7 @@ function SnaggingContent() {
                     variant="outline" 
                     size="icon" 
                     onClick={toggleView}
-                    className="flex h-9 w-9"
+                    className="flex h-9 w-9 shrink-0"
                   >
                     {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                   </Button>
@@ -162,11 +165,13 @@ function SnaggingContent() {
 
         {filteredItems.length > 0 ? (
           isCompact ? (
-            <SnaggingTable 
-              items={filteredItems}
-              projects={allProjects || []}
-              subContractors={subContractors || []}
-            />
+            <div className="overflow-x-auto">
+                <SnaggingTable 
+                items={filteredItems}
+                projects={allProjects || []}
+                subContractors={subContractors || []}
+                />
+            </div>
           ) : (
             <div className="grid gap-4 md:gap-6">
               {filteredItems.map((item) => (
@@ -180,7 +185,7 @@ function SnaggingContent() {
             </div>
           )
         ) : (
-          <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+          <div className="text-center py-12 px-4 text-muted-foreground border-2 border-dashed rounded-lg">
             <p className="text-lg font-semibold">No records found</p>
             <p className="text-sm">You only see snagging lists for projects you are explicitly assigned to.</p>
           </div>
