@@ -36,7 +36,7 @@ export async function sendSubcontractorReportAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'snagging@site-command.com',
       to: [email],
       subject: `Snagging Tasks: ${projectName} - ${areaName}`,
       html: `
