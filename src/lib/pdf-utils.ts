@@ -1,27 +1,44 @@
 import type { Instruction, Project, SubContractor, SnaggingItem, SnaggingListItem, Photo } from '@/lib/types';
 
 /**
- * toDataUri - Robust helper to convert external URLs to Data URIs for reliable PDF embedding.
- * Bypasses canvas tainting by using fetch() to get the blob directly.
+ * safeLoadImage - The most robust way to get an external URL into a PDF.
+ * Uses a Canvas pipeline to convert images to Base64 while respecting CORS.
  */
-async function toDataUri(url: string): Promise<string> {
-  if (!url) return '';
+async function safeLoadImage(url: string): Promise<string | null> {
+  if (!url) return null;
   if (url.startsWith('data:')) return url;
-  
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) {
-    console.warn("PDF Generation: Image fetch failed", url, e);
-    return '';
-  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    // CRITICAL: Request CORS access. Requires "Access-Control-Allow-Origin" on the server.
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        // Use PNG as it's more stable for varying source formats
+        resolve(canvas.toDataURL('image/png'));
+      } catch (e) {
+        console.error("PDF: Canvas conversion failed (CORS issue)", url, e);
+        resolve(null);
+      }
+    };
+
+    img.onerror = () => {
+      console.warn("PDF: Image failed to load", url);
+      resolve(null);
+    };
+
+    img.src = url;
+  });
 }
 
 /**
@@ -34,8 +51,6 @@ export async function generateInstructionPDF(
 ) {
   const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
-
-  const photoDataUrls = await Promise.all((instruction.photos || []).map(p => toDataUri(p.url)));
 
   const reportElement = document.createElement('div');
   reportElement.style.position = 'absolute';
@@ -95,16 +110,29 @@ export async function generateInstructionPDF(
 
   let currentY = canvasHeightInPdf + 15;
 
-  const validPhotos = photoDataUrls.filter(url => !!url);
-  if (validPhotos.length > 0) {
+  const photos = instruction.photos || [];
+  if (photos.length > 0) {
     if (currentY + 30 > pdfHeight) { pdf.addPage(); currentY = 20; }
-    pdf.setFontSize(14); pdf.setTextColor(30, 41, 59);
+    pdf.setFontSize(14);
+    pdf.setTextColor(30, 41, 59);
     pdf.text("Appendix A: Visual Evidence", 10, currentY);
     currentY += 10;
 
-    for (const url of validPhotos) {
+    for (const p of photos) {
+      const dataUri = await safeLoadImage(p.url);
+      
       if (currentY + 130 > pdfHeight) { pdf.addPage(); currentY = 20; }
-      pdf.addImage(url, 'JPEG', 10, currentY, 190, 120, undefined, 'FAST');
+      
+      if (dataUri) {
+        pdf.addImage(dataUri, 'PNG', 10, currentY, 190, 120, undefined, 'FAST');
+      } else {
+        // Draw Placeholder for failed image
+        pdf.setFillColor(241, 245, 249);
+        pdf.rect(10, currentY, 190, 120, 'F');
+        pdf.setFontSize(10);
+        pdf.setTextColor(148, 163, 184);
+        pdf.text("Image failed to load (Security Restriction)", 105, currentY + 60, { align: 'center' });
+      }
       currentY += 130;
     }
   }
@@ -114,7 +142,7 @@ export async function generateInstructionPDF(
 
 /**
  * generateSnaggingPDF - Specialized engine for comprehensive snagging reports.
- * Features Pagination, Trade grouping, and reliable image embedding.
+ * Features Pagination, Trade grouping, and reliable image embedding via Canvas pipeline.
  */
 export async function generateSnaggingPDF(
   params: {
@@ -130,7 +158,7 @@ export async function generateSnaggingPDF(
   const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
 
-  // 1. Create Cover Page / Header
+  // 1. Create Header via html2canvas for consistent styling
   const headerElement = document.createElement('div');
   headerElement.style.position = 'absolute';
   headerElement.style.left = '-9999px';
@@ -175,9 +203,10 @@ export async function generateSnaggingPDF(
   // 2. Loop through entries and add to PDF
   for (const entry of aggregatedEntries) {
     const sub = subContractors.find(s => s.id === entry.snag.subContractorId);
+    const photos = [...(entry.snag.photos || []), ...(entry.snag.completionPhotos || [])];
     
-    // Check for page break before new item
-    if (currentY + 40 > pdfHeight) { pdf.addPage(); currentY = 20; }
+    // Check for page break before new item header
+    if (currentY + 25 > pdfHeight) { pdf.addPage(); currentY = 20; }
 
     // Item Header
     pdf.setFillColor(248, 250, 252);
@@ -205,29 +234,39 @@ export async function generateSnaggingPDF(
 
     currentY += 20;
 
-    // Photos
-    const photos = [...(entry.snag.photos || []), ...(entry.snag.completionPhotos || [])];
+    // Photos Processing
     if (photos.length > 0) {
       const imgWidth = 60;
       const imgHeight = 45;
       let imgX = 15;
 
       for (const p of photos) {
-        const dataUri = await toDataUri(p.url);
-        if (!dataUri) continue;
-
+        // Prevent layout overflow
         if (imgX + imgWidth > 195) {
           imgX = 15;
           currentY += imgHeight + 5;
         }
 
+        // Check for page break before image
         if (currentY + imgHeight > pdfHeight - 20) {
           pdf.addPage();
           currentY = 20;
           imgX = 15;
         }
 
-        pdf.addImage(dataUri, 'JPEG', imgX, currentY, imgWidth, imgHeight, undefined, 'FAST');
+        const dataUri = await safeLoadImage(p.url);
+        if (dataUri) {
+          pdf.addImage(dataUri, 'PNG', imgX, currentY, imgWidth, imgHeight, undefined, 'FAST');
+        } else {
+          // Draw Missing Image Placeholder
+          pdf.setFillColor(241, 245, 249);
+          pdf.rect(imgX, currentY, imgWidth, imgHeight, 'F');
+          pdf.setDrawColor(226, 232, 240);
+          pdf.rect(imgX, currentY, imgWidth, imgHeight, 'S');
+          pdf.setFontSize(7);
+          pdf.setTextColor(148, 163, 184);
+          pdf.text("Photo Not Available", imgX + (imgWidth/2), currentY + (imgHeight/2), { align: 'center' });
+        }
         imgX += imgWidth + 5;
       }
       currentY += imgHeight + 10;
@@ -239,15 +278,17 @@ export async function generateSnaggingPDF(
       currentY += 10;
     }
     
-    // Separator
+    // Separator line
     pdf.setDrawColor(241, 245, 249);
     pdf.line(10, currentY, 200, currentY);
     currentY += 5;
   }
 
-  // 3. General Site Photos
+  // 3. General Site Documentation (Last Page)
   if (generalPhotos.length > 0) {
-    if (currentY + 30 > pdfHeight) { pdf.addPage(); currentY = 20; }
+    if (currentY + 40 > pdfHeight) { pdf.addPage(); currentY = 20; }
+    else { currentY += 10; }
+
     pdf.setFontSize(14);
     pdf.setTextColor(30, 41, 59);
     pdf.setFont("helvetica", "bold");
@@ -255,11 +296,18 @@ export async function generateSnaggingPDF(
     currentY += 10;
 
     for (const p of generalPhotos) {
-      const dataUri = await toDataUri(p.url);
-      if (!dataUri) continue;
-
-      if (currentY + 120 > pdfHeight) { pdf.addPage(); currentY = 20; }
-      pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 120, undefined, 'FAST');
+      if (currentY + 125 > pdfHeight) { pdf.addPage(); currentY = 20; }
+      
+      const dataUri = await safeLoadImage(p.url);
+      if (dataUri) {
+        pdf.addImage(dataUri, 'PNG', 10, currentY, 190, 120, undefined, 'FAST');
+      } else {
+        pdf.setFillColor(241, 245, 249);
+        pdf.rect(10, currentY, 190, 120, 'F');
+        pdf.setFontSize(10);
+        pdf.setTextColor(148, 163, 184);
+        pdf.text("Full-size image load failed.", 105, currentY + 60, { align: 'center' });
+      }
       currentY += 130;
     }
   }
