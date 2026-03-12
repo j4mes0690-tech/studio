@@ -94,7 +94,7 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const selectedSub = useMemo(() => projectSubs.find(s => s.id === pendingSubId), [projectSubs, pendingSubId]);
@@ -144,7 +144,6 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
       const context = canvas.getContext('2d');
       if (!context) return null;
 
-      // Ensure video is ready
       if (video.videoWidth === 0 || video.videoHeight === 0) return null;
 
       const aspectRatio = video.videoWidth / video.videoHeight;
@@ -350,14 +349,28 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
                         <div className="space-y-3">
                             {items.map((item, idx) => (
                                 <div key={idx} className="bg-white p-4 rounded-xl border shadow-sm flex items-center justify-between group animate-in slide-in-from-top-2 duration-300">
-                                    <div className="flex flex-col gap-1">
-                                        <span className="text-sm font-bold text-foreground">{item.description}</span>
-                                        <div className="flex gap-2">
-                                            {item.subContractorId && <Badge variant="secondary" className="text-[9px] font-bold bg-primary/10 text-primary border-primary/20 px-1.5 h-4 uppercase">{subContractors.find(s => s.id === item.subContractorId)?.name}</Badge>}
+                                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                        <span className="text-sm font-bold text-foreground break-words">{item.description}</span>
+                                        <div className="mt-1 flex items-center gap-2">
+                                            <Select 
+                                              value={item.subContractorId || 'unassigned'} 
+                                              onValueChange={(val) => setItems(items.map((it, i) => i === idx ? { ...it, subContractorId: val === 'unassigned' ? undefined : val } : it))}
+                                            >
+                                              <SelectTrigger className="h-5 w-auto inline-flex text-[10px] bg-primary/5 text-primary border-primary/10 hover:bg-primary/10 px-2 py-0 gap-1 rounded-full font-bold uppercase tracking-tight shadow-none border-none">
+                                                <User className="h-2 w-2" />
+                                                <SelectValue placeholder="Assign Partner" />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                <SelectItem value="unassigned" className="text-xs">Unassigned</SelectItem>
+                                                {projectSubs.map(s => (
+                                                  <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
+                                                ))}
+                                              </SelectContent>
+                                            </Select>
                                             {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] font-bold h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1 shrink-0">
                                         <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
                                         <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setItems(items.filter((_, i) => i !== idx))}><Trash2 className="h-4 w-4" /></Button>
                                     </div>

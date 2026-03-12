@@ -108,6 +108,12 @@ function EditSnaggingContent() {
     return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
   }, [allProjects, profile]);
 
+  const projectSubs = useMemo(() => {
+    if (!projectId || !selectedProject) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+  }, [projectId, selectedProject, subContractors]);
+
   const isAuthorized = useMemo(() => {
     if (!profile || !item) return false;
     if (profile.permissions?.hasFullVisibility) return true;
@@ -144,6 +150,9 @@ function EditSnaggingContent() {
       const video = videoRef.current;
       const context = canvas.getContext('2d');
       if (!context) return null;
+      
+      if (video.videoWidth === 0 || video.videoHeight === 0) return null;
+
       const aspectRatio = video.videoWidth / video.videoHeight;
       canvas.width = 1200;
       canvas.height = 1200 / aspectRatio;
@@ -390,7 +399,7 @@ function EditSnaggingContent() {
                         </SelectTrigger>
                         <SelectContent>
                         <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {subContractors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
                     <Button type="button" onClick={handleAddItem} size="icon"><Plus className="h-4 w-4" /></Button>
@@ -403,21 +412,37 @@ function EditSnaggingContent() {
                     return (
                         <div key={listItem.id} className="p-4 border rounded-lg bg-muted/10 space-y-3 group transition-all hover:border-primary/20">
                         <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 flex-1 min-w-0">
                             <button 
                                 onClick={() => setItems(items.map(i => i.id === listItem.id ? { ...i, status: i.status === 'open' ? 'closed' : 'open' } : i))}
-                                className="mt-1"
+                                className="mt-1 flex-shrink-0"
                             >
                                 {listItem.status === 'closed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
                             </button>
-                            <div>
-                                <p className={cn("font-medium", listItem.status === 'closed' && "line-through text-muted-foreground")}>{listItem.description}</p>
-                                {sub && <Badge variant="secondary" className="mt-1 text-[10px] gap-1 font-bold bg-primary/10 text-primary"><User className="h-2 w-2" /> {sub.name}</Badge>}
+                            <div className="flex-1 min-w-0">
+                                <p className={cn("font-medium break-words", listItem.status === 'closed' && "line-through text-muted-foreground")}>{listItem.description}</p>
+                                <div className="mt-1">
+                                  <Select 
+                                    value={listItem.subContractorId || 'unassigned'} 
+                                    onValueChange={(val) => setItems(items.map(i => i.id === listItem.id ? { ...i, subContractorId: val === 'unassigned' ? undefined : val } : i))}
+                                  >
+                                    <SelectTrigger className="h-5 w-auto inline-flex text-[10px] bg-primary/5 text-primary border-primary/10 hover:bg-primary/10 px-2 py-0 gap-1 rounded-full font-bold uppercase tracking-tight shadow-none border-none">
+                                      <User className="h-2 w-2" />
+                                      <SelectValue placeholder="Assign Partner" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="unassigned" className="text-xs">Unassigned</SelectItem>
+                                      {projectSubs.map(s => (
+                                        <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                             </div>
                             </div>
-                            <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => setItemPhotoTargetId(listItem.id)} className="text-primary"><Camera className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" onClick={() => setItems(items.filter(i => i.id !== listItem.id))} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                            <div className="flex items-center gap-1 shrink-0">
+                            <Button variant="ghost" size="icon" onClick={() => setItemPhotoTargetId(listItem.id)} className="text-primary h-8 w-8"><Camera className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" onClick={() => setItems(items.filter(i => i.id !== listItem.id))} className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
                             </div>
                         </div>
 
@@ -556,7 +581,7 @@ function EditSnaggingContent() {
                       <div className="space-y-3 pt-2">
                           <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest px-1'>Point-in-Time Status</p>
                           {viewingHistoryRecord?.items.map((histItem) => {
-                              const sub = subContractors.find(s => s.id === histItem.subContractorId);
+                              const sub = subContractors?.find(s => s.id === histItem.subContractorId);
                               return (
                                   <div key={histItem.id} className="p-3 border rounded-lg bg-background shadow-sm space-y-3">
                                       <div className="flex items-start justify-between">

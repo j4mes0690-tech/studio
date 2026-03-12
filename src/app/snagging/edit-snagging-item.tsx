@@ -133,7 +133,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const selectedSub = useMemo(() => projectSubs.find(s => s.id === pendingSubId), [projectSubs, pendingSubId]);
@@ -317,6 +317,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
       setNewItemText('');
       setPendingItemPhotos([]);
       setPendingSubId(undefined);
+      setIsItemCameraOpen(false);
     }
   };
 
@@ -363,7 +364,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                                 />
                                 <div className="flex gap-1">
                                   <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
-                                      <SelectTrigger className={cn("px-2 flex items-center gap-2 transition-all", pendingSubId ? "w-auto min-w-[40px]" : "w-10 justify-center")}>
+                                      <SelectTrigger className={cn("px-2 flex items-center gap-2 border-none h-11 transition-all", pendingSubId ? "w-auto min-w-[40px]" : "w-10 justify-center")}>
                                           {selectedSub ? (
                                               <Badge variant="secondary" className="h-6 text-[9px] font-black bg-primary/10 text-primary border-primary/20 max-w-[80px] truncate uppercase tracking-tighter">
                                                   {selectedSub.name}
@@ -401,17 +402,33 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
 
                             <div className="space-y-3">
                                 {items.map((listItem, idx) => {
-                                    const sub = subContractors.find(s => s.id === listItem.subContractorId);
+                                    const sub = subContractors?.find(s => s.id === listItem.subContractorId);
                                     return (
                                         <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 group">
                                             <div className="flex items-start justify-between">
-                                                <div className="flex flex-col gap-1">
+                                                <div className="flex flex-col gap-1 min-w-0 flex-1">
                                                     <span className={cn("text-sm font-medium", listItem.status === 'closed' && "line-through text-muted-foreground")}>{listItem.description}</span>
-                                                    {sub && <Badge variant="secondary" className="w-fit text-[10px] gap-1"><User className="h-2 w-2" /> {sub.name}</Badge>}
+                                                    <div className="mt-1">
+                                                      <Select 
+                                                        value={listItem.subContractorId || 'unassigned'} 
+                                                        onValueChange={(val) => setItems(items.map(i => i.id === listItem.id ? { ...i, subContractorId: val === 'unassigned' ? undefined : val } : i))}
+                                                      >
+                                                        <SelectTrigger className="h-5 w-auto inline-flex text-[10px] bg-primary/5 text-primary border-primary/10 hover:bg-primary/10 px-2 py-0 gap-1 rounded-full font-bold uppercase tracking-tight shadow-none border-none">
+                                                          <User className="h-2 w-2" />
+                                                          <SelectValue placeholder="Assign Partner" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                          <SelectItem value="unassigned" className="text-xs">Unassigned</SelectItem>
+                                                          {projectSubs.map(s => (
+                                                            <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
+                                                          ))}
+                                                        </SelectContent>
+                                                      </Select>
+                                                    </div>
                                                 </div>
-                                                <div className="flex gap-1 items-center">
-                                                    <Button type="button" variant="ghost" size="icon" className="text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => setItems(items.filter(i => i.id !== listItem.id))}><Trash2 className="h-4 w-4" /></Button>
+                                                <div className="flex gap-1 items-center shrink-0">
+                                                    <Button type="button" variant="ghost" size="icon" className="text-primary h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                                    <Button type="button" variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => setItems(items.filter(i => i.id !== listItem.id))}><Trash2 className="h-4 w-4" /></Button>
                                                 </div>
                                             </div>
                                             {(listItem.photos?.length || 0) > 0 && <div className="flex gap-2 mt-2">{listItem.photos?.map((p, pIdx) => <div key={pIdx} className="relative w-10 h-10"><Image src={p.url} alt="D" fill className="rounded object-cover border" /></div>)}</div>}
@@ -575,7 +592,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: EditSnaggin
                       <div className="space-y-3 pt-2">
                           <p className='text-xs font-bold text-muted-foreground uppercase tracking-widest px-1'>Point-in-Time Status</p>
                           {viewingHistoryRecord?.items.map((histItem) => {
-                              const sub = subContractors.find(s => s.id === histItem.subContractorId);
+                              const sub = subContractors?.find(s => s.id === histItem.subContractorId);
                               return (
                                   <div key={histItem.id} className="p-3 border rounded-lg bg-background shadow-sm space-y-3">
                                       <div className="flex items-start justify-between">
