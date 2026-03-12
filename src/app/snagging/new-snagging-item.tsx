@@ -173,6 +173,10 @@ export function NewSnaggingItem({ projects, subContractors }: { projects: Projec
     }
   };
 
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
   const handleAddItem = () => {
     if (newItemText.trim() || pendingItemPhotos.length > 0) {
       setItems([...items, { 
