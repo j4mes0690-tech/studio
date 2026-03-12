@@ -12,6 +12,30 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
+/**
+ * toDataUri - Helper to convert external URLs to Data URIs for reliable PDF embedding.
+ */
+const toDataUri = (url: string): Promise<string> => {
+  if (url.startsWith('data:')) return Promise.resolve(url);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+    img.onerror = () => {
+      console.warn("PDF Generation: Image load failed", url);
+      resolve(''); 
+    };
+    img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+  });
+};
+
 export function PdfReportButton({
   item,
   project,
@@ -29,7 +53,21 @@ export function PdfReportButton({
       const { jsPDF } = await import('jspdf');
       const html2canvas = (await import('html2canvas')).default;
 
+      // 1. Pre-convert all images to avoid CORS issues in PDF rendering
+      const generalPhotoData = await Promise.all((item.photos || []).map(async p => ({
+        ...p,
+        dataUrl: await toDataUri(p.url)
+      })));
+
+      const itemsWithDataUrls = await Promise.all(item.items.map(async i => {
+        const photos = await Promise.all((i.photos || []).map(async p => await toDataUri(p.url)));
+        const completionPhotos = await Promise.all((i.completionPhotos || []).map(async p => await toDataUri(p.url)));
+        return { ...i, dataUrlPhotos: photos.filter(Boolean), dataUrlCompletion: completionPhotos.filter(Boolean) };
+      }));
+
       const reportElement = document.createElement('div');
+      reportElement.style.position = 'absolute';
+      reportElement.style.left = '-9999px';
       reportElement.style.padding = '40px';
       reportElement.style.width = '800px';
       reportElement.style.background = 'white';
@@ -69,10 +107,10 @@ export function PdfReportButton({
         <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Defect Log</h2>
         
         <div style="margin-bottom: 40px;">
-          ${item.items.map(listItem => {
+          ${itemsWithDataUrls.map(listItem => {
             const sub = subContractors.find(s => s.id === listItem.subContractorId);
-            const hasIssuePhotos = listItem.photos && listItem.photos.length > 0;
-            const hasCompletionPhotos = listItem.completionPhotos && listItem.completionPhotos.length > 0;
+            const hasIssuePhotos = listItem.dataUrlPhotos.length > 0;
+            const hasCompletionPhotos = listItem.dataUrlCompletion.length > 0;
             
             return `
               <div style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 25px; overflow: hidden; page-break-inside: avoid;">
@@ -90,9 +128,9 @@ export function PdfReportButton({
                   ${hasIssuePhotos ? `
                     <p style="margin: 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 8px;">Issue Photos</p>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 15px;">
-                      ${listItem.photos!.map(p => `
+                      ${listItem.dataUrlPhotos.map(url => `
                         <div style="border: 1px solid #f1f5f9; border-radius: 4px; overflow: hidden;">
-                          <img src="${p.url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
+                          <img src="${url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
                         </div>
                       `).join('')}
                     </div>
@@ -101,9 +139,9 @@ export function PdfReportButton({
                   ${hasCompletionPhotos ? `
                     <p style="margin: 0; font-size: 9px; font-weight: bold; color: #16a34a; text-transform: uppercase; margin-bottom: 8px;">Completion Evidence</p>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                      ${listItem.completionPhotos!.map(p => `
+                      ${listItem.dataUrlCompletion.map(url => `
                         <div style="border: 2px solid #dcfce7; border-radius: 4px; overflow: hidden;">
-                          <img src="${p.url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
+                          <img src="${url}" style="width: 100%; height: 120px; object-fit: cover; display: block;" />
                         </div>
                       `).join('')}
                     </div>
@@ -114,12 +152,12 @@ export function PdfReportButton({
           }).join('')}
         </div>
 
-        ${item.photos && item.photos.length > 0 ? `
+        ${generalPhotoData.length > 0 ? `
           <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">General Site Photos</h2>
           <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; page-break-inside: avoid;">
-            ${item.photos.map(p => `
+            ${generalPhotoData.map(p => `
               <div style="border: 1px solid #e2e8f0; padding: 10px; border-radius: 8px;">
-                <img src="${p.url}" style="width: 100%; border-radius: 4px; object-fit: cover; aspect-ratio: 4/3; display: block;" />
+                <img src="${p.dataUrl}" style="width: 100%; border-radius: 4px; object-fit: cover; aspect-ratio: 4/3; display: block;" />
                 <p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b;">Captured: ${new Date(p.takenAt).toLocaleString()}</p>
               </div>
             `).join('')}
@@ -128,7 +166,7 @@ export function PdfReportButton({
       `;
 
       document.body.appendChild(reportElement);
-      const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
+      const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();

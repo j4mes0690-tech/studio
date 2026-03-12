@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -25,10 +26,26 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 
 /**
- * ProjectReportButton - A reporting center accessible from the Snagging Log.
- * Allows generating aggregated PDF reports across multiple lists for a project.
- * Supports distributing reports to selected partners.
+ * toDataUri - Helper to convert external URLs to Data URIs for reliable PDF embedding.
  */
+const toDataUri = (url: string): Promise<string> => {
+  if (url.startsWith('data:')) return Promise.resolve(url);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx?.drawImage(img, 0, 0);
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    };
+    img.onerror = () => resolve(''); 
+    img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+  });
+};
+
 export function ProjectReportButton({
   projects,
   allSnaggingLists,
@@ -97,8 +114,8 @@ export function ProjectReportButton({
       const { jsPDF } = await import('jspdf');
       const html2canvas = (await import('html2canvas')).default;
 
+      // Filter and aggregate data
       let aggregatedItems: { listTitle: string, areaName: string, snag: any }[] = [];
-      
       projectLists.forEach(list => {
         const area = activeProject.areas?.find(a => a.id === list.areaId);
         list.items.forEach(item => {
@@ -117,6 +134,19 @@ export function ProjectReportButton({
         setIsDistributing(false);
         return;
       }
+
+      // 1. Bulk convert all images to Data URIs for this aggregated report
+      toast({ title: "Processing Images", description: "Standardizing visual evidence for PDF rendering..." });
+      
+      const processedItems = await Promise.all(aggregatedItems.map(async (entry) => {
+        const photos = await Promise.all((entry.snag.photos || []).map(async p => await toDataUri(p.url)));
+        const completionPhotos = await Promise.all((entry.snag.completionPhotos || []).map(async p => await toDataUri(p.url)));
+        return {
+          ...entry,
+          dataUrlPhotos: photos.filter(Boolean),
+          dataUrlCompletion: completionPhotos.filter(Boolean)
+        };
+      }));
 
       const reportElement = document.createElement('div');
       reportElement.style.position = 'absolute';
@@ -148,7 +178,7 @@ export function ProjectReportButton({
         </div>
 
         <div style="margin-bottom: 40px;">
-          ${aggregatedItems.map(({ listTitle, areaName, snag }) => {
+          ${processedItems.map(({ listTitle, areaName, snag, dataUrlPhotos, dataUrlCompletion }) => {
             const itemSub = subContractors.find(s => s.id === snag.subContractorId);
             return `
               <div style="border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px; overflow: hidden; page-break-inside: avoid;">
@@ -163,10 +193,10 @@ export function ProjectReportButton({
                   </div>
                 </div>
                 <div style="padding: 12px;">
-                  ${(snag.photos && snag.photos.length > 0) || (snag.completionPhotos && snag.completionPhotos.length > 0) ? `
+                  ${(dataUrlPhotos.length > 0 || dataUrlCompletion.length > 0) ? `
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                      ${(snag.photos || []).map(p => `<img src="${p.url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px;" />`).join('')}
-                      ${(snag.completionPhotos || []).map(p => `<img src="${p.url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 2px solid #dcfce7;" />`).join('')}
+                      ${dataUrlPhotos.map(url => `<img src="${url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px;" />`).join('')}
+                      ${dataUrlCompletion.map(url => `<img src="${url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 2px solid #dcfce7;" />`).join('')}
                     </div>
                   ` : '<p style="margin: 0; font-size: 10px; color: #94a3b8; font-style: italic;">No visual evidence recorded.</p>'}
                 </div>
@@ -181,7 +211,7 @@ export function ProjectReportButton({
       `;
 
       document.body.appendChild(reportElement);
-      const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
+      const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -397,7 +427,6 @@ export function ProjectReportButton({
             </>
           )}
 
-          {/* Action Area: Now integrated into the scrollable div */}
           <div className="pt-8 border-t flex flex-col sm:flex-row gap-3">
             <Button 
               variant="ghost" 
