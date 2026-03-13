@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -39,7 +40,9 @@ import {
   ClipboardCheck,
   Undo2,
   Send,
-  Clock
+  Clock,
+  Pencil,
+  Settings2
 } from 'lucide-react';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
@@ -50,9 +53,9 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
-import { ClientDate } from '@/components/client-date';
+import { ClientDate } from '../../components/client-date';
 import { cn } from '@/lib/utils';
-import { useTransition, useState, useRef, useEffect } from 'react';
+import { useTransition, useState, useRef, useEffect, useMemo } from 'react';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection, useStorage } from '@/firebase';
 import { doc, updateDoc, deleteDoc, collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -77,6 +80,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -84,6 +88,9 @@ import { ImageLightbox } from '@/components/image-lightbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EditSnaggingItem } from './edit-snagging-item';
 
 type SnaggingItemCardProps = {
   item: SnaggingItem;
@@ -121,9 +128,17 @@ export function SnaggingItemCard({
   const [viewingHistoryRecord, setViewingHistoryRecord] = useState<SnaggingHistoryRecord | null>(null);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
+  // Resolution State
   const [completingItem, setCompletingItem] = useState<SnaggingListItem | null>(null);
   const [completionPhotos, setCompletionPhotos] = useState<Photo[]>([]);
   const [completionComment, setCompletionComment] = useState('');
+  
+  // Edit Specific Item State
+  const [managingItem, setManagingItem] = useState<SnaggingListItem | null>(null);
+  const [managedDescription, setManagedDescription] = useState('');
+  const [managedSubId, setManagedSubId] = useState<string | undefined>(undefined);
+
+  // Camera State
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
@@ -134,6 +149,12 @@ export function SnaggingItemCard({
   const totalItems = item.items?.length || 0;
   const closedItems = item.items?.filter(i => i.status === 'closed').length || 0;
   const isComplete = totalItems > 0 && totalItems === closedItems;
+
+  const projectSubs = useMemo(() => {
+    if (!project) return [];
+    const assignedIds = project.assignedSubContractors || [];
+    return subContractors.filter(sub => assignedIds.includes(sub.id));
+  }, [project, subContractors]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -195,7 +216,7 @@ export function SnaggingItemCard({
             };
             if (status === 'closed') {
               updates.closedAt = new Date().toISOString();
-              updates.completionPhotos = uploadedPhotos; // Internal sign-off includes photos directly
+              updates.completionPhotos = uploadedPhotos;
             } else if (status === 'provisionally-complete') {
               updates.provisionallyCompletedAt = new Date().toISOString();
               updates.completionPhotos = uploadedPhotos;
@@ -230,6 +251,42 @@ export function SnaggingItemCard({
     });
   };
 
+  const handleUpdateItemDetails = () => {
+    if (!managingItem) return;
+    startTransition(async () => {
+      try {
+        const updatedItems = item.items.map(i => {
+          if (i.id === managingItem.id) {
+            return {
+              ...i,
+              description: managedDescription,
+              subContractorId: managedSubId || null
+            };
+          }
+          return i;
+        });
+
+        const docRef = doc(db, 'snagging-items', item.id);
+        await updateDoc(docRef, { items: updatedItems });
+        
+        const historyCol = collection(db, 'snagging-items', item.id, 'history');
+        await addDoc(historyCol, {
+          timestamp: new Date().toISOString(),
+          updatedBy: profile?.name || 'System User', 
+          items: updatedItems,
+          totalCount: updatedItems.length,
+          closedCount: updatedItems.filter(i => i.status === 'closed').length,
+          summary: `Defect metadata updated: ${managedDescription}`
+        });
+
+        toast({ title: 'Record Updated', description: 'Item details saved.' });
+        setManagingItem(null);
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to save changes.', variant: 'destructive' });
+      }
+    });
+  };
+
   const handleToggleStatus = (subItem: SnaggingListItem) => {
     if (subItem.status === 'open') {
       setCompletingItem(subItem);
@@ -237,18 +294,14 @@ export function SnaggingItemCard({
       setCompletionComment('');
       setIsCameraOpen(false);
     } else if (subItem.status === 'provisionally-complete' && isInternal) {
-      // Internal user signs off partner submission
       updateItemOnServer(subItem.id, 'closed', subItem.completionPhotos || [], subItem.subContractorComment);
     } else if (isInternal) {
-      // Re-open if internal clicks a closed item
       updateItemOnServer(subItem.id, 'open', [], '');
     }
   };
 
   const finalizeCompletion = () => {
     if (completingItem) {
-      // IF internal signs off or takes a picture, it automatically closes.
-      // IF partner signs off, it goes to provisional.
       const targetStatus = isInternal ? 'closed' : 'provisionally-complete';
       updateItemOnServer(completingItem.id, targetStatus, completionPhotos, completionComment);
       setCompletingItem(null);
@@ -276,6 +329,12 @@ export function SnaggingItemCard({
 
   const toggleCamera = () => {
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
+  const openManageDialog = (subItem: SnaggingListItem) => {
+    setManagingItem(subItem);
+    setManagedDescription(subItem.description);
+    setManagedSubId(subItem.subContractorId);
   };
 
   return (
@@ -315,6 +374,10 @@ export function SnaggingItemCard({
                 <PdfReportButton item={item} project={project} subContractors={subContractors} />
                 <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
               </div>
+
+              {isInternal && (
+                <EditSnaggingItem item={item} projects={projects} subContractors={subContractors} />
+              )}
               
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -365,7 +428,13 @@ export function SnaggingItemCard({
                                       )}
                                   </div>
                                   <div className="flex flex-col min-w-0">
-                                      <span className={cn("text-xs md:text-sm font-semibold leading-snug break-words", subItem.status === 'closed' && "line-through text-muted-foreground")}>
+                                      <span 
+                                        className={cn(
+                                            "text-xs md:text-sm font-semibold leading-snug break-words cursor-pointer hover:text-primary transition-colors", 
+                                            subItem.status === 'closed' && "line-through text-muted-foreground"
+                                        )}
+                                        onClick={() => isInternal && openManageDialog(subItem)}
+                                      >
                                           {subItem.description}
                                       </span>
                                       {sub && (
@@ -387,9 +456,16 @@ export function SnaggingItemCard({
                                   
                                   <div className="flex flex-wrap gap-1 justify-end">
                                       {subItem.status === 'open' && (
-                                          <Button size="sm" variant="outline" className="h-6 text-[9px] font-bold px-2" onClick={() => handleToggleStatus(subItem)} disabled={isPending}>
-                                              Update
-                                          </Button>
+                                          <>
+                                            <Button size="sm" variant="outline" className="h-6 text-[9px] font-bold px-2" onClick={() => handleToggleStatus(subItem)} disabled={isPending}>
+                                                Update
+                                            </Button>
+                                            {isInternal && (
+                                                <Button size="sm" variant="ghost" className="h-6 text-[9px] font-bold px-2 hover:bg-primary/5" onClick={() => openManageDialog(subItem)}>
+                                                    <Pencil className="h-2.5 w-2.5 mr-1" /> Edit
+                                                </Button>
+                                            )}
+                                          </>
                                       )}
                                       {subItem.status === 'provisionally-complete' && isInternal && (
                                           <>
@@ -525,6 +601,7 @@ export function SnaggingItemCard({
         </CardContent>
       </Card>
 
+      {/* Item Resolution Dialog */}
       <Dialog open={!!completingItem} onOpenChange={() => setCompletingItem(null)}>
         <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto rounded-xl p-4 md:p-6">
           <DialogHeader className="mb-4">
@@ -586,6 +663,47 @@ export function SnaggingItemCard({
           </DialogFooter>
           <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => { const files = e.target.files; if (!files) return; Array.from(files).forEach(f => { const reader = new FileReader(); reader.onload = (re) => setCompletionPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]); reader.readAsDataURL(f); }); }} />
           <canvas ref={canvasRef} className="hidden" />
+        </DialogContent>
+      </Dialog>
+
+      {/* Item Metadata Management Dialog */}
+      <Dialog open={!!managingItem} onOpenChange={() => setManagingItem(null)}>
+        <DialogContent className="w-[95vw] sm:max-w-md rounded-xl p-6">
+          <DialogHeader>
+            <div className="flex items-center gap-2 text-primary font-bold mb-1">
+                <Settings2 className="h-5 w-5" />
+                <DialogTitle>Manage Defect</DialogTitle>
+            </div>
+            <DialogDescription>Modify the description or re-assign this item.</DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Description</Label>
+                <Input value={managedDescription} onChange={e => setManagedDescription(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Lead Trade Partner</Label>
+                <Select value={managedSubId || 'unassigned'} onValueChange={val => setManagedSubId(val === 'unassigned' ? undefined : val)}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select contractor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                        {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-3 sm:gap-0">
+            <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setManagingItem(null)}>Cancel</Button>
+            <Button className="font-bold shadow-lg shadow-primary/20" onClick={handleUpdateItemDetails} disabled={isPending}>
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                Save Changes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
