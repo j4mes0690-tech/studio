@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -99,22 +98,24 @@ export function NewTaskDialog({
       const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
       
       if (selectedPredecessors.length > 0) {
-        // Find the latest finish date among all predecessors
-        // Finish Date = Start Date + Duration
+        // Find the latest finish date among all selected predecessors
         const latestFinishDate = selectedPredecessors.reduce((latest, current) => {
           try {
             const taskStart = parseISO(current.startDate);
             if (!isValid(taskStart)) return latest;
             
-            const finishDate = addDays(taskStart, current.durationDays);
-            return !latest || finishDate > latest ? finishDate : latest;
+            // Logic: Successor starts the day AFTER predecessor finishes
+            // If actual completion date is known, use that as the anchor
+            const effectiveFinish = current.actualCompletionDate ? parseISO(current.actualCompletionDate) : addDays(taskStart, current.durationDays - 1);
+            const nextStart = addDays(effectiveFinish, 1);
+
+            return !latest || nextStart > latest ? nextStart : latest;
           } catch (e) {
             return latest;
           }
         }, null as Date | null);
 
         if (latestFinishDate) {
-          // Default start date is the day AFTER the latest predecessor finishes
           form.setValue('startDate', format(latestFinishDate, 'yyyy-MM-dd'));
         }
       }
@@ -140,8 +141,11 @@ export function NewTaskDialog({
           })
         );
 
-        const taskData = {
+        const taskData: Omit<PlannerTask, 'id'> = {
           ...values,
+          originalStartDate: values.startDate,
+          originalDurationDays: values.durationDays,
+          actualCompletionDate: null,
           status: 'pending',
           photos: uploadedPhotos,
           createdAt: new Date().toISOString(),

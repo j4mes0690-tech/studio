@@ -250,8 +250,11 @@ export type PlannerTask = {
   areaId: string;
   title: string;
   tradeId: string;
-  startDate: string; // ISO Date
+  startDate: string; // Current Forecast ISO Date
   durationDays: number;
+  originalStartDate: string; // Initial baseline
+  originalDurationDays: number; // Initial baseline
+  actualCompletionDate?: string | null; // Final actual date
   predecessorIds: string[];
   status: PlannerTaskStatus;
   createdAt: string;

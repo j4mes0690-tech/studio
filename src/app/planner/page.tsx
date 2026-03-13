@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -15,6 +14,7 @@ import { useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { GanttChart } from './gantt-chart';
 import { NewTaskDialog } from './new-task';
+import { EditTaskDialog } from './edit-task';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ImageLightbox } from '@/components/image-lightbox';
@@ -28,6 +28,7 @@ function PlannerContent() {
   const [isPending, startTransition] = useTransition();
   const [isGanttView, setIsGanttView] = useState(true);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
 
   // Filters
   const projectFilter = searchParams.get('project') || 'all';
@@ -80,19 +81,10 @@ function PlannerContent() {
 
   const currentProject = useMemo(() => allProjects?.find(p => p.id === projectFilter), [allProjects, projectFilter]);
 
-  const handleDeleteTask = (id: string) => {
-    startTransition(async () => {
-      await deleteDoc(doc(db, 'planner-tasks', id));
-      toast({ title: 'Task Removed', description: 'Schedule item deleted.' });
-    });
-  };
-
-  const handleToggleStatus = (task: PlannerTask) => {
-    startTransition(async () => {
-      const nextStatus = task.status === 'completed' ? 'pending' : task.status === 'in-progress' ? 'completed' : 'in-progress';
-      await updateDoc(doc(db, 'planner-tasks', task.id), { status: nextStatus });
-    });
-  };
+  const editingTask = useMemo(() => {
+    if (!editingTaskId || !allTasks) return null;
+    return allTasks.find(t => t.id === editingTaskId);
+  }, [editingTaskId, allTasks]);
 
   if (tasksLoading || !profile) {
     return (
@@ -175,7 +167,7 @@ function PlannerContent() {
 
         {isGanttView ? (
             <div className="overflow-x-auto pb-8">
-                <GanttChart tasks={filteredTasks} trades={allTrades || []} />
+                <GanttChart tasks={filteredTasks} trades={allTrades || []} projects={allowedProjects} />
             </div>
         ) : (
             <div className="grid gap-4">
@@ -186,12 +178,12 @@ function PlannerContent() {
                     const area = project?.areas?.find(a => a.id === task.areaId);
                     
                     return (
-                        <Card key={task.id} className="hover:border-primary transition-all overflow-hidden">
+                        <Card key={task.id} className="hover:border-primary transition-all overflow-hidden cursor-pointer" onClick={() => setEditingTaskId(task.id)}>
                             <CardContent className="p-0 flex flex-col sm:flex-row items-stretch">
                                 <div className="p-4 flex flex-1 items-start gap-3 min-w-0">
-                                    <button onClick={() => handleToggleStatus(task)} className="mt-1">
+                                    <div className="mt-1">
                                         {task.status === 'completed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : task.status === 'in-progress' ? <Loader2 className="h-5 w-5 text-primary animate-spin" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
-                                    </button>
+                                    </div>
                                     <div className="space-y-2 min-w-0 flex-1">
                                         <div className="space-y-1">
                                             <p className={cn("font-bold truncate text-base", task.status === 'completed' && "line-through text-muted-foreground")}>{task.title}</p>
@@ -204,7 +196,7 @@ function PlannerContent() {
                                         {task.photos && task.photos.length > 0 && (
                                             <div className="flex gap-2 flex-wrap pt-1">
                                                 {task.photos.map((p, idx) => (
-                                                    <div key={idx} className="relative w-12 h-12 rounded-md border bg-muted overflow-hidden group cursor-pointer" onClick={() => setViewingPhoto(p)}>
+                                                    <div key={idx} className="relative w-12 h-12 rounded-md border bg-muted overflow-hidden group cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
                                                         <Image src={p.url} alt="Task Context" fill className="object-cover" />
                                                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                                                             <Maximize2 className="h-3 w-3 text-white" />
@@ -217,16 +209,13 @@ function PlannerContent() {
                                 </div>
                                 <div className="p-4 bg-muted/10 border-t sm:border-t-0 sm:border-l flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-4 shrink-0">
                                     <div className="text-right">
-                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Target Start</p>
+                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Forecast Start</p>
                                         <p className="text-xs font-bold">{new Date(task.startDate).toLocaleDateString()}</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Duration</p>
                                         <p className="text-xs font-bold">{task.durationDays} Days</p>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 hover:bg-destructive/10" onClick={() => handleDeleteTask(task.id)}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
                                 </div>
                             </CardContent>
                         </Card>
@@ -242,6 +231,18 @@ function PlannerContent() {
             </div>
         )}
         </div>
+
+        {editingTask && (
+            <EditTaskDialog 
+                task={editingTask} 
+                projects={allowedProjects} 
+                trades={allTrades || []} 
+                allTasks={allTasks || []} 
+                open={!!editingTaskId} 
+                onOpenChange={(open) => !open && setEditingTaskId(null)} 
+            />
+        )}
+
         <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
   );
