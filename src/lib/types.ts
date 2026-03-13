@@ -1,4 +1,3 @@
-
 export type Area = {
   id: string;
   name: string;
@@ -256,6 +255,7 @@ export type PlannerTask = {
   predecessorIds: string[];
   status: PlannerTaskStatus;
   createdAt: string;
+  photos?: Photo[];
 };
 
 // --- IRS MODULE TYPES ---

@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -26,14 +27,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Loader2, Save, HardHat, Layers, Calendar, Link as LinkIcon } from 'lucide-react';
-import type { Project, Trade, PlannerTask } from '@/lib/types';
-import { useFirestore } from '@/firebase';
+import { PlusCircle, Loader2, Save, HardHat, Layers, Calendar, Link as LinkIcon, Camera, Upload, X, RefreshCw } from 'lucide-react';
+import type { Project, Trade, PlannerTask, Photo } from '@/lib/types';
+import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 
 const NewTaskSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -63,7 +65,15 @@ export function NewTaskDialog({
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
+  const storage = useStorage();
   const [isPending, startTransition] = useTransition();
+
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<NewTaskFormValues>({
     resolver: zodResolver(NewTaskSchema),
@@ -82,7 +92,6 @@ export function NewTaskDialog({
   const selectedAreaId = form.watch('areaId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
 
-  // Tasks that could potentially be predecessors (same area, same project)
   const potentialPredecessors = useMemo(() => {
     if (!selectedProjectId || !selectedAreaId) return [];
     return allTasks.filter(t => t.projectId === selectedProjectId && t.areaId === selectedAreaId);
@@ -91,15 +100,34 @@ export function NewTaskDialog({
   const onSubmit = (values: NewTaskFormValues) => {
     startTransition(async () => {
       try {
+        const uploadedPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `planner/tasks/${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
+
         const taskData = {
           ...values,
           status: 'pending',
+          photos: uploadedPhotos,
           createdAt: new Date().toISOString(),
         };
 
         await addDoc(collection(db, 'planner-tasks'), taskData);
-        toast({ title: 'Task Scheduled', description: 'Item added to property walkthrough.' });
-        setOpen(false);
+        toast({ title: 'Task Logged', description: 'Schedule updated. Form remains open for next item.' });
+        
+        // Reset form for next task addition
+        form.reset({
+            ...values,
+            title: '',
+            predecessorIds: [],
+        });
+        setPhotos([]);
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to schedule task.', variant: 'destructive' });
       }
@@ -117,8 +145,38 @@ export function NewTaskDialog({
             durationDays: 1,
             predecessorIds: [],
         });
+        setPhotos([]);
     }
   }, [open, initialProjectId, initialAreaId, form]);
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const getCameraPermission = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (err) {}
+    };
+    if (isCameraOpen) getCameraPermission();
+    return () => stream?.getTracks().forEach(t => t.stop());
+  }, [isCameraOpen, facingMode]);
+
+  const capturePhoto = async () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      const aspectRatio = video.videoWidth / video.videoHeight;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const raw = canvas.toDataURL('image/jpeg', 0.85);
+      const optimized = await optimizeImage(raw);
+      setPhotos([...photos, { url: optimized, takenAt: new Date().toISOString() }]);
+      setIsCameraOpen(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -127,8 +185,8 @@ export function NewTaskDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Schedule Site Activity</DialogTitle>
-          <DialogDescription>Define a piece of work identified during your property walkthrough.</DialogDescription>
+          <DialogTitle>Quick Walkthrough: Log Activity</DialogTitle>
+          <DialogDescription>Define a work item. The form stays open for multiple additions.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -157,13 +215,16 @@ export function NewTaskDialog({
             </div>
 
             <FormField control={form.control} name="title" render={({ field }) => (
-              <FormItem><FormLabel>Task Description</FormLabel><FormControl><Input placeholder="e.g. Install wall boarding" {...field} /></FormControl></FormItem>
+              <FormItem>
+                <FormLabel>Activity Description</FormLabel>
+                <FormControl><Input placeholder="e.g. Install wall boarding" {...field} /></FormControl>
+              </FormItem>
             )} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="tradeId" render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="flex items-center gap-2"><HardHat className="h-4 w-4 text-primary" /> Trade Responsible</FormLabel>
+                        <FormLabel className="flex items-center gap-2"><HardHat className="h-4 w-4 text-primary" /> Responsible Trade</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Choose trade" /></SelectTrigger></FormControl>
                             <SelectContent>{trades.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -178,6 +239,34 @@ export function NewTaskDialog({
                         <FormItem><FormLabel>Days</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl></FormItem>
                     )} />
                 </div>
+            </div>
+
+            <div className="space-y-4">
+                <FormLabel className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Site Evidence / Photos</FormLabel>
+                <div className="flex flex-wrap gap-2">
+                    {photos.map((p, i) => (
+                        <div key={i} className="relative w-20 h-20 rounded border overflow-hidden">
+                            <Image src={p.url} alt="Context" fill className="object-cover" />
+                            <button type="button" className="absolute top-0 right-0 bg-destructive text-white p-0.5" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}>
+                                <X className="h-3 w-3" />
+                            </button>
+                        </div>
+                    ))}
+                    <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => setIsCameraOpen(true)}>
+                        <Camera className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-[8px] font-bold">Photo</span>
+                    </Button>
+                </div>
+                {isCameraOpen && (
+                    <div className="space-y-2 border rounded-md p-2 bg-muted/30">
+                        <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
+                        <div className="flex gap-2">
+                            <Button type="button" size="sm" onClick={capturePhoto}>Capture</Button>
+                            <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="space-y-3">
@@ -210,20 +299,21 @@ export function NewTaskDialog({
                             )}
                         />
                     )) : (
-                        <p className="text-[10px] text-muted-foreground italic text-center py-8">No other tasks identified in this area yet.</p>
+                        <p className="text-[10px] text-muted-foreground italic text-center py-8">No other tasks in this area yet.</p>
                     )}
                 </ScrollArea>
-                <FormDescription className="text-[10px]">Tasks selected here must be completed before the new task can start.</FormDescription>
             </div>
 
-            <DialogFooter>
-              <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                Save Task to Walkthrough
+            <DialogFooter className="gap-3">
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>Finish Walkthrough</Button>
+              <Button type="submit" className="flex-1 h-12 text-lg font-bold" disabled={isPending}>
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                Add Task & Continue
               </Button>
             </DialogFooter>
           </form>
         </Form>
+        <canvas ref={canvasRef} className="hidden" />
       </DialogContent>
     </Dialog>
   );
