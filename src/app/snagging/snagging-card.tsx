@@ -86,6 +86,7 @@ import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
 import { EditSnaggingItem } from './edit-snagging-item';
 
 type SnaggingItemCardProps = {
