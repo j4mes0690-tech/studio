@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -34,7 +33,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown, History, Loader2, ExternalLink } from 'lucide-react';
+import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown, History, Loader2, ExternalLink, FileText, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SortKey = 'project' | 'area' | 'title' | 'date' | 'progress' | 'snapshots';
@@ -230,7 +229,7 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <div className='hidden sm:flex items-center gap-1'>
+          <div className='flex items-center gap-1'>
             <PdfReportButton item={item} project={project} subContractors={subContractors} />
             <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
           </div>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -31,7 +30,9 @@ import {
   FileSearch, 
   MapPin, 
   Clock,
-  Loader2
+  Loader2,
+  FileText,
+  Send
 } from 'lucide-react';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
@@ -167,7 +168,7 @@ export function SnaggingItemCard({
                   {isComplete ? "Ready" : `${closedItems}/${totalItems}`}
               </Badge>
               
-              <div className="hidden sm:flex items-center gap-1">
+              <div className="flex items-center gap-1">
                 <PdfReportButton item={item} project={project} subContractors={subContractors} />
                 <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
               </div>
@@ -197,7 +198,7 @@ export function SnaggingItemCard({
         </CardHeader>
         <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
           <div className="space-y-3 mb-4 bg-muted/20 p-3 md:p-4 rounded-lg border shadow-inner">
-              <div className="flex items-center justify-between items-center mb-1 md:mb-2">
+              <div className="flex items-center justify-between mb-1 md:mb-2">
                   <div className="flex items-center gap-2 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">
                       <ListChecks className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
                       <span>Items Summary</span>
