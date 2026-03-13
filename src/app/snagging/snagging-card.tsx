@@ -26,7 +26,6 @@ import {
   User, 
   Upload, 
   X, 
-  AlertTriangle, 
   Maximize2, 
   ExternalLink, 
   RefreshCw, 
@@ -36,13 +35,11 @@ import {
   FileSearch,
   Loader2,
   MapPin,
-  ClipboardCheck,
-  Undo2,
-  Send,
   Clock,
   Pencil,
   Settings2,
-  Save
+  Save,
+  Send
 } from 'lucide-react';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
@@ -80,10 +77,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
@@ -155,6 +150,19 @@ export function SnaggingItemCard({
     const assignedIds = project.assignedSubContractors || [];
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [project, subContractors]);
+
+  // Sort sub-items: Open first, then provisional, closed at the bottom
+  const sortedSubItems = useMemo(() => {
+    if (!item.items) return [];
+    return [...item.items].sort((a, b) => {
+      const statusWeight = {
+        'open': 0,
+        'provisionally-complete': 1,
+        'closed': 2
+      };
+      return statusWeight[a.status] - statusWeight[b.status];
+    });
+  }, [item.items]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -411,11 +419,11 @@ export function SnaggingItemCard({
                   <ListChecks className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
                   <span>Trade Verification</span>
               </div>
-              {item.items?.map((subItem) => {
+              {sortedSubItems?.map((subItem) => {
                   const sub = subContractors.find(s => s.id === subItem.subContractorId);
                   
                   return (
-                      <div key={subItem.id} className="space-y-2 p-2.5 md:p-3 rounded-lg bg-background border shadow-sm group">
+                      <div key={subItem.id} className="space-y-2 p-2.5 md:p-3 rounded-lg bg-background border shadow-sm group animate-in fade-in slide-in-from-bottom-1 duration-300">
                           <div className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-2.5 min-w-0">
                                   <div className="mt-0.5 flex-shrink-0">
