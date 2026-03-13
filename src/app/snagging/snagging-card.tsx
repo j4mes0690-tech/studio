@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -24,23 +25,13 @@ import {
   Circle, 
   Trash2, 
   User, 
-  Upload, 
-  X, 
   Maximize2, 
   ExternalLink, 
-  RefreshCw, 
   History, 
-  Check,
-  Eye,
-  FileSearch,
-  Loader2,
-  MapPin,
+  FileSearch, 
+  MapPin, 
   Clock,
-  Pencil,
-  Settings2,
-  Save,
-  Send,
-  AlertTriangle
+  Loader2
 } from 'lucide-react';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
@@ -53,9 +44,9 @@ import {
 } from '@/components/ui/carousel';
 import { ClientDate } from '../../components/client-date';
 import { cn } from '@/lib/utils';
-import { useTransition, useState, useRef, useEffect, useMemo } from 'react';
-import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection, useStorage } from '@/firebase';
-import { doc, updateDoc, deleteDoc, collection, addDoc, query, orderBy, arrayUnion } from 'firebase/firestore';
+import { useState, useMemo } from 'react';
+import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, deleteDoc, collection, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
@@ -79,15 +70,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { EditSnaggingItem } from './edit-snagging-item';
 
 type SnaggingItemCardProps = {
   item: SnaggingItem;
@@ -103,9 +87,7 @@ export function SnaggingItemCard({
   const project = projects.find((p) => p.id === item.projectId);
   const area = project?.areas?.find((a) => a.id === item.areaId);
   const db = useFirestore();
-  const storage = useStorage();
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
   const { user: sessionUser } = useUser();
 
   const profileRef = useMemoFirebase(() => {
@@ -113,8 +95,6 @@ export function SnaggingItemCard({
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
-
-  const isInternal = profile?.userType === 'internal' || !!profile?.permissions?.hasFullVisibility;
 
   const historyQuery = useMemoFirebase(() => {
     if (!db || !item.id) return null;
@@ -125,33 +105,9 @@ export function SnaggingItemCard({
   const [viewingHistoryRecord, setViewingHistoryRecord] = useState<SnaggingHistoryRecord | null>(null);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
-  // Resolution State
-  const [completingItem, setCompletingItem] = useState<SnaggingListItem | null>(null);
-  const [completionPhotos, setCompletionPhotos] = useState<Photo[]>([]);
-  const [completionComment, setCompletionComment] = useState('');
-  
-  // Edit Specific Item State
-  const [managingItem, setManagingItem] = useState<SnaggingListItem | null>(null);
-  const [managedDescription, setManagedDescription] = useState('');
-  const [managedSubId, setManagedSubId] = useState<string | undefined>(undefined);
-
-  // Camera State
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const totalItems = item.items?.length || 0;
   const closedItems = item.items?.filter(i => i.status === 'closed').length || 0;
   const isComplete = totalItems > 0 && totalItems === closedItems;
-
-  const projectSubs = useMemo(() => {
-    if (!project) return [];
-    const assignedIds = project.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedIds.includes(sub.id));
-  }, [project, subContractors]);
 
   const sortedSubItems = useMemo(() => {
     if (!item.items) return [];
@@ -165,211 +121,17 @@ export function SnaggingItemCard({
     });
   }, [item.items]);
 
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
-        setHasCameraPermission(true);
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (error) {
-        setHasCameraPermission(false);
-      }
-    };
-    if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
-  }, [isCameraOpen, facingMode]);
-
-  const capturePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context || video.videoWidth === 0 || video.videoHeight === 0) return null;
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1200;
-      canvas.height = 1200 / aspectRatio;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const now = new Date();
-      const timestamp = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-      context.font = 'bold 24px sans-serif';
-      context.fillStyle = 'white';
-      context.shadowColor = 'black';
-      context.shadowBlur = 6;
-      context.fillText(timestamp, canvas.width - context.measureText(timestamp).width - 20, canvas.height - 20);
-      return { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: now.toISOString() };
-    }
-    return null;
-  };
-
-  const updateItemOnServer = (itemId: string, status: SnaggingListItem['status'], photos: Photo[], comment?: string) => {
-    startTransition(async () => {
-      try {
-        const uploadedPhotos = await Promise.all(
-          photos.map(async (p, i) => {
-            if (p.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(p.url);
-              const url = await uploadFile(storage, `snagging/completions/${item.id}-${itemId}-${i}.jpg`, blob);
-              return { ...p, url };
-            }
-            return p;
-          })
-        );
-
-        const updatedItems = item.items.map(i => {
-          if (i.id === itemId) {
-            const updates: any = { 
-              ...i, 
-              status,
-              subContractorComment: comment || null
-            };
-            if (status === 'closed') {
-              updates.closedAt = new Date().toISOString();
-              updates.completionPhotos = uploadedPhotos;
-            } else if (status === 'provisionally-complete') {
-              updates.provisionallyCompletedAt = new Date().toISOString();
-              updates.completionPhotos = uploadedPhotos;
-            } else {
-              updates.completionPhotos = [];
-              updates.subContractorComment = null;
-            }
-            return updates;
-          }
-          return i;
-        });
-        
-        const docRef = doc(db, 'snagging-items', item.id);
-        await updateDoc(docRef, { items: updatedItems });
-
-        const historyCol = collection(db, 'snagging-items', item.id, 'history');
-        const closedCount = updatedItems.filter(i => i.status === 'closed').length;
-        await addDoc(historyCol, {
-          timestamp: new Date().toISOString(),
-          updatedBy: profile?.name || 'System User', 
-          items: updatedItems,
-          totalCount: updatedItems.length,
-          closedCount,
-          summary: `Item ${status.replace('-', ' ')}: ${item.items.find(i => i.id === itemId)?.description}`
-        });
-
-        toast({ title: 'Success', description: `Item is now ${status.replace('-', ' ')}.` });
-      } catch (err) {
-        console.error(err);
-        toast({ title: 'Error', description: 'Failed to update item.', variant: 'destructive' });
-      }
-    });
-  };
-
-  const handleUpdateItemDetails = () => {
-    if (!managingItem) return;
-    startTransition(async () => {
-      try {
-        const updatedItems = item.items.map(i => {
-          if (i.id === managingItem.id) {
-            return {
-              ...i,
-              description: managedDescription,
-              subContractorId: managedSubId || null
-            };
-          }
-          return i;
-        });
-
-        const docRef = doc(db, 'snagging-items', item.id);
-        await updateDoc(docRef, { items: updatedItems });
-        
-        const historyCol = collection(db, 'snagging-items', item.id, 'history');
-        await addDoc(historyCol, {
-          timestamp: new Date().toISOString(),
-          updatedBy: profile?.name || 'System User', 
-          items: updatedItems,
-          totalCount: updatedItems.length,
-          closedCount: updatedItems.filter(i => i.status === 'closed').length,
-          summary: `Defect metadata updated: ${managedDescription}`
-        });
-
-        toast({ title: 'Record Updated', description: 'Item details saved.' });
-        setManagingItem(null);
-      } catch (err) {
-        toast({ title: 'Error', description: 'Failed to save changes.', variant: 'destructive' });
-      }
-    });
-  };
-
-  const handleDeleteItem = () => {
-    if (!managingItem) return;
-    startTransition(async () => {
-      try {
-        const updatedItems = item.items.filter(i => i.id !== managingItem.id);
-        const docRef = doc(db, 'snagging-items', item.id);
-        await updateDoc(docRef, { items: updatedItems });
-
-        const historyCol = collection(db, 'snagging-items', item.id, 'history');
-        await addDoc(historyCol, {
-          timestamp: new Date().toISOString(),
-          updatedBy: profile?.name || 'System User', 
-          items: updatedItems,
-          totalCount: updatedItems.length,
-          closedCount: updatedItems.filter(i => i.status === 'closed').length,
-          summary: `Item deleted: ${managingItem.description}`
-        });
-
-        toast({ title: 'Item Removed', description: 'Defect has been deleted from the list.' });
-        setManagingItem(null);
-      } catch (err) {
-        toast({ title: 'Error', description: 'Failed to delete item.', variant: 'destructive' });
-      }
-    });
-  };
-
-  const handleToggleStatus = (subItem: SnaggingListItem) => {
-    if (subItem.status === 'open') {
-      setCompletingItem(subItem);
-      setCompletionPhotos([]);
-      setCompletionComment('');
-      setIsCameraOpen(false);
-    } else if (subItem.status === 'provisionally-complete' && isInternal) {
-      updateItemOnServer(subItem.id, 'closed', subItem.completionPhotos || [], subItem.subContractorComment);
-    } else if (isInternal) {
-      updateItemOnServer(subItem.id, 'open', [], '');
-    }
-  };
-
-  const finalizeCompletion = () => {
-    if (completingItem) {
-      const targetStatus = isInternal ? 'closed' : 'provisionally-complete';
-      updateItemOnServer(completingItem.id, targetStatus, completionPhotos, completionComment);
-      setCompletingItem(null);
-    }
-  };
-
-  const handleReopen = (subItem: SnaggingListItem) => {
-    updateItemOnServer(subItem.id, 'open', [], '');
-  };
-
   const handleDeleteList = () => {
-    startTransition(async () => {
-      const docRef = doc(db, 'snagging-items', item.id);
-      deleteDoc(docRef)
-        .then(() => toast({ title: 'Success', description: 'Snagging list deleted.' }))
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'delete',
-          });
-          errorEmitter.emit('permission-error', permissionError);
+    const docRef = doc(db, 'snagging-items', item.id);
+    deleteDoc(docRef)
+      .then(() => toast({ title: 'Success', description: 'Snagging list deleted.' }))
+      .catch((error) => {
+        const permissionError = new FirestorePermissionError({
+          path: docRef.path,
+          operation: 'delete',
         });
-    });
-  };
-
-  const toggleCamera = () => {
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-
-  const openManageDialog = (subItem: SnaggingListItem) => {
-    setManagingItem(subItem);
-    setManagedDescription(subItem.description);
-    setManagedSubId(subItem.subContractorId || undefined);
+        errorEmitter.emit('permission-error', permissionError);
+      });
   };
 
   return (
@@ -409,10 +171,6 @@ export function SnaggingItemCard({
                 <PdfReportButton item={item} project={project} subContractors={subContractors} />
                 <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
               </div>
-
-              {isInternal && (
-                <EditSnaggingItem item={item} projects={projects} subContractors={subContractors} />
-              )}
               
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -428,8 +186,7 @@ export function SnaggingItemCard({
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteList} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                    <AlertDialogAction onClick={handleDeleteList} className="bg-destructive hover:bg-destructive/90">
                       Delete Everything
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -439,40 +196,34 @@ export function SnaggingItemCard({
           </div>
         </CardHeader>
         <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
-          {item.description && <p className="text-xs md:text-sm text-foreground mb-4 leading-relaxed line-clamp-3 md:line-clamp-none">{item.description}</p>}
-          
           <div className="space-y-3 mb-4 bg-muted/20 p-3 md:p-4 rounded-lg border shadow-inner">
               <div className="flex items-center justify-between items-center mb-1 md:mb-2">
                   <div className="flex items-center gap-2 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">
                       <ListChecks className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                      <span>Verification Queue</span>
+                      <span>Items Summary</span>
                   </div>
-                  {isPending && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
               </div>
               {sortedSubItems?.map((subItem) => {
                   const sub = subContractors.find(s => s.id === subItem.subContractorId);
                   
                   return (
-                      <div key={subItem.id} className="space-y-2 p-2.5 md:p-3 rounded-lg bg-background border shadow-sm group animate-in fade-in slide-in-from-bottom-1 duration-300">
+                      <div key={subItem.id} className="p-2.5 md:p-3 rounded-lg bg-background border shadow-sm group">
                           <div className="flex items-start justify-between gap-3">
                               <div className="flex items-start gap-2.5 min-w-0">
                                   <div className="mt-0.5 flex-shrink-0">
                                       {subItem.status === 'closed' ? (
                                           <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
                                       ) : subItem.status === 'provisionally-complete' ? (
-                                          <Clock className="h-4 w-4 md:h-5 md:w-5 text-amber-500 animate-pulse" />
+                                          <Clock className="h-4 w-4 md:h-5 md:w-5 text-amber-500" />
                                       ) : (
                                           <Circle className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
                                       )}
                                   </div>
                                   <div className="flex flex-col min-w-0">
-                                      <span 
-                                        className={cn(
-                                            "text-xs md:text-sm font-semibold leading-snug break-words cursor-pointer hover:text-primary transition-colors", 
+                                      <span className={cn(
+                                            "text-xs md:text-sm font-semibold leading-snug break-words", 
                                             subItem.status === 'closed' && "line-through text-muted-foreground"
-                                        )}
-                                        onClick={() => isInternal && openManageDialog(subItem)}
-                                      >
+                                        )}>
                                           {subItem.description}
                                       </span>
                                       {sub && (
@@ -483,46 +234,13 @@ export function SnaggingItemCard({
                                   </div>
                               </div>
                               
-                              <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                  <Badge variant="outline" className={cn(
-                                      "text-[8px] md:text-[9px] font-black uppercase tracking-tighter h-4 px-1.5 whitespace-nowrap",
-                                      subItem.status === 'closed' ? "bg-green-50 text-green-700 border-green-200" :
-                                      subItem.status === 'provisionally-complete' ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-muted text-muted-foreground"
-                                  )}>
-                                      {subItem.status.replace('-', ' ')}
-                                  </Badge>
-                                  
-                                  <div className="flex flex-wrap gap-1 justify-end">
-                                      {subItem.status === 'open' && (
-                                          <>
-                                            <Button size="sm" variant="outline" className="h-6 text-[9px] font-bold px-2" onClick={() => handleToggleStatus(subItem)} disabled={isPending}>
-                                                Update
-                                            </Button>
-                                            {isInternal && (
-                                                <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-primary/5" onClick={() => openManageDialog(subItem)}>
-                                                    <Pencil className="h-3.5 w-3.5" />
-                                                    <span className="sr-only">Edit Item</span>
-                                                </Button>
-                                            )}
-                                          </>
-                                      )}
-                                      {subItem.status === 'provisionally-complete' && isInternal && (
-                                          <>
-                                              <Button size="sm" className="h-6 text-[9px] font-bold bg-green-600 hover:bg-green-700 gap-1 px-2" onClick={() => handleToggleStatus(subItem)} disabled={isPending}>
-                                                  <Check className="h-3 w-3" /> Sign-off
-                                              </Button>
-                                              <Button size="sm" variant="outline" className="h-6 text-[9px] font-bold text-destructive hover:bg-destructive/5 gap-1 px-2" onClick={() => handleReopen(subItem)} disabled={isPending}>
-                                                  Reject
-                                              </Button>
-                                          </>
-                                      )}
-                                      {subItem.status === 'closed' && isInternal && (
-                                          <Button size="sm" variant="ghost" className="h-6 text-[9px] font-bold text-muted-foreground hover:text-primary px-2" onClick={() => handleReopen(subItem)} disabled={isPending}>
-                                              Re-open
-                                          </Button>
-                                      )}
-                                  </div>
-                              </div>
+                              <Badge variant="outline" className={cn(
+                                  "text-[8px] md:text-[9px] font-black uppercase tracking-tighter h-4 px-1.5 whitespace-nowrap shrink-0",
+                                  subItem.status === 'closed' ? "bg-green-50 text-green-700 border-green-200" :
+                                  subItem.status === 'provisionally-complete' ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-muted text-muted-foreground"
+                              )}>
+                                  {subItem.status.replace('-', ' ')}
+                              </Badge>
                           </div>
                           
                           {subItem.subContractorComment && (
@@ -639,126 +357,6 @@ export function SnaggingItemCard({
           </Accordion>
         </CardContent>
       </Card>
-
-      {/* Item Resolution Dialog */}
-      <Dialog open={!!completingItem} onOpenChange={() => setCompletingItem(null)}>
-        <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] overflow-y-auto rounded-xl p-4 md:p-6">
-          <DialogHeader className="mb-4">
-            <DialogTitle className="text-lg">Report Progress</DialogTitle>
-            <DialogDescription className="text-xs">
-              Provide evidence for: <span className="font-bold text-foreground">"{completingItem?.description}"</span>
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-5">
-            <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Completion Notes</Label>
-                <Textarea placeholder="Describe the fix or action taken..." value={completionComment} onChange={(e) => setCompletionComment(e.target.value)} className="text-sm min-h-[80px]" />
-            </div>
-
-            <div className="space-y-2">
-                <Label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Visual Evidence</Label>
-                <div className="flex flex-wrap gap-2">
-                  {completionPhotos.map((p, idx) => (
-                    <div key={idx} className="relative w-20 h-20 group">
-                      <Image src={p.url} alt="Evidence" fill className="rounded-md object-cover border" />
-                      <button type="button" className="absolute -top-2 -right-2 h-6 w-6 bg-destructive text-white rounded-full flex items-center justify-center shadow-lg" onClick={() => setCompletionPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></button>
-                    </div>
-                  ))}
-                  <Button variant="outline" className="w-20 h-20 flex flex-col gap-1.5 border-dashed border-2 hover:border-primary/50 hover:bg-primary/5" onClick={() => setIsCameraOpen(true)}>
-                    <Camera className="h-6 w-6 text-primary" />
-                    <span className="text-[10px] font-bold uppercase tracking-tighter">Capture</span>
-                  </Button>
-                  <Button variant="outline" className="w-20 h-20 flex flex-col gap-1.5 border-dashed border-2 hover:border-primary/50 hover:bg-primary/5" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="h-6 w-6 text-primary" />
-                    <span className="text-[10px] font-bold uppercase tracking-tighter">Upload</span>
-                  </Button>
-                </div>
-            </div>
-
-            {isCameraOpen && (
-              <div className="fixed inset-0 z-[100] bg-black">
-                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-                <div className="absolute inset-0 flex flex-col justify-between p-6">
-                  <div className="flex justify-end"><Button variant="secondary" onClick={() => setIsCameraOpen(false)} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
-                  <div className="flex items-center justify-center gap-8 mb-8">
-                    <Button variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}><RefreshCw className="h-7 w-7" /></Button>
-                    <Button size="lg" className="rounded-full h-20 w-20 p-0 border-4 border-white/20 shadow-2xl bg-white hover:bg-white/90" onClick={() => { const p = capturePhoto(); if (p) { setCompletionPhotos(prev => [...prev, p]); setIsCameraOpen(false); } }}>
-                      <div className="h-14 w-14 rounded-full border-2 border-black/10" />
-                    </Button>
-                    <div className="w-14" />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <DialogFooter className="gap-3 sm:gap-0 border-t pt-5 mt-2">
-            <Button variant="ghost" className="font-bold text-muted-foreground sm:order-first" onClick={() => setCompletingItem(null)}>Discard</Button>
-            <Button className="font-bold shadow-lg shadow-primary/20 flex-1 sm:flex-none h-11" onClick={finalizeCompletion} disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <Send className="mr-2 h-4 w-4 mr-2" />}
-                Post Verification
-            </Button>
-          </DialogFooter>
-          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => { const files = e.target.files; if (!files) return; Array.from(files).forEach(f => { const reader = new FileReader(); reader.onload = (re) => setCompletionPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]); reader.readAsDataURL(f); }); }} />
-          <canvas ref={canvasRef} className="hidden" />
-        </DialogContent>
-      </Dialog>
-
-      {/* Item Metadata Management Dialog */}
-      <Dialog open={!!managingItem} onOpenChange={() => setManagingItem(null)}>
-        <DialogContent className="w-[95vw] sm:max-w-md rounded-xl p-6">
-          <DialogHeader>
-            <div className="flex items-center gap-2 text-primary font-bold mb-1">
-                <Settings2 className="h-5 w-5" />
-                <DialogTitle>Manage Defect</DialogTitle>
-            </div>
-            <DialogDescription>Modify the description or re-assign this item.</DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-6 py-4">
-            <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Description</Label>
-                <Input value={managedDescription} onChange={e => setManagedDescription(e.target.value)} />
-            </div>
-
-            <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Lead Trade Partner</Label>
-                <Select value={managedSubId || 'unassigned'} onValueChange={val => setManagedSubId(val === 'unassigned' ? undefined : val)}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select contractor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                        {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-3 p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
-                <div className="flex items-center gap-2 text-destructive font-bold text-xs uppercase tracking-widest">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span>Danger Zone</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground">Removing this defect is permanent and will be logged in the audit history.</p>
-                <Button variant="destructive" size="sm" className="w-full gap-2 h-9 font-bold" onClick={handleDeleteItem} disabled={isPending}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Delete Defect Item
-                </Button>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-3 sm:gap-0 border-t pt-4">
-            <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setManagingItem(null)}>Cancel</Button>
-            <Button className="font-bold shadow-lg shadow-primary/20" onClick={handleUpdateItemDetails} disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                Save Changes
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={!!viewingHistoryRecord} onOpenChange={() => setViewingHistoryRecord(null)}>
           <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-xl shadow-2xl">

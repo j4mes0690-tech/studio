@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -33,7 +34,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown, History, Loader2 } from 'lucide-react';
+import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown, History, Loader2, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SortKey = 'project' | 'area' | 'title' | 'date' | 'progress' | 'snapshots';
@@ -111,13 +112,13 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
         <TableHeader>
           <TableRow>
             <TableHead 
-              className="w-[150px] cursor-pointer hover:text-foreground transition-colors"
+              className="hidden md:table-cell w-[150px] cursor-pointer hover:text-foreground transition-colors"
               onClick={() => handleSort('project')}
             >
               <div className="flex items-center">Project <SortIcon column="project" /></div>
             </TableHead>
             <TableHead 
-              className="w-[120px] cursor-pointer hover:text-foreground transition-colors"
+              className="w-[100px] md:w-[120px] cursor-pointer hover:text-foreground transition-colors"
               onClick={() => handleSort('area')}
             >
               <div className="flex items-center">Area <SortIcon column="area" /></div>
@@ -129,17 +130,17 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
               <div className="flex items-center">List Title <SortIcon column="title" /></div>
             </TableHead>
             <TableHead 
-              className="w-[120px] cursor-pointer hover:text-foreground transition-colors"
+              className="hidden md:table-cell w-[120px] cursor-pointer hover:text-foreground transition-colors"
               onClick={() => handleSort('date')}
             >
               <div className="flex items-center">Date <SortIcon column="date" /></div>
             </TableHead>
-            <TableHead className="w-[100px] text-center">Snapshots</TableHead>
+            <TableHead className="hidden lg:table-cell w-[100px] text-center">Snapshots</TableHead>
             <TableHead 
-              className="w-[100px] cursor-pointer hover:text-foreground transition-colors text-right pr-6"
+              className="w-[80px] md:w-[100px] cursor-pointer hover:text-foreground transition-colors text-right pr-4 md:pr-6"
               onClick={() => handleSort('progress')}
             >
-              <div className="flex items-center justify-end">Progress <SortIcon column="progress" /></div>
+              <div className="flex items-center justify-end">Ready <SortIcon column="progress" /></div>
             </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -162,9 +163,9 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
 function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, projects: Project[], subContractors: SubContractor[] }) {
   const project = projects.find((p) => p.id === item.projectId);
   const area = project?.areas?.find((a) => a.id === item.areaId);
-  const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
+  const { toast } = useToast();
 
   const historyQuery = useMemoFirebase(() => {
     if (!db || !item.id) return null;
@@ -195,50 +196,54 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
 
   return (
     <TableRow 
-      className="group cursor-pointer"
+      className="group cursor-pointer hover:bg-muted/30"
       href={`/snagging/${item.id}`}
     >
-      <TableCell className="font-medium">{project?.name || 'Unknown'}</TableCell>
+      <TableCell className="hidden md:table-cell font-medium text-xs truncate max-w-[120px]">{project?.name || '---'}</TableCell>
       <TableCell>
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <MapPin className="h-3 w-3" />
-          <span>{area?.name || 'General Site'}</span>
+        <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-muted-foreground">
+          <MapPin className="h-3 w-3 shrink-0" />
+          <span className="truncate">{area?.name || 'Site'}</span>
         </div>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-            <span className="text-sm font-medium group-hover:text-primary transition-colors">{item.title}</span>
-            {isComplete && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
+            <span className="text-xs md:text-sm font-bold group-hover:text-primary transition-colors truncate max-w-[150px] md:max-w-none">{item.title}</span>
+            {isComplete && <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />}
         </div>
       </TableCell>
-      <TableCell>
-        <span className="text-xs text-muted-foreground">
+      <TableCell className="hidden md:table-cell">
+        <span className="text-[10px] md:text-xs text-muted-foreground whitespace-nowrap">
             <ClientDate date={item.createdAt} format="date" />
         </span>
       </TableCell>
-      <TableCell className="text-center">
-        <Badge variant="outline" className="text-[10px] gap-1 font-mono">
+      <TableCell className="hidden lg:table-cell text-center">
+        <Badge variant="outline" className="text-[10px] gap-1 font-mono h-5">
           <History className="h-2.5 w-2.5" />
           {history?.length || 0}
         </Badge>
       </TableCell>
-      <TableCell className="text-right pr-6">
-        <Badge variant={isComplete ? "secondary" : "outline"} className="text-[10px]">
+      <TableCell className="text-right pr-4 md:pr-6">
+        <Badge variant={isComplete ? "secondary" : "outline"} className="text-[10px] h-5 px-1.5">
             {closedItems}/{totalItems}
         </Badge>
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          <PdfReportButton item={item} project={project} subContractors={subContractors} />
-          <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
+          <div className='hidden sm:flex items-center gap-1'>
+            <PdfReportButton item={item} project={project} subContractors={subContractors} />
+            <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
+          </div>
           
           <AlertDialog>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 hover:bg-destructive/10">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 hover:bg-destructive/10">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
                 </TooltipTrigger>
                 <TooltipContent><p>Delete Entire List</p></TooltipContent>
               </Tooltip>
@@ -250,8 +255,8 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
-                  {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : 'Confirm Delete'}
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                  Delete
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
