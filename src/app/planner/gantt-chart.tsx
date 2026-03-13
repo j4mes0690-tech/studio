@@ -223,7 +223,7 @@ export function GanttChart({
                                                 <TooltipTrigger asChild>
                                                     <div 
                                                         className={cn(
-                                                            "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
+                                                            "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-30 pointer-events-auto",
                                                             task.status === 'completed' ? "bg-green-500 border-green-600 text-white" : 
                                                             task.status === 'in-progress' ? "bg-primary border-primary-foreground/20 text-white animate-pulse" : 
                                                             "bg-primary/20 border-primary/30 text-primary"
@@ -232,10 +232,7 @@ export function GanttChart({
                                                             left: leftOffset, 
                                                             width: actualBarWidth,
                                                         }}
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          onTaskClick(task);
-                                                        }}
+                                                        onClick={() => onTaskClick(task)}
                                                     >
                                                         {actualBarWidth > 40 && <span className="text-[9px] font-black truncate">{Math.round(actualBarWidth / DAY_WIDTH)}d</span>}
                                                     </div>
