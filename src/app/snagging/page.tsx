@@ -160,10 +160,10 @@ function SnaggingContent() {
   }) || [];
 
   return (
-    <main className="flex-1 p-3 md:p-6 lg:p-8 flex flex-col gap-4 md:gap-6">
-        <div className="flex items-center justify-between">
+    <main className="flex-1 p-3 md:p-6 lg:p-8 flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           <div className='flex flex-col gap-1'>
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
                 {isGroupedByProject ? 'Project Snagging Status' : 'Snagging Log'}
             </h2>
             {hasFullVisibility && (
@@ -174,7 +174,14 @@ function SnaggingContent() {
                 </div>
             )}
           </div>
-          <div className="flex items-center gap-1.5 md:gap-2">
+          
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <NewSnaggingItem 
+              projects={allowedProjects} 
+              subContractors={subContractors || []} 
+              allSnaggingLists={allItems || []}
+            />
+
             {allowedProjects.length > 0 && (
               <ProjectReportButton 
                   projects={allowedProjects} 
@@ -192,7 +199,7 @@ function SnaggingContent() {
                                 variant={isGroupedByProject ? "ghost" : "secondary"} 
                                 size="icon" 
                                 onClick={() => { if(isGroupedByProject) toggleGrouping(); }}
-                                className={cn("h-8 w-8", !isGroupedByProject && "bg-background shadow-sm")}
+                                className={cn("h-9 w-9", !isGroupedByProject && "bg-background shadow-sm")}
                             >
                                 <LayoutList className="h-4 w-4" />
                             </Button>
@@ -207,7 +214,7 @@ function SnaggingContent() {
                                 variant={isGroupedByProject ? "secondary" : "ghost"} 
                                 size="icon" 
                                 onClick={() => { if(!isGroupedByProject) toggleGrouping(); }}
-                                className={cn("h-8 w-8", isGroupedByProject && "bg-background shadow-sm")}
+                                className={cn("h-9 w-9", isGroupedByProject && "bg-background shadow-sm")}
                             >
                                 <Layers className="h-4 w-4" />
                             </Button>
@@ -234,12 +241,6 @@ function SnaggingContent() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            
-            <NewSnaggingItem 
-              projects={allowedProjects} 
-              subContractors={subContractors || []} 
-              allSnaggingLists={allItems || []}
-            />
           </div>
         </div>
         
