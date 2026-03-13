@@ -10,7 +10,8 @@ import {
     differenceInDays, 
     eachDayOfInterval, 
     startOfWeek, 
-    isWeekend
+    isWeekend,
+    isValid
 } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -51,7 +52,9 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
     tasks.forEach((task, taskIdx) => {
       if (!task.predecessorIds) return;
 
-      const taskStart = startOfDay(new Date(task.startDate));
+      const taskStart = startOfDay(parseISO(task.startDate));
+      if (!isValid(taskStart)) return;
+
       const successorX = differenceInDays(taskStart, startDate) * DAY_WIDTH;
       const successorY = (taskIdx * ROW_HEIGHT) + (ROW_HEIGHT / 2);
 
@@ -61,7 +64,8 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
 
         const pred = predData.task;
         const predIdx = predData.index;
-        const predStart = startOfDay(new Date(pred.startDate));
+        const predStart = startOfDay(parseISO(pred.startDate));
+        if (!isValid(predStart)) return;
         
         // Effective completion X
         const effectiveDuration = pred.status === 'completed' && pred.actualCompletionDate 
@@ -149,7 +153,10 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
 
                         {tasks.map((task, taskIdx) => {
                             const trade = trades.find(t => t.id === task.tradeId);
-                            const taskStart = startOfDay(new Date(task.startDate));
+                            const taskStart = startOfDay(parseISO(task.startDate));
+                            
+                            if (!isValid(taskStart)) return null;
+
                             const offsetDays = differenceInDays(taskStart, startDate);
                             const leftOffset = offsetDays * DAY_WIDTH;
                             
@@ -159,15 +166,22 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
                             // Actual bar width (if completed)
                             let actualBarWidth = barWidth;
                             if (task.status === 'completed' && task.actualCompletionDate) {
-                                actualBarWidth = (differenceInDays(parseISO(task.actualCompletionDate), taskStart) + 1) * DAY_WIDTH;
+                                const actualEnd = parseISO(task.actualCompletionDate);
+                                if (isValid(actualEnd)) {
+                                    actualBarWidth = (differenceInDays(actualEnd, taskStart) + 1) * DAY_WIDTH;
+                                }
                             }
 
-                            // Original Baseline bar
-                            const origStart = startOfDay(new Date(task.originalStartDate));
-                            const origOffset = differenceInDays(origStart, startDate) * DAY_WIDTH;
-                            const origWidth = task.originalDurationDays * DAY_WIDTH;
+                            // Original Baseline bar calculation with validation
+                            const hasBaseline = !!task.originalStartDate && !!task.originalDurationDays;
+                            const origStart = hasBaseline ? startOfDay(parseISO(task.originalStartDate)) : null;
+                            const isValidBaseline = origStart && isValid(origStart);
+                            
+                            const origOffset = isValidBaseline ? differenceInDays(origStart!, startDate) * DAY_WIDTH : 0;
+                            const origWidth = hasBaseline ? task.originalDurationDays * DAY_WIDTH : 0;
 
-                            const isVisible = (taskStart <= endDate && addDays(taskStart, task.durationDays) >= startDate) || (origStart <= endDate && addDays(origStart, task.originalDurationDays) >= startDate);
+                            const isVisible = (taskStart <= endDate && addDays(taskStart, task.durationDays) >= startDate);
+                            const isBaselineVisible = isValidBaseline && (origStart! <= endDate && addDays(origStart!, task.originalDurationDays) >= startDate);
 
                             return (
                                 <div 
@@ -180,68 +194,68 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
                                         <Badge variant="outline" className="text-[8px] h-3.5 mt-0.5 bg-background">{trade?.name || 'Trade'}</Badge>
                                     </div>
                                     <div className="relative flex-1 bg-[repeating-linear-gradient(to_right,transparent,transparent_39px,rgba(0,0,0,0.05)_39px,rgba(0,0,0,0.05)_40px)]" style={{ width: chartWidth }}>
-                                        {isVisible && (
-                                            <>
-                                                {/* Original Planned Shadow Bar */}
-                                                <div 
-                                                    className="absolute h-4 top-1.5 opacity-20 bg-slate-400 rounded-sm border border-slate-500 z-0"
-                                                    style={{ left: origOffset, width: origWidth }}
-                                                    title="Original Planned Period"
-                                                />
+                                        {/* Original Planned Shadow Bar */}
+                                        {isBaselineVisible && (
+                                            <div 
+                                                className="absolute h-4 top-1.5 opacity-20 bg-slate-400 rounded-sm border border-slate-500 z-0"
+                                                style={{ left: origOffset, width: origWidth }}
+                                                title="Original Planned Period"
+                                            />
+                                        )}
 
-                                                {/* Current Forecast / Actual Bar */}
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <div 
-                                                            className={cn(
-                                                                "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10",
-                                                                task.status === 'completed' ? "bg-green-500 border-green-600 text-white" : 
-                                                                task.status === 'in-progress' ? "bg-primary border-primary-foreground/20 text-white animate-pulse" : 
-                                                                "bg-primary/20 border-primary/30 text-primary"
-                                                            )}
-                                                            style={{ 
-                                                                left: leftOffset, 
-                                                                width: actualBarWidth,
-                                                            }}
-                                                            onClick={() => setEditingTask(task)}
-                                                        >
-                                                            {actualBarWidth > 40 && <span className="text-[9px] font-black truncate">{actualBarWidth / DAY_WIDTH}d</span>}
-                                                        </div>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent className="p-3 w-64 z-[100]">
-                                                        <div className="space-y-2">
-                                                            <div className='flex justify-between items-start'>
-                                                                <div>
-                                                                    <p className="font-bold text-sm">{task.title}</p>
-                                                                    <p className="text-xs text-muted-foreground">{trade?.name}</p>
-                                                                </div>
-                                                                <Badge variant="outline" className="text-[8px]">{task.status}</Badge>
+                                        {/* Current Forecast / Actual Bar */}
+                                        {isVisible && (
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <div 
+                                                        className={cn(
+                                                            "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10",
+                                                            task.status === 'completed' ? "bg-green-500 border-green-600 text-white" : 
+                                                            task.status === 'in-progress' ? "bg-primary border-primary-foreground/20 text-white animate-pulse" : 
+                                                            "bg-primary/20 border-primary/30 text-primary"
+                                                        )}
+                                                        style={{ 
+                                                            left: leftOffset, 
+                                                            width: actualBarWidth,
+                                                        }}
+                                                        onClick={() => setEditingTask(task)}
+                                                    >
+                                                        {actualBarWidth > 40 && <span className="text-[9px] font-black truncate">{Math.round(actualBarWidth / DAY_WIDTH)}d</span>}
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent className="p-3 w-64 z-[100]">
+                                                    <div className="space-y-2">
+                                                        <div className='flex justify-between items-start'>
+                                                            <div>
+                                                                <p className="font-bold text-sm">{task.title}</p>
+                                                                <p className="text-xs text-muted-foreground">{trade?.name}</p>
                                                             </div>
-                                                            <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
-                                                                <span className='flex justify-between'>Forecast: <strong>{format(taskStart, 'PP')} ({task.durationDays}d)</strong></span>
-                                                                {task.status === 'completed' && task.actualCompletionDate && (
-                                                                    <span className='flex justify-between text-green-600 font-bold'>Completed: <strong>{format(parseISO(task.actualCompletionDate), 'PP')}</strong></span>
-                                                                )}
-                                                                {task.originalStartDate && (
-                                                                    <span className='flex justify-between opacity-60'>Planned: <strong>{format(parseISO(task.originalStartDate), 'PP')}</strong></span>
-                                                                )}
-                                                            </div>
-                                                            
-                                                            {task.photos && task.photos.length > 0 && (
-                                                                <div className="grid grid-cols-3 gap-1 pt-1">
-                                                                    {task.photos.map((p, idx) => (
-                                                                        <div key={idx} className="relative aspect-square rounded border overflow-hidden cursor-pointer" onClick={() => setViewingPhoto(p)}>
-                                                                            <Image src={p.url} alt="Context" fill className="object-cover" />
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            <Separator className="my-1" />
-                                                            <p className="text-[9px] text-center font-bold text-primary italic">Click bar to edit or reforecast</p>
+                                                            <Badge variant="outline" className="text-[8px]">{task.status}</Badge>
                                                         </div>
-                                                    </TooltipContent>
-                                                </Tooltip>
-                                            </>
+                                                        <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
+                                                            <span className='flex justify-between'>Forecast: <strong>{format(taskStart, 'PP')} ({task.durationDays}d)</strong></span>
+                                                            {task.status === 'completed' && task.actualCompletionDate && (
+                                                                <span className='flex justify-between text-green-600 font-bold'>Completed: <strong>{format(parseISO(task.actualCompletionDate), 'PP')}</strong></span>
+                                                            )}
+                                                            {task.originalStartDate && (
+                                                                <span className='flex justify-between opacity-60'>Planned: <strong>{format(parseISO(task.originalStartDate), 'PP')}</strong></span>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        {task.photos && task.photos.length > 0 && (
+                                                            <div className="grid grid-cols-3 gap-1 pt-1">
+                                                                {task.photos.map((p, idx) => (
+                                                                    <div key={idx} className="relative aspect-square rounded border overflow-hidden cursor-pointer" onClick={() => setViewingPhoto(p)}>
+                                                                        <Image src={p.url} alt="Context" fill className="object-cover" />
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        <Separator className="my-1" />
+                                                        <p className="text-[9px] text-center font-bold text-primary italic">Click bar to edit or reforecast</p>
+                                                    </div>
+                                                </TooltipContent>
+                                            </Tooltip>
                                         )}
                                     </div>
                                 </div>
@@ -269,7 +283,8 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
   );
 }
 
-function parseISO(dateStr: string) {
+function parseISO(dateStr: string | null | undefined) {
+    if (!dateStr) return new Date(NaN);
     const [y, m, d] = dateStr.split('-').map(Number);
     return new Date(y, m - 1, d);
 }
