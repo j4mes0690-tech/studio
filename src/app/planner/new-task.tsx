@@ -36,6 +36,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import { addDays, parseISO, format, isValid } from 'date-fns';
 
 const NewTaskSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -73,7 +74,6 @@ export function NewTaskDialog({
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<NewTaskFormValues>({
     resolver: zodResolver(NewTaskSchema),
@@ -90,7 +90,36 @@ export function NewTaskDialog({
 
   const selectedProjectId = form.watch('projectId');
   const selectedAreaId = form.watch('areaId');
+  const selectedPredecessorIds = form.watch('predecessorIds');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+
+  // SMART SCHEDULING LOGIC: Move start date based on dependencies
+  useEffect(() => {
+    if (selectedPredecessorIds && selectedPredecessorIds.length > 0) {
+      const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
+      
+      if (selectedPredecessors.length > 0) {
+        // Find the latest finish date among all predecessors
+        // Finish Date = Start Date + Duration
+        const latestFinishDate = selectedPredecessors.reduce((latest, current) => {
+          try {
+            const taskStart = parseISO(current.startDate);
+            if (!isValid(taskStart)) return latest;
+            
+            const finishDate = addDays(taskStart, current.durationDays);
+            return !latest || finishDate > latest ? finishDate : latest;
+          } catch (e) {
+            return latest;
+          }
+        }, null as Date | null);
+
+        if (latestFinishDate) {
+          // Default start date is the day AFTER the latest predecessor finishes
+          form.setValue('startDate', format(latestFinishDate, 'yyyy-MM-dd'));
+        }
+      }
+    }
+  }, [selectedPredecessorIds, allTasks, form]);
 
   const potentialPredecessors = useMemo(() => {
     if (!selectedProjectId || !selectedAreaId) return [];
