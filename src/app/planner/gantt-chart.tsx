@@ -5,7 +5,6 @@ import type { PlannerTask, Trade, Photo, Project } from '@/lib/types';
 import { 
     format, 
     addDays, 
-    startOfDay, 
     isSameDay, 
     differenceInDays, 
     eachDayOfInterval, 
@@ -24,6 +23,13 @@ import { EditTaskDialog } from './edit-task';
 const DAY_WIDTH = 40; // px per day
 const TIMELINE_WEEKS = 4;
 const ROW_HEIGHT = 52; // px per task row
+
+// Timezone-safe date parser for construction dates (YYYY-MM-DD)
+function parseDateString(dateStr: string | null | undefined) {
+  if (!dateStr) return new Date(NaN);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 
 export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; trades: Trade[]; projects: Project[] }) {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
@@ -52,7 +58,7 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
     tasks.forEach((task, taskIdx) => {
       if (!task.predecessorIds) return;
 
-      const taskStart = startOfDay(parseISO(task.startDate));
+      const taskStart = parseDateString(task.startDate);
       if (!isValid(taskStart)) return;
 
       const successorX = differenceInDays(taskStart, startDate) * DAY_WIDTH;
@@ -64,12 +70,12 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
 
         const pred = predData.task;
         const predIdx = predData.index;
-        const predStart = startOfDay(parseISO(pred.startDate));
+        const predStart = parseDateString(pred.startDate);
         if (!isValid(predStart)) return;
         
         // Effective completion X
         const effectiveDuration = pred.status === 'completed' && pred.actualCompletionDate 
-            ? Math.max(1, differenceInDays(parseISO(pred.actualCompletionDate), predStart) + 1)
+            ? Math.max(1, differenceInDays(parseDateString(pred.actualCompletionDate), predStart) + 1)
             : pred.durationDays;
 
         const predecessorEndX = (differenceInDays(predStart, startDate) + effectiveDuration) * DAY_WIDTH;
@@ -153,7 +159,7 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
 
                         {tasks.map((task, taskIdx) => {
                             const trade = trades.find(t => t.id === task.tradeId);
-                            const taskStart = startOfDay(parseISO(task.startDate));
+                            const taskStart = parseDateString(task.startDate);
                             
                             if (!isValid(taskStart)) return null;
 
@@ -166,7 +172,7 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
                             // Actual bar width (if completed)
                             let actualBarWidth = barWidth;
                             if (task.status === 'completed' && task.actualCompletionDate) {
-                                const actualEnd = parseISO(task.actualCompletionDate);
+                                const actualEnd = parseDateString(task.actualCompletionDate);
                                 if (isValid(actualEnd)) {
                                     actualBarWidth = (differenceInDays(actualEnd, taskStart) + 1) * DAY_WIDTH;
                                 }
@@ -174,7 +180,7 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
 
                             // Original Baseline bar calculation with validation
                             const hasBaseline = !!task.originalStartDate && !!task.originalDurationDays;
-                            const origStart = hasBaseline ? startOfDay(parseISO(task.originalStartDate)) : null;
+                            const origStart = hasBaseline ? parseDateString(task.originalStartDate) : null;
                             const isValidBaseline = origStart && isValid(origStart);
                             
                             const origOffset = isValidBaseline ? differenceInDays(origStart!, startDate) * DAY_WIDTH : 0;
@@ -218,7 +224,10 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
                                                             left: leftOffset, 
                                                             width: actualBarWidth,
                                                         }}
-                                                        onClick={() => setEditingTask(task)}
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setEditingTask(task);
+                                                        }}
                                                     >
                                                         {actualBarWidth > 40 && <span className="text-[9px] font-black truncate">{Math.round(actualBarWidth / DAY_WIDTH)}d</span>}
                                                     </div>
@@ -235,17 +244,17 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
                                                         <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
                                                             <span className='flex justify-between'>Forecast: <strong>{format(taskStart, 'PP')} ({task.durationDays}d)</strong></span>
                                                             {task.status === 'completed' && task.actualCompletionDate && (
-                                                                <span className='flex justify-between text-green-600 font-bold'>Completed: <strong>{format(parseISO(task.actualCompletionDate), 'PP')}</strong></span>
+                                                                <span className='flex justify-between text-green-600 font-bold'>Completed: <strong>{format(parseDateString(task.actualCompletionDate), 'PP')}</strong></span>
                                                             )}
                                                             {task.originalStartDate && (
-                                                                <span className='flex justify-between opacity-60'>Planned: <strong>{format(parseISO(task.originalStartDate), 'PP')}</strong></span>
+                                                                <span className='flex justify-between opacity-60'>Planned: <strong>{format(parseDateString(task.originalStartDate), 'PP')}</strong></span>
                                                             )}
                                                         </div>
                                                         
                                                         {task.photos && task.photos.length > 0 && (
                                                             <div className="grid grid-cols-3 gap-1 pt-1">
                                                                 {task.photos.map((p, idx) => (
-                                                                    <div key={idx} className="relative aspect-square rounded border overflow-hidden cursor-pointer" onClick={() => setViewingPhoto(p)}>
+                                                                    <div key={idx} className="relative aspect-square rounded border overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
                                                                         <Image src={p.url} alt="Context" fill className="object-cover" />
                                                                     </div>
                                                                 ))}
@@ -274,17 +283,11 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
                 trades={trades} 
                 allTasks={tasks} 
                 open={!!editingTask} 
-                onOpenChange={(open) => !open && setEditingTask(null)} 
+                onOpenChange={(isOpen) => !isOpen && setEditingTask(null)} 
             />
         )}
 
         <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
   );
-}
-
-function parseISO(dateStr: string | null | undefined) {
-    if (!dateStr) return new Date(NaN);
-    const [y, m, d] = dateStr.split('-').map(Number);
-    return new Date(y, m - 1, d);
 }

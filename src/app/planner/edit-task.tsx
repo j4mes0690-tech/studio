@@ -33,9 +33,16 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
-import { addDays, parseISO, format, isValid, differenceInDays } from 'date-fns';
+import { addDays, format, isValid } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
+// Timezone-safe date parser for construction dates (YYYY-MM-DD)
+function parseDateString(dateStr: string | null | undefined) {
+  if (!dateStr) return new Date(NaN);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 
 const EditTaskSchema = z.object({
   title: z.string().min(3, 'Description of work is required.'),
@@ -110,7 +117,7 @@ export function EditTaskDialog({
 
   // REFORECASTING LOGIC
   const reforecast = (currentTaskId: string, newFinishDate: Date, allProjectTasks: PlannerTask[], batch: any) => {
-    const successors = allProjectTasks.filter(t => t.predecessorIds.includes(currentTaskId));
+    const successors = allProjectTasks.filter(t => t.predecessorIds?.includes(currentTaskId));
     
     successors.forEach(successor => {
       // Successor starts the day after the predecessor finishes
@@ -153,11 +160,13 @@ export function EditTaskDialog({
         batch.update(taskRef, updates);
 
         // Check if we need to reforecast
-        const currentFinish = values.actualCompletionDate 
-            ? parseISO(values.actualCompletionDate) 
-            : addDays(parseISO(values.startDate), values.durationDays - 1);
+        const currentFinish = (values.status === 'completed' && values.actualCompletionDate) 
+            ? parseDateString(values.actualCompletionDate) 
+            : addDays(parseDateString(values.startDate), values.durationDays - 1);
         
-        reforecast(task.id, currentFinish, allTasks, batch);
+        if (isValid(currentFinish)) {
+          reforecast(task.id, currentFinish, allTasks, batch);
+        }
 
         await batch.commit();
         toast({ title: 'Task Updated', description: 'Schedule reforecasted based on changes.' });
@@ -170,9 +179,13 @@ export function EditTaskDialog({
 
   const handleDelete = () => {
     startTransition(async () => {
-        await deleteDoc(doc(db, 'planner-tasks', task.id));
-        toast({ title: 'Task Deleted', description: 'Item removed from schedule.' });
-        onOpenChange(false);
+        try {
+          await deleteDoc(doc(db, 'planner-tasks', task.id));
+          toast({ title: 'Task Deleted', description: 'Item removed from schedule.' });
+          onOpenChange(false);
+        } catch (err) {
+          toast({ title: 'Error', description: 'Failed to delete task.', variant: 'destructive' });
+        }
     });
   }
 
@@ -221,7 +234,10 @@ export function EditTaskDialog({
                     <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
-                    <AlertDialogHeader><AlertDialogTitle>Delete Task?</AlertDialogTitle><AlertDialogDescription>This will remove the task and break any downstream dependency links.</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Task?</AlertDialogTitle>
+                      <AlertDialogDescription>This will remove the task and break any downstream dependency links.</AlertDialogDescription>
+                    </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete Task</AlertDialogAction>
