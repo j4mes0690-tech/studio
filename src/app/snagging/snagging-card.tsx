@@ -39,7 +39,8 @@ import {
   Pencil,
   Settings2,
   Save,
-  Send
+  Send,
+  AlertTriangle
 } from 'lucide-react';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
@@ -54,7 +55,7 @@ import { ClientDate } from '../../components/client-date';
 import { cn } from '@/lib/utils';
 import { useTransition, useState, useRef, useEffect, useMemo } from 'react';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection, useStorage } from '@/firebase';
-import { doc, updateDoc, deleteDoc, collection, addDoc, query, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, collection, addDoc, query, orderBy, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
@@ -151,7 +152,6 @@ export function SnaggingItemCard({
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [project, subContractors]);
 
-  // Sort sub-items: Open first, then provisional, closed at the bottom
   const sortedSubItems = useMemo(() => {
     if (!item.items) return [];
     return [...item.items].sort((a, b) => {
@@ -295,6 +295,32 @@ export function SnaggingItemCard({
     });
   };
 
+  const handleDeleteItem = () => {
+    if (!managingItem) return;
+    startTransition(async () => {
+      try {
+        const updatedItems = item.items.filter(i => i.id !== managingItem.id);
+        const docRef = doc(db, 'snagging-items', item.id);
+        await updateDoc(docRef, { items: updatedItems });
+
+        const historyCol = collection(db, 'snagging-items', item.id, 'history');
+        await addDoc(historyCol, {
+          timestamp: new Date().toISOString(),
+          updatedBy: profile?.name || 'System User', 
+          items: updatedItems,
+          totalCount: updatedItems.length,
+          closedCount: updatedItems.filter(i => i.status === 'closed').length,
+          summary: `Item deleted: ${managingItem.description}`
+        });
+
+        toast({ title: 'Item Removed', description: 'Defect has been deleted from the list.' });
+        setManagingItem(null);
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to delete item.', variant: 'destructive' });
+      }
+    });
+  };
+
   const handleToggleStatus = (subItem: SnaggingListItem) => {
     if (subItem.status === 'open') {
       setCompletingItem(subItem);
@@ -342,7 +368,7 @@ export function SnaggingItemCard({
   const openManageDialog = (subItem: SnaggingListItem) => {
     setManagingItem(subItem);
     setManagedDescription(subItem.description);
-    setManagedSubId(subItem.subContractorId);
+    setManagedSubId(subItem.subContractorId || undefined);
   };
 
   return (
@@ -373,7 +399,7 @@ export function SnaggingItemCard({
                 </span>
               </CardDescription>
             </Link>
-            <div className="flex items-center gap-1 md:gap-2">
+            <div className="flex items-center gap-1 md:gap-2" onClick={(e) => e.stopPropagation()}>
               <Badge variant={isComplete ? "secondary" : "outline"} className="capitalize text-[9px] md:text-[10px] font-bold px-1.5 md:px-2.5 h-5 md:h-6 whitespace-nowrap">
                   {isComplete ? "Ready" : `${closedItems}/${totalItems}`}
               </Badge>
@@ -397,13 +423,13 @@ export function SnaggingItemCard({
                 <AlertDialogContent className="w-[95vw] max-w-lg rounded-xl">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Snagging List?</AlertDialogTitle>
-                    <AlertDialogDescription>This will permanently remove this entire list.</AlertDialogDescription>
+                    <AlertDialogDescription>This will permanently remove the entire list: <strong>{item.title}</strong>. This action cannot be undone.</AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handleDeleteList} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
                       {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Delete
+                      Delete Everything
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -415,9 +441,12 @@ export function SnaggingItemCard({
           {item.description && <p className="text-xs md:text-sm text-foreground mb-4 leading-relaxed line-clamp-3 md:line-clamp-none">{item.description}</p>}
           
           <div className="space-y-3 mb-4 bg-muted/20 p-3 md:p-4 rounded-lg border shadow-inner">
-              <div className="flex items-center gap-2 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest mb-1 md:mb-2">
-                  <ListChecks className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                  <span>Trade Verification</span>
+              <div className="flex items-center justify-between items-center mb-1 md:mb-2">
+                  <div className="flex items-center gap-2 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">
+                      <ListChecks className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+                      <span>Verification Queue</span>
+                  </div>
+                  {isPending && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
               </div>
               {sortedSubItems?.map((subItem) => {
                   const sub = subContractors.find(s => s.id === subItem.subContractorId);
@@ -531,7 +560,7 @@ export function SnaggingItemCard({
                 <AccordionTrigger className="text-xs md:text-sm font-semibold">
                     <div className="flex items-center gap-2">
                         <History className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                        <span>Version History ({history?.length || 0})</span>
+                        <span>Audit Log ({history?.length || 0})</span>
                     </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-2">
@@ -572,7 +601,7 @@ export function SnaggingItemCard({
                 <AccordionTrigger className="text-xs md:text-sm font-semibold">
                   <div className="flex items-center gap-2">
                     <Camera className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                    <span>Visual Assets ({item.photos.length})</span>
+                    <span>General Photos ({item.photos.length})</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
@@ -704,9 +733,23 @@ export function SnaggingItemCard({
                     </SelectContent>
                 </Select>
             </div>
+
+            <Separator />
+
+            <div className="space-y-3 p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
+                <div className="flex items-center gap-2 text-destructive font-bold text-xs uppercase tracking-widest">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Danger Zone</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Removing this defect is permanent and will be logged in the audit history.</p>
+                <Button variant="destructive" size="sm" className="w-full gap-2 h-9 font-bold" onClick={handleDeleteItem} disabled={isPending}>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete Defect Item
+                </Button>
+            </div>
           </div>
 
-          <DialogFooter className="gap-3 sm:gap-0">
+          <DialogFooter className="gap-3 sm:gap-0 border-t pt-4">
             <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setManagingItem(null)}>Cancel</Button>
             <Button className="font-bold shadow-lg shadow-primary/20" onClick={handleUpdateItemDetails} disabled={isPending}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4 mr-2" />}

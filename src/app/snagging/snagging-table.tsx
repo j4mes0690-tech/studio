@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown, History } from 'lucide-react';
+import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown, History, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SortKey = 'project' | 'area' | 'title' | 'date' | 'progress' | 'snapshots';
@@ -166,7 +166,6 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  // Fetch Snapshot Count for this specific list
   const historyQuery = useMemoFirebase(() => {
     if (!db || !item.id) return null;
     return collection(db, 'snagging-items', item.id, 'history');
@@ -178,18 +177,19 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
   const isComplete = totalItems > 0 && totalItems === closedItems;
 
   const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent row click
+    e.stopPropagation();
     startTransition(async () => {
-      const docRef = doc(db, 'snagging-items', item.id);
-      deleteDoc(docRef)
-        .then(() => toast({ title: 'Success', description: 'Snagging list deleted.' }))
-        .catch((err) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'delete',
-          });
-          errorEmitter.emit('permission-error', permissionError);
+      try {
+        const docRef = doc(db, 'snagging-items', item.id);
+        await deleteDoc(docRef);
+        toast({ title: 'Success', description: 'Snagging list deleted.' });
+      } catch (err) {
+        const permissionError = new FirestorePermissionError({
+          path: `snagging-items/${item.id}`,
+          operation: 'delete',
         });
+        errorEmitter.emit('permission-error', permissionError);
+      }
     });
   };
 
@@ -236,21 +236,23 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                  <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 hover:bg-destructive/10">
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent><p>Delete List</p></TooltipContent>
+                <TooltipContent><p>Delete Entire List</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
-            <AlertDialogContent>
+            <AlertDialogContent onClick={e => e.stopPropagation()}>
               <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>Permanently delete this entire snagging list. This cannot be undone.</AlertDialogDescription>
+                <AlertDialogTitle>Delete Snagging List?</AlertDialogTitle>
+                <AlertDialogDescription>This will permanently remove the list "{item.title}" and all its recorded defects. This action cannot be undone.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : 'Confirm Delete'}
+                </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
