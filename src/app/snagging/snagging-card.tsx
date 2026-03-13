@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -42,7 +41,8 @@ import {
   Send,
   Clock,
   Pencil,
-  Settings2
+  Settings2,
+  Save
 } from 'lucide-react';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
