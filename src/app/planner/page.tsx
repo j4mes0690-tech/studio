@@ -2,7 +2,7 @@
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense, useTransition } from 'react';
 import type { PlannerTask, Project, Area, Trade, DistributionUser, Photo } from '@/lib/types';
 import { Loader2, CalendarRange, LayoutGrid, List, ShieldCheck, Filter, Plus, Trash2, CheckCircle2, Circle, AlertCircle, Camera, Maximize2 } from 'lucide-react';
@@ -167,7 +167,12 @@ function PlannerContent() {
 
         {isGanttView ? (
             <div className="overflow-x-auto pb-8">
-                <GanttChart tasks={filteredTasks} trades={allTrades || []} projects={allowedProjects} />
+                <GanttChart 
+                  tasks={filteredTasks} 
+                  trades={allTrades || []} 
+                  projects={allowedProjects} 
+                  onTaskClick={(task) => setEditingTaskId(task.id)}
+                />
             </div>
         ) : (
             <div className="grid gap-4">
@@ -252,7 +257,11 @@ export default function PlannerPage() {
   return (
     <div className="flex flex-col w-full min-h-screen">
       <Header title="Short Term Planner" />
-      <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+      <Suspense fallback={
+        <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      }>
         <PlannerContent />
       </Suspense>
     </div>

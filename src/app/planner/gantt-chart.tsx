@@ -18,7 +18,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Separator } from '@/components/ui/separator';
 import { ImageLightbox } from '@/components/image-lightbox';
 import Image from 'next/image';
-import { EditTaskDialog } from './edit-task';
 
 const DAY_WIDTH = 40; // px per day
 const TIMELINE_WEEKS = 4;
@@ -31,9 +30,18 @@ function parseDateString(dateStr: string | null | undefined) {
   return new Date(y, m - 1, d);
 }
 
-export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; trades: Trade[]; projects: Project[] }) {
+export function GanttChart({ 
+  tasks, 
+  trades, 
+  projects,
+  onTaskClick 
+}: { 
+  tasks: PlannerTask[]; 
+  trades: Trade[]; 
+  projects: Project[];
+  onTaskClick: (task: PlannerTask) => void;
+}) {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
-  const [editingTask, setEditingTask] = useState<PlannerTask | null>(null);
 
   const startDate = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
   const endDate = useMemo(() => addDays(startDate, TIMELINE_WEEKS * 7 - 1), [startDate]);
@@ -215,7 +223,7 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
                                                 <TooltipTrigger asChild>
                                                     <div 
                                                         className={cn(
-                                                            "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10",
+                                                            "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
                                                             task.status === 'completed' ? "bg-green-500 border-green-600 text-white" : 
                                                             task.status === 'in-progress' ? "bg-primary border-primary-foreground/20 text-white animate-pulse" : 
                                                             "bg-primary/20 border-primary/30 text-primary"
@@ -226,7 +234,7 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
                                                         }}
                                                         onClick={(e) => {
                                                           e.stopPropagation();
-                                                          setEditingTask(task);
+                                                          onTaskClick(task);
                                                         }}
                                                     >
                                                         {actualBarWidth > 40 && <span className="text-[9px] font-black truncate">{Math.round(actualBarWidth / DAY_WIDTH)}d</span>}
@@ -275,17 +283,6 @@ export function GanttChart({ tasks, trades, projects }: { tasks: PlannerTask[]; 
             </div>
         </div>
         </div>
-
-        {editingTask && (
-            <EditTaskDialog 
-                task={editingTask} 
-                projects={projects} 
-                trades={trades} 
-                allTasks={tasks} 
-                open={!!editingTask} 
-                onOpenChange={(isOpen) => !isOpen && setEditingTask(null)} 
-            />
-        )}
 
         <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
