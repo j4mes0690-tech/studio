@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -154,7 +155,11 @@ function SnaggingContent() {
               </Tooltip>
             </TooltipProvider>
             
-            <NewSnaggingItem projects={allowedProjects} subContractors={subContractors || []} />
+            <NewSnaggingItem 
+              projects={allowedProjects} 
+              subContractors={subContractors || []} 
+              allSnaggingLists={allItems || []}
+            />
           </div>
         </div>
         
