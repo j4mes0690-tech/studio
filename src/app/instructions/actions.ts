@@ -58,7 +58,7 @@ export async function sendSiteInstructionEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'notifications@site-command.com',
       to: emails,
       subject: `Site Instruction Issued: ${reference} - ${projectName}`,
       html: `

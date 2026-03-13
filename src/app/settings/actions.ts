@@ -8,8 +8,6 @@ import { Resend } from 'resend';
 
 /**
  * sendInvitationEmailAction - Sends an onboarding link to a new collaborator via Resend.
- * Using onboarding@resend.dev as the default sender to ensure delivery in environments
- * where site-command.com is not a verified domain.
  */
 export async function sendInvitationEmailAction({
   email,
@@ -40,8 +38,7 @@ export async function sendInvitationEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      // Fallback to onboarding@resend.dev for prototype delivery
-      from: 'onboarding@resend.dev',
+      from: 'onboarding@site-command.com',
       to: [email],
       subject: `Collaborate on SiteCommand: ${name}`,
       html: `

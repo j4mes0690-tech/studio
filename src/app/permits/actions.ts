@@ -37,7 +37,7 @@ export async function sendPermitEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'notifications@site-command.com',
       to: [email],
       subject: `Permit to Work Issued: ${permitRef} (${permitType}) - ${projectName}`,
       html: `

@@ -37,7 +37,7 @@ export async function sendClientInstructionEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'notifications@site-command.com',
       to: emails,
       subject: `${isAccepted ? 'Directive Accepted' : 'New Client Directive'}: ${reference} - ${projectName}`,
       html: `

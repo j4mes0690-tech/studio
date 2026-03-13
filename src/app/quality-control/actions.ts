@@ -1,3 +1,4 @@
+
 'use server';
 
 import { Resend } from 'resend';
@@ -34,7 +35,7 @@ export async function sendChecklistEmailAction({
 
   try {
     const { data, error } = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'notifications@site-command.com',
       to: emails,
       subject: `Quality Verification: ${projectName} - ${areaName} - ${checklistTitle}`,
       html: `
