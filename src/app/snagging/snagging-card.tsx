@@ -197,85 +197,89 @@ export function SnaggingItemCard({
           </div>
         </CardHeader>
         <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
-          <div className="space-y-3 mb-4 bg-muted/20 p-3 md:p-4 rounded-lg border shadow-inner">
-              <div className="flex items-center justify-between mb-1 md:mb-2">
-                  <div className="flex items-center gap-2 text-[10px] md:text-xs font-black text-muted-foreground uppercase tracking-widest">
-                      <ListChecks className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                      <span>Items Summary</span>
-                  </div>
-              </div>
-              {sortedSubItems?.map((subItem) => {
-                  const sub = subContractors.find(s => s.id === subItem.subContractorId);
-                  
-                  return (
-                      <div key={subItem.id} className="p-2.5 md:p-3 rounded-lg bg-background border shadow-sm group">
-                          <div className="flex items-start justify-between gap-3">
-                              <div className="flex items-start gap-2.5 min-w-0">
-                                  <div className="mt-0.5 flex-shrink-0">
-                                      {subItem.status === 'closed' ? (
-                                          <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-                                      ) : subItem.status === 'provisionally-complete' ? (
-                                          <Clock className="h-4 w-4 md:h-5 md:w-5 text-amber-500" />
-                                      ) : (
-                                          <Circle className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                                      )}
+          <Accordion type="single" collapsible className="w-full">
+            <AccordionItem value="items" className="border-b-0">
+              <AccordionTrigger className="text-xs md:text-sm font-semibold hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+                  <span>Defect Items Summary ({closedItems}/{totalItems})</span>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="pt-2">
+                <div className="space-y-3 bg-muted/20 p-3 md:p-4 rounded-lg border shadow-inner">
+                  {sortedSubItems?.map((subItem) => {
+                      const sub = subContractors.find(s => s.id === subItem.subContractorId);
+                      
+                      return (
+                          <div key={subItem.id} className="p-2.5 md:p-3 rounded-lg bg-background border shadow-sm group">
+                              <div className="flex items-start justify-between gap-3">
+                                  <div className="flex items-start gap-2.5 min-w-0">
+                                      <div className="mt-0.5 flex-shrink-0">
+                                          {subItem.status === 'closed' ? (
+                                              <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
+                                          ) : subItem.status === 'provisionally-complete' ? (
+                                              <Clock className="h-4 w-4 md:h-5 md:w-5 text-amber-500" />
+                                          ) : (
+                                              <Circle className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                                          )}
+                                      </div>
+                                      <div className="flex flex-col min-w-0">
+                                          <span className={cn(
+                                                "text-xs md:text-sm font-semibold leading-snug break-words", 
+                                                subItem.status === 'closed' && "line-through text-muted-foreground"
+                                            )}>
+                                              {subItem.description}
+                                          </span>
+                                          {sub && (
+                                              <Badge variant="secondary" className="w-fit text-[8px] md:text-[9px] mt-1 gap-1 font-bold bg-primary/10 text-primary border-primary/20 h-4 truncate max-w-[120px] md:max-w-none">
+                                                  <User className="h-2 w-2" /> {sub.name}
+                                              </Badge>
+                                          )}
+                                      </div>
                                   </div>
-                                  <div className="flex flex-col min-w-0">
-                                      <span className={cn(
-                                            "text-xs md:text-sm font-semibold leading-snug break-words", 
-                                            subItem.status === 'closed' && "line-through text-muted-foreground"
-                                        )}>
-                                          {subItem.description}
-                                      </span>
-                                      {sub && (
-                                          <Badge variant="secondary" className="w-fit text-[8px] md:text-[9px] mt-1 gap-1 font-bold bg-primary/10 text-primary border-primary/20 h-4 truncate max-w-[120px] md:max-w-none">
-                                              <User className="h-2 w-2" /> {sub.name}
-                                          </Badge>
-                                      )}
-                                  </div>
+                                  
+                                  <Badge variant="outline" className={cn(
+                                      "text-[8px] md:text-[9px] font-black uppercase tracking-tighter h-4 px-1.5 whitespace-nowrap shrink-0",
+                                      subItem.status === 'closed' ? "bg-green-50 text-green-700 border-green-200" :
+                                      subItem.status === 'provisionally-complete' ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-muted text-muted-foreground"
+                                  )}>
+                                      {subItem.status.replace('-', ' ')}
+                                  </Badge>
                               </div>
                               
-                              <Badge variant="outline" className={cn(
-                                  "text-[8px] md:text-[9px] font-black uppercase tracking-tighter h-4 px-1.5 whitespace-nowrap shrink-0",
-                                  subItem.status === 'closed' ? "bg-green-50 text-green-700 border-green-200" :
-                                  subItem.status === 'provisionally-complete' ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-muted text-muted-foreground"
-                              )}>
-                                  {subItem.status.replace('-', ' ')}
-                              </Badge>
+                              {subItem.subContractorComment && (
+                                  <div className="ml-7 p-2 rounded bg-muted/30 border-l-2 border-primary/20 text-[10px] md:text-xs italic text-muted-foreground leading-relaxed">
+                                      "{subItem.subContractorComment}"
+                                  </div>
+                              )}
+
+                              {(subItem.photos && subItem.photos.length > 0) || (subItem.completionPhotos && subItem.completionPhotos.length > 0) ? (
+                                <div className="pl-7 flex flex-wrap gap-1.5 pt-1">
+                                  {subItem.photos?.map((p, idx) => (
+                                    <div key={idx} className="relative w-12 h-9 md:w-16 md:h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
+                                      <Image src={p.url} alt="Defect" fill className="object-cover" />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <Maximize2 className="h-3 w-3 text-white" />
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {subItem.completionPhotos?.map((p, idx) => (
+                                    <div key={idx} className="relative w-12 h-9 md:w-16 md:h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border-2 border-green-200 bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
+                                      <Image src={p.url} alt="Fixed" fill className="object-cover" />
+                                      <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Maximize2 className="h-3 w-3 text-white" />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
                           </div>
-                          
-                          {subItem.subContractorComment && (
-                              <div className="ml-7 p-2 rounded bg-muted/30 border-l-2 border-primary/20 text-[10px] md:text-xs italic text-muted-foreground leading-relaxed">
-                                  "{subItem.subContractorComment}"
-                              </div>
-                          )}
+                      );
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
-                          {(subItem.photos && subItem.photos.length > 0) || (subItem.completionPhotos && subItem.completionPhotos.length > 0) ? (
-                            <div className="pl-7 flex flex-wrap gap-1.5 pt-1">
-                              {subItem.photos?.map((p, idx) => (
-                                <div key={idx} className="relative w-12 h-9 md:w-16 md:h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
-                                  <Image src={p.url} alt="Defect" fill className="object-cover" />
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Maximize2 className="h-3 w-3 text-white" />
-                                  </div>
-                                </div>
-                              ))}
-                              {subItem.completionPhotos?.map((p, idx) => (
-                                <div key={idx} className="relative w-12 h-9 md:w-16 md:h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border-2 border-green-200 bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
-                                  <Image src={p.url} alt="Fixed" fill className="object-cover" />
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Maximize2 className="h-3 w-3 text-white" />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
-                      </div>
-                  );
-              })}
-          </div>
-
-          <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="history">
                 <AccordionTrigger className="text-xs md:text-sm font-semibold">
                     <div className="flex items-center gap-2">
@@ -317,7 +321,7 @@ export function SnaggingItemCard({
             </AccordionItem>
 
             {item.photos && item.photos.length > 0 && (
-              <AccordionItem value="photo">
+              <AccordionItem value="photo" className="border-b-0">
                 <AccordionTrigger className="text-xs md:text-sm font-semibold">
                   <div className="flex items-center gap-2">
                     <Camera className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
