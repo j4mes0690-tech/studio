@@ -7,10 +7,10 @@ import { NewSnaggingItem } from './new-snagging-item';
 import { SnaggingFilters } from './snagging-filters';
 import { SnaggingTable } from './snagging-table';
 import { ProjectReportButton } from './project-report-button';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
-import { Loader2, LayoutGrid, List, ShieldCheck } from 'lucide-react';
+import { Loader2, LayoutGrid, List, ShieldCheck, Layers, LayoutList } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -20,19 +20,27 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 function SnaggingContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
+  
   const [isCompact, setIsCompact] = useState(false);
+  const [isGroupedByProject, setIsGroupedByProject] = useState(false);
 
   // Load persistence
   useEffect(() => {
-    const saved = localStorage.getItem('sitecommand_view_snagging');
-    if (saved !== null) {
-      setIsCompact(saved === 'true');
+    const savedView = localStorage.getItem('sitecommand_view_snagging');
+    if (savedView !== null) {
+      setIsCompact(savedView === 'true');
+    }
+    const savedGrouping = localStorage.getItem('sitecommand_grouping_snagging');
+    if (savedGrouping !== null) {
+      setIsGroupedByProject(savedGrouping === 'true');
     }
   }, []);
 
@@ -40,6 +48,12 @@ function SnaggingContent() {
     const newVal = !isCompact;
     setIsCompact(newVal);
     localStorage.setItem('sitecommand_view_snagging', String(newVal));
+  };
+
+  const toggleGrouping = () => {
+    const newVal = !isGroupedByProject;
+    setIsGroupedByProject(newVal);
+    localStorage.setItem('sitecommand_grouping_snagging', String(newVal));
   };
 
   // Profile check
@@ -97,6 +111,37 @@ function SnaggingContent() {
     }).filter(item => projectId ? item.projectId === projectId : true);
   }, [allItems, profile, allProjects, projectId]);
 
+  // GROUPING LOGIC: Aggregated by Project
+  const displayItems = useMemo(() => {
+    if (!isGroupedByProject) return filteredItems;
+
+    const projectMap = new Map<string, any>();
+
+    filteredItems.forEach(list => {
+      if (!projectMap.has(list.projectId)) {
+        const p = allProjects?.find(proj => proj.id === list.projectId);
+        projectMap.set(list.projectId, {
+          id: `aggregated-${list.projectId}`,
+          projectId: list.projectId,
+          title: p?.name || 'Project Overview',
+          createdAt: list.createdAt,
+          items: [],
+          photos: [],
+          isProjectAggregation: true
+        });
+      }
+      const entry = projectMap.get(list.projectId);
+      entry.items.push(...(list.items || []));
+      if (list.photos) entry.photos.push(...list.photos);
+      // Sort by latest activity
+      if (new Date(list.createdAt) > new Date(entry.createdAt)) {
+        entry.createdAt = list.createdAt;
+      }
+    });
+
+    return Array.from(projectMap.values());
+  }, [filteredItems, isGroupedByProject, allProjects]);
+
   const isLoading = projectsLoading || snaggingLoading || subsLoading || profileLoading;
 
   if (isLoading && !allItems) {
@@ -118,7 +163,9 @@ function SnaggingContent() {
     <main className="flex-1 p-3 md:p-6 lg:p-8 flex flex-col gap-4 md:gap-6">
         <div className="flex items-center justify-between">
           <div className='flex flex-col gap-1'>
-            <h2 className="text-xl md:text-2xl font-bold tracking-tight">Snagging Log</h2>
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight">
+                {isGroupedByProject ? 'Project Snagging Status' : 'Snagging Log'}
+            </h2>
             {hasFullVisibility && (
                 <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest">
                     <ShieldCheck className="h-3 w-3" />
@@ -136,6 +183,39 @@ function SnaggingContent() {
                   initialProjectId={projectId}
               />
             )}
+
+            <div className="flex items-center border rounded-md p-0.5 bg-muted/20">
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button 
+                                variant={isGroupedByProject ? "ghost" : "secondary"} 
+                                size="icon" 
+                                onClick={() => { if(isGroupedByProject) toggleGrouping(); }}
+                                className={cn("h-8 w-8", !isGroupedByProject && "bg-background shadow-sm")}
+                            >
+                                <LayoutList className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Individual Audit Lists</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button 
+                                variant={isGroupedByProject ? "secondary" : "ghost"} 
+                                size="icon" 
+                                onClick={() => { if(!isGroupedByProject) toggleGrouping(); }}
+                                className={cn("h-8 w-8", isGroupedByProject && "bg-background shadow-sm")}
+                            >
+                                <Layers className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Group by Project</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
 
             <TooltipProvider>
               <Tooltip>
@@ -165,18 +245,18 @@ function SnaggingContent() {
         
         <SnaggingFilters projects={allowedProjects} />
 
-        {filteredItems.length > 0 ? (
+        {displayItems.length > 0 ? (
           isCompact ? (
             <div className="overflow-x-auto">
                 <SnaggingTable 
-                items={filteredItems}
+                items={displayItems}
                 projects={allProjects || []}
                 subContractors={subContractors || []}
                 />
             </div>
           ) : (
             <div className="grid gap-4 md:gap-6">
-              {filteredItems.map((item) => (
+              {displayItems.map((item) => (
                 <SnaggingItemCard
                   key={item.id}
                   item={item}
@@ -187,9 +267,9 @@ function SnaggingContent() {
             </div>
           )
         ) : (
-          <div className="text-center py-12 px-4 text-muted-foreground border-2 border-dashed rounded-lg">
+          <div className="text-center py-12 px-4 text-muted-foreground border-2 border-dashed rounded-lg bg-muted/5">
             <p className="text-lg font-semibold">No records found</p>
-            <p className="text-sm">You only see snagging lists for projects you are explicitly assigned to.</p>
+            <p className="text-sm">You only see snagging data for projects you are explicitly assigned to.</p>
           </div>
         )}
       </main>

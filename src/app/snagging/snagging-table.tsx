@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -33,14 +34,15 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown, History, Loader2, ExternalLink, FileText, Send } from 'lucide-react';
+import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown, History, Loader2, Building2, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useRouter } from 'next/navigation';
 
-type SortKey = 'project' | 'area' | 'title' | 'date' | 'progress' | 'snapshots';
+type SortKey = 'project' | 'area' | 'title' | 'date' | 'progress';
 type SortOrder = 'asc' | 'desc';
 
 type TableProps = {
-  items: SnaggingItem[];
+  items: (SnaggingItem & { isProjectAggregation?: boolean })[];
   projects: Project[];
   subContractors: SubContractor[];
 };
@@ -120,26 +122,25 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
               className="w-[100px] md:w-[120px] cursor-pointer hover:text-foreground transition-colors"
               onClick={() => handleSort('area')}
             >
-              <div className="flex items-center">Area <SortIcon column="area" /></div>
+              <div className="flex items-center">Location <SortIcon column="area" /></div>
             </TableHead>
             <TableHead 
               className="cursor-pointer hover:text-foreground transition-colors"
               onClick={() => handleSort('title')}
             >
-              <div className="flex items-center">List Title <SortIcon column="title" /></div>
+              <div className="flex items-center">Identifier <SortIcon column="title" /></div>
             </TableHead>
             <TableHead 
               className="hidden md:table-cell w-[120px] cursor-pointer hover:text-foreground transition-colors"
               onClick={() => handleSort('date')}
             >
-              <div className="flex items-center">Date <SortIcon column="date" /></div>
+              <div className="flex items-center">Latest <SortIcon column="date" /></div>
             </TableHead>
-            <TableHead className="hidden lg:table-cell w-[100px] text-center">Snapshots</TableHead>
             <TableHead 
               className="w-[80px] md:w-[100px] cursor-pointer hover:text-foreground transition-colors text-right pr-4 md:pr-6"
               onClick={() => handleSort('progress')}
             >
-              <div className="flex items-center justify-end">Ready <SortIcon column="progress" /></div>
+              <div className="flex items-center justify-end">Progress <SortIcon column="progress" /></div>
             </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -159,22 +160,26 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
   );
 }
 
-function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, projects: Project[], subContractors: SubContractor[] }) {
+function SnagRow({ item, projects, subContractors }: { item: SnaggingItem & { isProjectAggregation?: boolean }, projects: Project[], subContractors: SubContractor[] }) {
+  const router = useRouter();
   const project = projects.find((p) => p.id === item.projectId);
   const area = project?.areas?.find((a) => a.id === item.areaId);
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
 
-  const historyQuery = useMemoFirebase(() => {
-    if (!db || !item.id) return null;
-    return collection(db, 'snagging-items', item.id, 'history');
-  }, [db, item.id]);
-  const { data: history } = useCollection<SnaggingHistoryRecord>(historyQuery);
-
   const totalItems = item.items?.length || 0;
   const closedItems = item.items?.filter(i => i.status === 'closed').length || 0;
   const isComplete = totalItems > 0 && totalItems === closedItems;
+
+  const handleClick = () => {
+    if (item.isProjectAggregation) {
+        localStorage.setItem('sitecommand_grouping_snagging', 'false');
+        router.push(`/snagging?project=${item.projectId}`);
+    } else {
+        router.push(`/snagging/${item.id}`);
+    }
+  };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -195,20 +200,38 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
 
   return (
     <TableRow 
-      className="group cursor-pointer hover:bg-muted/30"
-      href={`/snagging/${item.id}`}
+      className={cn("group cursor-pointer hover:bg-muted/30", item.isProjectAggregation && "bg-primary/[0.03]")}
+      onClick={handleClick}
     >
-      <TableCell className="hidden md:table-cell font-medium text-xs truncate max-w-[120px]">{project?.name || '---'}</TableCell>
+      <TableCell className="hidden md:table-cell font-medium text-xs">
+        {item.isProjectAggregation ? (
+            <div className="flex items-center gap-2 text-primary font-bold">
+                <Building2 className="h-3 w-3" />
+                OVERVIEW
+            </div>
+        ) : (
+            project?.name || '---'
+        )}
+      </TableCell>
       <TableCell>
         <div className="flex items-center gap-1.5 text-[10px] md:text-xs text-muted-foreground">
-          <MapPin className="h-3 w-3 shrink-0" />
-          <span className="truncate">{area?.name || 'Site'}</span>
+          {item.isProjectAggregation ? (
+              <Badge variant="secondary" className="text-[8px] h-4 uppercase">Multiple Areas</Badge>
+          ) : (
+              <>
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="truncate">{area?.name || 'Site'}</span>
+              </>
+          )}
         </div>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-            <span className="text-xs md:text-sm font-bold group-hover:text-primary transition-colors truncate max-w-[150px] md:max-w-none">{item.title}</span>
+            <span className={cn("text-xs md:text-sm font-bold group-hover:text-primary transition-colors truncate", item.isProjectAggregation && "text-primary")}>
+                {item.title}
+            </span>
             {isComplete && <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />}
+            {item.isProjectAggregation && <ChevronRight className="h-3 w-3 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-all" />}
         </div>
       </TableCell>
       <TableCell className="hidden md:table-cell">
@@ -216,14 +239,8 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
             <ClientDate date={item.createdAt} format="date" />
         </span>
       </TableCell>
-      <TableCell className="hidden lg:table-cell text-center">
-        <Badge variant="outline" className="text-[10px] gap-1 font-mono h-5">
-          <History className="h-2.5 w-2.5" />
-          {history?.length || 0}
-        </Badge>
-      </TableCell>
       <TableCell className="text-right pr-4 md:pr-6">
-        <Badge variant={isComplete ? "secondary" : "outline"} className="text-[10px] h-5 px-1.5">
+        <Badge variant={isComplete ? "secondary" : "outline"} className={cn("text-[10px] h-5 px-1.5", isComplete && "bg-green-100 text-green-800 border-green-200")}>
             {closedItems}/{totalItems}
         </Badge>
       </TableCell>
@@ -234,32 +251,34 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem, proje
             <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
           </div>
           
-          <AlertDialog>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 hover:bg-destructive/10">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                </TooltipTrigger>
-                <TooltipContent><p>Delete Entire List</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-            <AlertDialogContent onClick={e => e.stopPropagation()}>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Snagging List?</AlertDialogTitle>
-                <AlertDialogDescription>This will permanently remove the list "{item.title}" and all its recorded defects. This action cannot be undone.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          {!item.isProjectAggregation && (
+            <AlertDialog>
+                <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 hover:bg-destructive/10">
+                        <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Delete Entire List</p></TooltipContent>
+                </Tooltip>
+                </TooltipProvider>
+                <AlertDialogContent onClick={e => e.stopPropagation()}>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Snagging List?</AlertDialogTitle>
+                    <AlertDialogDescription>This will permanently remove the list "{item.title}" and all its recorded defects. This action cannot be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                    Delete
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+          )}
         </div>
       </TableCell>
     </TableRow>

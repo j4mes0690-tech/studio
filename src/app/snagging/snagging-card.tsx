@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -32,7 +33,9 @@ import {
   Clock,
   Loader2,
   FileText,
-  Send
+  Send,
+  Building2,
+  ChevronRight
 } from 'lucide-react';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
@@ -73,9 +76,10 @@ import {
 } from '@/components/ui/dialog';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useRouter } from 'next/navigation';
 
 type SnaggingItemCardProps = {
-  item: SnaggingItem;
+  item: SnaggingItem & { isProjectAggregation?: boolean };
   projects: Project[];
   subContractors: SubContractor[];
 };
@@ -85,6 +89,7 @@ export function SnaggingItemCard({
   projects,
   subContractors,
 }: SnaggingItemCardProps) {
+  const router = useRouter();
   const project = projects.find((p) => p.id === item.projectId);
   const area = project?.areas?.find((a) => a.id === item.areaId);
   const db = useFirestore();
@@ -98,9 +103,9 @@ export function SnaggingItemCard({
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   const historyQuery = useMemoFirebase(() => {
-    if (!db || !item.id) return null;
+    if (!db || item.isProjectAggregation || !item.id) return null;
     return query(collection(db, 'snagging-items', item.id, 'history'), orderBy('timestamp', 'desc'));
-  }, [db, item.id]);
+  }, [db, item.id, item.isProjectAggregation]);
   const { data: history } = useCollection<SnaggingHistoryRecord>(historyQuery);
 
   const [viewingHistoryRecord, setViewingHistoryRecord] = useState<SnaggingHistoryRecord | null>(null);
@@ -135,36 +140,64 @@ export function SnaggingItemCard({
       });
   };
 
+  const handleAggregateClick = () => {
+    if (item.isProjectAggregation) {
+        // Switch grouping off and filter by this project
+        localStorage.setItem('sitecommand_grouping_snagging', 'false');
+        router.push(`/snagging?project=${item.projectId}`);
+    }
+  };
+
   return (
     <>
-      <Card className="transition-all hover:bg-muted/5 hover:border-primary/50 shadow-md">
-        <CardHeader className="p-4 md:p-6">
+      <Card 
+        className={cn(
+            "transition-all shadow-md overflow-hidden",
+            item.isProjectAggregation ? "border-primary/30 border-l-8 border-l-primary hover:bg-primary/[0.02]" : "hover:bg-muted/5 hover:border-primary/50"
+        )}
+      >
+        <CardHeader className="p-4 md:p-6 bg-muted/10 border-b">
           <div className="flex justify-between items-start">
-            <Link href={`/snagging/${item.id}`} className="space-y-1 flex-1 group">
-              <CardTitle className="flex items-center gap-2 group-hover:text-primary transition-colors text-base md:text-lg">
-                <span className="truncate max-w-[180px] sm:max-w-none">{item.title}</span>
-                {isComplete && <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500 shrink-0" />}
-                <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block" />
-              </CardTitle>
-              <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
-                <span className="font-semibold text-foreground text-xs md:text-sm">{project?.name || 'Unknown'}</span>
-                {area && (
-                  <>
-                    <span className="text-muted-foreground">&gt;</span>
-                    <span className="flex items-center gap-1 font-bold text-primary text-xs">
-                      <MapPin className="h-3 w-3" />
-                      {area.name}
-                    </span>
-                  </>
-                )}
-                <span className="hidden sm:inline text-muted-foreground">•</span>
-                <span className="text-[10px] md:text-xs text-muted-foreground/80 font-medium whitespace-nowrap">
-                  Logged <ClientDate date={item.createdAt} format="date" />
-                </span>
-              </CardDescription>
-            </Link>
+            <div className="space-y-1 flex-1 min-w-0">
+              {item.isProjectAggregation ? (
+                <div className="flex flex-col gap-1 cursor-pointer group" onClick={handleAggregateClick}>
+                    <div className="flex items-center gap-2">
+                        <Building2 className="h-5 w-5 text-primary shrink-0" />
+                        <CardTitle className="text-base md:text-xl group-hover:text-primary transition-colors truncate">
+                            {item.title}
+                        </CardTitle>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                    </div>
+                    <CardDescription className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Project-Wide Consolidated Status</CardDescription>
+                </div>
+              ) : (
+                <Link href={`/snagging/${item.id}`} className="block group">
+                    <CardTitle className="flex items-center gap-2 group-hover:text-primary transition-colors text-base md:text-lg">
+                        <span className="truncate">{item.title}</span>
+                        {isComplete && <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500 shrink-0" />}
+                        <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block" />
+                    </CardTitle>
+                    <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
+                        <span className="font-semibold text-foreground text-xs md:text-sm">{project?.name || 'Unknown'}</span>
+                        {area && (
+                        <>
+                            <span className="text-muted-foreground">&gt;</span>
+                            <span className="flex items-center gap-1 font-bold text-primary text-xs">
+                            <MapPin className="h-3 w-3" />
+                            {area.name}
+                            </span>
+                        </>
+                        )}
+                        <span className="hidden sm:inline text-muted-foreground">•</span>
+                        <span className="text-[10px] md:text-xs text-muted-foreground/80 font-medium whitespace-nowrap">
+                        Logged <ClientDate date={item.createdAt} format="date" />
+                        </span>
+                    </CardDescription>
+                </Link>
+              )}
+            </div>
             <div className="flex items-center gap-1 md:gap-2" onClick={(e) => e.stopPropagation()}>
-              <Badge variant={isComplete ? "secondary" : "outline"} className="capitalize text-[9px] md:text-[10px] font-bold px-1.5 md:px-2.5 h-5 md:h-6 whitespace-nowrap">
+              <Badge variant={isComplete ? "secondary" : "outline"} className={cn("capitalize text-[9px] md:text-[10px] font-bold px-1.5 md:px-2.5 h-5 md:h-6 whitespace-nowrap", isComplete ? "bg-green-100 text-green-800 border-green-200" : "")}>
                   {isComplete ? "Ready" : `${closedItems}/${totalItems}`}
               </Badge>
               
@@ -173,36 +206,51 @@ export function SnaggingItemCard({
                 <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
               </div>
               
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Delete List</span>
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="w-[95vw] max-w-lg rounded-xl">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Snagging List?</AlertDialogTitle>
-                    <AlertDialogDescription>This will permanently remove the entire list: <strong>{item.title}</strong>. This action cannot be undone.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDeleteList} className="bg-destructive hover:bg-destructive/90">
-                      Delete Everything
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              {!item.isProjectAggregation && (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9 text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete List</span>
+                    </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="w-[95vw] max-w-lg rounded-xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Snagging List?</AlertDialogTitle>
+                        <AlertDialogDescription>This will permanently remove the entire list: <strong>{item.title}</strong>. This action cannot be undone.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDeleteList} className="bg-destructive hover:bg-destructive/90">
+                        Delete Everything
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
           </div>
         </CardHeader>
-        <CardContent className="p-4 pt-0 md:p-6 md:pt-0">
+        <CardContent className="p-4 md:p-6">
+          <div className="mb-6">
+              <div className='flex justify-between items-end mb-2'>
+                  <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em]">Overall Ready Status</p>
+                  <span className="text-xs font-bold text-primary">{totalItems > 0 ? Math.round((closedItems / totalItems) * 100) : 0}%</span>
+              </div>
+              <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div 
+                    className={cn("h-full transition-all duration-500", isComplete ? "bg-green-500" : "bg-primary")} 
+                    style={{ width: `${totalItems > 0 ? (closedItems / totalItems) * 100 : 0}%` }} 
+                  />
+              </div>
+          </div>
+
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="items" className="border-b-0">
-              <AccordionTrigger className="text-xs md:text-sm font-semibold hover:no-underline">
+              <AccordionTrigger className="text-xs md:text-sm font-semibold hover:no-underline py-2">
                 <div className="flex items-center gap-2">
                   <ListChecks className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                  <span>Defect Items Summary ({closedItems}/{totalItems})</span>
+                  <span>Defect Details ({closedItems}/{totalItems})</span>
                 </div>
               </AccordionTrigger>
               <AccordionContent className="pt-2">
@@ -248,13 +296,13 @@ export function SnaggingItemCard({
                               </div>
                               
                               {subItem.subContractorComment && (
-                                  <div className="ml-7 p-2 rounded bg-muted/30 border-l-2 border-primary/20 text-[10px] md:text-xs italic text-muted-foreground leading-relaxed">
+                                  <div className="ml-7 p-2 rounded bg-muted/30 border-l-2 border-primary/20 text-[10px] md:text-xs italic text-muted-foreground leading-relaxed mt-2">
                                       "{subItem.subContractorComment}"
                                   </div>
                               )}
 
                               {(subItem.photos && subItem.photos.length > 0) || (subItem.completionPhotos && subItem.completionPhotos.length > 0) ? (
-                                <div className="pl-7 flex flex-wrap gap-1.5 pt-1">
+                                <div className="pl-7 flex flex-wrap gap-1.5 pt-2 mt-2 border-t border-dashed">
                                   {subItem.photos?.map((p, idx) => (
                                     <div key={idx} className="relative w-12 h-9 md:w-16 md:h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
                                       <Image src={p.url} alt="Defect" fill className="object-cover" />
@@ -280,52 +328,54 @@ export function SnaggingItemCard({
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="history">
-                <AccordionTrigger className="text-xs md:text-sm font-semibold">
-                    <div className="flex items-center gap-2">
-                        <History className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                        <span>Audit Log ({history?.length || 0})</span>
-                    </div>
-                </AccordionTrigger>
-                <AccordionContent className="pt-2">
-                    <ScrollArea className="h-40 md:h-48 rounded-md border bg-muted/5 p-3 md:p-4">
-                        <div className="space-y-3">
-                            {history && history.length > 0 ? history.map((record, idx) => (
-                                <div 
-                                    key={record.id} 
-                                    className="relative pl-4 border-l-2 border-primary/20 pb-2 last:pb-0 cursor-pointer group/hist transition-colors hover:bg-primary/5 rounded-r-md"
-                                    onClick={() => setViewingHistoryRecord(record)}
-                                >
-                                    <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-primary" />
-                                    <div className="flex flex-col gap-0.5">
-                                        <div className="flex items-center justify-between">
-                                            <div className='flex items-center gap-1.5'>
-                                                <span className="text-[9px] font-bold uppercase tracking-wider text-primary">V{history.length - idx}</span>
-                                                {idx === 0 && (
-                                                  <Badge variant="secondary" className="h-3.5 px-1 text-[7px] bg-green-100 text-green-800 border-green-200 font-black tracking-tighter">
-                                                    ACTIVE
-                                                  </Badge>
-                                                )}
-                                            </div>
-                                            <span className="text-[8px] md:text-[9px] text-muted-foreground"><ClientDate date={record.timestamp} format="date" /></span>
-                                        </div>
-                                        <p className="text-[10px] md:text-xs font-medium text-foreground truncate">{record.summary}</p>
-                                    </div>
-                                </div>
-                            )) : (
-                                <p className="text-[10px] text-center text-muted-foreground py-6 italic">No history recorded.</p>
-                            )}
+            {!item.isProjectAggregation && (
+                <AccordionItem value="history">
+                    <AccordionTrigger className="text-xs md:text-sm font-semibold py-2">
+                        <div className="flex items-center gap-2">
+                            <History className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
+                            <span>Audit Log ({history?.length || 0})</span>
                         </div>
-                    </ScrollArea>
-                </AccordionContent>
-            </AccordionItem>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-2">
+                        <ScrollArea className="h-40 md:h-48 rounded-md border bg-muted/5 p-3 md:p-4">
+                            <div className="space-y-3">
+                                {history && history.length > 0 ? history.map((record, idx) => (
+                                    <div 
+                                        key={record.id} 
+                                        className="relative pl-4 border-l-2 border-primary/20 pb-2 last:pb-0 cursor-pointer group/hist transition-colors hover:bg-primary/5 rounded-r-md"
+                                        onClick={() => setViewingHistoryRecord(record)}
+                                    >
+                                        <div className="absolute -left-[5px] top-0 h-2 w-2 rounded-full bg-primary" />
+                                        <div className="flex flex-col gap-0.5">
+                                            <div className="flex items-center justify-between">
+                                                <div className='flex items-center gap-1.5'>
+                                                    <span className="text-[9px] font-bold uppercase tracking-wider text-primary">V{history.length - idx}</span>
+                                                    {idx === 0 && (
+                                                    <Badge variant="secondary" className="h-3.5 px-1 text-[7px] bg-green-100 text-green-800 border-green-200 font-black tracking-tighter">
+                                                        ACTIVE
+                                                    </Badge>
+                                                    )}
+                                                </div>
+                                                <span className="text-[8px] md:text-[9px] text-muted-foreground"><ClientDate date={record.timestamp} format="date" /></span>
+                                            </div>
+                                            <p className="text-[10px] md:text-xs font-medium text-foreground truncate">{record.summary}</p>
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <p className="text-[10px] text-center text-muted-foreground py-6 italic">No history recorded.</p>
+                                )}
+                            </div>
+                        </ScrollArea>
+                    </AccordionContent>
+                </AccordionItem>
+            )}
 
             {item.photos && item.photos.length > 0 && (
               <AccordionItem value="photo" className="border-b-0">
-                <AccordionTrigger className="text-xs md:text-sm font-semibold">
+                <AccordionTrigger className="text-xs md:text-sm font-semibold py-2">
                   <div className="flex items-center gap-2">
                     <Camera className="h-3.5 w-3.5 md:h-4 md:w-4 text-primary" />
-                    <span>General Photos ({item.photos.length})</span>
+                    <span>Visual Evidence ({item.photos.length})</span>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent>
