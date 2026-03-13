@@ -31,6 +31,7 @@ import {
   Banknote,
   FileSignature,
   CalendarClock,
+  CalendarRange,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -40,6 +41,7 @@ import { useMemo } from 'react';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
+  { href: '/planner', label: 'Planner', icon: CalendarRange, permission: 'accessPlanner' },
   { href: '/irs', label: 'IRS Schedule', icon: CalendarClock, permission: 'accessIRS' },
   { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, permission: 'accessMaterials' },
   { href: '/plant-orders', label: 'Plant Orders', icon: Truck, permission: 'accessPlant' },

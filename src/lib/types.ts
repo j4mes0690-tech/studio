@@ -158,6 +158,7 @@ export type UserPermissions = {
   accessPaymentNotices: boolean;
   accessSubContractOrders: boolean;
   accessIRS: boolean;
+  accessPlanner: boolean;
   // Read Only Flags
   materialsReadOnly?: boolean;
   plantReadOnly?: boolean;
@@ -173,6 +174,7 @@ export type UserPermissions = {
   paymentNoticesReadOnly?: boolean;
   subContractOrdersReadOnly?: boolean;
   irsReadOnly?: boolean;
+  plannerReadOnly?: boolean;
 };
 
 export type DistributionUser = {
@@ -237,6 +239,23 @@ export type QualityChecklist = {
 export type Trade = {
   id: string;
   name: string;
+};
+
+// --- PLANNER MODULE TYPES ---
+
+export type PlannerTaskStatus = 'pending' | 'in-progress' | 'completed';
+
+export type PlannerTask = {
+  id: string;
+  projectId: string;
+  areaId: string;
+  title: string;
+  tradeId: string;
+  startDate: string; // ISO Date
+  durationDays: number;
+  predecessorIds: string[];
+  status: PlannerTaskStatus;
+  createdAt: string;
 };
 
 // --- IRS MODULE TYPES ---

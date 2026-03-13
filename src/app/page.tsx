@@ -30,7 +30,8 @@ import {
   GripVertical,
   FileSignature,
   CalendarClock,
-  AlertTriangle
+  AlertTriangle,
+  CalendarRange
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -48,6 +49,7 @@ import {
 } from '@/components/ui/tooltip';
 
 const DASHBOARD_CARDS = [
+  { id: 'planner', href: '/planner', label: 'Work Planner', icon: CalendarRange, desc: 'walkthrough properties and identify activities.', permission: 'accessPlanner' },
   { id: 'irs', href: '/irs', label: 'IRS Schedule', icon: CalendarClock, desc: 'Information Required Schedule for design deliverables.', permission: 'accessIRS' },
   { id: 'materials', href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, desc: 'Create and manage purchase orders for project materials.', permission: 'accessMaterials' },
   { id: 'plant', href: '/plant-orders', label: 'Plant Orders', icon: Truck, desc: 'Track equipment hire, off-hire dates, and commercial rates.', permission: 'accessPlant' },

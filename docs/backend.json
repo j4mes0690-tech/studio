@@ -38,11 +38,30 @@
             "accessInfoRequests": { "type": "boolean" },
             "accessPaymentNotices": { "type": "boolean" },
             "accessSubContractOrders": { "type": "boolean" },
-            "accessIRS": { "type": "boolean" }
+            "accessIRS": { "type": "boolean" },
+            "accessPlanner": { "type": "boolean" }
           }
         }
       },
       "required": ["id", "name", "email"]
+    },
+    "PlannerTask": {
+      "title": "Planner Task",
+      "description": "A specific work item in the short term planner.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "areaId": { "type": "string" },
+        "title": { "type": "string" },
+        "tradeId": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "durationDays": { "type": "number" },
+        "predecessorIds": { "type": "array", "items": { "type": "string" } },
+        "status": { "type": "string", "enum": ["pending", "in-progress", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "projectId", "title", "tradeId", "startDate", "durationDays"]
     },
     "IRSItem": {
       "title": "IRS Item",
@@ -96,6 +115,7 @@
   "firestore": {
     "/users/{userId}": { "schema": { "$ref": "#/backend/entities/User" }, "description": "System user profiles." },
     "/projects/{projectId}": { "schema": { "$ref": "#/backend/entities/Project" }, "description": "Construction site project metadata." },
-    "/irs-items/{id}": { "schema": { "$ref": "#/backend/entities/IRSItem" }, "description": "Information Required Schedule tracking items." }
+    "/irs-items/{id}": { "schema": { "$ref": "#/backend/entities/IRSItem" }, "description": "Information Required Schedule tracking items." },
+    "/planner-tasks/{id}": { "schema": { "$ref": "#/backend/entities/PlannerTask" }, "description": "Short term construction planning tasks." }
   }
 }
