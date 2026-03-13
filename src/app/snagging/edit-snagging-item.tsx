@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -23,6 +22,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@/components/ui/form';
 import {
   Select,
@@ -34,7 +34,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, History, Eye, FileSearch } from 'lucide-react';
-import type { Project, SnaggingItem, Photo, Area, SnaggingListItem, SubContractor, SnaggingHistoryRecord } from '@/lib/types';
+import type { Project, SnaggingItem, Photo, Area, SnaggingListItem, SubContractor, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection, query, orderBy, addDoc, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -45,7 +45,6 @@ import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { VoiceInput } from '@/components/voice-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { ClientDate } from '@/components/client-date';
 
 const EditSnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -85,6 +84,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+  
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
@@ -206,87 +206,88 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
             </div>
           </DialogHeader>
           
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            <Form {...form}>
-                <form className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField control={form.control} name="projectId" render={({ field }) => (
-                          <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                      )} />
-                      <FormField control={form.control} name="areaId" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Area</FormLabel>
-                            <Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}>
-                              <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                              <SelectContent>
-                                {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                                {availableAreas.length > 0 && <Separator className="my-1" />}
-                                <SelectItem value="other">Other / Not Listed</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </FormItem>
-                      )} />
-                  </div>
-                  <FormField control={form.control} name="title" render={({ field }) => (
-                      <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} onBlur={handleMetadataChange} /></FormControl></FormItem>
-                  )} />
-                  
-                  <Separator />
-
-                  <div className="space-y-4">
-                    <FormLabel>Manage Items</FormLabel>
+          <ScrollArea className="flex-1">
+            <div className="px-6 py-4">
+              <Form {...form}>
+                  <form className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="projectId" render={({ field }) => (
+                            <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                        )} />
+                        <FormField control={form.control} name="areaId" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Area</FormLabel>
+                              <Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                  {availableAreas.length > 0 && <Separator className="my-1" />}
+                                  <SelectItem value="other">Other / Not Listed</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                        )} />
+                    </div>
+                    <FormField control={form.control} name="title" render={({ field }) => (
+                        <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} onBlur={handleMetadataChange} /></FormControl></FormItem>
+                    )} />
                     
-                    <div className="flex gap-2 items-end bg-muted/20 p-3 rounded-lg border">
-                        <div className="flex-1">
-                            <Input placeholder="Add new snag..." value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}} />
-                        </div>
-                        <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
-                            <SelectTrigger className="w-40"><SelectValue placeholder="Assign" /></SelectTrigger>
-                            <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                        <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim()}><Plus className="h-4 w-4" /></Button>
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <FormLabel>Manage Items</FormLabel>
+                      
+                      <div className="flex gap-2 items-end bg-muted/20 p-3 rounded-lg border">
+                          <div className="flex-1">
+                              <Input placeholder="Add new snag..." value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}} />
+                          </div>
+                          <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
+                              <SelectTrigger className="w-40"><SelectValue placeholder="Assign" /></SelectTrigger>
+                              <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                          </Select>
+                          <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim()}><Plus className="h-4 w-4" /></Button>
+                      </div>
+
+                      <div className="space-y-3">
+                          {items.map((listItem) => (
+                              <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 flex items-center justify-between animate-in slide-in-from-left-1">
+                                  <div className="flex flex-col">
+                                      <span className={cn("text-sm font-bold", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</span>
+                                      {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
+                                  </div>
+                                  <div className="flex gap-1">
+                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
                     </div>
 
-                    <div className="space-y-3">
-                        {items.map((listItem) => (
-                            <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 flex items-center justify-between animate-in slide-in-from-left-1">
-                                <div className="flex flex-col">
-                                    <span className={cn("text-sm font-bold", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</span>
-                                    {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
-                                </div>
-                                <div className="flex gap-1">
-                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
-                                </div>
-                            </div>
-                        ))}
+                    <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
+                      <FormLabel className="font-black text-xs uppercase text-muted-foreground">General Photos</FormLabel>
+                      <div className="flex flex-wrap gap-3">
+                          {photos.map((p, i) => (
+                              <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
+                          ))}
+                          <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
-                    <FormLabel className="font-black text-xs uppercase text-muted-foreground">General Photos</FormLabel>
-                    <div className="flex flex-wrap gap-3">
-                        {photos.map((p, i) => (
-                            <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
-                        ))}
-                        <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
-                    </div>
-                  </div>
-                </div>
-              </ScrollArea>
-              
-              <DialogFooter className="p-6 border-t bg-white">
-                <Button className="w-full h-12 font-bold" onClick={() => setOpen(false)}>Done & Finish Editing</Button>
-              </DialogFooter>
-            </form>
-          </Form>
+                  </form>
+              </Form>
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter className="p-6 border-t bg-white">
+            <Button className="w-full h-12 font-bold" onClick={() => setOpen(false)}>Done & Finish Editing</Button>
+          </DialogFooter>
         </DialogContent>
 
         {(isCameraOpen || itemPhotoTargetId !== null) && (
           <div className="fixed inset-0 z-[100] bg-black">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
             <div className="absolute inset-0 flex flex-col justify-between p-6">
-              <div className="flex justify-end"><Button variant="secondary" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 font-bold">Cancel</Button></div>
+              <div className="flex justify-end"><Button variant="secondary" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
               <div className="flex items-center justify-center gap-8 mb-8">
                 <Button variant="secondary" size="icon" className="rounded-full h-14 w-14" onClick={toggleCamera}><RefreshCw className="h-7 w-7" /></Button>
                 <Button size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90"><div className="h-14 w-14 rounded-full border-2 border-black/10" /></Button>
