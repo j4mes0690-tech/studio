@@ -461,8 +461,9 @@ export function SnaggingItemCard({
                                                 Update
                                             </Button>
                                             {isInternal && (
-                                                <Button size="sm" variant="ghost" className="h-6 text-[9px] font-bold px-2 hover:bg-primary/5" onClick={() => openManageDialog(subItem)}>
-                                                    <Pencil className="h-2.5 w-2.5 mr-1" /> Edit
+                                                <Button size="icon" variant="ghost" className="h-6 w-6 hover:bg-primary/5" onClick={() => openManageDialog(subItem)}>
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                    <span className="sr-only">Edit Item</span>
                                                 </Button>
                                             )}
                                           </>
