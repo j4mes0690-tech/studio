@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -59,8 +60,8 @@ export function NewTaskDialog({
   projects: Project[]; 
   trades: Trade[]; 
   allTasks: PlannerTask[];
-  initialProjectId?: string;
-  initialAreaId?: string;
+  initialProjectId?: string | null;
+  initialAreaId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
@@ -98,17 +99,12 @@ export function NewTaskDialog({
       const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
       
       if (selectedPredecessors.length > 0) {
-        // Find the latest finish date among all selected predecessors
         const latestFinishDate = selectedPredecessors.reduce((latest, current) => {
           try {
             const taskStart = parseISO(current.startDate);
             if (!isValid(taskStart)) return latest;
-            
-            // Logic: Successor starts the day AFTER predecessor finishes
-            // If actual completion date is known, use that as the anchor
             const effectiveFinish = current.actualCompletionDate ? parseISO(current.actualCompletionDate) : addDays(taskStart, current.durationDays - 1);
             const nextStart = addDays(effectiveFinish, 1);
-
             return !latest || nextStart > latest ? nextStart : latest;
           } catch (e) {
             return latest;
@@ -152,9 +148,8 @@ export function NewTaskDialog({
         };
 
         await addDoc(collection(db, 'planner-tasks'), taskData);
-        toast({ title: 'Task Logged', description: 'Schedule updated. Form remains open for next item.' });
+        toast({ title: 'Task Logged', description: 'Schedule updated.' });
         
-        // Reset form for next task addition
         form.reset({
             ...values,
             title: '',
@@ -218,8 +213,8 @@ export function NewTaskDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Quick Walkthrough: Log Activity</DialogTitle>
-          <DialogDescription>Define a work item. The form stays open for multiple additions.</DialogDescription>
+          <DialogTitle>Log Activity</DialogTitle>
+          <DialogDescription>Add work items to this block schedule.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -228,7 +223,7 @@ export function NewTaskDialog({
               <FormField control={form.control} name="projectId" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Project</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!!initialProjectId}>
                     <FormControl><SelectTrigger><SelectValue placeholder="Choose project" /></SelectTrigger></FormControl>
                     <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                   </Select>
@@ -236,9 +231,9 @@ export function NewTaskDialog({
               )} />
               <FormField control={form.control} name="areaId" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Area / Plot</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Choose location" /></SelectTrigger></FormControl>
+                  <FormLabel>Area / Block</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!!initialAreaId || !selectedProjectId}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Choose block" /></SelectTrigger></FormControl>
                     <SelectContent>
                         {selectedProject?.areas?.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                     </SelectContent>
@@ -250,14 +245,14 @@ export function NewTaskDialog({
             <FormField control={form.control} name="title" render={({ field }) => (
               <FormItem>
                 <FormLabel>Activity Description</FormLabel>
-                <FormControl><Input placeholder="e.g. Install wall boarding" {...field} /></FormControl>
+                <FormControl><Input placeholder="e.g. Wall boarding" {...field} /></FormControl>
               </FormItem>
             )} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="tradeId" render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="flex items-center gap-2"><HardHat className="h-4 w-4 text-primary" /> Responsible Trade</FormLabel>
+                        <FormLabel>Trade</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Choose trade" /></SelectTrigger></FormControl>
                             <SelectContent>{trades.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
@@ -275,7 +270,7 @@ export function NewTaskDialog({
             </div>
 
             <div className="space-y-4">
-                <FormLabel className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Site Evidence / Photos</FormLabel>
+                <FormLabel className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Site Photos</FormLabel>
                 <div className="flex flex-wrap gap-2">
                     {photos.map((p, i) => (
                         <div key={i} className="relative w-20 h-20 rounded border overflow-hidden">
@@ -305,7 +300,7 @@ export function NewTaskDialog({
             <div className="space-y-3">
                 <FormLabel className="flex items-center gap-2">
                     <LinkIcon className="h-4 w-4 text-primary" />
-                    Dependencies (Predecessors)
+                    Dependencies
                 </FormLabel>
                 <ScrollArea className="h-32 rounded-md border p-3 bg-muted/5">
                     {potentialPredecessors.length > 0 ? potentialPredecessors.map((task) => (
@@ -332,16 +327,16 @@ export function NewTaskDialog({
                             )}
                         />
                     )) : (
-                        <p className="text-[10px] text-muted-foreground italic text-center py-8">No other tasks in this area yet.</p>
+                        <p className="text-[10px] text-muted-foreground italic text-center py-8">No other tasks in this block yet.</p>
                     )}
                 </ScrollArea>
             </div>
 
             <DialogFooter className="gap-3">
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>Finish Walkthrough</Button>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>Finish</Button>
               <Button type="submit" className="flex-1 h-12 text-lg font-bold" disabled={isPending}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                Add Task & Continue
+                Add & Continue
               </Button>
             </DialogFooter>
           </form>
