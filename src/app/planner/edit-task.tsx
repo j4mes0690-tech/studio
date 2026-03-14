@@ -127,6 +127,7 @@ export function EditTaskDialog({
   }, [allTasks, task.projectId, task.plannerId, task.id]);
 
   // SMART SCHEDULING LOGIC: Reactive start date based on predecessors
+  // Ensures successors are pulled forward if predecessors finish early
   useEffect(() => {
     if (selectedPredecessorIds && selectedPredecessorIds.length > 0) {
       const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
@@ -134,11 +135,11 @@ export function EditTaskDialog({
       if (selectedPredecessors.length > 0) {
         const latestFinishDate = selectedPredecessors.reduce((latest, current) => {
           try {
-            const taskStart = parseISO(current.startDate);
+            const taskStart = parseDateString(current.startDate);
             if (!isValid(taskStart)) return latest;
             
             const effectiveFinish = current.status === 'completed' && current.actualCompletionDate 
-                ? parseISO(current.actualCompletionDate) 
+                ? parseDateString(current.actualCompletionDate) 
                 : addDays(taskStart, current.durationDays - 1);
             
             const nextStart = addDays(effectiveFinish, 1);
@@ -149,33 +150,49 @@ export function EditTaskDialog({
         }, null as Date | null);
 
         if (latestFinishDate) {
-          const currentStartStr = form.getValues('startDate');
           const nextStartStr = format(latestFinishDate, 'yyyy-MM-dd');
-          // Only update if the calculated date is later than the current start date
-          if (nextStartStr > currentStartStr) {
-            form.setValue('startDate', nextStartStr);
-          }
+          form.setValue('startDate', nextStartStr);
         }
       }
     }
   }, [selectedPredecessorIds, allTasks, form]);
 
-  // REFORECASTING LOGIC
-  const reforecast = (currentTaskId: string, newFinishDate: Date, allProjectTasks: PlannerTask[], batch: any) => {
+  // EFFICIENT REFORECASTING LOGIC: Pulls successors forward or pushes them back based on ALL predecessors
+  const reforecast = (currentTaskId: string, allProjectTasks: PlannerTask[], batch: any) => {
     const successors = allProjectTasks.filter(t => t.predecessorIds?.includes(currentTaskId));
     
     successors.forEach(successor => {
-      // Successor starts the day after the predecessor finishes
-      const idealStart = addDays(newFinishDate, 1);
-      const idealStartStr = format(idealStart, 'yyyy-MM-dd');
-
-      if (successor.startDate !== idealStartStr) {
-        const docRef = doc(db, 'planner-tasks', successor.id);
-        batch.update(docRef, { startDate: idealStartStr });
+      // For each successor, find ALL its predecessors to determine the true earliest start date
+      const itsPredecessors = allProjectTasks.filter(p => successor.predecessorIds?.includes(p.id));
+      
+      let latestFinishDate: Date | null = null;
+      itsPredecessors.forEach(p => {
+        const pStart = parseDateString(p.startDate);
+        const pFinish = p.status === 'completed' && p.actualCompletionDate 
+          ? parseDateString(p.actualCompletionDate) 
+          : addDays(pStart, p.durationDays - 1);
         
-        // Recursive call: successors of this successor
-        const successorFinish = addDays(idealStart, successor.durationDays - 1);
-        reforecast(successor.id, successorFinish, allProjectTasks, batch);
+        if (isValid(pFinish)) {
+          if (!latestFinishDate || pFinish > latestFinishDate) {
+            latestFinishDate = pFinish;
+          }
+        }
+      });
+
+      if (latestFinishDate && isValid(latestFinishDate)) {
+        const idealStart = addDays(latestFinishDate, 1);
+        const idealStartStr = format(idealStart, 'yyyy-MM-dd');
+
+        // Only update and recurse if the date has actually changed
+        if (successor.startDate !== idealStartStr) {
+          const docRef = doc(db, 'planner-tasks', successor.id);
+          batch.update(docRef, { startDate: idealStartStr });
+          
+          // Recursive call: update memory copy for deep reforecasting
+          const updatedSuccessor = { ...successor, startDate: idealStartStr };
+          const nextTasks = allProjectTasks.map(t => t.id === successor.id ? updatedSuccessor : t);
+          reforecast(successor.id, nextTasks, batch);
+        }
       }
     });
   };
@@ -204,17 +221,14 @@ export function EditTaskDialog({
 
         batch.update(taskRef, updates);
 
-        // Check if we need to reforecast
-        const currentFinish = (values.status === 'completed' && values.actualCompletionDate) 
-            ? parseDateString(values.actualCompletionDate) 
-            : addDays(parseDateString(values.startDate), values.durationDays - 1);
+        // Prepare updated state for cascading reforecast
+        const updatedTask = { ...task, ...updates };
+        const startingTasks = allTasks.map(t => t.id === task.id ? updatedTask : t);
         
-        if (isValid(currentFinish)) {
-          reforecast(task.id, currentFinish, allTasks, batch);
-        }
+        reforecast(task.id, startingTasks, batch);
 
         await batch.commit();
-        toast({ title: 'Schedule Updated', description: 'Forecasts recalculated based on completion.' });
+        toast({ title: 'Schedule Optimized', description: 'Forecasts revised to follow the most efficient timeline.' });
         onOpenChange(false);
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to update schedule.', variant: 'destructive' });
@@ -340,7 +354,7 @@ export function EditTaskDialog({
                         <FormItem className="animate-in fade-in bg-green-50 p-3 rounded-lg border border-green-100">
                             <FormLabel className="text-green-800 font-black uppercase text-[10px]">Date Finished</FormLabel>
                             <FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} className="bg-white border-green-200" /></FormControl>
-                            <FormDescription className="text-[10px] text-green-700">Successors will reforecast from this date.</FormDescription>
+                            <FormDescription className="text-[10px] text-green-700">Successors will pull forward to this date.</FormDescription>
                         </FormItem>
                     )} />
                 )}

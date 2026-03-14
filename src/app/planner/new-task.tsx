@@ -101,6 +101,7 @@ export function NewTaskDialog({
   }, [selectedProject, subContractors]);
 
   // SMART SCHEDULING LOGIC: Move start date based on dependencies
+  // Ensures new tasks are pulled forward to follow their predecessors efficiently
   useEffect(() => {
     if (selectedPredecessorIds && selectedPredecessorIds.length > 0) {
       const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
@@ -112,7 +113,6 @@ export function NewTaskDialog({
             if (!isValid(taskStart)) return latest;
             
             // Effective finish is the day the work ends
-            // If duration 1, it finishes same day as it starts
             const effectiveFinish = current.status === 'completed' && current.actualCompletionDate 
                 ? parseISO(current.actualCompletionDate) 
                 : addDays(taskStart, current.durationDays - 1);
