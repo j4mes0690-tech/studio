@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -33,28 +32,42 @@ function parseDateString(dateStr: string | null | undefined) {
 
 /**
  * getTradeColor - Returns a consistent color for a trade partner
+ * Expanded to 20 high-contrast colors to reduce collisions
  */
 function getTradeColor(id: string) {
   const colors = [
-    '#3b82f6', // blue
-    '#f97316', // orange
-    '#10b981', // green
-    '#8b5cf6', // purple
-    '#6366f1', // indigo
-    '#14b8a6', // teal
-    '#06b6d4', // cyan
-    '#f59e0b', // amber
-    '#ec4899', // pink
-    '#84cc16', // lime
+    '#2563eb', // blue-600
+    '#ea580c', // orange-600
+    '#16a34a', // green-600
+    '#7c3aed', // violet-600
+    '#db2777', // pink-600
+    '#0891b2', // cyan-600
+    '#4f46e5', // indigo-600
+    '#059669', // emerald-600
+    '#d97706', // amber-600
+    '#dc2626', // red-600
+    '#9333ea', // purple-600
+    '#0284c7', // sky-600
+    '#4d7c0f', // lime-700
+    '#be185d', // pink-700
+    '#1d4ed8', // blue-700
+    '#c2410c', // orange-700
+    '#15803d', // green-700
+    '#6d28d9', // violet-700
+    '#0e7490', // cyan-700
+    '#4338ca', // indigo-700
   ];
   
-  if (!id) return colors[0];
+  if (!id) return '#64748b'; // slate-500 for unassigned
   
   let hash = 0;
   for (let i = 0; i < id.length; i++) {
     hash = id.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return colors[Math.abs(hash) % colors.length];
+  
+  // Use a more varied selection logic
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
 }
 
 export function GanttChart({ 
