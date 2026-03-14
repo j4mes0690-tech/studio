@@ -37,6 +37,7 @@ import { addDays, format, isValid, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { VoiceInput } from '@/components/voice-input';
+import { wouldCreateCycle, cn } from '@/lib/utils';
 
 // Timezone-safe date parser for construction dates (YYYY-MM-DD)
 function parseDateString(dateStr: string | null | undefined) {
@@ -378,28 +379,37 @@ export function EditTaskDialog({
             <div className="space-y-3">
                 <FormLabel className="flex items-center gap-2 font-bold"><LinkIcon className="h-4 w-4 text-primary" /> Successor Logic (Predecessors)</FormLabel>
                 <ScrollArea className="h-32 rounded-lg border p-3 bg-muted/5">
-                    {potentialPredecessors.map((pTask) => (
-                        <FormField
-                            key={pTask.id}
-                            control={form.control}
-                            name="predecessorIds"
-                            render={({ field }) => (
-                                <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                                    <FormControl>
-                                        <Checkbox 
-                                            checked={field.value?.includes(pTask.id)}
-                                            onCheckedChange={(checked) => {
-                                                return checked
-                                                    ? field.onChange([...(field.value || []), pTask.id])
-                                                    : field.onChange(field.value?.filter((v) => v !== pTask.id));
-                                            }}
-                                        />
-                                    </FormControl>
-                                    <FormLabel className="text-xs font-medium cursor-pointer">{pTask.title}</FormLabel>
-                                </FormItem>
-                            )}
-                        />
-                    ))}
+                    {potentialPredecessors.map((pTask) => {
+                        const isCircular = wouldCreateCycle(pTask.id, task.id, allTasks);
+                        return (
+                            <FormField
+                                key={pTask.id}
+                                control={form.control}
+                                name="predecessorIds"
+                                render={({ field }) => (
+                                    <FormItem className={cn("flex items-center space-x-3 space-y-0 mb-2", isCircular && "opacity-50")}>
+                                        <FormControl>
+                                            <Checkbox 
+                                                checked={field.value?.includes(pTask.id)}
+                                                disabled={isCircular}
+                                                onCheckedChange={(checked) => {
+                                                    return checked
+                                                        ? field.onChange([...(field.value || []), pTask.id])
+                                                        : field.onChange(field.value?.filter((v) => v !== pTask.id));
+                                                }}
+                                            />
+                                        </FormControl>
+                                        <div className="flex flex-col">
+                                            <FormLabel className={cn("text-xs font-medium", !isCircular && "cursor-pointer")}>
+                                                {pTask.title}
+                                            </FormLabel>
+                                            {isCircular && <span className="text-[8px] font-bold text-destructive uppercase tracking-tighter">Circular Reference Blocked</span>}
+                                        </div>
+                                    </FormItem>
+                                )}
+                            />
+                        );
+                    })}
                 </ScrollArea>
             </div>
 

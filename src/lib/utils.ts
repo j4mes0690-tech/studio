@@ -56,3 +56,36 @@ export function getNextReference(
   const nextNum = (maxNum + 1).toString().padStart(4, '0');
   return `${projectInitials}-${prefix}-${nextNum}`;
 }
+
+/**
+ * wouldCreateCycle - Checks if adding targetPredecessorId as a predecessor to currentTaskId 
+ * would create a circular dependency.
+ */
+export function wouldCreateCycle(
+  targetPredecessorId: string,
+  currentTaskId: string,
+  allTasks: { id: string; predecessorIds: string[] }[]
+): boolean {
+  if (!targetPredecessorId || !currentTaskId) return false;
+  
+  const taskMap = new Map(allTasks.map(t => [t.id, t]));
+  const visited = new Set<string>();
+
+  function hasPath(startId: string, endId: string): boolean {
+    if (startId === endId) return true;
+    if (visited.has(startId)) return false;
+    visited.add(startId);
+
+    const task = taskMap.get(startId);
+    if (!task || !task.predecessorIds) return false;
+
+    for (const predId of task.predecessorIds) {
+      if (hasPath(predId, endId)) return true;
+    }
+    return false;
+  }
+
+  // If the potential predecessor already depends on the current task, 
+  // making it a predecessor of the current task creates a cycle.
+  return hasPath(targetPredecessorId, currentTaskId);
+}
