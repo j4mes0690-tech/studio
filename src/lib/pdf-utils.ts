@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner } from '@/lib/types';
@@ -356,10 +355,11 @@ export async function generatePlannerPDF(
     if (currentY > pdfHeight - 20) { pdf.addPage(); currentY = 20; }
     
     const sub = subContractors.find(s => s.id === task.subcontractorId);
+    const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
     
     pdf.setFont("helvetica", "normal");
     pdf.text(task.title, 15, currentY, { maxWidth: 80 });
-    pdf.text(sub?.name || 'Unassigned', 100, currentY, { maxWidth: 55 });
+    pdf.text(tradeName, 100, currentY, { maxWidth: 55 });
     pdf.text(new Date(task.startDate).toLocaleDateString(), 160, currentY);
     pdf.text(task.durationDays.toString(), 190, currentY);
     pdf.text(task.status.toUpperCase(), 220, currentY);

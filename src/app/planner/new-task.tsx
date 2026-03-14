@@ -37,12 +37,14 @@ import { Badge } from '@/components/ui/badge';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { addDays, parseISO, format, isValid } from 'date-fns';
 import { VoiceInput } from '@/components/voice-input';
+import { Separator } from '@/components/ui/separator';
 
 const NewTaskSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   plannerId: z.string().min(1, 'Planner selection is required.'),
   title: z.string().min(3, 'Description of work is required.'),
   subcontractorId: z.string().min(1, 'Assigned partner is required.'),
+  customSubcontractorName: z.string().optional(),
   startDate: z.string().min(1, 'Start date is required.'),
   durationDays: z.coerce.number().min(1, 'Duration must be at least 1 day.').default(1),
   predecessorIds: z.array(z.string()).default([]),
@@ -82,6 +84,7 @@ export function NewTaskDialog({
       plannerId: initialPlannerId || '',
       title: '',
       subcontractorId: '',
+      customSubcontractorName: '',
       startDate: new Date().toISOString().split('T')[0],
       durationDays: 1,
       predecessorIds: [],
@@ -91,17 +94,16 @@ export function NewTaskDialog({
   const selectedProjectId = form.watch('projectId');
   const selectedPlannerId = form.watch('plannerId');
   const selectedPredecessorIds = form.watch('predecessorIds');
+  const selectedSubId = form.watch('subcontractorId');
+  
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
 
-  // RESTRICT SUBCONTRACTORS: Only those assigned to the selected project
   const availablePartners = useMemo(() => {
     if (!selectedProject || !subContractors) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [selectedProject, subContractors]);
 
-  // SMART SCHEDULING LOGIC: Move start date based on dependencies
-  // Ensures new tasks are pulled forward to follow their predecessors efficiently
   useEffect(() => {
     if (selectedPredecessorIds && selectedPredecessorIds.length > 0) {
       const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
@@ -112,12 +114,10 @@ export function NewTaskDialog({
             const taskStart = parseISO(current.startDate);
             if (!isValid(taskStart)) return latest;
             
-            // Effective finish is the day the work ends
             const effectiveFinish = current.status === 'completed' && current.actualCompletionDate 
                 ? parseISO(current.actualCompletionDate) 
                 : addDays(taskStart, current.durationDays - 1);
             
-            // Next start is day after finish
             const nextStart = addDays(effectiveFinish, 1);
             return !latest || nextStart > latest ? nextStart : latest;
           } catch (e) {
@@ -154,7 +154,7 @@ export function NewTaskDialog({
         const taskData: Omit<PlannerTask, 'id'> = {
           ...values,
           plannerId: values.plannerId,
-          areaId: values.plannerId, // Backwards compatibility
+          areaId: values.plannerId, 
           originalStartDate: values.startDate,
           originalDurationDays: values.durationDays,
           actualCompletionDate: null,
@@ -185,6 +185,7 @@ export function NewTaskDialog({
             plannerId: initialPlannerId || '',
             title: '',
             subcontractorId: '',
+            customSubcontractorName: '',
             startDate: new Date().toISOString().split('T')[0],
             durationDays: 1,
             predecessorIds: [],
@@ -273,6 +274,8 @@ export function NewTaskDialog({
                             <FormControl><SelectTrigger><SelectValue placeholder={availablePartners.length > 0 ? "Select assigned partner" : "No partners assigned to project"} /></SelectTrigger></FormControl>
                             <SelectContent>
                                 {availablePartners.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                <Separator className="my-1" />
+                                <SelectItem value="other">Other (Manual Entry)</SelectItem>
                             </SelectContent>
                         </Select>
                         <FormDescription className="text-[10px]">Only subcontractors assigned to this project are available.</FormDescription>
@@ -287,6 +290,16 @@ export function NewTaskDialog({
                     )} />
                 </div>
             </div>
+
+            {selectedSubId === 'other' && (
+                <FormField control={form.control} name="customSubcontractorName" render={({ field }) => (
+                    <FormItem className="animate-in fade-in slide-in-from-top-2 bg-primary/5 p-4 rounded-lg border-2 border-primary/20">
+                        <FormLabel className="text-primary font-bold">Custom Trade Partner Name</FormLabel>
+                        <FormControl><Input placeholder="Enter trade partner name..." {...field} className="bg-background" /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+            )}
 
             <div className="space-y-4">
                 <FormLabel className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Site Context (Photos)</FormLabel>

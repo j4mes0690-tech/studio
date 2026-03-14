@@ -29,6 +29,8 @@ import { Loader2, Save, HardHat, Link as LinkIcon, Camera, X, RefreshCw, Trash2,
 import type { Project, SubContractor, PlannerTask, Photo } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -49,6 +51,7 @@ function parseDateString(dateStr: string | null | undefined) {
 const EditTaskSchema = z.object({
   title: z.string().min(3, 'Description of work is required.'),
   subcontractorId: z.string().min(1, 'Partner assignment is required.'),
+  customSubcontractorName: z.string().optional(),
   startDate: z.string().min(1, 'Start date is required.'),
   durationDays: z.coerce.number().min(1, 'Duration must be at least 1 day.'),
   status: z.enum(['pending', 'in-progress', 'completed']),
@@ -89,6 +92,7 @@ export function EditTaskDialog({
     defaultValues: {
       title: task.title,
       subcontractorId: task.subcontractorId || task.tradeId,
+      customSubcontractorName: task.customSubcontractorName || '',
       startDate: task.startDate,
       durationDays: task.durationDays,
       status: task.status,
@@ -102,6 +106,7 @@ export function EditTaskDialog({
       form.reset({
         title: task.title,
         subcontractorId: task.subcontractorId || task.tradeId || '',
+        customSubcontractorName: task.customSubcontractorName || '',
         startDate: task.startDate,
         durationDays: task.durationDays,
         status: task.status,
@@ -114,8 +119,8 @@ export function EditTaskDialog({
 
   const selectedProject = useMemo(() => projects.find(p => p.id === task.projectId), [projects, task.projectId]);
   const selectedPredecessorIds = form.watch('predecessorIds');
+  const selectedSubId = form.watch('subcontractorId');
   
-  // RESTRICT SUBCONTRACTORS: Only assigned to the project
   const availablePartners = useMemo(() => {
     if (!selectedProject || !subContractors) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
@@ -126,7 +131,6 @@ export function EditTaskDialog({
     return allTasks.filter(t => t.projectId === task.projectId && (t.plannerId === task.plannerId || t.areaId === task.plannerId) && t.id !== task.id);
   }, [allTasks, task.projectId, task.plannerId, task.id]);
 
-  // SMART SCHEDULING LOGIC: Reactive start date based on predecessors
   useEffect(() => {
     if (selectedPredecessorIds && selectedPredecessorIds.length > 0) {
       const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
@@ -156,14 +160,10 @@ export function EditTaskDialog({
     }
   }, [selectedPredecessorIds, allTasks, form]);
 
-  /**
-   * Global Schedule Optimizer - Iteratively pass over the entire planner to ensure
-   * every task starts as soon as its predecessors allow.
-   */
   const optimizeGlobalSchedule = (allPlannerTasks: PlannerTask[], batch: any) => {
     let changed = true;
     let iterations = 0;
-    const maxIterations = allPlannerTasks.length * 2; // Safety break
+    const maxIterations = allPlannerTasks.length * 2; 
     let currentTasks = [...allPlannerTasks];
 
     while (changed && iterations < maxIterations) {
@@ -174,7 +174,6 @@ export function EditTaskDialog({
         const t = currentTasks[i];
         if (!t.predecessorIds || t.predecessorIds.length === 0) continue;
 
-        // Find predecessors for this specific task
         const taskPredecessors = currentTasks.filter(p => t.predecessorIds.includes(p.id));
         
         let latestFinishDate: Date | null = null;
@@ -195,12 +194,9 @@ export function EditTaskDialog({
           const idealStart = addDays(latestFinishDate, 1);
           const idealStartStr = format(idealStart, 'yyyy-MM-dd');
 
-          // If the task could start earlier (or must start later), update it
           if (t.startDate !== idealStartStr) {
             const docRef = doc(db, 'planner-tasks', t.id);
             batch.update(docRef, { startDate: idealStartStr });
-            
-            // Update local state copy for the next pass
             currentTasks[i] = { ...t, startDate: idealStartStr };
             changed = true;
           }
@@ -231,15 +227,12 @@ export function EditTaskDialog({
           photos: uploadedPhotos,
         };
 
-        // Apply primary task update
         batch.update(taskRef, updates);
 
-        // Prepare full dataset for the global optimizer
         const updatedTask = { ...task, ...updates };
         const allPlannerTasks = allTasks.filter(t => t.plannerId === task.plannerId || t.areaId === task.plannerId);
         const startingTasks = allPlannerTasks.map(t => t.id === task.id ? updatedTask : t);
         
-        // Run the global optimizer to tighten the entire schedule
         optimizeGlobalSchedule(startingTasks, batch);
 
         await batch.commit();
@@ -336,7 +329,11 @@ export function EditTaskDialog({
                         <FormLabel>Responsible Partner</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Select partner" /></SelectTrigger></FormControl>
-                            <SelectContent>{availablePartners.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                            <SelectContent>
+                                {availablePartners.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                <Separator className="my-1" />
+                                <SelectItem value="other">Other (Manual Entry)</SelectItem>
+                            </SelectContent>
                         </Select>
                     </FormItem>
                 )} />
@@ -354,6 +351,16 @@ export function EditTaskDialog({
                     </FormItem>
                 )} />
             </div>
+
+            {selectedSubId === 'other' && (
+                <FormField control={form.control} name="customSubcontractorName" render={({ field }) => (
+                    <FormItem className="animate-in fade-in slide-in-from-top-2 bg-primary/5 p-4 rounded-lg border-2 border-primary/20">
+                        <FormLabel className="text-primary font-bold">Custom Trade Partner Name</FormLabel>
+                        <FormControl><Input placeholder="Enter trade partner name..." {...field} className="bg-background" /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-2">

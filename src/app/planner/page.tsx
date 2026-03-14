@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -62,15 +61,12 @@ function PlannerContent() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   
-  // New Planner Form State
   const [isAddPlannerOpen, setIsAddPlannerOpen] = useState(false);
   const [newPlannerName, setNewPlannerName] = useState('');
 
-  // Filters from URL
   const projectFilter = searchParams.get('project');
   const plannerFilter = searchParams.get('planner');
 
-  // Load persistence for view mode
   useEffect(() => {
     const saved = localStorage.getItem('sitecommand_view_planner');
     if (saved !== null) setIsGanttView(saved === 'true');
@@ -82,7 +78,6 @@ function PlannerContent() {
     localStorage.setItem('sitecommand_view_planner', String(newVal));
   };
 
-  // Load Data
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
@@ -95,7 +90,6 @@ function PlannerContent() {
   const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
   const { data: allSubContractors } = useCollection<SubContractor>(subsQuery);
 
-  // Security & Visibility
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
@@ -103,7 +97,6 @@ function PlannerContent() {
     return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
   }, [allProjects, profile]);
 
-  // Task Statistics for Directory
   const projectStats = useMemo(() => {
     const stats = new Map<string, { total: number, completed: number }>();
     if (!allTasks) return stats;
@@ -135,14 +128,12 @@ function PlannerContent() {
     return stats;
   }, [allTasks, projectFilter]);
 
-  // Current Selections
   const currentProject = useMemo(() => allowedProjects.find(p => p.id === projectFilter), [allowedProjects, projectFilter]);
   const currentPlanner = useMemo(() => {
     const planners = [...(currentProject?.planners || []), ...(currentProject?.areas || [])];
     return planners.find(p => p.id === plannerFilter);
   }, [currentProject, plannerFilter]);
 
-  // Filtered Tasks for Active Planner - Chronological Sort
   const filteredTasks = useMemo(() => {
     if (!allTasks || !projectFilter || !plannerFilter) return [];
     return allTasks
@@ -158,7 +149,6 @@ function PlannerContent() {
     return allTasks.find(t => t.id === editingTaskId);
   }, [editingTaskId, allTasks]);
 
-  // Navigation Handlers
   const selectProject = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('project', id);
@@ -220,7 +210,6 @@ function PlannerContent() {
     );
   }
 
-  // --- VIEW 1: Project Selection Directory ---
   if (!projectFilter) {
     return (
         <div className="space-y-6 p-4 md:p-8">
@@ -266,7 +255,6 @@ function PlannerContent() {
     );
   }
 
-  // --- VIEW 2: Planner Selection Directory ---
   if (projectFilter && !plannerFilter) {
     const planners = [...(currentProject?.planners || []), ...(currentProject?.areas || [])];
     return (
@@ -348,7 +336,6 @@ function PlannerContent() {
     );
   }
 
-  // --- VIEW 3: Active Schedule View ---
   return (
     <>
         <div className="flex flex-col w-full gap-6 p-4 md:p-8">
@@ -422,6 +409,7 @@ function PlannerContent() {
                 {filteredTasks.length > 0 ? (
                     filteredTasks.map(task => {
                         const sub = allSubContractors?.find(s => s.id === task.subcontractorId);
+                        const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned Partner');
                         
                         return (
                             <Card key={task.id} className="hover:border-primary transition-all overflow-hidden cursor-pointer" onClick={() => setEditingTaskId(task.id)}>
@@ -434,7 +422,7 @@ function PlannerContent() {
                                             <div className="space-y-1">
                                                 <p className={cn("font-bold truncate text-base", task.status === 'completed' && "line-through text-muted-foreground")}>{task.title}</p>
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <Badge variant="secondary" className="text-[9px] uppercase font-black bg-primary/5 text-primary border-primary/10 tracking-tight">{sub?.name || 'Unassigned Partner'}</Badge>
+                                                    <Badge variant="secondary" className="text-[9px] uppercase font-black bg-primary/5 text-primary border-primary/10 tracking-tight">{tradeName}</Badge>
                                                 </div>
                                             </div>
                                             

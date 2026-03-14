@@ -58,14 +58,13 @@ function getTradeColor(id: string) {
     '#4338ca', // indigo-700
   ];
   
-  if (!id) return '#64748b'; // slate-500 for unassigned
+  if (!id || id === 'other') return '#64748b'; // slate-500 for unassigned or other
   
   let hash = 0;
   for (let i = 0; i < id.length; i++) {
     hash = id.charCodeAt(i) + ((hash << 5) - hash);
   }
   
-  // Use a more varied selection logic
   const index = Math.abs(hash) % colors.length;
   return colors[index];
 }
@@ -121,7 +120,6 @@ export function GanttChart({
         const predStart = parseDateString(pred.startDate);
         if (!isValid(predStart)) return;
         
-        // Effective completion X
         const effectiveDuration = pred.status === 'completed' && pred.actualCompletionDate 
             ? Math.max(1, differenceInDays(parseDateString(pred.actualCompletionDate), predStart) + 1)
             : pred.durationDays;
@@ -160,7 +158,6 @@ export function GanttChart({
     <>
         <div id="planner-gantt-capture" className="bg-background border rounded-xl overflow-hidden shadow-sm">
         <div className="flex flex-col min-w-max">
-            {/* Header: Dates */}
             <div className="flex border-b bg-muted/30">
             <div className="w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end">
                 Work Activity
@@ -190,11 +187,9 @@ export function GanttChart({
             </div>
             </div>
 
-            {/* Rows: Tasks */}
             <div className="relative overflow-visible">
                 <TooltipProvider>
                     <div className="flex flex-col relative">
-                        {/* SVG Dependency Layer */}
                         <svg 
                             className="absolute top-0 left-[256px] pointer-events-none z-0" 
                             style={{ width: chartWidth, height: chartHeight }}
@@ -206,7 +201,8 @@ export function GanttChart({
                         </svg>
 
                         {tasks.map((task, taskIdx) => {
-                            const sub = subContractors.find(s => s.id === (task.subcontractorId || task.tradeId));
+                            const sub = subContractors.find(s => s.id === task.subcontractorId);
+                            const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
                             const taskStart = parseDateString(task.startDate);
                             
                             if (!isValid(taskStart)) return null;
@@ -214,10 +210,8 @@ export function GanttChart({
                             const offsetDays = differenceInDays(taskStart, startDate);
                             const leftOffset = offsetDays * DAY_WIDTH;
                             
-                            // Forecasted bar width
                             const barWidth = task.durationDays * DAY_WIDTH;
 
-                            // Actual bar width (if completed)
                             let actualBarWidth = barWidth;
                             if (task.status === 'completed' && task.actualCompletionDate) {
                                 const actualEnd = parseDateString(task.actualCompletionDate);
@@ -226,9 +220,8 @@ export function GanttChart({
                                 }
                             }
 
-                            const tradeColor = getTradeColor(task.subcontractorId || task.tradeId || '');
+                            const tradeColor = getTradeColor(task.subcontractorId || '');
 
-                            // Original Baseline bar calculation with validation
                             const hasBaseline = !!task.originalStartDate && !!task.originalDurationDays;
                             const origStart = hasBaseline ? parseDateString(task.originalStartDate) : null;
                             const isValidBaseline = origStart && isValid(origStart);
@@ -248,11 +241,10 @@ export function GanttChart({
                                     <div className="w-64 border-r p-2 shrink-0 min-w-0 bg-background z-10">
                                         <p className={cn("text-[11px] font-bold truncate", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
                                         <Badge variant="outline" className="text-[8px] h-3.5 mt-0.5 bg-background truncate max-w-full" style={{ borderColor: `${tradeColor}40`, color: tradeColor }}>
-                                            {sub?.name || 'Unassigned'}
+                                            {tradeName}
                                         </Badge>
                                     </div>
                                     <div className="relative flex-1 bg-[repeating-linear-gradient(to_right,transparent,transparent_39px,rgba(0,0,0,0.05)_39px,rgba(0,0,0,0.05)_40px)]" style={{ width: chartWidth }}>
-                                        {/* Original Planned Shadow Bar */}
                                         {isBaselineVisible && (
                                             <div 
                                                 className="absolute h-4 top-1.5 opacity-20 bg-slate-400 rounded-sm border border-slate-500 z-0"
@@ -261,7 +253,6 @@ export function GanttChart({
                                             />
                                         )}
 
-                                        {/* Current Forecast / Actual Bar */}
                                         {isVisible && (
                                             <Tooltip>
                                                 <TooltipTrigger asChild>
@@ -288,7 +279,7 @@ export function GanttChart({
                                                         <div className='flex justify-between items-start'>
                                                             <div>
                                                                 <p className="font-bold text-sm">{task.title}</p>
-                                                                <p className="text-xs font-semibold" style={{ color: tradeColor }}>{sub?.name}</p>
+                                                                <p className="text-xs font-semibold" style={{ color: tradeColor }}>{tradeName}</p>
                                                             </div>
                                                             <Badge variant="outline" className="text-[8px] uppercase font-black">{task.status}</Badge>
                                                         </div>

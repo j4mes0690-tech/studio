@@ -252,6 +252,7 @@ export type PlannerTask = {
   areaId?: string; // Keep for backward compatibility
   title: string;
   subcontractorId: string;
+  customSubcontractorName?: string | null;
   tradeId?: string; // Keep for backward compatibility
   startDate: string; // Current Forecast ISO Date
   durationDays: number;
