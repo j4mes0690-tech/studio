@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -31,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -238,6 +238,12 @@ function PlannerContent() {
             });
             await batch.commit();
 
+            // 3. Clear from URL and refresh to ensure UI is in sync
+            if (plannerFilter === plannerId) {
+                clearPlanner();
+            }
+            
+            router.refresh();
             toast({ title: 'Planner Deleted', description: 'Schedule and all associated tasks have been permanently removed.' });
         } catch (err) {
             toast({ title: 'Error', description: 'Failed to delete planner.', variant: 'destructive' });

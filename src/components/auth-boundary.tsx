@@ -1,9 +1,8 @@
-
 'use client';
 
 import { useUser, useFirebase } from '@/firebase';
 import { LoginPage } from '@/app/login/page';
-import { Loader2 } from 'lucide-react';
+import { LoadingScreen } from '@/components/loading-screen';
 import { usePathname } from 'next/navigation';
 
 /**
@@ -18,11 +17,7 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   if (isLoading || isFirebaseLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // Allow the /join route to bypass the auth check so new collaborators can set their password
