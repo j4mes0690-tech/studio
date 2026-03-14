@@ -403,7 +403,7 @@ function PlannerContent() {
                                                     <Button 
                                                         variant="ghost" 
                                                         size="icon" 
-                                                        className="h-7 w-7 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-primary transition-colors"
                                                         onClick={(e) => { e.stopPropagation(); handleToggleArchivePlanner(planner.id, !!planner.archived); }}
                                                     >
                                                         {planner.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
@@ -421,7 +421,7 @@ function PlannerContent() {
                                                             <Button 
                                                                 variant="ghost" 
                                                                 size="icon" 
-                                                                className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors"
                                                                 onClick={(e) => e.stopPropagation()}
                                                             >
                                                                 <Trash2 className="h-3.5 w-3.5" />
