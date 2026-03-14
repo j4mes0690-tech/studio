@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -28,6 +29,32 @@ function parseDateString(dateStr: string | null | undefined) {
   if (!dateStr) return new Date(NaN);
   const [y, m, d] = dateStr.split('-').map(Number);
   return new Date(y, m - 1, d);
+}
+
+/**
+ * getTradeColor - Returns a consistent color for a trade partner
+ */
+function getTradeColor(id: string) {
+  const colors = [
+    '#3b82f6', // blue
+    '#f97316', // orange
+    '#10b981', // green
+    '#8b5cf6', // purple
+    '#6366f1', // indigo
+    '#14b8a6', // teal
+    '#06b6d4', // cyan
+    '#f59e0b', // amber
+    '#ec4899', // pink
+    '#84cc16', // lime
+  ];
+  
+  if (!id) return colors[0];
+  
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = id.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
 }
 
 export function GanttChart({ 
@@ -118,7 +145,7 @@ export function GanttChart({
 
   return (
     <>
-        <div className="bg-background border rounded-xl overflow-hidden shadow-sm">
+        <div id="planner-gantt-capture" className="bg-background border rounded-xl overflow-hidden shadow-sm">
         <div className="flex flex-col min-w-max">
             {/* Header: Dates */}
             <div className="flex border-b bg-muted/30">
@@ -151,7 +178,7 @@ export function GanttChart({
             </div>
 
             {/* Rows: Tasks */}
-            <div className="relative overflow-auto" style={{ maxHeight: '600px' }}>
+            <div className="relative overflow-visible">
                 <TooltipProvider>
                     <div className="flex flex-col relative">
                         {/* SVG Dependency Layer */}
@@ -186,6 +213,8 @@ export function GanttChart({
                                 }
                             }
 
+                            const tradeColor = getTradeColor(task.subcontractorId || task.tradeId || '');
+
                             // Original Baseline bar calculation with validation
                             const hasBaseline = !!task.originalStartDate && !!task.originalDurationDays;
                             const origStart = hasBaseline ? parseDateString(task.originalStartDate) : null;
@@ -205,7 +234,7 @@ export function GanttChart({
                                 >
                                     <div className="w-64 border-r p-2 shrink-0 min-w-0 bg-background z-10">
                                         <p className={cn("text-[11px] font-bold truncate", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
-                                        <Badge variant="outline" className="text-[8px] h-3.5 mt-0.5 bg-background truncate max-w-full">
+                                        <Badge variant="outline" className="text-[8px] h-3.5 mt-0.5 bg-background truncate max-w-full" style={{ borderColor: `${tradeColor}40`, color: tradeColor }}>
                                             {sub?.name || 'Unassigned'}
                                         </Badge>
                                     </div>
@@ -226,13 +255,15 @@ export function GanttChart({
                                                     <div 
                                                         className={cn(
                                                             "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-30 pointer-events-auto",
-                                                            task.status === 'completed' ? "bg-green-500 border-green-600 text-white" : 
-                                                            task.status === 'in-progress' ? "bg-primary border-primary-foreground/20 text-white animate-pulse" : 
-                                                            "bg-primary/20 border-primary/30 text-primary"
+                                                            task.status === 'completed' ? "text-white opacity-80" : 
+                                                            task.status === 'in-progress' ? "text-white animate-pulse" : 
+                                                            "text-white"
                                                         )}
                                                         style={{ 
                                                             left: leftOffset, 
                                                             width: actualBarWidth,
+                                                            backgroundColor: tradeColor,
+                                                            borderColor: `${tradeColor}cc`
                                                         }}
                                                         onClick={() => onTaskClick(task)}
                                                     >
@@ -244,7 +275,7 @@ export function GanttChart({
                                                         <div className='flex justify-between items-start'>
                                                             <div>
                                                                 <p className="font-bold text-sm">{task.title}</p>
-                                                                <p className="text-xs text-muted-foreground">{sub?.name}</p>
+                                                                <p className="text-xs font-semibold" style={{ color: tradeColor }}>{sub?.name}</p>
                                                             </div>
                                                             <Badge variant="outline" className="text-[8px] uppercase font-black">{task.status}</Badge>
                                                         </div>

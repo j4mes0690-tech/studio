@@ -1,6 +1,7 @@
+
 'use client';
 
-import type { Instruction, Project, SubContractor, SnaggingListItem, Photo } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 
 /**
@@ -251,6 +252,120 @@ export async function generateSnaggingPDF(
       currentY += 110;
     }
   }
+
+  return pdf;
+}
+
+/**
+ * generatePlannerPDF - Renders the Gantt chart and task directory to a professional PDF report.
+ */
+export async function generatePlannerPDF(
+  tasks: PlannerTask[],
+  project?: Project,
+  planner?: Planner,
+  subContractors: SubContractor[]
+) {
+  const { jsPDF } = await import('jspdf');
+  const html2canvas = (await import('html2canvas')).default;
+
+  const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape for Gantt
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+
+  // 1. Capture Header & Summary
+  const headerElement = document.createElement('div');
+  headerElement.style.padding = '40px';
+  headerElement.style.width = '1000px';
+  headerElement.style.background = 'white';
+  headerElement.style.color = 'black';
+  headerElement.style.fontFamily = 'sans-serif';
+
+  headerElement.innerHTML = `
+    <div style="border-bottom: 4px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px;">
+      <h1 style="margin: 0; color: #1e40af; font-size: 32px;">Project Schedule Update</h1>
+      <p style="margin: 5px 0 0 0; color: #64748b; font-size: 16px; font-weight: bold;">${project?.name || 'Project'} &rsaquo; ${planner?.name || 'Schedule'}</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px;">
+      <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Activities</p>
+        <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold;">${tasks.length}</p>
+      </div>
+      <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Completed</p>
+        <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold; color: #16a34a;">${tasks.filter(t => t.status === 'completed').length}</p>
+      </div>
+      <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Report Date</p>
+        <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold;">${new Date().toLocaleDateString()}</p>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(headerElement);
+  const headerCanvas = await html2canvas(headerElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+  document.body.removeChild(headerElement);
+
+  const headerHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
+  pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, pdfWidth, headerHeightInPdf);
+
+  // 2. Capture Gantt Chart
+  const ganttElement = document.getElementById('planner-gantt-capture');
+  if (ganttElement) {
+    const ganttCanvas = await html2canvas(ganttElement, { 
+      scale: 2, 
+      useCORS: true, 
+      backgroundColor: '#ffffff',
+      logging: false,
+      width: ganttElement.scrollWidth,
+      height: ganttElement.scrollHeight,
+      windowWidth: ganttElement.scrollWidth
+    });
+    
+    const ganttWidthInPdf = pdfWidth - 20;
+    const ganttHeightInPdf = (ganttCanvas.height * ganttWidthInPdf) / ganttCanvas.width;
+    
+    if (headerHeightInPdf + ganttHeightInPdf + 10 > pdfHeight) {
+      pdf.addPage();
+      pdf.addImage(ganttCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 10, 10, ganttWidthInPdf, ganttHeightInPdf);
+    } else {
+      pdf.addImage(ganttCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 10, headerHeightInPdf + 5, ganttWidthInPdf, ganttHeightInPdf);
+    }
+  }
+
+  // 3. Task Directory Appendix
+  pdf.addPage();
+  pdf.setFontSize(16);
+  pdf.setTextColor(30, 41, 59);
+  pdf.text("Activity Directory", 10, 20);
+  
+  let currentY = 30;
+  pdf.setFontSize(10);
+  pdf.setFont("helvetica", "bold");
+  pdf.text("Description", 15, currentY);
+  pdf.text("Partner", 100, currentY);
+  pdf.text("Start", 160, currentY);
+  pdf.text("Days", 190, currentY);
+  pdf.text("Status", 220, currentY);
+  
+  currentY += 5;
+  pdf.setDrawColor(200);
+  pdf.line(10, currentY, 280, currentY);
+  currentY += 8;
+
+  tasks.forEach((task, idx) => {
+    if (currentY > pdfHeight - 20) { pdf.addPage(); currentY = 20; }
+    
+    const sub = subContractors.find(s => s.id === task.subcontractorId);
+    
+    pdf.setFont("helvetica", "normal");
+    pdf.text(task.title, 15, currentY, { maxWidth: 80 });
+    pdf.text(sub?.name || 'Unassigned', 100, currentY, { maxWidth: 55 });
+    pdf.text(new Date(task.startDate).toLocaleDateString(), 160, currentY);
+    pdf.text(task.durationDays.toString(), 190, currentY);
+    pdf.text(task.status.toUpperCase(), 220, currentY);
+    
+    currentY += 10;
+  });
 
   return pdf;
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -19,7 +20,9 @@ import {
     Layout,
     Save,
     Circle,
-    CheckCircle2
+    CheckCircle2,
+    FileDown,
+    Send
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +47,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import Image from 'next/image';
+import { generatePlannerPDF } from '@/lib/pdf-utils';
+import { DistributePlannerButton } from './distribute-planner-button';
 
 function PlannerContent() {
   const db = useFirestore();
@@ -55,6 +60,7 @@ function PlannerContent() {
   const [isGanttView, setIsGanttView] = useState(true);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   
   // New Planner Form State
   const [isAddPlannerOpen, setIsAddPlannerOpen] = useState(false);
@@ -97,8 +103,6 @@ function PlannerContent() {
     return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
   }, [allProjects, profile]);
 
-  const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
-
   // Task Statistics for Directory
   const projectStats = useMemo(() => {
     const stats = new Map<string, { total: number, completed: number }>();
@@ -134,7 +138,7 @@ function PlannerContent() {
   // Current Selections
   const currentProject = useMemo(() => allowedProjects.find(p => p.id === projectFilter), [allowedProjects, projectFilter]);
   const currentPlanner = useMemo(() => {
-    const planners = currentProject?.planners || currentProject?.areas || [];
+    const planners = [...(currentProject?.planners || []), ...(currentProject?.areas || [])];
     return planners.find(p => p.id === plannerFilter);
   }, [currentProject, plannerFilter]);
 
@@ -190,6 +194,22 @@ function PlannerContent() {
         setNewPlannerName('');
         setIsAddPlannerOpen(false);
     });
+  };
+
+  const handleDownloadPDF = async () => {
+    if (!currentProject || !currentPlanner) return;
+    setIsExporting(true);
+    try {
+      const pdf = await generatePlannerPDF(filteredTasks, currentProject, currentPlanner, allSubContractors || []);
+      const timestamp = new Date().toISOString().split('T')[0];
+      pdf.save(`Schedule-${currentProject.name.replace(/\s+/g, '-')}-${currentPlanner.name.replace(/\s+/g, '-')}-${timestamp}.pdf`);
+      toast({ title: "PDF Ready", description: "Your schedule has been exported." });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Export Error", description: "Failed to generate schedule PDF.", variant: "destructive" });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (tasksLoading || !profile) {
@@ -349,8 +369,26 @@ function PlannerContent() {
                         <div className="flex items-center gap-2">
                             <TooltipProvider>
                                 <Tooltip>
+                                  <TooltipTrigger asChild>
+                                      <Button variant="outline" size="icon" onClick={handleDownloadPDF} disabled={isExporting} className="h-10 w-10">
+                                        {isExporting ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileDown className="h-5 w-5" />}
+                                      </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent><p>Export Schedule PDF</p></TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                            <DistributePlannerButton 
+                              tasks={filteredTasks}
+                              project={currentProject}
+                              planner={currentPlanner}
+                              subContractors={allSubContractors || []}
+                            />
+
+                            <TooltipProvider>
+                                <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button variant="outline" size="icon" onClick={toggleView}>
+                                    <Button variant="outline" size="icon" onClick={toggleView} className="h-10 w-10">
                                     {isGanttView ? <List className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
                                     </Button>
                                 </TooltipTrigger>
@@ -405,7 +443,7 @@ function PlannerContent() {
                                                     {task.photos.map((p, idx) => (
                                                         <div key={idx} className="relative w-12 h-12 rounded-md border bg-muted overflow-hidden group cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
                                                             <Image src={p.url} alt="Task Context" fill className="object-cover" />
-                                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 flex items-center justify-center transition-opacity">
                                                                 <Maximize2 className="h-3 w-3 text-white" />
                                                             </div>
                                                         </div>
