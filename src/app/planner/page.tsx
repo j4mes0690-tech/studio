@@ -1,8 +1,9 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, arrayUnion, writeBatch, where, getDocs } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense, useTransition } from 'react';
 import type { PlannerTask, Project, Planner, DistributionUser, Photo, SubContractor } from '@/lib/types';
 import { 
@@ -21,7 +22,12 @@ import {
     Circle,
     CheckCircle2,
     FileDown,
-    Send
+    Send,
+    Archive,
+    Trash2,
+    ArchiveRestore,
+    Eye,
+    EyeOff
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -45,7 +51,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import Image from 'next/image';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { generatePlannerPDF } from '@/lib/pdf-utils';
 import { DistributePlannerButton } from './distribute-planner-button';
 
@@ -60,6 +76,7 @@ function PlannerContent() {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   
   const [isAddPlannerOpen, setIsAddPlannerOpen] = useState(false);
   const [newPlannerName, setNewPlannerName] = useState('');
@@ -174,7 +191,8 @@ function PlannerContent() {
     startTransition(async () => {
         const newPlanner: Planner = {
             id: `planner-${currentProject.id}-${Date.now()}`,
-            name: newPlannerName.trim()
+            name: newPlannerName.trim(),
+            archived: false
         };
         const projRef = doc(db, 'projects', currentProject.id);
         await updateDoc(projRef, {
@@ -183,6 +201,47 @@ function PlannerContent() {
         toast({ title: 'New Planner Added', description: `Planner "${newPlanner.name}" is ready for scheduling.` });
         setNewPlannerName('');
         setIsAddPlannerOpen(false);
+    });
+  };
+
+  const handleToggleArchivePlanner = (plannerId: string, isArchived: boolean) => {
+    if (!currentProject) return;
+    startTransition(async () => {
+        const updatedPlanners = (currentProject.planners || []).map(p => 
+            p.id === plannerId ? { ...p, archived: !isArchived } : p
+        );
+        const projRef = doc(db, 'projects', currentProject.id);
+        await updateDoc(projRef, { planners: updatedPlanners });
+        toast({ 
+            title: isArchived ? 'Planner Restored' : 'Planner Archived', 
+            description: `Schedule has been ${isArchived ? 'restored to active view' : 'moved to archives'}.` 
+        });
+    });
+  };
+
+  const handleDeletePlanner = (plannerId: string) => {
+    if (!currentProject) return;
+    startTransition(async () => {
+        try {
+            // 1. Remove from Project Planners array
+            const updatedPlanners = (currentProject.planners || []).filter(p => p.id !== plannerId);
+            const projRef = doc(db, 'projects', currentProject.id);
+            await updateDoc(projRef, { planners: updatedPlanners });
+
+            // 2. Cleanup associated tasks
+            const q = query(collection(db, 'planner-tasks'), where('plannerId', '==', plannerId));
+            const querySnapshot = await getDocs(q);
+            
+            const batch = writeBatch(db);
+            querySnapshot.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+            await batch.commit();
+
+            toast({ title: 'Planner Deleted', description: 'Schedule and all associated tasks have been permanently removed.' });
+        } catch (err) {
+            toast({ title: 'Error', description: 'Failed to delete planner.', variant: 'destructive' });
+        }
     });
   };
 
@@ -257,6 +316,8 @@ function PlannerContent() {
 
   if (projectFilter && !plannerFilter) {
     const planners = [...(currentProject?.planners || []), ...(currentProject?.areas || [])];
+    const visiblePlanners = planners.filter(p => !!p.archived === showArchived);
+
     return (
         <div className="space-y-6 p-4 md:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -271,49 +332,126 @@ function PlannerContent() {
                     <p className="text-sm text-muted-foreground">Select a specific planner to manage its critical path.</p>
                 </div>
                 
-                {(profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) && (
-                    <Dialog open={isAddPlannerOpen} onOpenChange={setIsAddPlannerOpen}>
-                        <DialogTrigger asChild>
-                            <Button className="gap-2"><PlusCircle className="h-4 w-4" /> Add New Planner</Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Add Project Planner</DialogTitle>
-                                <DialogDescription>Create a new distinct schedule for this project.</DialogDescription>
-                            </DialogHeader>
-                            <div className="py-4 space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-muted-foreground">Planner Title</label>
-                                    <Input placeholder="e.g. Fit-out Schedule, Shell & Core" value={newPlannerName} onChange={e => setNewPlannerName(e.target.value)} />
-                                </div>
-                            </div>
-                            <DialogFooter>
-                                <Button variant="ghost" onClick={() => setIsAddPlannerOpen(false)}>Cancel</Button>
-                                <Button onClick={handleAddPlanner} disabled={isPending || !newPlannerName.trim()}>
-                                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                                    Create Planner
+                <div className="flex items-center gap-2">
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button 
+                                    variant="outline" 
+                                    size="icon" 
+                                    onClick={() => setShowArchived(!showArchived)}
+                                    className={cn("h-10 w-10", showArchived && "bg-muted")}
+                                >
+                                    {showArchived ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                                 </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-                )}
+                            </TooltipTrigger>
+                            <TooltipContent><p>{showArchived ? 'View Active Planners' : 'View Archived Planners'}</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+
+                    {(profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) && (
+                        <Dialog open={isAddPlannerOpen} onOpenChange={setIsAddPlannerOpen}>
+                            <DialogTrigger asChild>
+                                <Button className="gap-2"><PlusCircle className="h-4 w-4" /> Add New Planner</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Add Project Planner</DialogTitle>
+                                    <DialogDescription>Create a new distinct schedule for this project.</DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4 space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-bold uppercase text-muted-foreground">Planner Title</label>
+                                        <Input placeholder="e.g. Fit-out Schedule, Shell & Core" value={newPlannerName} onChange={e => setNewPlannerName(e.target.value)} />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="ghost" onClick={() => setIsAddPlannerOpen(false)}>Cancel</Button>
+                                    <Button onClick={handleAddPlanner} disabled={isPending || !newPlannerName.trim()}>
+                                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                                        Create Planner
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
+                    )}
+                </div>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {planners.length > 0 ? planners.map(planner => {
+                {visiblePlanners.length > 0 ? visiblePlanners.map(planner => {
                     const stats = plannerStats.get(planner.id) || { total: 0, completed: 0 };
                     const progress = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
                     return (
-                        <Card key={planner.id} className="cursor-pointer hover:border-primary/50 transition-all group hover:shadow-md" onClick={() => selectPlanner(planner.id)}>
+                        <Card 
+                            key={planner.id} 
+                            className={cn(
+                                "cursor-pointer hover:border-primary/50 transition-all group hover:shadow-md flex flex-col",
+                                planner.archived && "opacity-75 grayscale"
+                            )} 
+                            onClick={() => selectPlanner(planner.id)}
+                        >
                             <CardHeader className="pb-3">
                                 <div className="flex justify-between items-start">
-                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 mb-2 uppercase text-[9px] font-black tracking-widest">Planner</Badge>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 mb-2 uppercase text-[9px] font-black tracking-widest">
+                                        {planner.archived ? 'Archived Planner' : 'Planner'}
+                                    </Badge>
+                                    <div className="flex items-center gap-1">
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        className="h-7 w-7 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        onClick={(e) => { e.stopPropagation(); handleToggleArchivePlanner(planner.id, !!planner.archived); }}
+                                                    >
+                                                        {planner.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent><p>{planner.archived ? 'Restore Planner' : 'Archive Planner'}</p></TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
+
+                                        <AlertDialog>
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="icon" 
+                                                                className="h-7 w-7 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </AlertDialogTrigger>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent><p>Delete Planner</p></TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                            <AlertDialogContent onClick={e => e.stopPropagation()}>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Delete Entire Planner?</AlertDialogTitle>
+                                                    <AlertDialogDescription>
+                                                        This will permanently delete the planner "<strong>{planner.name}</strong>" and ALL associated tasks. This action cannot be undone.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction className="bg-destructive" onClick={() => handleDeletePlanner(planner.id)}>Delete Everything</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                                    </div>
                                 </div>
                                 <CardTitle className="text-xl group-hover:text-primary transition-colors">{planner.name}</CardTitle>
                                 <CardDescription>{stats.total} Active Activities</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4">
+                            <CardContent className="space-y-4 flex-1">
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
                                         <span>Status</span>
@@ -327,8 +465,10 @@ function PlannerContent() {
                 }) : (
                     <div className="col-span-full py-20 text-center border-2 border-dashed rounded-xl bg-muted/5">
                         <Layout className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                        <p className="font-bold text-muted-foreground">No planners defined for this project.</p>
-                        <p className="text-sm text-muted-foreground mt-1">Use "Add New Planner" to initialize a schedule.</p>
+                        <p className="font-bold text-muted-foreground">
+                            {showArchived ? 'No archived planners.' : 'No active planners defined for this project.'}
+                        </p>
+                        {!showArchived && <p className="text-sm text-muted-foreground mt-1">Use "Add New Planner" to initialize a schedule.</p>}
                     </div>
                 )}
             </div>
@@ -347,6 +487,7 @@ function PlannerContent() {
                         </Button>
                         <span className="text-muted-foreground text-xs">&rsaquo;</span>
                         <Badge variant="secondary" className="bg-primary/10 text-primary uppercase text-[10px] font-black h-6">{currentPlanner?.name}</Badge>
+                        {currentPlanner?.archived && <Badge variant="outline" className="text-[10px] uppercase font-bold h-6 border-amber-200 text-amber-700 bg-amber-50">Archived</Badge>}
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">

@@ -1,6 +1,7 @@
 export type Planner = {
   id: string;
   name: string;
+  archived?: boolean;
 };
 
 export type Project = {
