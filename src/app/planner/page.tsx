@@ -17,7 +17,9 @@ import {
     ArrowLeft,
     PlusCircle,
     Layout,
-    Save
+    Save,
+    Circle,
+    CheckCircle2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -136,13 +138,15 @@ function PlannerContent() {
     return planners.find(p => p.id === plannerFilter);
   }, [currentProject, plannerFilter]);
 
-  // Filtered Tasks for Active Planner
+  // Filtered Tasks for Active Planner - Chronological Sort
   const filteredTasks = useMemo(() => {
     if (!allTasks || !projectFilter || !plannerFilter) return [];
-    return allTasks.filter(task => 
+    return allTasks
+      .filter(task => 
         task.projectId === projectFilter && 
         (task.plannerId === plannerFilter || task.areaId === plannerFilter)
-    );
+      )
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
   }, [allTasks, projectFilter, plannerFilter]);
 
   const editingTask = useMemo(() => {

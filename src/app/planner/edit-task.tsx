@@ -33,7 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
-import { addDays, format, isValid } from 'date-fns';
+import { addDays, format, isValid, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { VoiceInput } from '@/components/voice-input';
@@ -112,6 +112,7 @@ export function EditTaskDialog({
   }, [open, task, form]);
 
   const selectedProject = useMemo(() => projects.find(p => p.id === task.projectId), [projects, task.projectId]);
+  const selectedPredecessorIds = form.watch('predecessorIds');
   
   // RESTRICT SUBCONTRACTORS: Only assigned to the project
   const availablePartners = useMemo(() => {
@@ -123,6 +124,40 @@ export function EditTaskDialog({
   const potentialPredecessors = useMemo(() => {
     return allTasks.filter(t => t.projectId === task.projectId && (t.plannerId === task.plannerId || t.areaId === task.plannerId) && t.id !== task.id);
   }, [allTasks, task.projectId, task.plannerId, task.id]);
+
+  // SMART SCHEDULING LOGIC: Reactive start date based on predecessors
+  useEffect(() => {
+    if (selectedPredecessorIds && selectedPredecessorIds.length > 0) {
+      const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
+      
+      if (selectedPredecessors.length > 0) {
+        const latestFinishDate = selectedPredecessors.reduce((latest, current) => {
+          try {
+            const taskStart = parseISO(current.startDate);
+            if (!isValid(taskStart)) return latest;
+            
+            const effectiveFinish = current.status === 'completed' && current.actualCompletionDate 
+                ? parseISO(current.actualCompletionDate) 
+                : addDays(taskStart, current.durationDays - 1);
+            
+            const nextStart = addDays(effectiveFinish, 1);
+            return !latest || nextStart > latest ? nextStart : latest;
+          } catch (e) {
+            return latest;
+          }
+        }, null as Date | null);
+
+        if (latestFinishDate) {
+          const currentStartStr = form.getValues('startDate');
+          const nextStartStr = format(latestFinishDate, 'yyyy-MM-dd');
+          // Only update if the calculated date is later than the current start date
+          if (nextStartStr > currentStartStr) {
+            form.setValue('startDate', nextStartStr);
+          }
+        }
+      }
+    }
+  }, [selectedPredecessorIds, allTasks, form]);
 
   // REFORECASTING LOGIC
   const reforecast = (currentTaskId: string, newFinishDate: Date, allProjectTasks: PlannerTask[], batch: any) => {

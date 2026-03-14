@@ -110,7 +110,14 @@ export function NewTaskDialog({
           try {
             const taskStart = parseISO(current.startDate);
             if (!isValid(taskStart)) return latest;
-            const effectiveFinish = current.actualCompletionDate ? parseISO(current.actualCompletionDate) : addDays(taskStart, current.durationDays - 1);
+            
+            // Effective finish is the day the work ends
+            // If duration 1, it finishes same day as it starts
+            const effectiveFinish = current.status === 'completed' && current.actualCompletionDate 
+                ? parseISO(current.actualCompletionDate) 
+                : addDays(taskStart, current.durationDays - 1);
+            
+            // Next start is day after finish
             const nextStart = addDays(effectiveFinish, 1);
             return !latest || nextStart > latest ? nextStart : latest;
           } catch (e) {
