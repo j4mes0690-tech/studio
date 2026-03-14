@@ -26,7 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Save, HardHat, Link as LinkIcon, Camera, X, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react';
-import type { Project, Trade, PlannerTask, Photo } from '@/lib/types';
+import type { Project, SubContractor, PlannerTask, Photo } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +36,7 @@ import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { addDays, format, isValid } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { VoiceInput } from '@/components/voice-input';
 
 // Timezone-safe date parser for construction dates (YYYY-MM-DD)
 function parseDateString(dateStr: string | null | undefined) {
@@ -46,7 +47,7 @@ function parseDateString(dateStr: string | null | undefined) {
 
 const EditTaskSchema = z.object({
   title: z.string().min(3, 'Description of work is required.'),
-  tradeId: z.string().min(1, 'Trade is required.'),
+  subcontractorId: z.string().min(1, 'Partner assignment is required.'),
   startDate: z.string().min(1, 'Start date is required.'),
   durationDays: z.coerce.number().min(1, 'Duration must be at least 1 day.'),
   status: z.enum(['pending', 'in-progress', 'completed']),
@@ -59,14 +60,14 @@ type EditTaskFormValues = z.infer<typeof EditTaskSchema>;
 export function EditTaskDialog({ 
   task,
   projects, 
-  trades, 
+  subContractors, 
   allTasks, 
   open,
   onOpenChange
 }: { 
   task: PlannerTask;
   projects: Project[]; 
-  trades: Trade[]; 
+  subContractors: SubContractor[]; 
   allTasks: PlannerTask[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -86,7 +87,7 @@ export function EditTaskDialog({
     resolver: zodResolver(EditTaskSchema),
     defaultValues: {
       title: task.title,
-      tradeId: task.tradeId,
+      subcontractorId: task.subcontractorId || task.tradeId,
       startDate: task.startDate,
       durationDays: task.durationDays,
       status: task.status,
@@ -99,7 +100,7 @@ export function EditTaskDialog({
     if (open && task) {
       form.reset({
         title: task.title,
-        tradeId: task.tradeId,
+        subcontractorId: task.subcontractorId || task.tradeId || '',
         startDate: task.startDate,
         durationDays: task.durationDays,
         status: task.status,
@@ -111,9 +112,17 @@ export function EditTaskDialog({
   }, [open, task, form]);
 
   const selectedProject = useMemo(() => projects.find(p => p.id === task.projectId), [projects, task.projectId]);
+  
+  // RESTRICT SUBCONTRACTORS: Only assigned to the project
+  const availablePartners = useMemo(() => {
+    if (!selectedProject || !subContractors) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
+    return subContractors.filter(sub => assignedIds.includes(sub.id));
+  }, [selectedProject, subContractors]);
+
   const potentialPredecessors = useMemo(() => {
-    return allTasks.filter(t => t.projectId === task.projectId && t.areaId === task.areaId && t.id !== task.id);
-  }, [allTasks, task.projectId, task.areaId, task.id]);
+    return allTasks.filter(t => t.projectId === task.projectId && (t.plannerId === task.plannerId || t.areaId === task.plannerId) && t.id !== task.id);
+  }, [allTasks, task.projectId, task.plannerId, task.id]);
 
   // REFORECASTING LOGIC
   const reforecast = (currentTaskId: string, newFinishDate: Date, allProjectTasks: PlannerTask[], batch: any) => {
@@ -169,7 +178,7 @@ export function EditTaskDialog({
         }
 
         await batch.commit();
-        toast({ title: 'Task Updated', description: 'Schedule reforecasted based on changes.' });
+        toast({ title: 'Schedule Updated', description: 'Forecasts recalculated based on completion.' });
         onOpenChange(false);
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to update schedule.', variant: 'destructive' });
@@ -181,7 +190,7 @@ export function EditTaskDialog({
     startTransition(async () => {
         try {
           await deleteDoc(doc(db, 'planner-tasks', task.id));
-          toast({ title: 'Task Deleted', description: 'Item removed from schedule.' });
+          toast({ title: 'Success', description: 'Activity removed from schedule.' });
           onOpenChange(false);
         } catch (err) {
           toast({ title: 'Error', description: 'Failed to delete task.', variant: 'destructive' });
@@ -227,7 +236,7 @@ export function EditTaskDialog({
           <div className="flex justify-between items-start pr-8">
             <div>
                 <DialogTitle>Edit Task Details</DialogTitle>
-                <DialogDescription>Adjust forecast or record actual completion.</DialogDescription>
+                <DialogDescription>Adjust forecast or record site completion.</DialogDescription>
             </div>
             <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -250,22 +259,25 @@ export function EditTaskDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField control={form.control} name="title" render={({ field }) => (
-              <FormItem><FormLabel>Activity Description</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+              <FormItem>
+                <div className="flex justify-between items-center"><FormLabel>Activity Description</FormLabel><VoiceInput onResult={field.onChange} /></div>
+                <FormControl><Input {...field} /></FormControl>
+              </FormItem>
             )} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="tradeId" render={({ field }) => (
+                <FormField control={form.control} name="subcontractorId" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Responsible Trade</FormLabel>
+                        <FormLabel>Responsible Partner</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent>{trades.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select partner" /></SelectTrigger></FormControl>
+                            <SelectContent>{availablePartners.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="status" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Live Status</FormLabel>
+                        <FormLabel>Activity Status</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>
@@ -281,18 +293,18 @@ export function EditTaskDialog({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-2">
                     <FormField control={form.control} name="startDate" render={({ field }) => (
-                        <FormItem><FormLabel>Forecast Start</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
+                        <FormItem><FormLabel>Current Forecast</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="durationDays" render={({ field }) => (
-                        <FormItem><FormLabel>Planned Days</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl></FormItem>
+                        <FormItem><FormLabel>Days</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl></FormItem>
                     )} />
                 </div>
                 {currentStatus === 'completed' && (
                     <FormField control={form.control} name="actualCompletionDate" render={({ field }) => (
-                        <FormItem className="animate-in fade-in bg-green-50 p-3 rounded border border-green-100">
-                            <FormLabel className="text-green-800 font-bold">Actual Completion Date</FormLabel>
+                        <FormItem className="animate-in fade-in bg-green-50 p-3 rounded-lg border border-green-100">
+                            <FormLabel className="text-green-800 font-black uppercase text-[10px]">Date Finished</FormLabel>
                             <FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} className="bg-white border-green-200" /></FormControl>
-                            <FormDescription className="text-[10px] text-green-700">Reforecasting will pivot from this date.</FormDescription>
+                            <FormDescription className="text-[10px] text-green-700">Successors will reforecast from this date.</FormDescription>
                         </FormItem>
                     )} />
                 )}
@@ -301,24 +313,24 @@ export function EditTaskDialog({
             <Separator />
 
             <div className="space-y-4">
-                <FormLabel className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Task Documentation</FormLabel>
+                <FormLabel className="text-xs font-black uppercase text-muted-foreground tracking-widest">Progress Evidence</FormLabel>
                 <div className="flex flex-wrap gap-2">
                     {photos.map((p, i) => (
-                        <div key={i} className="relative w-20 h-20 rounded border overflow-hidden">
+                        <div key={i} className="relative w-20 h-20 rounded-lg border overflow-hidden">
                             <Image src={p.url} alt="Site" fill className="object-cover" />
                             <button type="button" className="absolute top-0 right-0 bg-destructive text-white p-0.5" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}>
                                 <X className="h-3 w-3" />
                             </button>
                         </div>
                     ))}
-                    <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => setIsCameraOpen(true)}>
+                    <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed rounded-lg" onClick={() => setIsCameraOpen(true)}>
                         <Camera className="h-5 w-5 text-muted-foreground" />
-                        <span className="text-[8px] font-bold">Capture</span>
+                        <span className="text-[8px] font-black uppercase">Capture</span>
                     </Button>
                 </div>
                 {isCameraOpen && (
-                    <div className="space-y-2 border rounded-md p-2 bg-muted/30">
-                        <video ref={videoRef} className="w-full aspect-video bg-black rounded-md object-cover" autoPlay muted playsInline />
+                    <div className="space-y-2 border-2 border-primary/20 rounded-xl p-2 bg-primary/5">
+                        <video ref={videoRef} className="w-full aspect-video bg-black rounded-lg object-cover" autoPlay muted playsInline />
                         <div className="flex gap-2">
                             <Button type="button" size="sm" onClick={capturePhoto}>Capture</Button>
                             <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
@@ -329,8 +341,8 @@ export function EditTaskDialog({
             </div>
 
             <div className="space-y-3">
-                <FormLabel className="flex items-center gap-2"><LinkIcon className="h-4 w-4 text-primary" /> Successor Logic (Predecessors)</FormLabel>
-                <ScrollArea className="h-32 rounded-md border p-3 bg-muted/5">
+                <FormLabel className="flex items-center gap-2 font-bold"><LinkIcon className="h-4 w-4 text-primary" /> Successor Logic (Predecessors)</FormLabel>
+                <ScrollArea className="h-32 rounded-lg border p-3 bg-muted/5">
                     {potentialPredecessors.map((pTask) => (
                         <FormField
                             key={pTask.id}
@@ -356,8 +368,8 @@ export function EditTaskDialog({
                 </ScrollArea>
             </div>
 
-            <DialogFooter>
-              <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
+            <DialogFooter className="pt-4 border-t">
+              <Button type="submit" className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Commit & Reforecast
               </Button>

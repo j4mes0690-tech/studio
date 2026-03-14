@@ -4,23 +4,15 @@ import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense, useTransition } from 'react';
-import type { PlannerTask, Project, Area, Trade, DistributionUser, Photo } from '@/lib/types';
+import type { PlannerTask, Project, Planner, DistributionUser, Photo, SubContractor } from '@/lib/types';
 import { 
     Loader2, 
     CalendarRange, 
     LayoutGrid, 
     List, 
     ShieldCheck, 
-    Filter, 
-    Plus, 
-    Trash2, 
-    CheckCircle2, 
-    Circle, 
-    AlertCircle, 
-    Camera, 
     Maximize2,
     Building2,
-    MapPin,
     ChevronRight,
     ArrowLeft,
     PlusCircle,
@@ -29,7 +21,6 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -63,13 +54,13 @@ function PlannerContent() {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   
-  // New Area Form State
-  const [isAddAreaOpen, setIsAddAreaOpen] = useState(false);
-  const [newAreaName, setNewAreaName] = useState('');
+  // New Planner Form State
+  const [isAddPlannerOpen, setIsAddPlannerOpen] = useState(false);
+  const [newPlannerName, setNewPlannerName] = useState('');
 
   // Filters from URL
   const projectFilter = searchParams.get('project');
-  const areaFilter = searchParams.get('area');
+  const plannerFilter = searchParams.get('planner');
 
   // Load persistence for view mode
   useEffect(() => {
@@ -93,8 +84,8 @@ function PlannerContent() {
   const tasksQuery = useMemoFirebase(() => (db ? query(collection(db, 'planner-tasks'), orderBy('startDate', 'asc')) : null), [db]);
   const { data: allTasks, isLoading: tasksLoading } = useCollection<PlannerTask>(tasksQuery);
 
-  const tradesQuery = useMemoFirebase(() => (db ? collection(db, 'trades') : null), [db]);
-  const { data: allTrades } = useCollection<Trade>(tradesQuery);
+  const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
+  const { data: allSubContractors } = useCollection<SubContractor>(subsQuery);
 
   // Security & Visibility
   const allowedProjects = useMemo(() => {
@@ -122,14 +113,15 @@ function PlannerContent() {
     return stats;
   }, [allTasks]);
 
-  const areaStats = useMemo(() => {
+  const plannerStats = useMemo(() => {
     const stats = new Map<string, { total: number, completed: number }>();
     if (!allTasks || !projectFilter) return stats;
     
     allTasks.filter(t => t.projectId === projectFilter).forEach(task => {
-        const aId = task.areaId;
-        const current = stats.get(aId) || { total: 0, completed: 0 };
-        stats.set(aId, {
+        const pId = task.plannerId || task.areaId;
+        if (!pId) return;
+        const current = stats.get(pId) || { total: 0, completed: 0 };
+        stats.set(pId, {
             total: current.total + 1,
             completed: current.completed + (task.status === 'completed' ? 1 : 0)
         });
@@ -139,16 +131,19 @@ function PlannerContent() {
 
   // Current Selections
   const currentProject = useMemo(() => allowedProjects.find(p => p.id === projectFilter), [allowedProjects, projectFilter]);
-  const currentArea = useMemo(() => currentProject?.areas?.find(a => a.id === areaFilter), [currentProject, areaFilter]);
+  const currentPlanner = useMemo(() => {
+    const planners = currentProject?.planners || currentProject?.areas || [];
+    return planners.find(p => p.id === plannerFilter);
+  }, [currentProject, plannerFilter]);
 
   // Filtered Tasks for Active Planner
   const filteredTasks = useMemo(() => {
-    if (!allTasks || !projectFilter || !areaFilter) return [];
+    if (!allTasks || !projectFilter || !plannerFilter) return [];
     return allTasks.filter(task => 
         task.projectId === projectFilter && 
-        task.areaId === areaFilter
+        (task.plannerId === plannerFilter || task.areaId === plannerFilter)
     );
-  }, [allTasks, projectFilter, areaFilter]);
+  }, [allTasks, projectFilter, plannerFilter]);
 
   const editingTask = useMemo(() => {
     if (!editingTaskId || !allTasks) return null;
@@ -159,37 +154,37 @@ function PlannerContent() {
   const selectProject = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set('project', id);
-    params.delete('area');
+    params.delete('planner');
     router.push(`/planner?${params.toString()}`);
   };
 
-  const selectArea = (id: string) => {
+  const selectPlanner = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    params.set('area', id);
+    params.set('planner', id);
     router.push(`/planner?${params.toString()}`);
   };
 
   const clearProject = () => router.push('/planner');
-  const clearArea = () => {
+  const clearPlanner = () => {
     const params = new URLSearchParams(searchParams.toString());
-    params.delete('area');
+    params.delete('planner');
     router.push(`/planner?${params.toString()}`);
   };
 
-  const handleAddArea = () => {
-    if (!newAreaName.trim() || !currentProject) return;
+  const handleAddPlanner = () => {
+    if (!newPlannerName.trim() || !currentProject) return;
     startTransition(async () => {
-        const newArea: Area = {
-            id: `area-${currentProject.id}-${Date.now()}`,
-            name: newAreaName.trim()
+        const newPlanner: Planner = {
+            id: `planner-${currentProject.id}-${Date.now()}`,
+            name: newPlannerName.trim()
         };
         const projRef = doc(db, 'projects', currentProject.id);
         await updateDoc(projRef, {
-            areas: arrayUnion(newArea)
+            planners: arrayUnion(newPlanner)
         });
-        toast({ title: 'New Planner Added', description: `Block "${newArea.name}" is ready for scheduling.` });
-        setNewAreaName('');
-        setIsAddAreaOpen(false);
+        toast({ title: 'New Planner Added', description: `Planner "${newPlanner.name}" is ready for scheduling.` });
+        setNewPlannerName('');
+        setIsAddPlannerOpen(false);
     });
   };
 
@@ -207,7 +202,7 @@ function PlannerContent() {
         <div className="space-y-6 p-4 md:p-8">
             <div className="space-y-1">
                 <h2 className="text-3xl font-bold tracking-tight">Work Planner</h2>
-                <p className="text-sm text-muted-foreground">Select a project to view its block schedules.</p>
+                <p className="text-sm text-muted-foreground">Select a project to view its active schedules.</p>
             </div>
             
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -222,7 +217,7 @@ function PlannerContent() {
                                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                 </div>
                                 <CardTitle className="text-xl group-hover:text-primary transition-colors">{project.name}</CardTitle>
-                                <CardDescription>{project.areas?.length || 0} Planning Blocks</CardDescription>
+                                <CardDescription>{(project.planners?.length || 0) + (project.areas?.length || 0)} Standalone Planners</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
@@ -247,9 +242,9 @@ function PlannerContent() {
     );
   }
 
-  // --- VIEW 2: Area/Block Selection Directory ---
-  if (projectFilter && !areaFilter) {
-    const areas = currentProject?.areas || [];
+  // --- VIEW 2: Planner Selection Directory ---
+  if (projectFilter && !plannerFilter) {
+    const planners = [...(currentProject?.planners || []), ...(currentProject?.areas || [])];
     return (
         <div className="space-y-6 p-4 md:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -259,30 +254,30 @@ function PlannerContent() {
                     </Button>
                     <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                         <Building2 className="h-6 w-6 text-primary" />
-                        {currentProject?.name} Planners
+                        {currentProject?.name} Schedules
                     </h2>
-                    <p className="text-sm text-muted-foreground">Select a specific block or location to manage its critical path.</p>
+                    <p className="text-sm text-muted-foreground">Select a specific planner to manage its critical path.</p>
                 </div>
                 
                 {(profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) && (
-                    <Dialog open={isAddAreaOpen} onOpenChange={setIsAddAreaOpen}>
+                    <Dialog open={isAddPlannerOpen} onOpenChange={setIsAddPlannerOpen}>
                         <DialogTrigger asChild>
-                            <Button className="gap-2"><PlusCircle className="h-4 w-4" /> Add New Block</Button>
+                            <Button className="gap-2"><PlusCircle className="h-4 w-4" /> Add New Planner</Button>
                         </DialogTrigger>
                         <DialogContent>
                             <DialogHeader>
-                                <DialogTitle>Add Planning Workspace</DialogTitle>
-                                <DialogDescription>Create a new block or level to host its own schedule.</DialogDescription>
+                                <DialogTitle>Add Project Planner</DialogTitle>
+                                <DialogDescription>Create a new distinct schedule for this project.</DialogDescription>
                             </DialogHeader>
                             <div className="py-4 space-y-4">
                                 <div className="space-y-2">
-                                    <label className="text-xs font-bold uppercase text-muted-foreground">Block Name</label>
-                                    <Input placeholder="e.g. Block A, Level 1, Phase 2" value={newAreaName} onChange={e => setNewAreaName(e.target.value)} />
+                                    <label className="text-xs font-bold uppercase text-muted-foreground">Planner Title</label>
+                                    <Input placeholder="e.g. Fit-out Schedule, Shell & Core" value={newPlannerName} onChange={e => setNewPlannerName(e.target.value)} />
                                 </div>
                             </div>
                             <DialogFooter>
-                                <Button variant="ghost" onClick={() => setIsAddAreaOpen(false)}>Cancel</Button>
-                                <Button onClick={handleAddArea} disabled={isPending || !newAreaName.trim()}>
+                                <Button variant="ghost" onClick={() => setIsAddPlannerOpen(false)}>Cancel</Button>
+                                <Button onClick={handleAddPlanner} disabled={isPending || !newPlannerName.trim()}>
                                     {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
                                     Create Planner
                                 </Button>
@@ -293,24 +288,24 @@ function PlannerContent() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {areas.length > 0 ? areas.map(area => {
-                    const stats = areaStats.get(area.id) || { total: 0, completed: 0 };
+                {planners.length > 0 ? planners.map(planner => {
+                    const stats = plannerStats.get(planner.id) || { total: 0, completed: 0 };
                     const progress = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
                     return (
-                        <Card key={area.id} className="cursor-pointer hover:border-primary/50 transition-all group hover:shadow-md" onClick={() => selectArea(area.id)}>
+                        <Card key={planner.id} className="cursor-pointer hover:border-primary/50 transition-all group hover:shadow-md" onClick={() => selectPlanner(planner.id)}>
                             <CardHeader className="pb-3">
                                 <div className="flex justify-between items-start">
-                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 mb-2 uppercase text-[9px] font-black tracking-widest">Block Schedule</Badge>
+                                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 mb-2 uppercase text-[9px] font-black tracking-widest">Planner</Badge>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                 </div>
-                                <CardTitle className="text-xl group-hover:text-primary transition-colors">{area.name}</CardTitle>
-                                <CardDescription>{stats.total} Active Items</CardDescription>
+                                <CardTitle className="text-xl group-hover:text-primary transition-colors">{planner.name}</CardTitle>
+                                <CardDescription>{stats.total} Active Activities</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
-                                        <span>Schedule Progress</span>
-                                        <span>{Math.round(progress)}%</span>
+                                        <span>Status</span>
+                                        <span>{Math.round(progress)}% Complete</span>
                                     </div>
                                     <Progress value={progress} className="h-1.5" indicatorClassName={progress === 100 ? "bg-green-500" : ""} />
                                 </div>
@@ -319,9 +314,9 @@ function PlannerContent() {
                     );
                 }) : (
                     <div className="col-span-full py-20 text-center border-2 border-dashed rounded-xl bg-muted/5">
-                        <MapPin className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                        <p className="font-bold text-muted-foreground">No blocks defined for this project.</p>
-                        <p className="text-sm text-muted-foreground mt-1">Use "Add New Block" to initialize a schedule.</p>
+                        <Layout className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                        <p className="font-bold text-muted-foreground">No planners defined for this project.</p>
+                        <p className="text-sm text-muted-foreground mt-1">Use "Add New Planner" to initialize a schedule.</p>
                     </div>
                 )}
             </div>
@@ -336,16 +331,16 @@ function PlannerContent() {
             <div className="flex flex-col gap-4">
                 <div className="space-y-1">
                     <div className="flex items-center gap-2 mb-2">
-                        <Button variant="ghost" size="sm" onClick={clearArea} className="text-muted-foreground h-8 p-0 hover:bg-transparent hover:text-primary">
+                        <Button variant="ghost" size="sm" onClick={clearPlanner} className="text-muted-foreground h-8 p-0 hover:bg-transparent hover:text-primary">
                             {currentProject?.name}
                         </Button>
                         <span className="text-muted-foreground text-xs">&rsaquo;</span>
-                        <Badge variant="secondary" className="bg-primary/10 text-primary uppercase text-[10px] font-black h-6">{currentArea?.name}</Badge>
+                        <Badge variant="secondary" className="bg-primary/10 text-primary uppercase text-[10px] font-black h-6">{currentPlanner?.name}</Badge>
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
                             <Layout className="h-7 w-7 text-primary" />
-                            Work Planner
+                            Construction Schedule
                         </h2>
                         <div className="flex items-center gap-2">
                             <TooltipProvider>
@@ -361,10 +356,10 @@ function PlannerContent() {
 
                             <NewTaskDialog 
                                 projects={allowedProjects} 
-                                trades={allTrades || []}
+                                subContractors={allSubContractors || []}
                                 allTasks={allTasks || []}
                                 initialProjectId={projectFilter}
-                                initialAreaId={areaFilter!}
+                                initialPlannerId={plannerFilter!}
                             />
                         </div>
                     </div>
@@ -375,7 +370,7 @@ function PlannerContent() {
                 <div className="overflow-x-auto pb-8">
                     <GanttChart 
                       tasks={filteredTasks} 
-                      trades={allTrades || []} 
+                      subContractors={allSubContractors || []} 
                       projects={allowedProjects} 
                       onTaskClick={(task) => setEditingTaskId(task.id)}
                     />
@@ -384,7 +379,7 @@ function PlannerContent() {
                 <div className="grid gap-4">
                 {filteredTasks.length > 0 ? (
                     filteredTasks.map(task => {
-                        const trade = allTrades?.find(t => t.id === task.tradeId);
+                        const sub = allSubContractors?.find(s => s.id === task.subcontractorId);
                         
                         return (
                             <Card key={task.id} className="hover:border-primary transition-all overflow-hidden cursor-pointer" onClick={() => setEditingTaskId(task.id)}>
@@ -397,7 +392,7 @@ function PlannerContent() {
                                             <div className="space-y-1">
                                                 <p className={cn("font-bold truncate text-base", task.status === 'completed' && "line-through text-muted-foreground")}>{task.title}</p>
                                                 <div className="flex flex-wrap items-center gap-2">
-                                                    <Badge variant="secondary" className="text-[9px] uppercase font-black bg-primary/5 text-primary border-primary/10 tracking-tight">{trade?.name || 'Unknown Trade'}</Badge>
+                                                    <Badge variant="secondary" className="text-[9px] uppercase font-black bg-primary/5 text-primary border-primary/10 tracking-tight">{sub?.name || 'Unassigned Partner'}</Badge>
                                                 </div>
                                             </div>
                                             
@@ -421,8 +416,8 @@ function PlannerContent() {
                                             <p className="text-xs font-bold">{new Date(task.startDate).toLocaleDateString()}</p>
                                         </div>
                                         <div className="text-right">
-                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Duration</p>
-                                            <p className="text-xs font-bold">{task.durationDays} Days</p>
+                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Planned Days</p>
+                                            <p className="text-xs font-bold">{task.durationDays}</p>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -432,8 +427,8 @@ function PlannerContent() {
                 ) : (
                     <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/5 text-muted-foreground/40">
                         <CalendarRange className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                        <p className="text-lg font-semibold">No tasks scheduled for this block</p>
-                        <p className="text-sm">Click "Add Task" to begin your site walkthrough.</p>
+                        <p className="text-lg font-semibold">No activities scheduled for this planner</p>
+                        <p className="text-sm">Click "Add Task" to begin building your project schedule.</p>
                     </div>
                 )}
                 </div>
@@ -444,7 +439,7 @@ function PlannerContent() {
             <EditTaskDialog 
                 task={editingTask} 
                 projects={allowedProjects} 
-                trades={allTrades || []} 
+                subContractors={allSubContractors || []} 
                 allTasks={allTasks || []} 
                 open={!!editingTaskId} 
                 onOpenChange={(open) => !open && setEditingTaskId(null)} 
@@ -459,7 +454,7 @@ function PlannerContent() {
 export default function PlannerPage() {
   return (
     <div className="flex flex-col w-full min-h-screen bg-background">
-      <Header title="Schedule Workspace" />
+      <Header title="Project Schedules" />
       <Suspense fallback={
         <div className="flex h-screen w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />

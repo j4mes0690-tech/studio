@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -47,21 +46,26 @@
     },
     "PlannerTask": {
       "title": "Planner Task",
-      "description": "A specific work item in the short term planner.",
+      "description": "A specific work item in the short term construction schedule.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "projectId": { "type": "string" },
-        "areaId": { "type": "string" },
+        "plannerId": { "type": "string", "description": "Grouping identifier for different project schedules (e.g. Fit-out, Shell)." },
+        "areaId": { "type": "string", "description": "Deprecated field for grouping, replaced by plannerId." },
         "title": { "type": "string" },
-        "tradeId": { "type": "string" },
+        "subcontractorId": { "type": "string", "description": "The specific assigned subcontractor from the project team." },
+        "tradeId": { "type": "string", "description": "Deprecated field for trade category, replaced by subcontractorId." },
         "startDate": { "type": "string", "format": "date" },
         "durationDays": { "type": "number" },
+        "originalStartDate": { "type": "string", "format": "date" },
+        "originalDurationDays": { "type": "number" },
+        "actualCompletionDate": { "type": "string", "format": "date" },
         "predecessorIds": { "type": "array", "items": { "type": "string" } },
         "status": { "type": "string", "enum": ["pending", "in-progress", "completed"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "projectId", "title", "tradeId", "startDate", "durationDays"]
+      "required": ["id", "projectId", "title", "subcontractorId", "startDate", "durationDays"]
     },
     "IRSItem": {
       "title": "IRS Item",
@@ -93,6 +97,16 @@
         "address": { "type": "string" },
         "siteManager": { "type": "string" },
         "siteManagerPhone": { "type": "string" },
+        "planners": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          }
+        },
         "areas": {
           "type": "array",
           "items": {

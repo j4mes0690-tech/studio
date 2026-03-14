@@ -1,4 +1,4 @@
-export type Area = {
+export type Planner = {
   id: string;
   name: string;
 };
@@ -9,7 +9,8 @@ export type Project = {
   address?: string;
   siteManager?: string;
   siteManagerPhone?: string;
-  areas?: Area[];
+  planners?: Planner[];
+  areas?: Planner[]; // Keep for backward compatibility with existing data
   assignedUsers?: string[];
   assignedSubContractors?: string[];
 };
@@ -247,9 +248,11 @@ export type PlannerTaskStatus = 'pending' | 'in-progress' | 'completed';
 export type PlannerTask = {
   id: string;
   projectId: string;
-  areaId: string;
+  plannerId: string;
+  areaId?: string; // Keep for backward compatibility
   title: string;
-  tradeId: string;
+  subcontractorId: string;
+  tradeId?: string; // Keep for backward compatibility
   startDate: string; // Current Forecast ISO Date
   durationDays: number;
   originalStartDate: string; // Initial baseline

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { PlannerTask, Trade, Photo, Project } from '@/lib/types';
+import type { PlannerTask, SubContractor, Photo, Project } from '@/lib/types';
 import { 
     format, 
     addDays, 
@@ -32,12 +32,12 @@ function parseDateString(dateStr: string | null | undefined) {
 
 export function GanttChart({ 
   tasks, 
-  trades, 
+  subContractors, 
   projects,
   onTaskClick 
 }: { 
   tasks: PlannerTask[]; 
-  trades: Trade[]; 
+  subContractors: SubContractor[]; 
   projects: Project[];
   onTaskClick: (task: PlannerTask) => void;
 }) {
@@ -111,7 +111,7 @@ export function GanttChart({
   if (tasks.length === 0) {
     return (
         <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed rounded-lg bg-muted/10 text-muted-foreground">
-            <p>No tasks scheduled within the planning window.</p>
+            <p>No activities scheduled within this planning block.</p>
         </div>
     );
   }
@@ -122,8 +122,8 @@ export function GanttChart({
         <div className="flex flex-col min-w-max">
             {/* Header: Dates */}
             <div className="flex border-b bg-muted/30">
-            <div className="w-64 border-r p-4 font-bold text-xs uppercase tracking-widest text-muted-foreground shrink-0 flex items-end">
-                Activity / Trade
+            <div className="w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end">
+                Work Activity
             </div>
             <div className="flex">
                 {timelineDays.map((day, i) => {
@@ -166,7 +166,7 @@ export function GanttChart({
                         </svg>
 
                         {tasks.map((task, taskIdx) => {
-                            const trade = trades.find(t => t.id === task.tradeId);
+                            const sub = subContractors.find(s => s.id === (task.subcontractorId || task.tradeId));
                             const taskStart = parseDateString(task.startDate);
                             
                             if (!isValid(taskStart)) return null;
@@ -204,8 +204,10 @@ export function GanttChart({
                                     style={{ height: ROW_HEIGHT }}
                                 >
                                     <div className="w-64 border-r p-2 shrink-0 min-w-0 bg-background z-10">
-                                        <p className={cn("text-xs font-bold truncate", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
-                                        <Badge variant="outline" className="text-[8px] h-3.5 mt-0.5 bg-background">{trade?.name || 'Trade'}</Badge>
+                                        <p className={cn("text-[11px] font-bold truncate", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
+                                        <Badge variant="outline" className="text-[8px] h-3.5 mt-0.5 bg-background truncate max-w-full">
+                                            {sub?.name || 'Unassigned'}
+                                        </Badge>
                                     </div>
                                     <div className="relative flex-1 bg-[repeating-linear-gradient(to_right,transparent,transparent_39px,rgba(0,0,0,0.05)_39px,rgba(0,0,0,0.05)_40px)]" style={{ width: chartWidth }}>
                                         {/* Original Planned Shadow Bar */}
@@ -242,17 +244,17 @@ export function GanttChart({
                                                         <div className='flex justify-between items-start'>
                                                             <div>
                                                                 <p className="font-bold text-sm">{task.title}</p>
-                                                                <p className="text-xs text-muted-foreground">{trade?.name}</p>
+                                                                <p className="text-xs text-muted-foreground">{sub?.name}</p>
                                                             </div>
-                                                            <Badge variant="outline" className="text-[8px]">{task.status}</Badge>
+                                                            <Badge variant="outline" className="text-[8px] uppercase font-black">{task.status}</Badge>
                                                         </div>
                                                         <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
                                                             <span className='flex justify-between'>Forecast: <strong>{format(taskStart, 'PP')} ({task.durationDays}d)</strong></span>
                                                             {task.status === 'completed' && task.actualCompletionDate && (
-                                                                <span className='flex justify-between text-green-600 font-bold'>Completed: <strong>{format(parseDateString(task.actualCompletionDate), 'PP')}</strong></span>
+                                                                <span className='flex justify-between text-green-600 font-bold'>Actual Finish: <strong>{format(parseDateString(task.actualCompletionDate), 'PP')}</strong></span>
                                                             )}
                                                             {task.originalStartDate && (
-                                                                <span className='flex justify-between opacity-60'>Planned: <strong>{format(parseDateString(task.originalStartDate), 'PP')}</strong></span>
+                                                                <span className='flex justify-between opacity-60'>Baseline: <strong>{format(parseDateString(task.originalStartDate), 'PP')}</strong></span>
                                                             )}
                                                         </div>
                                                         
@@ -266,7 +268,7 @@ export function GanttChart({
                                                             </div>
                                                         )}
                                                         <Separator className="my-1" />
-                                                        <p className="text-[9px] text-center font-bold text-primary italic">Click bar to edit or reforecast</p>
+                                                        <p className="text-[9px] text-center font-bold text-primary italic">Click to edit reforecast</p>
                                                     </div>
                                                 </TooltipContent>
                                             </Tooltip>

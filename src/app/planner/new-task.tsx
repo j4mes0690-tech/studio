@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -28,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Loader2, Save, HardHat, Layers, Calendar, Link as LinkIcon, Camera, Upload, X, RefreshCw } from 'lucide-react';
-import type { Project, Trade, PlannerTask, Photo } from '@/lib/types';
+import type { Project, SubContractor, PlannerTask, Photo } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -37,12 +36,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { addDays, parseISO, format, isValid } from 'date-fns';
+import { VoiceInput } from '@/components/voice-input';
 
 const NewTaskSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  areaId: z.string().min(1, 'Area/Plot is required.'),
+  plannerId: z.string().min(1, 'Planner selection is required.'),
   title: z.string().min(3, 'Description of work is required.'),
-  tradeId: z.string().min(1, 'Trade is required.'),
+  subcontractorId: z.string().min(1, 'Assigned partner is required.'),
   startDate: z.string().min(1, 'Start date is required.'),
   durationDays: z.coerce.number().min(1, 'Duration must be at least 1 day.').default(1),
   predecessorIds: z.array(z.string()).default([]),
@@ -52,16 +52,16 @@ type NewTaskFormValues = z.infer<typeof NewTaskSchema>;
 
 export function NewTaskDialog({ 
   projects, 
-  trades, 
+  subContractors, 
   allTasks, 
   initialProjectId,
-  initialAreaId
+  initialPlannerId
 }: { 
   projects: Project[]; 
-  trades: Trade[]; 
+  subContractors: SubContractor[]; 
   allTasks: PlannerTask[];
   initialProjectId?: string | null;
-  initialAreaId?: string | null;
+  initialPlannerId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
@@ -79,9 +79,9 @@ export function NewTaskDialog({
     resolver: zodResolver(NewTaskSchema),
     defaultValues: {
       projectId: initialProjectId || '',
-      areaId: initialAreaId || '',
+      plannerId: initialPlannerId || '',
       title: '',
-      tradeId: '',
+      subcontractorId: '',
       startDate: new Date().toISOString().split('T')[0],
       durationDays: 1,
       predecessorIds: [],
@@ -89,9 +89,16 @@ export function NewTaskDialog({
   });
 
   const selectedProjectId = form.watch('projectId');
-  const selectedAreaId = form.watch('areaId');
+  const selectedPlannerId = form.watch('plannerId');
   const selectedPredecessorIds = form.watch('predecessorIds');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+
+  // RESTRICT SUBCONTRACTORS: Only those assigned to the selected project
+  const availablePartners = useMemo(() => {
+    if (!selectedProject || !subContractors) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
+    return subContractors.filter(sub => assignedIds.includes(sub.id));
+  }, [selectedProject, subContractors]);
 
   // SMART SCHEDULING LOGIC: Move start date based on dependencies
   useEffect(() => {
@@ -119,9 +126,9 @@ export function NewTaskDialog({
   }, [selectedPredecessorIds, allTasks, form]);
 
   const potentialPredecessors = useMemo(() => {
-    if (!selectedProjectId || !selectedAreaId) return [];
-    return allTasks.filter(t => t.projectId === selectedProjectId && t.areaId === selectedAreaId);
-  }, [allTasks, selectedProjectId, selectedAreaId]);
+    if (!selectedProjectId || !selectedPlannerId) return [];
+    return allTasks.filter(t => t.projectId === selectedProjectId && (t.plannerId === selectedPlannerId || t.areaId === selectedPlannerId));
+  }, [allTasks, selectedProjectId, selectedPlannerId]);
 
   const onSubmit = (values: NewTaskFormValues) => {
     startTransition(async () => {
@@ -139,6 +146,8 @@ export function NewTaskDialog({
 
         const taskData: Omit<PlannerTask, 'id'> = {
           ...values,
+          plannerId: values.plannerId,
+          areaId: values.plannerId, // Backwards compatibility
           originalStartDate: values.startDate,
           originalDurationDays: values.durationDays,
           actualCompletionDate: null,
@@ -148,7 +157,7 @@ export function NewTaskDialog({
         };
 
         await addDoc(collection(db, 'planner-tasks'), taskData);
-        toast({ title: 'Task Logged', description: 'Schedule updated.' });
+        toast({ title: 'Activity Scheduled', description: 'Task added to the sequence.' });
         
         form.reset({
             ...values,
@@ -166,16 +175,16 @@ export function NewTaskDialog({
     if (open) {
         form.reset({
             projectId: initialProjectId || '',
-            areaId: initialAreaId || '',
+            plannerId: initialPlannerId || '',
             title: '',
-            tradeId: '',
+            subcontractorId: '',
             startDate: new Date().toISOString().split('T')[0],
             durationDays: 1,
             predecessorIds: [],
         });
         setPhotos([]);
     }
-  }, [open, initialProjectId, initialAreaId, form]);
+  }, [open, initialProjectId, initialPlannerId, form]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -209,12 +218,12 @@ export function NewTaskDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2"><PlusCircle className="h-4 w-4" />Add Task</Button>
+        <Button className="gap-2 font-bold"><PlusCircle className="h-4 w-4" />Log Task</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Log Activity</DialogTitle>
-          <DialogDescription>Add work items to this block schedule.</DialogDescription>
+          <DialogTitle>Log Construction Activity</DialogTitle>
+          <DialogDescription>Define sequence and responsibility for this task.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -229,13 +238,13 @@ export function NewTaskDialog({
                   </Select>
                 </FormItem>
               )} />
-              <FormField control={form.control} name="areaId" render={({ field }) => (
+              <FormField control={form.control} name="plannerId" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Area / Block</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!!initialAreaId || !selectedProjectId}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Choose block" /></SelectTrigger></FormControl>
+                  <FormLabel>Target Planner</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={!!initialPlannerId || !selectedProjectId}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Choose schedule" /></SelectTrigger></FormControl>
                     <SelectContent>
-                        {selectedProject?.areas?.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                        {[...(selectedProject?.planners || []), ...(selectedProject?.areas || [])].map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </FormItem>
@@ -244,19 +253,22 @@ export function NewTaskDialog({
 
             <FormField control={form.control} name="title" render={({ field }) => (
               <FormItem>
-                <FormLabel>Activity Description</FormLabel>
-                <FormControl><Input placeholder="e.g. Wall boarding" {...field} /></FormControl>
+                <div className="flex justify-between items-center"><FormLabel>Work Description</FormLabel><VoiceInput onResult={field.onChange} /></div>
+                <FormControl><Input placeholder="e.g. Install first fix plumbing" {...field} /></FormControl>
               </FormItem>
             )} />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="tradeId" render={({ field }) => (
+                <FormField control={form.control} name="subcontractorId" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Trade</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Choose trade" /></SelectTrigger></FormControl>
-                            <SelectContent>{trades.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                        <FormLabel>Assigned Trade Partner</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                            <FormControl><SelectTrigger><SelectValue placeholder={availablePartners.length > 0 ? "Select assigned partner" : "No partners assigned to project"} /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                {availablePartners.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
                         </Select>
+                        <FormDescription className="text-[10px]">Only subcontractors assigned to this project are available.</FormDescription>
                     </FormItem>
                 )} />
                 <div className="grid grid-cols-2 gap-2">
@@ -264,25 +276,25 @@ export function NewTaskDialog({
                         <FormItem><FormLabel>Start Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="durationDays" render={({ field }) => (
-                        <FormItem><FormLabel>Days</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl></FormItem>
+                        <FormItem><FormLabel>Duration (Days)</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl></FormItem>
                     )} />
                 </div>
             </div>
 
             <div className="space-y-4">
-                <FormLabel className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Site Photos</FormLabel>
+                <FormLabel className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Site Context (Photos)</FormLabel>
                 <div className="flex flex-wrap gap-2">
                     {photos.map((p, i) => (
-                        <div key={i} className="relative w-20 h-20 rounded border overflow-hidden">
+                        <div key={i} className="relative w-20 h-20 rounded-lg border overflow-hidden">
                             <Image src={p.url} alt="Context" fill className="object-cover" />
                             <button type="button" className="absolute top-0 right-0 bg-destructive text-white p-0.5" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}>
                                 <X className="h-3 w-3" />
                             </button>
                         </div>
                     ))}
-                    <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => setIsCameraOpen(true)}>
+                    <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed rounded-lg" onClick={() => setIsCameraOpen(true)}>
                         <Camera className="h-5 w-5 text-muted-foreground" />
-                        <span className="text-[8px] font-bold">Photo</span>
+                        <span className="text-[8px] font-black uppercase">Photo</span>
                     </Button>
                 </div>
                 {isCameraOpen && (
@@ -300,7 +312,7 @@ export function NewTaskDialog({
             <div className="space-y-3">
                 <FormLabel className="flex items-center gap-2">
                     <LinkIcon className="h-4 w-4 text-primary" />
-                    Dependencies
+                    Critical Path Predecessors
                 </FormLabel>
                 <ScrollArea className="h-32 rounded-md border p-3 bg-muted/5">
                     {potentialPredecessors.length > 0 ? potentialPredecessors.map((task) => (
@@ -321,20 +333,20 @@ export function NewTaskDialog({
                                         />
                                     </FormControl>
                                     <FormLabel className="text-xs font-medium cursor-pointer">
-                                        {task.title} <span className="text-muted-foreground">({trades.find(t => t.id === task.tradeId)?.name})</span>
+                                        {task.title}
                                     </FormLabel>
                                 </FormItem>
                             )}
                         />
                     )) : (
-                        <p className="text-[10px] text-muted-foreground italic text-center py-8">No other tasks in this block yet.</p>
+                        <p className="text-[10px] text-muted-foreground italic text-center py-8">No other tasks in this planner yet.</p>
                     )}
                 </ScrollArea>
             </div>
 
             <DialogFooter className="gap-3">
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>Finish</Button>
-              <Button type="submit" className="flex-1 h-12 text-lg font-bold" disabled={isPending}>
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>Close</Button>
+              <Button type="submit" className="flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                 Add & Continue
               </Button>
