@@ -1,8 +1,9 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, arrayUnion, writeBatch, where, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, arrayUnion, writeBatch, where, getDocs, getDoc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense, useTransition } from 'react';
 import type { PlannerTask, Project, Planner, DistributionUser, Photo, SubContractor } from '@/lib/types';
 import { 
@@ -220,32 +221,58 @@ function PlannerContent() {
   };
 
   const handleDeletePlanner = (plannerId: string) => {
-    if (!currentProject) return;
+    if (!projectFilter || !db) return;
+    
     startTransition(async () => {
         try {
-            // 1. Remove from Project Planners array
-            const updatedPlanners = (currentProject.planners || []).filter(p => p.id !== plannerId);
-            const projRef = doc(db, 'projects', currentProject.id);
-            await updateDoc(projRef, { planners: updatedPlanners });
+            const projRef = doc(db, 'projects', projectFilter);
+            const projSnap = await getDoc(projRef);
+            
+            if (!projSnap.exists()) {
+                toast({ title: 'Error', description: 'Project not found.', variant: 'destructive' });
+                return;
+            }
 
-            // 2. Cleanup associated tasks
-            const q = query(collection(db, 'planner-tasks'), where('plannerId', '==', plannerId));
-            const querySnapshot = await getDocs(q);
+            const projData = projSnap.data();
+            const updates: any = {};
+            
+            // Clean up both possible array keys for broad compatibility
+            if (projData.planners) {
+                updates.planners = projData.planners.filter((p: any) => p.id !== plannerId);
+            }
+            if (projData.areas) {
+                updates.areas = projData.areas.filter((a: any) => a.id !== plannerId);
+            }
+
+            // 1. Update the Project Document
+            await updateDoc(projRef, updates);
+
+            // 2. Cleanup all associated tasks in a batch
+            const tasksQuery = query(collection(db, 'planner-tasks'), where('plannerId', '==', plannerId));
+            const tasksSnap = await getDocs(tasksQuery);
             
             const batch = writeBatch(db);
-            querySnapshot.forEach((doc) => {
-                batch.delete(doc.ref);
+            tasksSnap.forEach((tDoc) => {
+                batch.delete(tDoc.ref);
             });
+            
+            // Also cleanup legacy 'areaId' scoped tasks
+            const legacyTasksQuery = query(collection(db, 'planner-tasks'), where('areaId', '==', plannerId));
+            const legacyTasksSnap = await getDocs(legacyTasksQuery);
+            legacyTasksSnap.forEach((tDoc) => {
+                batch.delete(tDoc.ref);
+            });
+
             await batch.commit();
 
-            // 3. Clear from URL and refresh to ensure UI is in sync
+            // 3. Navigate back if the user was currently viewing the deleted planner
             if (plannerFilter === plannerId) {
                 clearPlanner();
             }
             
-            router.refresh();
             toast({ title: 'Planner Deleted', description: 'Schedule and all associated tasks have been permanently removed.' });
         } catch (err) {
+            console.error("Delete planner error:", err);
             toast({ title: 'Error', description: 'Failed to delete planner.', variant: 'destructive' });
         }
     });
