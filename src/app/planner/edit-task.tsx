@@ -127,7 +127,6 @@ export function EditTaskDialog({
   }, [allTasks, task.projectId, task.plannerId, task.id]);
 
   // SMART SCHEDULING LOGIC: Reactive start date based on predecessors
-  // Ensures successors are pulled forward if predecessors finish early
   useEffect(() => {
     if (selectedPredecessorIds && selectedPredecessorIds.length > 0) {
       const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
@@ -157,44 +156,57 @@ export function EditTaskDialog({
     }
   }, [selectedPredecessorIds, allTasks, form]);
 
-  // EFFICIENT REFORECASTING LOGIC: Pulls successors forward or pushes them back based on ALL predecessors
-  const reforecast = (currentTaskId: string, allProjectTasks: PlannerTask[], batch: any) => {
-    const successors = allProjectTasks.filter(t => t.predecessorIds?.includes(currentTaskId));
-    
-    successors.forEach(successor => {
-      // For each successor, find ALL its predecessors to determine the true earliest start date
-      const itsPredecessors = allProjectTasks.filter(p => successor.predecessorIds?.includes(p.id));
-      
-      let latestFinishDate: Date | null = null;
-      itsPredecessors.forEach(p => {
-        const pStart = parseDateString(p.startDate);
-        const pFinish = p.status === 'completed' && p.actualCompletionDate 
-          ? parseDateString(p.actualCompletionDate) 
-          : addDays(pStart, p.durationDays - 1);
+  /**
+   * Global Schedule Optimizer - Iteratively pass over the entire planner to ensure
+   * every task starts as soon as its predecessors allow.
+   */
+  const optimizeGlobalSchedule = (allPlannerTasks: PlannerTask[], batch: any) => {
+    let changed = true;
+    let iterations = 0;
+    const maxIterations = allPlannerTasks.length * 2; // Safety break
+    let currentTasks = [...allPlannerTasks];
+
+    while (changed && iterations < maxIterations) {
+      changed = false;
+      iterations++;
+
+      for (let i = 0; i < currentTasks.length; i++) {
+        const t = currentTasks[i];
+        if (!t.predecessorIds || t.predecessorIds.length === 0) continue;
+
+        // Find predecessors for this specific task
+        const taskPredecessors = currentTasks.filter(p => t.predecessorIds.includes(p.id));
         
-        if (isValid(pFinish)) {
-          if (!latestFinishDate || pFinish > latestFinishDate) {
-            latestFinishDate = pFinish;
+        let latestFinishDate: Date | null = null;
+        taskPredecessors.forEach(p => {
+          const pStart = parseDateString(p.startDate);
+          const pFinish = p.status === 'completed' && p.actualCompletionDate 
+            ? parseDateString(p.actualCompletionDate) 
+            : addDays(pStart, p.durationDays - 1);
+          
+          if (isValid(pFinish)) {
+            if (!latestFinishDate || pFinish > latestFinishDate) {
+              latestFinishDate = pFinish;
+            }
+          }
+        });
+
+        if (latestFinishDate && isValid(latestFinishDate)) {
+          const idealStart = addDays(latestFinishDate, 1);
+          const idealStartStr = format(idealStart, 'yyyy-MM-dd');
+
+          // If the task could start earlier (or must start later), update it
+          if (t.startDate !== idealStartStr) {
+            const docRef = doc(db, 'planner-tasks', t.id);
+            batch.update(docRef, { startDate: idealStartStr });
+            
+            // Update local state copy for the next pass
+            currentTasks[i] = { ...t, startDate: idealStartStr };
+            changed = true;
           }
         }
-      });
-
-      if (latestFinishDate && isValid(latestFinishDate)) {
-        const idealStart = addDays(latestFinishDate, 1);
-        const idealStartStr = format(idealStart, 'yyyy-MM-dd');
-
-        // Only update and recurse if the date has actually changed
-        if (successor.startDate !== idealStartStr) {
-          const docRef = doc(db, 'planner-tasks', successor.id);
-          batch.update(docRef, { startDate: idealStartStr });
-          
-          // Recursive call: update memory copy for deep reforecasting
-          const updatedSuccessor = { ...successor, startDate: idealStartStr };
-          const nextTasks = allProjectTasks.map(t => t.id === successor.id ? updatedSuccessor : t);
-          reforecast(successor.id, nextTasks, batch);
-        }
       }
-    });
+    }
   };
 
   const onSubmit = (values: EditTaskFormValues) => {
@@ -219,16 +231,19 @@ export function EditTaskDialog({
           photos: uploadedPhotos,
         };
 
+        // Apply primary task update
         batch.update(taskRef, updates);
 
-        // Prepare updated state for cascading reforecast
+        // Prepare full dataset for the global optimizer
         const updatedTask = { ...task, ...updates };
-        const startingTasks = allTasks.map(t => t.id === task.id ? updatedTask : t);
+        const allPlannerTasks = allTasks.filter(t => t.plannerId === task.plannerId || t.areaId === task.plannerId);
+        const startingTasks = allPlannerTasks.map(t => t.id === task.id ? updatedTask : t);
         
-        reforecast(task.id, startingTasks, batch);
+        // Run the global optimizer to tighten the entire schedule
+        optimizeGlobalSchedule(startingTasks, batch);
 
         await batch.commit();
-        toast({ title: 'Schedule Optimized', description: 'Forecasts revised to follow the most efficient timeline.' });
+        toast({ title: 'Schedule Optimized', description: 'All activities revised to follow the most efficient timeline.' });
         onOpenChange(false);
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to update schedule.', variant: 'destructive' });
@@ -430,7 +445,7 @@ export function EditTaskDialog({
             <DialogFooter className="pt-4 border-t">
               <Button type="submit" className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                Commit & Reforecast
+                Commit & Reforecast Schedule
               </Button>
             </DialogFooter>
           </form>
