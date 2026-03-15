@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -368,7 +367,8 @@ function AcceptInstructionButton({
                                             <div className="space-y-1">
                                                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Project Assignee</Label>
                                                 <Select 
-                                                    onValueChange={(val) => setRfis(rfis.map((r, i) => i === idx ? { ...r, assignedTo: [val] } : r))}
+                                                    onValueChange={(val) => setRfis(rfis.map((r, i) => i === idx ? { ...r, assignedTo: [val.split(':')[1]] } : r))}
+                                                    value={rfi.assignedTo[0] ? (projectStaff.some(u => u.email === rfi.assignedTo[0]) ? `staff:${rfi.assignedTo[0]}` : `partner:${rfi.assignedTo[0]}`) : ""}
                                                 >
                                                     <SelectTrigger className="h-8 text-xs">
                                                         <SelectValue placeholder="Select Project Recipient" />
@@ -381,7 +381,7 @@ function AcceptInstructionButton({
                                                           {projectStaff.length === 0 ? (
                                                               <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to project</div>
                                                           ) : projectStaff.map(u => (
-                                                              <SelectItem key={`staff-${u.id}`} value={u.email}>{u.name} ({u.email})</SelectItem>
+                                                              <SelectItem key={`staff-${u.id}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
                                                           ))}
                                                         </SelectGroup>
                                                         <Separator className="my-1" />
@@ -392,7 +392,7 @@ function AcceptInstructionButton({
                                                           {projectExternalPartners.length === 0 ? (
                                                               <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to project</div>
                                                           ) : projectExternalPartners.map(p => (
-                                                              <SelectItem key={`partner-${p.id}`} value={p.email}>{p.name} ({p.email})</SelectItem>
+                                                              <SelectItem key={`partner-${p.id}`} value={`partner:${p.email}`}>{p.name} ({p.email})</SelectItem>
                                                           ))}
                                                         </SelectGroup>
                                                     </SelectContent>
@@ -441,6 +441,7 @@ function AcceptInstructionButton({
                                                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Assigned Trade</Label>
                                                 <Select 
                                                     onValueChange={(val) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, subcontractorId: val } : s))}
+                                                    value={si.subcontractorId}
                                                 >
                                                     <SelectTrigger className="h-8 text-xs">
                                                         <SelectValue placeholder="Assign trade" />

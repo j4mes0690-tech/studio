@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -185,7 +184,7 @@ export function NewIRSItemDialog({
                   render={({ field }) => (
                     <FormItem>
                         <FormLabel>Required From</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                        <Select onValueChange={(val) => field.onChange(val.split(':')[1])} value={field.value ? (availableStaff.some(u => u.email === field.value) ? `staff:${field.value}` : `partner:${field.value}`) : ""} disabled={!selectedProjectId}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Assignee" />
@@ -197,7 +196,7 @@ export function NewIRSItemDialog({
                                     <ShieldCheck className="h-3 w-3" /> Project Staff
                                   </SelectLabel>
                                   {availableStaff.map(u => (
-                                    <SelectItem key={`staff-${u.id}`} value={u.email}>{u.name}</SelectItem>
+                                    <SelectItem key={`staff-${u.id}`} value={`staff:${u.email}`}>{u.name}</SelectItem>
                                   ))}
                                 </SelectGroup>
                                 <Separator className="my-1" />
@@ -206,7 +205,7 @@ export function NewIRSItemDialog({
                                     <Users2 className="h-3 w-3" /> Trade Partners
                                   </SelectLabel>
                                   {availablePartners.map(s => (
-                                    <SelectItem key={`partner-${s.id}`} value={s.email}>{s.name}</SelectItem>
+                                    <SelectItem key={`partner-${s.id}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
                                   ))}
                                 </SelectGroup>
                             </SelectContent>

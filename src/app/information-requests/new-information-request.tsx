@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -348,8 +347,12 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                     <FormItem>
                       <FormLabel>Assign To (Recipient)</FormLabel>
                       <Select 
-                        onValueChange={(val) => field.onChange([val])} 
-                        value={field.value?.[0] || ""}
+                        onValueChange={(val) => field.onChange([val.split(':')[1]])} 
+                        value={field.value?.[0] ? (
+                          availableInternalUsers.some(u => u.email === field.value[0]) 
+                            ? `staff:${field.value[0]}` 
+                            : `partner:${field.value[0]}`
+                        ) : ""}
                         disabled={!selectedProjectId}
                       >
                         <FormControl>
@@ -363,7 +366,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                               <ShieldCheck className="h-3 w-3" /> Project Staff
                             </SelectLabel>
                             {availableInternalUsers.map(u => (
-                              <SelectItem key={`staff-${u.id}`} value={u.email}>{u.name} ({u.email})</SelectItem>
+                              <SelectItem key={`staff-${u.id}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
                             ))}
                             {availableInternalUsers.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
@@ -375,7 +378,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                               <Users2 className="h-3 w-3" /> Trade Partners
                             </SelectLabel>
                             {availableExternalPartners.map(s => (
-                              <SelectItem key={`partner-${s.id}`} value={s.email}>{s.name}</SelectItem>
+                              <SelectItem key={`partner-${s.id}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
                             ))}
                             {availableExternalPartners.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
