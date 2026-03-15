@@ -6,11 +6,24 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+// Module-level cache to ensure initialization logic runs once
+let cachedSdks: {
+  firebaseApp: FirebaseApp;
+  auth: ReturnType<typeof getAuth>;
+  firestore: ReturnType<typeof getFirestore>;
+  storage: ReturnType<typeof getStorage>;
+} | null = null;
+
+let persistencePromise: Promise<void> | null = null;
+
+// IMPORTANT: DO NOT MODIFY THIS FUNCTION NAME
 export function initializeFirebase() {
+  if (cachedSdks) return cachedSdks;
+
+  let firebaseApp: FirebaseApp;
   if (!getApps().length) {
-    let firebaseApp;
     try {
+      // Attempt automatic initialization (for environments where it's pre-configured)
       firebaseApp = initializeApp();
     } catch (e) {
       if (process.env.NODE_ENV === "production") {
@@ -18,11 +31,12 @@ export function initializeFirebase() {
       }
       firebaseApp = initializeApp(firebaseConfig);
     }
-
-    return getSdks(firebaseApp);
+  } else {
+    firebaseApp = getApp();
   }
 
-  return getSdks(getApp());
+  cachedSdks = getSdks(firebaseApp);
+  return cachedSdks;
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
@@ -31,14 +45,18 @@ export function getSdks(firebaseApp: FirebaseApp) {
   const storage = getStorage(firebaseApp);
 
   // Enable offline persistence for Firestore
-  if (typeof window !== 'undefined') {
-    enableIndexedDbPersistence(firestore).catch((err) => {
+  // This must be called before any other methods are called on the Firestore instance.
+  // We use a module-level promise to ensure it only runs once per application lifecycle.
+  if (typeof window !== 'undefined' && !persistencePromise) {
+    persistencePromise = enableIndexedDbPersistence(firestore).catch((err) => {
       if (err.code === 'failed-precondition') {
-        // Multiple tabs open, persistence can only be enabled in one tab at a a time.
+        // Multiple tabs open, persistence can only be enabled in one tab at a time.
         console.warn('Firestore persistence failed: Multiple tabs open');
       } else if (err.code === 'unimplemented') {
         // The current browser doesn't support all of the features needed to enable persistence
         console.warn('Firestore persistence failed: Browser not supported');
+      } else {
+        console.warn('Firestore persistence notice:', err.message);
       }
     });
   }
