@@ -44,7 +44,7 @@ import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/fire
 import { doc, updateDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { Separator } from '@/components/ui/separator';
 import { VoiceInput } from '@/components/voice-input';
 import { sendInformationRequestEmailAction } from './actions';
@@ -288,17 +288,19 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
     return () => stream?.getTracks().forEach((track) => track.stop());
   }, [isCameraOpen, facingMode]);
 
-  const takePhoto = () => {
+  const takePhoto = async () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
       const context = canvas.getContext('2d');
+      if (!context) return;
       const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1200;
-      canvas.height = 1200 / aspectRatio;
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
+      canvas.width = 1600;
+      canvas.height = 1600 / aspectRatio;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const rawUri = canvas.toDataURL('image/jpeg', 0.9);
+      const optimizedUri = await optimizeImage(rawUri);
+      setPhotos(prev => [...prev, { url: optimizedUri, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
   };
@@ -310,156 +312,147 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
   const submissionStatus = form.watch('status');
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DialogTrigger asChild>
-              <Button variant="ghost" size="icon">
-                  <Pencil className="h-4 w-4" />
-                  <span className="sr-only">Edit Request</span>
-              </Button>
-            </DialogTrigger>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Edit Request</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Information Request</DialogTitle>
-          <DialogDescription>Modify inquiry details or assigned recipients.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <input type="hidden" {...form.register('id')} />
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <Pencil className="h-4 w-4" />
+                    <span className="sr-only">Edit Request</span>
+                </Button>
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Edit Request</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Information Request</DialogTitle>
+            <DialogDescription>Modify inquiry details or assigned recipients.</DialogDescription>
+          </DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <input type="hidden" {...form.register('id')} />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="projectId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Project</FormLabel>
+                      <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); }} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="assignedTo"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assign To (Recipient)</FormLabel>
+                      <Select 
+                        onValueChange={(val) => field.onChange([val])} 
+                        value={field.value?.[0] || ""}
+                        disabled={!selectedProjectId}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select project recipient" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel className="flex items-center gap-2 text-primary">
+                              <ShieldCheck className="h-3 w-3" /> Project Staff
+                            </SelectLabel>
+                            {availableInternalUsers.map(u => (
+                              <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>
+                            ))}
+                            {availableInternalUsers.length === 0 && (
+                              <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
+                            )}
+                          </SelectGroup>
+                          <Separator className="my-1" />
+                          <SelectGroup>
+                            <SelectLabel className="flex items-center gap-2 text-accent">
+                              <Users2 className="h-3 w-3" /> Trade Partners
+                            </SelectLabel>
+                            {availableExternalPartners.map(s => (
+                              <SelectItem key={s.id} value={s.email}>{s.name}</SelectItem>
+                            ))}
+                            {availableExternalPartners.length === 0 && (
+                              <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
+                            )}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
               <FormField
                 control={form.control}
-                name="projectId"
+                name="description"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Project</FormLabel>
-                    <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); }} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <div className="flex items-center justify-between">
+                      <FormLabel>Inquiry</FormLabel>
+                      <VoiceInput onResult={(text) => form.setValue('description', text)} />
+                    </div>
+                    <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
               <FormField
                 control={form.control}
-                name="assignedTo"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assign To (Recipient)</FormLabel>
-                    <Select 
-                      onValueChange={(val) => field.onChange([val])} 
-                      value={field.value?.[0] || ""}
-                      disabled={!selectedProjectId}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select project recipient" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel className="flex items-center gap-2 text-primary">
-                            <ShieldCheck className="h-3 w-3" /> Project Staff
-                          </SelectLabel>
-                          {availableInternalUsers.map(u => (
-                            <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>
-                          ))}
-                          {availableInternalUsers.length === 0 && (
-                            <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
-                          )}
-                        </SelectGroup>
-                        <Separator className="my-1" />
-                        <SelectGroup>
-                          <SelectLabel className="flex items-center gap-2 text-accent">
-                            <Users2 className="h-3 w-3" /> Trade Partners
-                          </SelectLabel>
-                          {availableExternalPartners.map(s => (
-                            <SelectItem key={s.id} value={s.email}>{s.name}</SelectItem>
-                          ))}
-                          {availableExternalPartners.length === 0 && (
-                            <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
-                          )}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                name="requiredBy"
+                render={({ field }) => <DatePicker field={field} label="Required By" />}
               />
-            </div>
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <div className="flex items-center justify-between">
-                    <FormLabel>Inquiry</FormLabel>
-                    <VoiceInput onResult={(text) => form.setValue('description', text)} />
-                  </div>
-                  <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <Separator />
 
-            <FormField
-              control={form.control}
-              name="requiredBy"
-              render={({ field }) => <DatePicker field={field} label="Required By" />}
-            />
-
-            <Separator />
-
-            <div className="space-y-4">
-              <FormLabel>Documentation & Photos</FormLabel>
               <div className="space-y-4">
-                {(photos.length > 0 || files.length > 0) && (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {photos.map((photo, index) => (
-                        <div key={`p-${index}`} className="relative group">
-                          <Image src={photo.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                          <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => setPhotos(prev => prev.filter((_, i) => i !== index))}><X className="h-4 w-4" /></Button>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="space-y-1">
-                      {files.map((f, i) => (
-                        <div key={`f-${i}`} className="flex items-center justify-between p-2 rounded-md border bg-muted/30 group">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                            <span className="text-xs truncate font-medium">{f.name}</span>
+                <FormLabel>Documentation & Photos</FormLabel>
+                <div className="space-y-4">
+                  {(photos.length > 0 || files.length > 0) && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {photos.map((photo, index) => (
+                          <div key={`p-${index}`} className="relative group">
+                            <Image src={photo.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
+                            <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => setPhotos(prev => prev.filter((_, i) => i !== index))}><X className="h-4 w-4" /></Button>
                           </div>
-                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                      <div className="space-y-1">
+                        {files.map((f, i) => (
+                          <div key={`f-${i}`} className="flex items-center justify-between p-2 rounded-md border bg-muted/30 group">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                              <span className="text-xs truncate font-medium">{f.name}</span>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {isCameraOpen ? (
-                  <div className="space-y-2">
-                    <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
-                    <div className="flex gap-2">
-                      <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={toggleCamera}><RefreshCw className="h-4 w-4" /></Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
-                    </div>
-                  </div>
-                ) : (
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
                     <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
@@ -476,35 +469,56 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     }} />
                     <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
                   </div>
-                )}
+                </div>
               </div>
+              
+              <canvas ref={canvasRef} className="hidden" />
+              <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                <Button 
+                  type="submit" 
+                  variant="outline" 
+                  className="w-full sm:w-auto"
+                  disabled={isPending}
+                  onClick={() => form.setValue('status', 'draft')}
+                >
+                  {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                  Save as Draft
+                </Button>
+                <Button 
+                  type="submit" 
+                  className="w-full sm:flex-1" 
+                  disabled={isPending}
+                  onClick={() => form.setValue('status', 'open')}
+                >
+                  {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 animate-spin mr-2" />}
+                  Save & Log Request
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Camera Overlay */}
+      {isCameraOpen && (
+        <div className="fixed inset-0 z-[100] bg-black">
+          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+          <div className="absolute inset-0 flex flex-col justify-between p-6">
+            <div className="flex justify-end">
+              <Button variant="secondary" onClick={() => setIsCameraOpen(false)} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
             </div>
-            
-            <canvas ref={canvasRef} className="hidden" />
-            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-              <Button 
-                type="submit" 
-                variant="outline" 
-                className="w-full sm:w-auto"
-                disabled={isPending}
-                onClick={() => form.setValue('status', 'draft')}
-              >
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                Save as Draft
+            <div className="flex items-center justify-center gap-8 mb-8">
+              <Button variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
+                <RefreshCw className="h-7 w-7" />
               </Button>
-              <Button 
-                type="submit" 
-                className="w-full sm:flex-1" 
-                disabled={isPending}
-                onClick={() => form.setValue('status', 'open')}
-              >
-                {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 mr-2" />}
-                Save & Log Request
+              <Button size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
+                <div className="h-14 w-14 rounded-full border-2 border-black/10" />
               </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+              <div className="w-14" />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
