@@ -119,8 +119,18 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
     }
   }, [selectedAreaId, availableAreas, form]);
 
-  const toggleCamera = () => {
+  const toggleCamera = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
+  const closeCamera = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCameraOpen(false);
+    setIsItemCameraOpen(false);
+    setItemPhotoTargetIdx(null);
   };
 
   const captureAndOptimize = async () => {
@@ -154,7 +164,9 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
     }
   }
 
-  const takeGeneralPhoto = async () => {
+  const takeGeneralPhoto = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     const photo = await captureAndOptimize();
     if (photo) {
       if (activeListId) {
@@ -172,7 +184,9 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
     }
   };
 
-  const takeItemPhoto = async () => {
+  const takeItemPhoto = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     const photo = await captureAndOptimize();
     if (photo) {
       if (itemPhotoTargetIdx !== null) {
@@ -336,8 +350,8 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                     </SelectTrigger>
                                     <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                 </Select>
-                                <Button type="button" variant="ghost" className="h-11" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
-                                <Button type="button" size="icon" className="h-11 rounded-lg" onClick={handleAddItem} disabled={isPending}>
+                                <Button type="button" variant="ghost" className="h-11" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsItemCameraOpen(true); }}><Camera className="h-5 w-5 text-primary" /></Button>
+                                <Button type="button" size="icon" className="h-11 rounded-lg" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddItem(); }} disabled={isPending}>
                                     {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
                                 </Button>
                             </div>
@@ -362,7 +376,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                         </div>
                                     </div>
                                     <div className="flex gap-1 shrink-0">
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
+                                        <Button type="button" variant="ghost" size="icon" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setItemPhotoTargetIdx(idx); }}><Camera className="h-4 w-4" /></Button>
                                     </div>
                                 </div>
                             ))}
@@ -375,7 +389,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                             {photos.map((p, i) => (
                                 <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
                             ))}
-                            <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
+                            <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCameraOpen(true); }}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
                         </div>
                     </div>
                 </form>
@@ -383,16 +397,17 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
         </div>
 
         <DialogFooter className="p-6 bg-white border-t shrink-0">
-            <Button type="button" className="w-full h-12 text-lg font-bold" onClick={() => setOpen(false)}>
+            <Button type="button" className="w-full h-12 font-bold" onClick={() => setOpen(false)}>
                 Done & Close
             </Button>
         </DialogFooter>
 
+        {/* Full-screen Camera Overlay - Explicitly outside the form tag */}
         {(isCameraOpen || isItemCameraOpen || itemPhotoTargetIdx !== null) && (
           <div className="fixed inset-0 z-[100] bg-black">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
             <div className="absolute inset-0 flex flex-col justify-between p-6">
-              <div className="flex justify-end"><Button type="button" variant="secondary" onClick={() => { setIsCameraOpen(false); setIsItemCameraOpen(false); setItemPhotoTargetIdx(null); }} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
+              <div className="flex justify-end"><Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
               <div className="flex items-center justify-center gap-8 mb-8">
                 <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
                   <RefreshCw className="h-7 w-7" />

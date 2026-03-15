@@ -62,7 +62,7 @@ export function ChecklistCard({
   const db = useFirestore();
   const storage = useStorage();
   const [isPending, startTransition] = useTransition();
-  const [items, setItems] = useState<ChecklistItem[]>(checklist.items);
+  const [items, setItems] = useState<ChecklistItem>(checklist.items);
   const [generalPhotos, setGeneralPhotos] = useState<Photo[]>(checklist.photos || []);
   
   // Camera & Media State
@@ -269,7 +269,7 @@ export function ChecklistCard({
   return (
     <>
       <Card className={cn(hasFailure && 'border-destructive')}>
-        <CardHeader>
+        <CardHeader className="p-4 md:p-6">
           <div className="flex justify-between items-start">
             <div className="flex-1">
               <CardTitle>{checklist.title}</CardTitle>
@@ -322,7 +322,7 @@ export function ChecklistCard({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="p-4 md:p-6 space-y-6">
           <div className="space-y-2">
               <div className='flex justify-between items-center text-sm'>
                   <p className="text-muted-foreground">Verification Progress</p>
@@ -369,7 +369,7 @@ export function ChecklistCard({
                             variant="outline" 
                             size="icon" 
                             className="h-8 w-8"
-                            onClick={() => { setActiveItemForPhoto(item.id); setIsCapturingGeneral(false); setIsCameraOpen(true); }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActiveItemForPhoto(item.id); setIsCapturingGeneral(false); setIsCameraOpen(true); }}
                             title="Take photo"
                           >
                             <Camera className="h-4 w-4" />
@@ -380,7 +380,7 @@ export function ChecklistCard({
                             variant="outline" 
                             size="icon" 
                             className="h-8 w-8"
-                            onClick={() => { setActiveItemForPhoto(item.id); setIsCapturingGeneral(false); fileInputRef.current?.click(); }}
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActiveItemForPhoto(item.id); setIsCapturingGeneral(false); fileInputRef.current?.click(); }}
                             title="Upload photo"
                           >
                             <Upload className="h-4 w-4" />
@@ -438,7 +438,7 @@ export function ChecklistCard({
                     variant="outline" 
                     size="sm" 
                     className="gap-2"
-                    onClick={() => { setIsCapturingGeneral(true); setActiveItemForPhoto(null); setIsCameraOpen(true); }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCapturingGeneral(true); setActiveItemForPhoto(null); setIsCameraOpen(true); }}
                   >
                     <Camera className="h-4 w-4" /> Take Photo
                   </Button>
@@ -447,7 +447,7 @@ export function ChecklistCard({
                     variant="outline" 
                     size="sm" 
                     className="gap-2"
-                    onClick={() => { setIsCapturingGeneral(true); setActiveItemForPhoto(null); generalFileInputRef.current?.click(); }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCapturingGeneral(true); setActiveItemForPhoto(null); generalFileInputRef.current?.click(); }}
                   >
                     <Upload className="h-4 w-4" /> Upload
                   </Button>
@@ -458,7 +458,7 @@ export function ChecklistCard({
                     <div key={idx} className="relative aspect-video rounded-md border overflow-hidden group bg-muted">
                       <Image 
                         src={p.url} 
-                        alt="General site view" 
+                         alt="General site view" 
                         fill 
                         className="object-cover cursor-pointer" 
                         onClick={() => setViewingPhoto(p)}
@@ -499,9 +499,9 @@ export function ChecklistCard({
         </CardContent>
       </Card>
 
-      {/* Camera Modal */}
+      {/* Full-screen Camera Modal - Outside Card to avoid form nesting issues if the card was part of one */}
       {isCameraOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
           <div className="w-full max-w-lg space-y-4">
             <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border border-white/10 shadow-2xl">
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />

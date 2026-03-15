@@ -258,7 +258,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                               <SelectTrigger className="w-40"><SelectValue placeholder="Assign" /></SelectTrigger>
                               <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                           </Select>
-                          <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim()}><Plus className="h-4 w-4" /></Button>
+                          <Button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddItem(); }} disabled={!newItemText.trim()}><Plus className="h-4 w-4" /></Button>
                       </div>
 
                       <div className="space-y-3">
@@ -269,8 +269,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                       {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
                                   </div>
                                   <div className="flex gap-1">
-                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
+                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setItemPhotoTargetId(listItem.id); }}><Camera className="h-4 w-4" /></Button>
+                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveItem(listItem.id); }}><Trash2 className="h-4 w-4" /></Button>
                                   </div>
                               </div>
                           ))}
@@ -283,7 +283,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                           {photos.map((p, i) => (
                               <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
                           ))}
-                          <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
+                          <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCameraOpen(true); }}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
                       </div>
                     </div>
                   </form>
@@ -296,6 +296,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
           </DialogFooter>
         </DialogContent>
 
+        {/* Full-screen Camera Overlay - Explicitly outside the form tag */}
         {(isCameraOpen || itemPhotoTargetId !== null) && (
           <div className="fixed inset-0 z-[100] bg-black">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />

@@ -158,7 +158,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           })
         );
 
-        const targetEmail = values.assignedTo[0];
+        const targetEmail = (values.assignedTo[0] || '').replace(/^(staff|partner):/, '');
         const sub = availableExternalPartners.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
         const prefix = sub ? 'RFI' : 'CRFI';
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
@@ -168,7 +168,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           reference,
           projectId: values.projectId,
           description: values.description || '',
-          assignedTo: (values.assignedTo || []).map(e => e.toLowerCase().trim()),
+          assignedTo: (values.assignedTo || []).map(e => e.replace(/^(staff|partner):/, '').toLowerCase().trim()),
           raisedBy: currentUser.email.toLowerCase().trim(),
           photos: uploadedPhotos,
           files: uploadedFiles,
@@ -199,7 +199,10 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
             }
 
             // Generate PDF for attachment
-            const assignedToNames = values.assignedTo.map(email => (distributionUsers || []).find(u => u.email === email)?.name || email);
+            const assignedToNames = values.assignedTo.map(val => {
+                const email = val.replace(/^(staff|partner):/, '');
+                return (distributionUsers || []).find(u => u.email === email)?.name || email;
+            });
             const pdf = await generateInformationRequestPDF({ ...requestData, id: newDocRef.id } as InformationRequest, selectedProject, assignedToNames);
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
@@ -358,12 +361,8 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                     <FormItem>
                       <FormLabel>Assign To (Recipient)</FormLabel>
                       <Select 
-                        onValueChange={(val) => field.onChange([val.split(':')[1]])} 
-                        value={field.value?.[0] ? (
-                          availableInternalUsers.some(u => u.email === field.value[0]) 
-                            ? `staff:${field.value[0]}` 
-                            : `partner:${field.value[0]}`
-                        ) : ""}
+                        onValueChange={(val) => field.onChange([val])} 
+                        value={field.value?.[0] || ""}
                         disabled={!selectedProjectId}
                       >
                         <FormControl>
@@ -377,7 +376,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                               <ShieldCheck className="h-3 w-3" /> Project Staff
                             </SelectLabel>
                             {availableInternalUsers.map(u => (
-                              <SelectItem key={`staff:${u.id}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
+                              <SelectItem key={`staff-${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
                             ))}
                             {availableInternalUsers.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
@@ -389,7 +388,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                               <Users2 className="h-3 w-3" /> Trade Partners
                             </SelectLabel>
                             {availableExternalPartners.map(s => (
-                              <SelectItem key={`partner:${s.id}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
+                              <SelectItem key={`partner-${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
                             ))}
                             {availableExternalPartners.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
@@ -438,7 +437,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                         {photos.map((p, i) => (
                           <div key={`p-${i}`} className="relative group">
                             <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                            <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-3 w-3" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                            <Button type="button" variant="destructive" size="icon" className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
                               <X className="h-3 w-3" />
                             </Button>
                           </div>
@@ -488,7 +487,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                   disabled={isPending}
                   onClick={() => form.setValue('status', 'draft')}
                 >
-                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                  {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                   Save as Draft
                 </Button>
                 <Button 
@@ -497,35 +496,35 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                   disabled={isPending}
                   onClick={() => form.setValue('status', 'open')}
                 >
-                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 mr-2" />}
+                  {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 mr-2" />}
                   Save & Log Request
                 </Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
-      </Dialog>
 
-      {/* Camera Overlay */}
-      {isCameraOpen && (
-        <div className="fixed inset-0 z-[100] bg-black">
-          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-          <div className="absolute inset-0 flex flex-col justify-between p-6">
-            <div className="flex justify-end">
-              <Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
-            </div>
-            <div className="flex items-center justify-center gap-8 mb-8">
-              <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
-                <RefreshCw className="h-7 w-7" />
-              </Button>
-              <Button type="button" size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
-                <div className="h-14 w-14 rounded-full border-2 border-black/10" />
-              </Button>
-              <div className="w-14" />
+        {/* Camera Overlay - Explicitly outside the Form tag to prevent submission side-effects */}
+        {isCameraOpen && (
+          <div className="fixed inset-0 z-[100] bg-black">
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+            <div className="absolute inset-0 flex flex-col justify-between p-6">
+              <div className="flex justify-end">
+                <Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
+              </div>
+              <div className="flex items-center justify-center gap-8 mb-8">
+                <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
+                  <RefreshCw className="h-7 w-7" />
+                </Button>
+                <Button type="button" size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
+                  <div className="h-14 w-14 rounded-full border-2 border-black/10" />
+                </Button>
+                <div className="w-14" />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Dialog>
     </>
   );
 }

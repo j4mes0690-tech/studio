@@ -102,7 +102,10 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
       id: item.id,
       projectId: item.projectId,
       description: item.description || '',
-      assignedTo: item.assignedTo || [],
+      assignedTo: (item.assignedTo || []).map(email => {
+          const isStaff = (distributionUsers || []).some(u => u.email === email);
+          return isStaff ? `staff:${email}` : `partner:${email}`;
+      }),
       requiredBy: item.requiredBy,
       status: item.status,
     },
@@ -170,11 +173,11 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
           })
         );
 
-        const targetEmail = values.assignedTo[0];
+        const targetEmail = values.assignedTo[0].replace(/^(staff|partner):/, '');
         const updates: any = {
           projectId: values.projectId,
           description: values.description || '',
-          assignedTo: (values.assignedTo || []).map(e => e.toLowerCase().trim()),
+          assignedTo: (values.assignedTo || []).map(val => val.replace(/^(staff|partner):/, '').toLowerCase().trim()),
           photos: uploadedPhotos,
           files: uploadedFiles,
           requiredBy: values.requiredBy || null,
@@ -197,7 +200,10 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 }
 
                 // Generate PDF for attachment
-                const assignedToNames = values.assignedTo.map(email => (distributionUsers || []).find(u => u.email === email)?.name || email);
+                const assignedToNames = values.assignedTo.map(val => {
+                    const email = val.replace(/^(staff|partner):/, '');
+                    return (distributionUsers || []).find(u => u.email === email)?.name || email;
+                });
                 const pdf = await generateInformationRequestPDF({ ...item, ...updates }, selectedProject, assignedToNames);
                 const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
@@ -260,7 +266,10 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         id: item.id,
         projectId: item.projectId,
         description: item.description || '',
-        assignedTo: item.assignedTo || [],
+        assignedTo: (item.assignedTo || []).map(email => {
+            const isStaff = (distributionUsers || []).some(u => u.email === email);
+            return isStaff ? `staff:${email}` : `partner:${email}`;
+        }),
         requiredBy: item.requiredBy,
         status: item.status,
       });
@@ -269,7 +278,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
     } else {
       setIsCameraOpen(false);
     }
-  }, [open, form, item]);
+  }, [open, form, item, distributionUsers]);
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -368,12 +377,8 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     <FormItem>
                       <FormLabel>Assign To (Recipient)</FormLabel>
                       <Select 
-                        onValueChange={(val) => field.onChange([val.split(':')[1]])} 
-                        value={field.value?.[0] ? (
-                          availableInternalUsers.some(u => u.email === field.value[0]) 
-                            ? `staff:${field.value[0]}` 
-                            : `partner:${field.value[0]}`
-                        ) : ""}
+                        onValueChange={(val) => field.onChange([val])} 
+                        value={field.value?.[0] || ""}
                         disabled={!selectedProjectId}
                       >
                         <FormControl>
@@ -387,7 +392,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                               <ShieldCheck className="h-3 w-3" /> Project Staff
                             </SelectLabel>
                             {availableInternalUsers.map(u => (
-                              <SelectItem key={`staff:${u.id}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
+                              <SelectItem key={`staff-${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
                             ))}
                             {availableInternalUsers.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
@@ -399,7 +404,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                               <Users2 className="h-3 w-3" /> Trade Partners
                             </SelectLabel>
                             {availableExternalPartners.map(s => (
-                              <SelectItem key={`partner:${s.id}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
+                              <SelectItem key={`partner-${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
                             ))}
                             {availableExternalPartners.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
@@ -445,7 +450,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                         {photos.map((photo, index) => (
                           <div key={`p-${index}`} className="relative group">
                             <Image src={photo.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                            <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => setPhotos(prev => prev.filter((_, i) => i !== index))}><X className="h-4 w-4" /></Button>
+                            <Button type="button" variant="destructive" size="icon" className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full" onClick={() => setPhotos(prev => prev.filter((_, i) => i !== index))}><X className="h-4 w-4" /></Button>
                           </div>
                         ))}
                       </div>
@@ -509,28 +514,28 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
             </form>
           </Form>
         </DialogContent>
-      </Dialog>
 
-      {/* Camera Overlay */}
-      {isCameraOpen && (
-        <div className="fixed inset-0 z-[100] bg-black">
-          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-          <div className="absolute inset-0 flex flex-col justify-between p-6">
-            <div className="flex justify-end">
-              <Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
-            </div>
-            <div className="flex items-center justify-center gap-8 mb-8">
-              <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
-                <RefreshCw className="h-7 w-7" />
-              </Button>
-              <Button type="button" size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
-                <div className="h-14 w-14 rounded-full border-2 border-black/10" />
-              </Button>
-              <div className="w-14" />
+        {/* Camera Overlay - Outside form to prevent accidental submission */}
+        {isCameraOpen && (
+          <div className="fixed inset-0 z-[100] bg-black">
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+            <div className="absolute inset-0 flex flex-col justify-between p-6">
+              <div className="flex justify-end">
+                <Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
+              </div>
+              <div className="flex items-center justify-center gap-8 mb-8">
+                <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
+                  <RefreshCw className="h-7 w-7" />
+                </Button>
+                <Button type="button" size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
+                  <div className="h-14 w-14 rounded-full border-2 border-black/10" />
+                </Button>
+                <div className="w-14" />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Dialog>
     </>
   );
 }

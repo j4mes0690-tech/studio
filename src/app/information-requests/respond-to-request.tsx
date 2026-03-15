@@ -372,22 +372,11 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
                   )}
 
                   <div className="flex items-center gap-2">
-                    {isCameraOpen ? (
-                      <div className="flex-1 space-y-2 border rounded p-2">
-                        <video ref={videoRef} className="w-full aspect-video bg-black rounded object-cover" autoPlay muted playsInline />
-                        <div className="flex gap-2">
-                          <Button type="button" size="sm" onClick={capturePhoto}>Capture</Button>
-                          <Button type="button" variant="outline" size="sm" onClick={toggleCamera} title="Switch"><RefreshCw className="h-3 w-3" /></Button>
-                          <Button type="button" variant="ghost" size="sm" onClick={closeCamera}>Cancel</Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex gap-1.5">
-                        <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="h-3.5 w-3.5 mr-1" />Camera</Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="h-3.5 w-3.5 mr-1" />Photos</Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="h-3.5 w-3.5 mr-1" />Files</Button>
-                      </div>
-                    )}
+                    <div className="flex gap-1.5">
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCameraOpen(true); }}><Camera className="h-3.5 w-3.5 mr-1" />Camera</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); fileInputRef.current?.click(); }}><Upload className="h-3.5 w-3.5 mr-1" />Photos</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); docInputRef.current?.click(); }}><FileIcon className="h-3.5 w-3.5 mr-1" />Files</Button>
+                    </div>
                     
                     <Button type="submit" className="ml-auto" disabled={isReadingFiles || isPending}>
                         {isPending ? 'Posting...' : 'Post Update'}
@@ -413,28 +402,28 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
               </form>
           </Form>
         </DialogContent>
-      </Dialog>
 
-      {/* Camera Overlay Mode Support */}
-      {isCameraOpen && !item && (
-        <div className="fixed inset-0 z-[100] bg-black">
-          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-          <div className="absolute inset-0 flex flex-col justify-between p-6">
-            <div className="flex justify-end">
-              <Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
-            </div>
-            <div className="flex items-center justify-center gap-8 mb-8">
-              <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
-                <RefreshCw className="h-7 w-7" />
-              </Button>
-              <Button type="button" size="lg" onClick={capturePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
-                <div className="h-14 w-14 rounded-full border-2 border-black/10" />
-              </Button>
-              <div className="w-14" />
+        {/* Full-screen Camera Overlay - Explicitly outside the form tag */}
+        {isCameraOpen && (
+          <div className="fixed inset-0 z-[100] bg-black">
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+            <div className="absolute inset-0 flex flex-col justify-between p-6">
+              <div className="flex justify-end">
+                <Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
+              </div>
+              <div className="flex items-center justify-center gap-8 mb-8">
+                <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
+                  <RefreshCw className="h-7 w-7" />
+                </Button>
+                <Button type="button" size="lg" onClick={capturePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
+                  <div className="h-14 w-14 rounded-full border-2 border-black/10" />
+                </Button>
+                <div className="w-14" />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Dialog>
     </>
   );
 }
