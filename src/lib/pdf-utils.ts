@@ -1,6 +1,6 @@
 'use client';
 
-import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
@@ -34,6 +34,91 @@ async function getSystemBranding(): Promise<{ logoUri: string | null, address: s
     console.error("Failed to fetch branding for PDF:", e);
   }
   return { logoUri: null, address: null };
+}
+
+/**
+ * generateInformationRequestPDF - Creates a formal RFI document with branding and history.
+ */
+export async function generateInformationRequestPDF(
+  request: InformationRequest,
+  project?: Project,
+  assignedToNames?: string[]
+) {
+  const { jsPDF } = await import('jspdf');
+  const html2canvas = (await import('html2canvas')).default;
+  const branding = await getSystemBranding();
+
+  const reportElement = document.createElement('div');
+  reportElement.style.position = 'absolute';
+  reportElement.style.left = '-9999px';
+  reportElement.style.padding = '50px';
+  reportElement.style.width = '800px';
+  reportElement.style.background = 'white';
+  reportElement.style.color = 'black';
+  reportElement.style.fontFamily = 'sans-serif';
+
+  reportElement.innerHTML = `
+    <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <h1 style="margin: 0; color: #1e40af; font-size: 28px; letter-spacing: -1px;">INFORMATION REQUEST</h1>
+        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Ref: ${request.reference}</p>
+      </div>
+      <div style="text-align: right; max-width: 300px;">
+        ${branding.logoUri ? `<img src="${branding.logoUri}" style="max-height: 60px; max-width: 200px; margin-bottom: 10px;" />` : ''}
+        ${branding.address ? `<p style="margin: 0; font-size: 10px; color: #475569; line-height: 1.4; white-space: pre-wrap;">${branding.address}</p>` : '<p style="margin: 0; font-size: 12px; color: #64748b; text-transform: uppercase;">Generated via SiteCommand</p>'}
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 50px;">
+      <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <p style="margin: 0 0 10px 0; font-weight: bold; color: #1e40af; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Request Details</p>
+        <p style="margin: 0; font-size: 14px;"><strong>Project:</strong> ${project?.name || 'Project'}</p>
+        <p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Raised By:</strong> ${request.raisedBy}</p>
+        <p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Date Logged:</strong> ${new Date(request.createdAt).toLocaleDateString()}</p>
+        ${request.requiredBy ? `<p style="margin: 5px 0 0 0; font-size: 12px; color: #dc2626;"><strong>Required By:</strong> ${new Date(request.requiredBy).toLocaleDateString()}</p>` : ''}
+      </div>
+      <div style="background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
+        <p style="margin: 0 0 10px 0; font-weight: bold; color: #1e40af; text-transform: uppercase; font-size: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px;">Assigned To</p>
+        <p style="margin: 0; font-size: 12px; line-height: 1.6;">${assignedToNames?.join(', ') || request.assignedTo.join(', ')}</p>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 40px;">
+      <h2 style="font-size: 14px; color: #1e40af; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px; text-transform: uppercase;">Technical Inquiry</h2>
+      <p style="font-size: 13px; line-height: 1.6; white-space: pre-wrap;">${request.description}</p>
+    </div>
+
+    ${request.messages && request.messages.length > 0 ? `
+      <div style="margin-top: 40px;">
+        <h2 style="font-size: 14px; color: #1e40af; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px; text-transform: uppercase;">Implementation Thread</h2>
+        ${request.messages.map(msg => `
+          <div style="margin-bottom: 15px; padding: 10px; border-radius: 6px; background: #f1f5f9; border-left: 3px solid #1e40af;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+              <span style="font-size: 10px; font-weight: bold; color: #1e40af;">${msg.sender}</span>
+              <span style="font-size: 9px; color: #64748b;">${new Date(msg.createdAt).toLocaleString()}</span>
+            </div>
+            <p style="margin: 0; font-size: 11px;">${msg.message}</p>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+
+    <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
+      <p style="font-size: 10px; color: #94a3b8;">Generated via SiteCommand Terminal</p>
+    </div>
+  `;
+
+  document.body.appendChild(reportElement);
+  const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+  document.body.removeChild(reportElement);
+
+  const imgData = canvas.toDataURL('image/jpeg', 0.9);
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+  pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+  
+  return pdf;
 }
 
 /**

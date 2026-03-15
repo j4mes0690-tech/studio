@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -36,6 +35,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare, CheckCircle2, Loader2, Send } from 'lucide-react';
 import { cn, getPartnerEmails } from '@/lib/utils';
 import { sendInformationRequestEmailAction } from './actions';
+import { generateInformationRequestPDF } from '@/lib/pdf-utils';
 
 type TableProps = {
   items: InformationRequest[];
@@ -133,21 +133,29 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                 partnerUsers.forEach(e => recipientEmails.add(e));
             }
 
+            // Generate PDF for attachment
+            const assignedToNames = item.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
+            const pdf = await generateInformationRequestPDF(item, project, assignedToNames);
+            const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
             const result = await sendInformationRequestEmailAction({
                 emails: Array.from(recipientEmails),
                 projectName: project?.name || 'Project',
                 reference: item.reference,
                 description: item.description,
                 raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
-                requestId: item.id
+                requestId: item.id,
+                pdfBase64,
+                fileName: `RFI-${item.reference}.pdf`
             });
 
             if (result.success) {
-                toast({ title: 'Success', description: 'Request notification resent.' });
+                toast({ title: 'Success', description: 'Request notification and PDF resent.' });
             } else {
                 toast({ title: 'Error', description: result.message, variant: 'destructive' });
             }
         } catch (err) {
+            console.error(err);
             toast({ title: 'Error', description: 'Failed to send notification.', variant: 'destructive' });
         }
     });
@@ -169,20 +177,46 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
     }
 
     startTransition(async () => {
-      const docRef = doc(db, 'information-requests', item.id);
-      updateDoc(docRef, { status: 'open' })
-        .then(() => {
-            toast({ title: 'Success', description: 'Request formally logged.' });
-            // Initial distribution is handled by the issue logic usually, but we ensure it here if needed.
-        })
-        .catch((err) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'update',
-            requestResourceData: { status: 'open' }
-          });
-          errorEmitter.emit('permission-error', permissionError);
+      try {
+        const docRef = doc(db, 'information-requests', item.id);
+        await updateDoc(docRef, { status: 'open' });
+
+        const targetEmail = item.assignedTo[0];
+        const sub = allSubs?.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
+        const recipientEmails = new Set<string>();
+        recipientEmails.add(targetEmail.toLowerCase().trim());
+
+        if (sub) {
+            const partnerUsers = getPartnerEmails(sub.id, allSubs || [], distributionUsers);
+            partnerUsers.forEach(e => recipientEmails.add(e));
+        }
+
+        // Generate PDF for attachment
+        const assignedToNames = item.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
+        const pdf = await generateInformationRequestPDF(item, project, assignedToNames);
+        const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
+        await sendInformationRequestEmailAction({
+            emails: Array.from(recipientEmails),
+            projectName: project?.name || 'Project',
+            reference: item.reference,
+            description: item.description,
+            raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
+            requestId: item.id,
+            pdfBase64,
+            fileName: `RFI-${item.reference}.pdf`
         });
+
+        toast({ title: 'Success', description: 'Request formally logged with PDF attachment.' });
+      } catch (err) {
+        console.error(err);
+        const permissionError = new FirestorePermissionError({
+          path: `information-requests/${item.id}`,
+          operation: 'update',
+          requestResourceData: { status: 'open' }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      }
     });
   };
 

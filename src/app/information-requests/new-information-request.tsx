@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -50,6 +49,7 @@ import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference, getPartnerEmails } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { sendInformationRequestEmailAction } from './actions';
+import { generateInformationRequestPDF } from '@/lib/pdf-utils';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -62,14 +62,6 @@ const NewInformationRequestSchema = z.object({
 });
 
 type NewInformationRequestFormValues = z.infer<typeof NewInformationRequestSchema>;
-
-type NewInformationRequestProps = {
-  projects: Project[];
-  distributionUsers: DistributionUser[];
-  subContractors: SubContractor[];
-  currentUser: DistributionUser;
-  allRequests: InformationRequest[];
-};
 
 export function NewInformationRequest({ projects, distributionUsers, subContractors, currentUser, allRequests }: NewInformationRequestProps) {
   const [open, setOpen] = useState(false);
@@ -135,7 +127,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
 
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Uploading documentation and media...' });
+        toast({ title: 'Processing', description: 'Generating PDF and sending notification...' });
 
         // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
@@ -167,7 +159,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const reference = getNextReference(allRequests, values.projectId, prefix, initials);
 
-        const requestData = {
+        const requestData: any = {
           reference,
           projectId: values.projectId,
           description: values.description || '',
@@ -191,16 +183,20 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           throw error;
         });
 
-        // 3. Distribution
+        // 3. Distribution with PDF
         if (values.status === 'open') {
             const recipientEmails = new Set<string>();
             recipientEmails.add(targetEmail.toLowerCase().trim());
 
-            // If it's a partner, find associated users
             if (sub) {
                 const partnerUsers = getPartnerEmails(sub.id, subContractors, distributionUsers);
                 partnerUsers.forEach(e => recipientEmails.add(e));
             }
+
+            // Generate PDF for attachment
+            const assignedToNames = values.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
+            const pdf = await generateInformationRequestPDF({ ...requestData, id: newDocRef.id }, selectedProject, assignedToNames);
+            const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
             await sendInformationRequestEmailAction({
                 emails: Array.from(recipientEmails),
@@ -208,11 +204,13 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 reference,
                 description: values.description,
                 raisedBy: currentUser.name,
-                requestId: newDocRef.id
+                requestId: newDocRef.id,
+                pdfBase64,
+                fileName: `RFI-${reference}.pdf`
             });
         }
 
-        toast({ title: 'Success', description: values.status === 'draft' ? 'Request saved as draft.' : `${prefix} logged and distributed.` });
+        toast({ title: 'Success', description: values.status === 'draft' ? 'Request saved as draft.' : `${prefix} logged and distributed with PDF.` });
         setOpen(false);
       } catch (err) {
         console.error(err);
@@ -311,7 +309,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         <DialogHeader>
           <DialogTitle>Log Information Request (CRFI / RFI)</DialogTitle>
           <DialogDescription>
-            Record a query for project team members or trade partners. Formal issuance triggers an email notification.
+            Record a query for project team members or trade partners. Formal issuance triggers an email with PDF attachment.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

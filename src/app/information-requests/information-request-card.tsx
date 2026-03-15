@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -56,9 +55,10 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { cn, getPartnerEmails } from '@/lib/utils';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { sendInformationRequestEmailAction } from './actions';
+import { generateInformationRequestPDF } from '@/lib/pdf-utils';
 
 /**
- * DistributeRequestButton - Triggers manual email notification for an open RFI.
+ * DistributeRequestButton - Triggers manual email notification for an open RFI with PDF attachment.
  */
 function DistributeRequestButton({ item, project, distributionUsers, subContractors }: { item: InformationRequest, project?: Project, distributionUsers: DistributionUser[], subContractors: SubContractor[] }) {
     const [isPending, startTransition] = useTransition();
@@ -78,21 +78,29 @@ function DistributeRequestButton({ item, project, distributionUsers, subContract
                     partnerUsers.forEach(e => recipientEmails.add(e));
                 }
 
+                // Generate PDF for attachment
+                const assignedToNames = item.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
+                const pdf = await generateInformationRequestPDF(item, project, assignedToNames);
+                const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
                 const result = await sendInformationRequestEmailAction({
                     emails: Array.from(recipientEmails),
                     projectName: project?.name || 'Project',
                     reference: item.reference,
                     description: item.description,
                     raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
-                    requestId: item.id
+                    requestId: item.id,
+                    pdfBase64,
+                    fileName: `RFI-${item.reference}.pdf`
                 });
 
                 if (result.success) {
-                    toast({ title: 'Success', description: 'Request distributed to stakeholders.' });
+                    toast({ title: 'Success', description: 'Request and PDF distributed to stakeholders.' });
                 } else {
                     toast({ title: 'Error', description: result.message, variant: 'destructive' });
                 }
             } catch (err) {
+                console.error(err);
                 toast({ title: 'Error', description: 'Failed to send notification.', variant: 'destructive' });
             }
         });
@@ -242,17 +250,25 @@ export function InformationRequestCard({
             partnerUsers.forEach(e => recipientEmails.add(e));
         }
 
+        // Generate PDF for attachment
+        const assignedToNames = item.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
+        const pdf = await generateInformationRequestPDF(item, project, assignedToNames);
+        const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
         await sendInformationRequestEmailAction({
             emails: Array.from(recipientEmails),
             projectName: project?.name || 'Project',
             reference: item.reference,
             description: item.description,
             raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
-            requestId: item.id
+            requestId: item.id,
+            pdfBase64,
+            fileName: `RFI-${item.reference}.pdf`
         });
 
-        toast({ title: 'Success', description: 'Request formally logged and distributed.' });
+        toast({ title: 'Success', description: 'Request formally logged and distributed with PDF.' });
       } catch (error) {
+        console.error(error);
         const permissionError = new FirestorePermissionError({
           path: `information-requests/${item.id}`,
           operation: 'update',
@@ -268,7 +284,7 @@ export function InformationRequestCard({
       <Card className={cn(isDraft && "border-orange-200 bg-orange-50/10")}>
         <CardHeader>
           <div className="flex justify-between items-start border-b pb-4">
-            <div className="space-y-1 flex-1">
+            <div className="space-y-1 flex-1 min-w-0">
               <Link href={`/information-requests/${item.id}`} className="group flex items-center gap-2 w-fit">
                 <CardTitle className="text-xl group-hover:text-primary transition-colors">{project?.name || 'Unknown Project'}</CardTitle>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{item.reference}</Badge>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -49,7 +48,8 @@ import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { Separator } from '@/components/ui/separator';
 import { VoiceInput } from '@/components/voice-input';
 import { sendInformationRequestEmailAction } from './actions';
-import { getPartnerEmails } from '@/lib/utils';
+import { getPartnerEmails, getProjectInitials } from '@/lib/utils';
+import { generateInformationRequestPDF } from '@/lib/pdf-utils';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -146,7 +146,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
 
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Updating documentation and media...' });
+        toast({ title: 'Processing', description: 'Generating PDF and updating record...' });
 
         // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
@@ -173,7 +173,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         );
 
         const targetEmail = values.assignedTo[0];
-        const updates = {
+        const updates: any = {
           projectId: values.projectId,
           description: values.description || '',
           assignedTo: (values.assignedTo || []).map(e => e.toLowerCase().trim()),
@@ -198,13 +198,20 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     partnerUsers.forEach(e => recipientEmails.add(e));
                 }
 
+                // Generate PDF for attachment
+                const assignedToNames = values.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
+                const pdf = await generateInformationRequestPDF({ ...item, ...updates }, selectedProject, assignedToNames);
+                const pdfBase64 = pdf.output('datauristring').split(',')[1];
+
                 await sendInformationRequestEmailAction({
                     emails: Array.from(recipientEmails),
                     projectName: selectedProject?.name || 'Project',
                     reference: item.reference,
                     description: values.description,
                     raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
-                    requestId: item.id
+                    requestId: item.id,
+                    pdfBase64,
+                    fileName: `RFI-${item.reference}.pdf`
                 });
             }
 

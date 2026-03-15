@@ -1,4 +1,3 @@
-
 'use server';
 
 import { Resend } from 'resend';
@@ -6,6 +5,7 @@ import { Resend } from 'resend';
 /**
  * sendInformationRequestEmailAction - Uses the Resend API to notify stakeholders
  * about new or issued Information Requests (RFIs / CRFIs).
+ * Now supports PDF attachments.
  */
 export async function sendInformationRequestEmailAction({
   emails,
@@ -13,7 +13,9 @@ export async function sendInformationRequestEmailAction({
   reference,
   description,
   raisedBy,
-  requestId
+  requestId,
+  pdfBase64,
+  fileName
 }: {
   emails: string[];
   projectName: string;
@@ -21,6 +23,8 @@ export async function sendInformationRequestEmailAction({
   description: string;
   raisedBy: string;
   requestId: string;
+  pdfBase64?: string;
+  fileName?: string;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
@@ -36,6 +40,14 @@ export async function sendInformationRequestEmailAction({
   const host = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://site-command.com');
   const directLink = `${host}/information-requests/${requestId}`;
 
+  const attachments = [];
+  if (pdfBase64 && fileName) {
+    attachments.push({
+      filename: fileName,
+      content: pdfBase64,
+    });
+  }
+
   try {
     const { data, error } = await resend.emails.send({
       from: 'notifications@site-command.com',
@@ -48,7 +60,7 @@ export async function sendInformationRequestEmailAction({
           </div>
           <div style="padding: 30px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px;">
             <p>Hello,</p>
-            <p>A technical inquiry has been assigned to you regarding works at <strong>${projectName}</strong>.</p>
+            <p>A formal technical inquiry has been assigned to you regarding works at <strong>${projectName}</strong>.</p>
             
             <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin: 25px 0;">
               <p style="margin: 0; font-size: 14px; color: #64748b; text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px;">Reference</p>
@@ -58,9 +70,11 @@ export async function sendInformationRequestEmailAction({
               <p style="margin: 2px 0 0 0; font-size: 14px; color: #334155;">"${description}"</p>
             </div>
 
+            <p>A formal PDF copy of this request is attached to this email for your records.</p>
+
             <div style="text-align: center; margin: 35px 0;">
               <a href="${directLink}" style="background: #1e40af; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                View RFI & Respond
+                View RFI & Respond Online
               </a>
             </div>
 
@@ -71,6 +85,7 @@ export async function sendInformationRequestEmailAction({
           </div>
         </div>
       `,
+      attachments,
     });
 
     if (error) {
