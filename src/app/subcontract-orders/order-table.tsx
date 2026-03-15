@@ -15,8 +15,8 @@ import { ClientDate } from '@/components/client-date';
 import { useState, useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { Trash2, Loader2, UserPlus, FileSignature, CheckCircle2, Clock, Send } from 'lucide-react';
+import { doc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
+import { Trash2, Loader2, UserPlus, FileSignature, CheckCircle2, Clock, Send, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -143,6 +143,15 @@ function OrderTableRow({
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
             <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setIsEditDialogOpen(true)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Edit Order</p></TooltipContent>
+              </Tooltip>
+
               {isCompleted && !isSubAssignedToProject && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -158,12 +167,12 @@ function OrderTableRow({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>
                   </TooltipTrigger>
-                  <TooltipContent><p>Delete Record</p></TooltipContent>
+                  <TooltipContent><p>Delete Order</p></TooltipContent>
                 </Tooltip>
                 <AlertDialogContent onClick={e => e.stopPropagation()}>
                   <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove this agreement history.</AlertDialogDescription></AlertDialogHeader>

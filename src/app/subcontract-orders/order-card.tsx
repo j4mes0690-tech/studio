@@ -15,7 +15,8 @@ import {
   Clock,
   Send,
   UserPlus,
-  AlertTriangle
+  AlertTriangle,
+  Pencil
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -35,6 +36,7 @@ import {
 import { cn } from '@/lib/utils';
 import { EditSubContractOrderDialog } from './edit-order';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export function OrderCard({ 
   order, 
@@ -126,23 +128,44 @@ export function OrderCard({
                 {currentStatus.label}
               </Badge>
               
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Remove Tracking Record?</AlertDialogTitle>
-                    <AlertDialogDescription>Permanently remove the agreement history for {order.subcontractorName}.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8 text-primary" 
+                      onClick={() => setIsEditDialogOpen(true)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Edit Tracking</p></TooltipContent>
+                </Tooltip>
+
+                <AlertDialog>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Remove Record</p></TooltipContent>
+                  </Tooltip>
+                  <AlertDialogContent onClick={e => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Remove Tracking Record?</AlertDialogTitle>
+                      <AlertDialogDescription>Permanently remove the agreement history for {order.subcontractorName}.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </TooltipProvider>
             </div>
           </div>
         </CardHeader>
