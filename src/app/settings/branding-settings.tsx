@@ -4,13 +4,13 @@ import { useState, useTransition, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Upload, Trash2, Image as ImageIcon, CheckCircle2, MapPin, Save } from 'lucide-react';
+import { Loader2, Upload, Trash2, Image as ImageIcon, CheckCircle2, MapPin, Save, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 import type { SystemSettings } from '@/lib/types';
 import {
@@ -90,22 +90,17 @@ export function BrandingSettings() {
   if (isLoading) return <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto my-8" />;
 
   return (
-    <Card className="border-primary/20 shadow-sm overflow-hidden">
-      <Accordion type="single" collapsible defaultValue="branding">
+    <Card className="overflow-hidden">
+      <Accordion type="single" collapsible>
         <AccordionItem value="branding" className="border-b-0">
-          <AccordionTrigger className="px-6 py-4 hover:no-underline bg-primary/5 border-b">
+          <AccordionTrigger className="px-6 py-5 hover:no-underline group">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary rounded-lg shadow-lg shadow-primary/20">
-                <ImageIcon className="h-5 w-5 text-white" />
-              </div>
-              <div className="text-left">
-                <CardTitle className="text-lg">Company Branding</CardTitle>
-                <CardDescription className="text-xs">Configure your logo and address for project exports.</CardDescription>
-              </div>
+              <Sparkles className="h-6 w-6 text-primary" />
+              <span className="text-xl font-bold">Company Branding</span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="p-0">
-            <CardContent className="px-6 py-6 space-y-8">
+            <CardContent className="px-6 py-6 space-y-8 border-t">
               <div className="flex flex-col md:flex-row gap-8 items-start">
                 <div className="flex flex-col items-center gap-4 shrink-0">
                   <div className="relative w-40 h-40 rounded-xl border-2 border-dashed border-muted flex items-center justify-center bg-muted/10 overflow-hidden group">
@@ -172,9 +167,6 @@ export function BrandingSettings() {
                       value={companyAddress}
                       onChange={(e) => setCompanyAddress(e.target.value)}
                     />
-                    <p className="text-[10px] text-muted-foreground italic">
-                      This address will be placed in the header of all official project exports.
-                    </p>
                   </div>
 
                   <Separator />
@@ -185,9 +177,6 @@ export function BrandingSettings() {
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
                         Active PDF Integration
                       </h4>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        Your branding is automatically synced across:
-                      </p>
                     </div>
                     <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {[

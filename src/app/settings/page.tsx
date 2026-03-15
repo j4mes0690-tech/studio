@@ -20,7 +20,7 @@ import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation } from '@/lib/types';
-import { Loader2, ShieldAlert, FileCheck, Tag, Users, UserPlus, ShieldCheck, MailPlus, Sparkles, Building2 } from 'lucide-react';
+import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck } from 'lucide-react';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
@@ -29,7 +29,6 @@ import { AddUserDialog } from './add-user-dialog';
 import { InviteCollaboratorDialog } from './invite-collaborator-dialog';
 import { InvitationsList } from './invitations-list';
 import { Suspense } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { BrandingSettings } from './branding-settings';
 
 function SettingsContent() {
@@ -121,9 +120,9 @@ function SettingsContent() {
   }
 
   return (
-    <main className="flex-1 p-4 md:p-8 space-y-8">
+    <main className="flex-1 p-4 md:p-8 space-y-4">
         {hasAnyAdminPermission && (
-            <div className="max-w-4xl">
+            <div className="max-w-none">
                 <BrandingSettings />
             </div>
         )}
@@ -134,14 +133,14 @@ function SettingsContent() {
             <>
               <Card className="overflow-hidden">
                   <AccordionItem value="users" className="border-b-0">
-                      <AccordionTrigger className="px-6 py-5 text-xl font-bold hover:no-underline group">
+                      <AccordionTrigger className="px-6 py-5 hover:no-underline group">
                           <div className="flex items-center gap-3">
                               <Users className="h-6 w-6 text-primary" />
-                              <span>System User Directory</span>
+                              <span className="text-xl font-bold">System User Directory</span>
                           </div>
                       </AccordionTrigger>
-                      <AccordionContent className="px-6 pb-6 pt-0">
-                          <div className="space-y-6">
+                      <AccordionContent className="px-6 pb-6 pt-0 border-t">
+                          <div className="space-y-6 pt-6">
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 gap-4">
                                   <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">
                                       <ShieldCheck className="h-3.5 w-3.5" />
@@ -160,14 +159,14 @@ function SettingsContent() {
 
               <Card className="overflow-hidden">
                   <AccordionItem value="invitations" className="border-b-0">
-                      <AccordionTrigger className="px-6 py-5 text-xl font-bold hover:no-underline group">
+                      <AccordionTrigger className="px-6 py-5 hover:no-underline group">
                           <div className="flex items-center gap-3">
                               <MailPlus className="h-6 w-6 text-primary" />
-                              <span>Onboarding & Invitations</span>
+                              <span className="text-xl font-bold">Onboarding & Invitations</span>
                           </div>
                       </AccordionTrigger>
-                      <AccordionContent className="px-6 pb-6 pt-0">
-                          <div className="space-y-6">
+                      <AccordionContent className="px-6 pb-6 pt-0 border-t">
+                          <div className="space-y-6 pt-6">
                               <div className="flex items-center justify-between border-b pb-4">
                                   <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest px-1">
                                       <Sparkles className="h-3.5 w-3.5 text-primary" />
@@ -183,11 +182,16 @@ function SettingsContent() {
           )}
 
           {canManageSubcontractors && (
-            <Card>
+            <Card className="overflow-hidden">
                 <AccordionItem value="subcontractors" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage External Partners</AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
-                        <div className="space-y-8">
+                    <AccordionTrigger className="px-6 py-5 hover:no-underline group">
+                        <div className="flex items-center gap-3">
+                            <HardHat className="h-6 w-6 text-primary" />
+                            <span className="text-xl font-bold">Manage External Partners</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6 pt-0 border-t">
+                        <div className="space-y-8 pt-6">
                             <div className="grid gap-8 lg:grid-cols-2">
                                 <div className="space-y-4">
                                     <h3 className="text-lg font-medium">Add New External Partner</h3>
@@ -205,11 +209,16 @@ function SettingsContent() {
           )}
 
           {canManageProjects && (
-            <Card>
+            <Card className="overflow-hidden">
                 <AccordionItem value="projects" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Projects</AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
-                        <div className="grid gap-8 lg:grid-cols-2">
+                    <AccordionTrigger className="px-6 py-5 hover:no-underline group">
+                        <div className="flex items-center gap-3">
+                            <Building2 className="h-6 w-6 text-primary" />
+                            <span className="text-xl font-bold">Manage Projects</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6 pt-0 border-t">
+                        <div className="grid gap-8 lg:grid-cols-2 pt-6">
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Add New Project</h3>
                                 <AddProjectForm />
@@ -225,11 +234,16 @@ function SettingsContent() {
           )}
 
           {canManageChecklists && (
-            <Card>
+            <Card className="overflow-hidden">
                 <AccordionItem value="checklists" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Checklist Templates</AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
-                        <div className="grid gap-8 lg:grid-cols-2">
+                    <AccordionTrigger className="px-6 py-5 hover:no-underline group">
+                        <div className="flex items-center gap-3">
+                            <ClipboardCheck className="h-6 w-6 text-primary" />
+                            <span className="text-xl font-bold">Manage Checklist Templates</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6 pt-0 border-t">
+                        <div className="grid gap-8 lg:grid-cols-2 pt-6">
                             <div className="space-y-4">
                                 <h3 className="text-lg font-medium">Add New Template</h3>
                                 <NewChecklist />
@@ -245,7 +259,6 @@ function SettingsContent() {
                                 <Tag className="h-5 w-5" />
                                 <h3>Trade Categories</h3>
                             </div>
-                            <p className="text-sm text-muted-foreground">Define the trade disciplines available for checklist assignment.</p>
                             <ManageTrades />
                         </div>
                     </AccordionContent>
@@ -254,11 +267,16 @@ function SettingsContent() {
           )}
 
           {canManagePermitTemplates && (
-            <Card>
+            <Card className="overflow-hidden">
                 <AccordionItem value="permit-templates" className="border-b-0">
-                    <AccordionTrigger className="p-6 text-lg font-semibold hover:no-underline">Manage Permit Templates</AccordionTrigger>
-                    <AccordionContent className="p-6 pt-0">
-                        <div className="grid gap-8 lg:grid-cols-2">
+                    <AccordionTrigger className="px-6 py-5 hover:no-underline group">
+                        <div className="flex items-center gap-3">
+                            <FileCheck className="h-6 w-6 text-primary" />
+                            <span className="text-xl font-bold">Manage Permit Templates</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6 pt-0 border-t">
+                        <div className="grid gap-8 lg:grid-cols-2 pt-6">
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2 text-primary font-bold">
                                     <FileCheck className="h-5 w-5" />
