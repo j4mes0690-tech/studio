@@ -20,7 +20,6 @@ export function LoginPage() {
             </div>
             
             <h1 className="text-4xl font-bold tracking-tight text-primary">SiteCommand</h1>
-            <p className="mt-2 text-muted-foreground">Manage your construction site records internally.</p>
           </div>
           <LoginForm />
         </div>
