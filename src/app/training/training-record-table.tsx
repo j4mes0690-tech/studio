@@ -9,13 +9,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { TrainingRecord, Photo } from '@/lib/types';
+import type { TrainingRecord, Photo, DistributionUser } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { useMemo, useTransition, useState } from 'react';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, ShieldCheck, Clock, AlertTriangle, FileText, GraduationCap, Calendar, Download, Eye } from 'lucide-react';
+import { Trash2, ShieldCheck, Clock, AlertTriangle, FileText, GraduationCap, Calendar, Download, Eye, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -41,8 +41,17 @@ import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { ImageLightbox } from '@/components/image-lightbox';
 import Image from 'next/image';
+import { EditTrainingRecord } from './edit-training-record';
 
-export function TrainingRecordTable({ records }: { records: TrainingRecord[] }) {
+export function TrainingRecordTable({ 
+  records, 
+  users, 
+  canManageAll 
+}: { 
+  records: TrainingRecord[];
+  users: DistributionUser[];
+  canManageAll: boolean;
+}) {
   return (
     <div className="rounded-md border bg-card">
       <Table>
@@ -58,7 +67,12 @@ export function TrainingRecordTable({ records }: { records: TrainingRecord[] }) 
         </TableHeader>
         <TableBody>
           {records.map((record) => (
-            <TrainingRow key={record.id} record={record} />
+            <TrainingRow 
+              key={record.id} 
+              record={record} 
+              users={users}
+              canManageAll={canManageAll}
+            />
           ))}
         </TableBody>
       </Table>
@@ -66,11 +80,20 @@ export function TrainingRecordTable({ records }: { records: TrainingRecord[] }) 
   );
 }
 
-function TrainingRow({ record }: { record: TrainingRecord }) {
+function TrainingRow({ 
+  record, 
+  users, 
+  canManageAll 
+}: { 
+  record: TrainingRecord;
+  users: DistributionUser[];
+  canManageAll: boolean;
+}) {
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
   const status = useMemo(() => {
@@ -113,6 +136,9 @@ function TrainingRow({ record }: { record: TrainingRecord }) {
         </TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setIsEditOpen(true)}>
+              <Pencil className="h-4 w-4" />
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
@@ -138,10 +164,13 @@ function TrainingRow({ record }: { record: TrainingRecord }) {
               <div className="bg-primary/10 p-2 rounded-lg text-primary">
                 <GraduationCap className="h-6 w-6" />
               </div>
-              <div>
-                <DialogTitle>{record.courseName}</DialogTitle>
+              <div className="flex-1 min-w-0">
+                <DialogTitle className="truncate">{record.courseName}</DialogTitle>
                 <DialogDescription>Verification for {record.userName}</DialogDescription>
               </div>
+              <Button variant="outline" size="sm" className="gap-2 font-bold h-8" onClick={() => setIsEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5" /> Edit Record
+              </Button>
             </div>
           </DialogHeader>
 
@@ -206,6 +235,14 @@ function TrainingRow({ record }: { record: TrainingRecord }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EditTrainingRecord 
+        record={record} 
+        users={users} 
+        canManageAll={canManageAll}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+      />
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>

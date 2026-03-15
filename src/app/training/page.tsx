@@ -149,11 +149,20 @@ function TrainingContent() {
           <div className="grid gap-4">
             {filteredRecords.length > 0 ? (
               viewType === 'table' ? (
-                <TrainingRecordTable records={filteredRecords} />
+                <TrainingRecordTable 
+                  records={filteredRecords} 
+                  users={allUsers || []}
+                  canManageAll={canManageTraining}
+                />
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredRecords.map(record => (
-                        <TrainingRecordCard key={record.id} record={record} />
+                        <TrainingRecordCard 
+                          key={record.id} 
+                          record={record} 
+                          users={allUsers || []}
+                          canManageAll={canManageTraining}
+                        />
                     ))}
                 </div>
               )
