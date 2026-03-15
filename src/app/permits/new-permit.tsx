@@ -58,7 +58,7 @@ import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/fire
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
+import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
 import { VoiceInput } from '@/components/voice-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
@@ -101,7 +101,6 @@ export function NewPermitDialog({
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const templateInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
@@ -165,7 +164,6 @@ export function NewPermitDialog({
         try {
           const result = await replicatePermitTemplate({ fileDataUri: dataUri });
           if (result) {
-            form.setValue('title', result.title as any);
             form.setValue('type', result.type);
             form.setValue('description', result.description);
             setDynamicSections(result.sections);
@@ -371,8 +369,8 @@ export function NewPermitDialog({
 
         <DialogFooter className="p-6 bg-white border-t shrink-0 gap-3">
             <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
-            <Button variant="outline" className="w-full sm:w-auto h-12 font-bold" disabled={isPending} onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}))}><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
-            <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending} onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}))}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}Issue Electronic Permit</Button>
+            <Button variant="outline" className="w-full sm:w-auto h-12 font-bold" disabled={isPending} onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}), () => scrollToFirstError())}><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
+            <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending} onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}), () => scrollToFirstError())}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}Issue Electronic Permit</Button>
         </DialogFooter>
       </DialogContent>
 

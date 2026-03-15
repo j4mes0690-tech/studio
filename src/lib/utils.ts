@@ -81,9 +81,6 @@ export function wouldCreateCycle(
     if (!task || !task.predecessorIds) return false;
 
     for (const predId of task.predecessorIds) {
-      if (hasPath(targetPredecessorId, endId)) {
-          // This logic was slightly flawed in previous version, corrected now.
-      }
       if (hasPath(predId, endId)) return true;
     }
     return false;
@@ -115,4 +112,31 @@ export function getPartnerEmails(
   });
 
   return Array.from(emails);
+}
+
+/**
+ * scrollToFirstError - Finds the first element with a validation error and scrolls it into view.
+ * Essential for providing immediate visual feedback in long documentation forms.
+ */
+export function scrollToFirstError() {
+  // Delay slightly to ensure React Hook Form has finished rendering the error state
+  setTimeout(() => {
+    // Target ShadCN/Radix error patterns: aria-invalid fields or FormMessage containers
+    const errorElement = document.querySelector('[aria-invalid="true"], .text-destructive, [id*="-form-item-message"]');
+    
+    if (errorElement) {
+      errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // If it's a focusable control, put the cursor there
+      if (errorElement instanceof HTMLElement) {
+        const focusable = errorElement.tagName === 'INPUT' || errorElement.tagName === 'TEXTAREA' || errorElement.tagName === 'BUTTON'
+          ? errorElement
+          : errorElement.closest('.space-y-2')?.querySelector('input, textarea, button, [role="combobox"]');
+          
+        if (focusable instanceof HTMLElement) {
+          focusable.focus({ preventScroll: true });
+        }
+      }
+    }
+  }, 100);
 }

@@ -23,6 +23,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -42,7 +43,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { getProjectInitials, getNextReference } from '@/lib/utils';
+import { getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
 import { sendSiteInstructionEmailAction } from './actions';
 import { generateInstructionPDF } from '@/lib/pdf-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
@@ -52,6 +53,23 @@ const NewInstructionSchema = z.object({
   originalText: z.string().optional().default(''),
   externalRecipient: z.string().optional().default(''),
   status: z.enum(['draft', 'issued']).default('issued'),
+}).superRefine((data, ctx) => {
+  if (data.status === 'issued') {
+    if (!data.originalText || data.originalText.trim().length < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Instructions must be at least 10 characters to formally issue.',
+        path: ['originalText'],
+      });
+    }
+    if (!data.externalRecipient) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'An external partner must be selected to formally issue this instruction.',
+        path: ['externalRecipient'],
+      });
+    }
+  }
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
@@ -96,19 +114,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: NewInstructionFormValues) => {
-    if (values.status === 'issued') {
-      let hasError = false;
-      if (!values.originalText || values.originalText.trim().length < 10) {
-        form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' }, { shouldFocus: true });
-        hasError = true;
-      }
-      if (!values.externalRecipient) {
-        form.setError('externalRecipient', { message: 'An external partner must be selected to formally issue this instruction.' }, { shouldFocus: true });
-        hasError = true;
-      }
-      if (hasError) return;
-    }
-
     startTransition(async () => {
       try {
         toast({ title: 'Processing', description: 'Uploading documentation and generating PDF...' });
@@ -216,7 +221,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Record New Site Instruction</DialogTitle></DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6">
               <FormField control={form.control} name="projectId" render={({ field }) => (
                 <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
               )} />
@@ -265,7 +270,21 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                 <div className="flex gap-2 flex-wrap">
                   {photos.map((p, i) => (<div key={i} className="relative w-20 h-20"><Image src={p.url} alt="Site" fill className="rounded-md object-cover border" /><button type="button" className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></button></div>))}
                   <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.multiple = true;
+                    input.onchange = (e: any) => {
+                      const files = e.target.files; if (!files) return;
+                      Array.from(files).forEach((f: any) => {
+                        const reader = new FileReader();
+                        reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                        reader.readAsDataURL(f);
+                      });
+                    };
+                    input.click();
+                  }}><Upload className="mr-2 h-4 w-4" />Photos</Button>
                   <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
                 </div>
                 
@@ -285,14 +304,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                 <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button>
                 <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Save & Issue Instruction</Button>
               </DialogFooter>
-              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                const selected = e.target.files; if (!selected) return;
-                Array.from(selected).forEach(f => {
-                  const reader = new FileReader();
-                  reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                  reader.readAsDataURL(f);
-                });
-              }} />
               <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
             </form>
           </Form>

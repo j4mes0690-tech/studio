@@ -56,7 +56,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { getProjectInitials, getNextReference, getPartnerEmails } from '@/lib/utils';
+import { getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
 import { sendInformationRequestEmailAction } from './actions';
 import { generateInformationRequestPDF } from '@/lib/pdf-utils';
 import { DatePicker } from '@/components/date-picker';
@@ -70,6 +70,24 @@ const NewInformationRequestSchema = z.object({
   assignedTo: z.array(z.string()).default([]),
   requiredBy: z.string().optional(),
   status: z.enum(['draft', 'open']).default('open'),
+}).superRefine((data, ctx) => {
+  // If formally logging, enforce mandatory project requirements
+  if (data.status === 'open') {
+    if (data.assignedTo.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "A recipient must be assigned to formally log this request.",
+        path: ["assignedTo"],
+      });
+    }
+    if (!data.description || data.description.trim().length < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Inquiry details must be at least 10 characters to formally log.",
+        path: ["description"],
+      });
+    }
+  }
 });
 
 type NewInformationRequestFormValues = z.infer<typeof NewInformationRequestSchema>;
@@ -85,7 +103,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -122,19 +139,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: NewInformationRequestFormValues) => {
-    if (values.status === 'open') {
-      let hasError = false;
-      if (!values.description || values.description.trim().length < 10) {
-        form.setError('description', { message: 'Inquiry details must be at least 10 characters to formally log.' }, { shouldFocus: true });
-        hasError = true;
-      }
-      if (!values.assignedTo || values.assignedTo.length === 0) {
-        form.setError('assignedTo', { message: 'A recipient must be assigned to formally log this request.' }, { shouldFocus: true });
-        hasError = true;
-      }
-      if (hasError) return;
-    }
-
     startTransition(async () => {
       try {
         toast({ title: 'Processing', description: 'Generating PDF and sending notification...' });
@@ -281,7 +285,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -411,25 +415,24 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
 
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4 text-primary" />Camera</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><ImageIcon className="mr-2 h-4 w-4 text-primary" />Select Photos</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="mr-2 h-4 w-4 text-primary" />Select Files</Button>
-                    
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept="image/*" 
-                      multiple 
-                      onChange={(e) => {
-                        const selected = e.target.files;
-                        if (!selected) return;
-                        Array.from(selected).forEach(f => {
+                    <Button type="button" variant="outline" size="sm" onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.multiple = true;
+                      input.onchange = (e: any) => {
+                        const files = e.target.files;
+                        if (!files) return;
+                        Array.from(files).forEach((f: any) => {
                           const reader = new FileReader();
                           reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
                           reader.readAsDataURL(f);
                         });
-                      }} 
-                    />
+                      };
+                      input.click();
+                    }}><ImageIcon className="mr-2 h-4 w-4 text-primary" />Photos</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="mr-2 h-4 w-4 text-primary" />Select Files</Button>
+                    
                     <input 
                       type="file" 
                       ref={docInputRef} 

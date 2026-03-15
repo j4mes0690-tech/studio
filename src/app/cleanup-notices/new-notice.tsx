@@ -44,7 +44,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { getProjectInitials, getNextReference, getPartnerEmails } from '@/lib/utils';
+import { getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
 import { sendCleanUpNoticeEmailAction } from './actions';
 import { CameraOverlay } from '@/components/camera-overlay';
 
@@ -53,6 +53,23 @@ const NewNoticeSchema = z.object({
   description: z.string().optional().default(''),
   recipients: z.array(z.string()).optional(),
   status: z.enum(['draft', 'issued']).default('issued'),
+}).superRefine((data, ctx) => {
+  if (data.status === 'issued') {
+    if (!data.description || data.description.trim().length < 10) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Description must be at least 10 characters to formally issue.',
+        path: ['description'],
+      });
+    }
+    if (!data.recipients || data.recipients.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'At least one sub-contractor must be selected to issue this notice.',
+        path: ['recipients'],
+      });
+    }
+  }
 });
 
 type NewNoticeFormValues = z.infer<typeof NewNoticeSchema>;
@@ -95,19 +112,6 @@ export function NewNotice({ projects, subContractors, allNotices, allUsers }: Ne
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const onSubmit = (values: NewNoticeFormValues) => {
-    if (values.status === 'issued') {
-      let hasError = false;
-      if (!values.description || values.description.trim().length < 10) {
-        form.setError('description', { message: 'Description must be at least 10 characters to formally issue.' }, { shouldFocus: true });
-        hasError = true;
-      }
-      if (!values.recipients || values.recipients.length === 0) {
-        form.setError('recipients', { message: 'At least one sub-contractor must be selected to issue this notice.' }, { shouldFocus: true });
-        hasError = true;
-      }
-      if (hasError) return;
-    }
-
     startTransition(async () => {
       try {
         toast({ title: 'Processing', description: 'Persisting documentation and media...' });
@@ -235,7 +239,7 @@ export function NewNotice({ projects, subContractors, allNotices, allUsers }: Ne
             <DialogDescription>Capture an issue that requires cleaning. Formal issuing triggers a PDF distribution.</DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
                 <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('recipients', []); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
               )} />
