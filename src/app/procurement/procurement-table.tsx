@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -15,7 +14,7 @@ import { useState, useTransition, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
-import { Trash2, Loader2, Pencil, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Trash2, Loader2, Pencil, Clock, AlertTriangle, CheckCircle2, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -33,6 +32,9 @@ import { cn } from '@/lib/utils';
 import { EditProcurementDialog } from './edit-item';
 import { differenceInDays, parseISO, startOfDay, isAfter } from 'date-fns';
 
+type SortKey = 'reference' | 'trade' | 'subcontractor' | 'schedule' | 'enquiry' | 'return' | 'order' | 'start';
+type SortOrder = 'asc' | 'desc';
+
 export function ProcurementTable({ 
   items, 
   projects, 
@@ -44,24 +46,114 @@ export function ProcurementTable({
   subContractors: SubContractor[];
   currentUser: DistributionUser;
 }) {
+  const [sortKey, setSortKey] = useState<SortKey>('trade');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortOrder('asc');
+    }
+  };
+
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      switch (sortKey) {
+        case 'reference':
+          valA = a.reference;
+          valB = b.reference;
+          break;
+        case 'trade':
+          valA = a.trade;
+          valB = b.trade;
+          break;
+        case 'subcontractor':
+          valA = a.subcontractorName || 'ZZZ';
+          valB = b.subcontractorName || 'ZZZ';
+          break;
+        case 'enquiry':
+          valA = a.actualEnquiryDate || a.targetEnquiryDate || '';
+          valB = b.actualEnquiryDate || b.targetEnquiryDate || '';
+          break;
+        case 'return':
+          valA = a.tenderReturnDate || '';
+          valB = b.tenderReturnDate || '';
+          break;
+        case 'order':
+          valA = a.orderPlacedDate || a.latestDateForOrder || '';
+          valB = b.orderPlacedDate || b.latestDateForOrder || '';
+          break;
+        case 'start':
+          valA = a.startOnSiteDate || '';
+          valB = b.startOnSiteDate || '';
+          break;
+        case 'schedule':
+          // Sorting by RAG priority
+          const getWeight = (item: ProcurementItem) => {
+            if (item.orderPlacedDate) return 3;
+            const today = startOfDay(new Date());
+            const currentTarget = item.actualEnquiryDate ? item.latestDateForOrder : item.targetEnquiryDate;
+            if (!currentTarget) return 2;
+            const days = differenceInDays(startOfDay(parseISO(currentTarget)), today);
+            if (days < 0) return 0;
+            if (days <= 14) return 1;
+            return 2;
+          };
+          valA = getWeight(a);
+          valB = getWeight(b);
+          break;
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [items, sortKey, sortOrder]);
+
+  const SortIcon = ({ column }: { column: SortKey }) => {
+    if (sortKey !== column) return <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground/50" />;
+    return sortOrder === 'asc' ? <ArrowUp className="ml-2 h-3 w-3" /> : <ArrowDown className="ml-2 h-3 w-3" />;
+  };
+
   return (
     <div className="rounded-md border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[100px]">Ref</TableHead>
-            <TableHead>Trade Discipline</TableHead>
-            <TableHead className="w-[150px]">Appointed Partner</TableHead>
-            <TableHead className="w-[150px]">Schedule Status</TableHead>
-            <TableHead className="w-[100px] text-center">Enquiry</TableHead>
-            <TableHead className="w-[100px] text-center">Return</TableHead>
-            <TableHead className="w-[100px] text-center">Order</TableHead>
-            <TableHead className="w-[100px] text-center">Site Start</TableHead>
+            <TableHead className="w-[100px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('reference')}>
+              <div className="flex items-center">Ref <SortIcon column="reference" /></div>
+            </TableHead>
+            <TableHead className="cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('trade')}>
+              <div className="flex items-center">Trade Discipline <SortIcon column="trade" /></div>
+            </TableHead>
+            <TableHead className="w-[150px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('subcontractor')}>
+              <div className="flex items-center">Partner <SortIcon column="subcontractor" /></div>
+            </TableHead>
+            <TableHead className="w-[150px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('schedule')}>
+              <div className="flex items-center">Schedule <SortIcon column="schedule" /></div>
+            </TableHead>
+            <TableHead className="w-[100px] text-center cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('enquiry')}>
+              <div className="flex items-center justify-center">Enquiry <SortIcon column="enquiry" /></div>
+            </TableHead>
+            <TableHead className="w-[100px] text-center cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('return')}>
+              <div className="flex items-center justify-center">Return <SortIcon column="return" /></div>
+            </TableHead>
+            <TableHead className="w-[100px] text-center cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('order')}>
+              <div className="flex items-center justify-center">Order <SortIcon column="order" /></div>
+            </TableHead>
+            <TableHead className="w-[100px] text-center cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('start')}>
+              <div className="flex items-center justify-center">Site Start <SortIcon column="start" /></div>
+            </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item) => (
+          {sortedItems.map((item) => (
             <ProcurementTableRow 
               key={item.id} 
               item={item} 

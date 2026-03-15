@@ -1,16 +1,13 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
-import { useMemo, useState, useEffect, Suspense } from 'react';
+import { useMemo, useEffect, Suspense } from 'react';
 import type { ProcurementItem, Project, DistributionUser, SubContractor } from '@/lib/types';
-import { Loader2, ShoppingCart, LayoutGrid, List, ShieldCheck, Building2, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Loader2, ShoppingCart, ShieldCheck, Building2, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ProcurementCard } from './procurement-card';
 import { ProcurementTable } from './procurement-table';
 import { NewProcurementDialog } from './new-item';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -23,19 +20,6 @@ function ProcurementContent() {
   const { user: sessionUser } = useUser();
   
   const activeProjectId = searchParams.get('project');
-  const [isCompact, setIsCompact] = useState(false);
-
-  // Load view preference
-  useEffect(() => {
-    const saved = localStorage.getItem('sitecommand_view_procurement');
-    if (saved !== null) setIsCompact(saved === 'true');
-  }, []);
-
-  const toggleView = () => {
-    const newVal = !isCompact;
-    setIsCompact(newVal);
-    localStorage.setItem('sitecommand_view_procurement', String(newVal));
-  };
 
   // Load Data
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
@@ -114,17 +98,6 @@ function ProcurementContent() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="outline" size="icon" onClick={toggleView}>
-                      {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Switch to {isCompact ? 'Card' : 'Compact'} View</p></TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
               <NewProcurementDialog 
                 projects={allowedProjects} 
                 subContractors={allSubContractors || []} 
@@ -138,27 +111,12 @@ function ProcurementContent() {
 
         <div className="grid gap-4">
           {filteredItems.length > 0 ? (
-            isCompact ? (
-              <ProcurementTable 
-                items={filteredItems} 
-                projects={allowedProjects} 
-                subContractors={allSubContractors || []}
-                currentUser={profile}
-              />
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {filteredItems.map(item => (
-                      <ProcurementCard 
-                          key={item.id} 
-                          item={item} 
-                          project={currentProject}
-                          projects={allowedProjects}
-                          subContractors={allSubContractors || []}
-                          currentUser={profile}
-                      />
-                  ))}
-              </div>
-            )
+            <ProcurementTable 
+              items={filteredItems} 
+              projects={allowedProjects} 
+              subContractors={allSubContractors || []}
+              currentUser={profile}
+            />
           ) : (
             <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/5 text-muted-foreground/40">
               <ShoppingCart className="h-12 w-12 mx-auto mb-4 opacity-20" />
