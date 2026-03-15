@@ -12,14 +12,13 @@ import {
   CheckCircle2, 
   Calendar, 
   User, 
-  BookOpen,
-  Check,
-  Save,
-  ClipboardList,
-  Camera,
-  RefreshCw,
-  X,
-  Upload
+  BookOpen, 
+  Save, 
+  ClipboardList, 
+  Camera, 
+  RefreshCw, 
+  X, 
+  Upload 
 } from 'lucide-react';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -42,6 +41,7 @@ import {
 import { cn } from '@/lib/utils';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import Image from 'next/image';
+import { VoiceInput } from '@/components/voice-input';
 
 export function TrainingNeeds({ needs, users, currentUser, canManageAll }: { 
   needs: TrainingNeed[]; 
@@ -72,6 +72,7 @@ export function TrainingNeeds({ needs, users, currentUser, canManageAll }: {
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const certFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAddNeed = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -204,8 +205,23 @@ export function TrainingNeeds({ needs, users, currentUser, canManageAll }: {
     }
   };
 
+  const handleCertFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach(f => {
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        setCertPhotos(prev => [...prev, { 
+          url: re.target?.result as string, 
+          takenAt: new Date().toISOString() 
+        }]);
+      };
+      reader.readAsDataURL(f);
+    });
+  };
+
   const filteredNeeds = canManageAll 
-    ? needs 
+    ? (needs || []) 
     : (needs || []).filter(n => n.userEmail.toLowerCase() === currentUser.email.toLowerCase());
 
   return (
@@ -235,7 +251,10 @@ export function TrainingNeeds({ needs, users, currentUser, canManageAll }: {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Required Course</Label>
+                <div className="flex justify-between items-center">
+                    <Label>Required Course</Label>
+                    <VoiceInput onResult={setCourse} />
+                </div>
                 <Input placeholder="e.g. Asbestos Awareness" value={course} onChange={e => setCourse(e.target.value)} required />
               </div>
               <div className="space-y-2">
@@ -392,9 +411,21 @@ export function TrainingNeeds({ needs, users, currentUser, canManageAll }: {
                             </div>
                         ))}
                         <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => setIsCameraOpen(true)}>
-                            <Camera className="h-5 w-5" />
+                            <Camera className="h-5 w-5 text-muted-foreground" />
                             <span className="text-[8px] uppercase font-bold">Capture</span>
                         </Button>
+                        <Button variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => certFileInputRef.current?.click()}>
+                            <Upload className="h-5 w-5 text-muted-foreground" />
+                            <span className="text-[8px] uppercase font-bold">Upload</span>
+                        </Button>
+                        <input 
+                            type="file" 
+                            ref={certFileInputRef} 
+                            className="hidden" 
+                            accept="image/*" 
+                            multiple 
+                            onChange={handleCertFileSelect} 
+                        />
                     </div>
                     {isCameraOpen && (
                         <div className="space-y-2 border rounded-md p-2 bg-muted/30">
