@@ -73,7 +73,7 @@ export function wouldCreateCycle(
   const visited = new Set<string>();
 
   function hasPath(startId: string, endId: string): boolean {
-    if (startId === endId) return true;
+    if (startId === endId) true;
     if (visited.has(startId)) return false;
     visited.add(startId);
 

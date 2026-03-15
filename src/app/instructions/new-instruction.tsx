@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, FileIcon, FileText, Loader2, Users2, Send, Save } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Users2, Send, Save } from 'lucide-react';
 import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage } from '@/firebase';
