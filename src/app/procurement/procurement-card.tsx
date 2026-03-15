@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -51,38 +52,37 @@ export function ProcurementCard({
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  // RAG STATUS LOGIC (Overall Health)
+  // AUTOMATED RAG STATUS LOGIC
   const rag = useMemo(() => {
-    if (item.status === 'complete' || item.status === 'on-site') {
-      return { color: 'text-green-600', border: 'border-l-green-500', bg: 'bg-green-50', label: 'On Track', icon: CheckCircle2 };
+    const today = startOfDay(new Date());
+    
+    // Phase 1: Already Ordered
+    if (item.orderPlacedDate) {
+      return { color: 'text-green-600', border: 'border-l-green-500', bg: 'bg-green-50', label: 'Ordered', icon: CheckCircle2 };
     }
 
-    const today = startOfDay(new Date());
-    const targetDateStr = (item.status === 'planned') ? item.targetEnquiryDate : item.latestDateForOrder;
-    
-    if (!targetDateStr) return { color: 'text-slate-400', border: 'border-l-slate-300', bg: 'bg-slate-100', label: 'No Schedule' };
+    // Phase 2: Enquiry Sent, Tracking Order Date
+    if (item.actualEnquiryDate) {
+      if (!item.latestDateForOrder) return { color: 'text-slate-400', border: 'border-l-slate-300', bg: 'bg-slate-100', label: 'Tendering' };
+      
+      const target = startOfDay(parseISO(item.latestDateForOrder));
+      const daysUntil = differenceInDays(target, today);
 
-    const target = startOfDay(parseISO(targetDateStr));
+      if (daysUntil < 0) return { color: 'text-red-600', border: 'border-l-red-500', bg: 'bg-red-50', label: 'Order Overdue', icon: AlertTriangle };
+      if (daysUntil <= 14) return { color: 'text-amber-600', border: 'border-l-amber-500', bg: 'bg-amber-50', label: 'Order Due Soon', icon: Clock };
+      return { color: 'text-green-600', border: 'border-l-green-500', bg: 'bg-green-50', label: 'Tendering', icon: CheckCircle2 };
+    }
+
+    // Phase 3: Planning, Tracking Enquiry Date
+    if (!item.targetEnquiryDate) return { color: 'text-slate-400', border: 'border-l-slate-300', bg: 'bg-slate-100', label: 'No Schedule' };
+
+    const target = startOfDay(parseISO(item.targetEnquiryDate));
     const daysUntil = differenceInDays(target, today);
 
-    if (daysUntil < 0) {
-      return { color: 'text-red-600', border: 'border-l-red-500', bg: 'bg-red-50', label: 'OVERDUE', icon: AlertTriangle };
-    }
-    if (daysUntil <= 14) {
-      return { color: 'text-amber-600', border: 'border-l-amber-500', bg: 'bg-amber-50', label: 'DUE SOON', icon: Clock };
-    }
-    return { color: 'text-green-600', border: 'border-l-green-500', bg: 'bg-green-50', label: 'ON TRACK', icon: CheckCircle2 };
-  }, [item.status, item.targetEnquiryDate, item.latestDateForOrder]);
-
-  const statusConfig: Record<string, { label: string, color: string }> = {
-    'planned': { label: 'Planned', color: 'bg-slate-100 text-slate-800' },
-    'enquiry': { label: 'Tendering', color: 'bg-blue-100 text-blue-800' },
-    'tender-returned': { label: 'Evaluating', color: 'bg-amber-100 text-amber-800' },
-    'complete': { label: 'Complete', color: 'bg-green-100 text-green-800' },
-    'on-site': { label: 'On Site', color: 'bg-indigo-100 text-indigo-800' },
-  };
-
-  const currentStatus = statusConfig[item.status] || { label: item.status, color: 'bg-muted text-muted-foreground' };
+    if (daysUntil < 0) return { color: 'text-red-600', border: 'border-l-red-500', bg: 'bg-red-50', label: 'Enquiry Overdue', icon: AlertTriangle };
+    if (daysUntil <= 14) return { color: 'text-amber-600', border: 'border-l-amber-500', bg: 'bg-amber-50', label: 'Enquiry Due Soon', icon: Clock };
+    return { color: 'text-green-600', border: 'border-l-green-500', bg: 'bg-green-50', label: 'On Track', icon: CheckCircle2 };
+  }, [item.orderPlacedDate, item.actualEnquiryDate, item.targetEnquiryDate, item.latestDateForOrder]);
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -132,7 +132,7 @@ export function ProcurementCard({
         className={cn(
           "hover:border-primary transition-all shadow-sm group cursor-pointer border-l-4",
           rag.border,
-          (item.status === 'complete' || item.status === 'on-site') && "bg-green-50/5"
+          item.orderPlacedDate && "bg-green-50/5"
         )}
         onClick={() => setIsEditDialogOpen(true)}
       >
@@ -152,10 +152,6 @@ export function ProcurementCard({
               </CardDescription>
             </div>
             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-              <Badge className={cn("capitalize text-[9px] font-black tracking-tight", currentStatus.color)}>
-                {currentStatus.label}
-              </Badge>
-              
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -196,7 +192,7 @@ export function ProcurementCard({
                   {rag.label}
               </div>
               <div className={cn("text-[9px] font-bold", rag.color)}>
-                  {item.status === 'planned' ? 'Next: Enquiry' : item.status === 'complete' ? 'Completed' : 'Next: Order'}
+                  {!item.actualEnquiryDate ? 'Next: Enquiry' : !item.orderPlacedDate ? 'Next: Order' : 'Project Committed'}
               </div>
           </div>
 

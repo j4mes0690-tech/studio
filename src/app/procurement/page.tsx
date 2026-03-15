@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -5,17 +6,15 @@ import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { ProcurementItem, Project, DistributionUser, SubContractor } from '@/lib/types';
-import { Loader2, ShoppingCart, LayoutGrid, List, ShieldCheck, Building2, ChevronRight, ArrowLeft, Filter } from 'lucide-react';
+import { Loader2, ShoppingCart, LayoutGrid, List, ShieldCheck, Building2, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ProcurementFilters } from './procurement-filters';
 import { ProcurementCard } from './procurement-card';
 import { ProcurementTable } from './procurement-table';
 import { NewProcurementDialog } from './new-item';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function ProcurementContent() {
   const db = useFirestore();
@@ -24,7 +23,6 @@ function ProcurementContent() {
   const { user: sessionUser } = useUser();
   
   const activeProjectId = searchParams.get('project');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCompact, setIsCompact] = useState(false);
 
   // Load view preference
@@ -60,8 +58,6 @@ function ProcurementContent() {
     return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
   }, [allProjects, profile]);
 
-  const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
-
   const projectStats = useMemo(() => {
     const map = new Map<string, number>();
     if (!allProcurement) return map;
@@ -74,12 +70,8 @@ function ProcurementContent() {
 
   const filteredItems = useMemo(() => {
     if (!allProcurement || !activeProjectId) return [];
-    return allProcurement.filter(item => {
-      const isProjectMatch = item.projectId === activeProjectId;
-      const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
-      return isProjectMatch && matchesStatus;
-    });
-  }, [allProcurement, activeProjectId, statusFilter]);
+    return allProcurement.filter(item => item.projectId === activeProjectId);
+  }, [allProcurement, activeProjectId]);
 
   const currentProject = useMemo(() => allowedProjects.find(p => p.id === activeProjectId), [allowedProjects, activeProjectId]);
 
@@ -143,28 +135,6 @@ function ProcurementContent() {
             </div>
           </div>
         </div>
-
-        <Card className="bg-muted/30">
-          <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
-            <div className="flex items-center gap-2 text-sm font-medium shrink-0">
-              <Filter className="h-4 w-4 text-muted-foreground" />
-              Filter Schedule:
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[250px] bg-background">
-                <SelectValue placeholder="Any Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Any Status</SelectItem>
-                <SelectItem value="planned">Planned</SelectItem>
-                <SelectItem value="enquiry">Enquiry Issued</SelectItem>
-                <SelectItem value="tender-returned">Tender Returned</SelectItem>
-                <SelectItem value="complete">Complete</SelectItem>
-                <SelectItem value="on-site">Start on Site</SelectItem>
-              </SelectContent>
-            </Select>
-          </CardContent>
-        </Card>
 
         <div className="grid gap-4">
           {filteredItems.length > 0 ? (
@@ -263,33 +233,6 @@ function ProcurementContent() {
       </div>
     </div>
   );
-}
-
-function NoticeFilters({ projects }: { projects: Project[] }) {
-    const searchParams = useSearchParams();
-    const projectId = searchParams.get('project') || 'all';
-    
-    return (
-        <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <div className="flex-1 w-full sm:w-auto">
-                <Select
-                    value={projectId}
-                    onValueChange={(val) => {
-                        const params = new URLSearchParams(window.location.search);
-                        if (val === 'all') params.delete('project');
-                        else params.set('project', val);
-                        window.history.pushState(null, '', `?${params.toString()}`);
-                    }}
-                >
-                    <SelectTrigger><SelectValue placeholder="Filter by project..." /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Projects</SelectItem>
-                        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-            </div>
-        </div>
-    );
 }
 
 export default function ProcurementPage() {

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -23,10 +24,11 @@ import {
   FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, ShoppingCart, Users2, Calendar, Clock, Info, CheckCircle2 } from 'lucide-react';
+import { PlusCircle, Loader2, Save, ShoppingCart, Users2, Calendar, Clock, CheckCircle2 } from 'lucide-react';
 import type { Project, SubContractor, ProcurementItem } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -35,6 +37,7 @@ import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { format, parseISO, subWeeks } from 'date-fns';
+import { VoiceInput } from '@/components/voice-input';
 
 const NewProcurementSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -138,7 +141,7 @@ export function NewProcurementDialog({
           startOnSiteDate: values.startOnSiteDate,
           orderPlacedDate: null,
           comments: values.comments || '',
-          status: 'planned',
+          status: 'planned', // Hidden status for internal grouping if needed
           createdAt: new Date().toISOString(),
         };
 

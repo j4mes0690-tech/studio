@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useTransition, useEffect, useMemo } from 'react';
@@ -25,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Save, ShoppingCart, Calendar, Users2, Clock, Info } from 'lucide-react';
-import type { Project, SubContractor, ProcurementItem, ProcurementStatus } from '@/lib/types';
+import type { Project, SubContractor, ProcurementItem } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -45,7 +46,6 @@ const EditProcurementSchema = z.object({
   tenderReturnDate: z.string().optional().nullable(),
   orderPlacedDate: z.string().optional().nullable(),
   comments: z.string().optional().default(''),
-  status: z.enum(['planned', 'enquiry', 'tender-returned', 'complete', 'on-site']),
 });
 
 type EditProcurementFormValues = z.infer<typeof EditProcurementSchema>;
@@ -81,7 +81,6 @@ export function EditProcurementDialog({
       tenderReturnDate: item.tenderReturnDate,
       orderPlacedDate: item.orderPlacedDate,
       comments: item.comments || '',
-      status: item.status,
     },
   });
 
@@ -99,20 +98,9 @@ export function EditProcurementDialog({
         tenderReturnDate: item.tenderReturnDate,
         orderPlacedDate: item.orderPlacedDate,
         comments: item.comments || '',
-        status: item.status,
       });
     }
   }, [open, item, form]);
-
-  // AUTO-PROGRESSION LOGIC: If order date is populated, move status to 'complete'
-  const orderDateValue = form.watch('orderPlacedDate');
-  const statusValue = form.watch('status');
-
-  useEffect(() => {
-    if (orderDateValue && statusValue !== 'complete' && statusValue !== 'on-site') {
-      form.setValue('status', 'complete');
-    }
-  }, [orderDateValue, statusValue, form]);
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = projects.find(p => p.id === selectedProjectId);
@@ -188,16 +176,13 @@ export function EditProcurementDialog({
                     )} />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField control={form.control} name="subcontractorId" render={({ field }) => (
                         <FormItem><FormLabel className="flex items-center gap-2"><Users2 className="h-4 w-4" /> Appointed Partner</FormLabel><Select onValueChange={field.onChange} value={field.value || 'none'}><FormControl><SelectTrigger><SelectValue placeholder="Assign Sub" /></SelectTrigger></FormControl><SelectContent><SelectItem value="none">TBC</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
                     )} />
-                    <FormField control={form.control} name="status" render={({ field }) => (
-                        <FormItem><FormLabel>Current Status</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="planned">Planned</SelectItem><SelectItem value="enquiry">Enquiry Issued</SelectItem><SelectItem value="tender-returned">Tender Returned</SelectItem><SelectItem value="complete">Complete</SelectItem><SelectItem value="on-site">On Site</SelectItem></SelectContent></Select></FormItem>
-                    )} />
                     <FormField control={form.control} name="warrantyRequired" render={({ field }) => (
                         <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 bg-muted/5 mt-auto h-[40px]">
-                            <FormLabel className="text-xs font-bold">Warranty?</FormLabel>
+                            <FormLabel className="text-xs font-bold">Warranty Required?</FormLabel>
                             <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                         </FormItem>
                     )} />

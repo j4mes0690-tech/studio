@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -51,8 +52,7 @@ export function ProcurementTable({
             <TableHead className="w-[100px]">Ref</TableHead>
             <TableHead>Trade Discipline</TableHead>
             <TableHead className="w-[150px]">Appointed Partner</TableHead>
-            <TableHead className="w-[120px]">Status</TableHead>
-            <TableHead className="w-[130px]">Schedule</TableHead>
+            <TableHead className="w-[150px]">Schedule Status</TableHead>
             <TableHead className="w-[100px] text-center">Enquiry</TableHead>
             <TableHead className="w-[100px] text-center">Return</TableHead>
             <TableHead className="w-[100px] text-center">Order</TableHead>
@@ -93,39 +93,30 @@ function ProcurementTableRow({
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  // RAG STATUS LOGIC
+  // AUTOMATED RAG STATUS LOGIC
   const rag = useMemo(() => {
-    if (item.status === 'complete' || item.status === 'on-site') {
-      return { color: 'text-green-600', icon: CheckCircle2, label: 'On Track' };
-    }
-
     const today = startOfDay(new Date());
-    const targetDateStr = (item.status === 'planned') ? item.targetEnquiryDate : item.latestDateForOrder;
     
-    if (!targetDateStr) return { color: 'text-slate-400', label: '---' };
+    if (item.orderPlacedDate) {
+      return { color: 'text-green-600', icon: CheckCircle2, label: 'Ordered' };
+    }
 
-    const target = startOfDay(parseISO(targetDateStr));
+    if (item.actualEnquiryDate) {
+      if (!item.latestDateForOrder) return { color: 'text-slate-400', label: 'Tendering' };
+      const target = startOfDay(parseISO(item.latestDateForOrder));
+      const daysUntil = differenceInDays(target, today);
+      if (daysUntil < 0) return { color: 'text-red-600', icon: AlertTriangle, label: 'Order Overdue' };
+      if (daysUntil <= 14) return { color: 'text-amber-600', icon: Clock, label: 'Order Due' };
+      return { color: 'text-green-600', icon: CheckCircle2, label: 'Tendering' };
+    }
+
+    if (!item.targetEnquiryDate) return { color: 'text-slate-400', label: '---' };
+    const target = startOfDay(parseISO(item.targetEnquiryDate));
     const daysUntil = differenceInDays(target, today);
-
-    if (daysUntil < 0) {
-      return { color: 'text-red-600', icon: AlertTriangle, label: 'Overdue' };
-    }
-    if (daysUntil <= 14) {
-      return { color: 'text-amber-600', icon: Clock, label: 'Due Soon' };
-    }
-    return { color: 'text-green-600', icon: CheckCircle2, label: 'Ahead' };
-  }, [item.status, item.targetEnquiryDate, item.latestDateForOrder]);
-
-  const statusConfig: Record<string, { label: string, color: string }> = {
-    'planned': { label: 'Planned', color: 'bg-slate-100 text-slate-800' },
-    'enquiry': { label: 'Tendering', color: 'bg-blue-100 text-blue-800' },
-    'tender-returned': { label: 'Evaluating', color: 'bg-amber-100 text-amber-800' },
-    'complete': { label: 'Complete', color: 'bg-green-100 text-green-800' },
-    'on-site': { label: 'On Site', color: 'bg-indigo-100 text-indigo-800' },
-  };
-
-  // Safety fallback for legacy data or unexpected status values
-  const currentStatus = statusConfig[item.status] || { label: item.status, color: 'bg-muted text-muted-foreground' };
+    if (daysUntil < 0) return { color: 'text-red-600', icon: AlertTriangle, label: 'Enquiry Overdue' };
+    if (daysUntil <= 14) return { color: 'text-amber-600', icon: Clock, label: 'Enquiry Due' };
+    return { color: 'text-green-600', icon: CheckCircle2, label: 'On Track' };
+  }, [item.orderPlacedDate, item.actualEnquiryDate, item.targetEnquiryDate, item.latestDateForOrder]);
 
   const getMilestoneColor = (actual: string | null, target: string | null) => {
     if (!actual || !target) return "text-muted-foreground";
@@ -145,17 +136,12 @@ function ProcurementTableRow({
   return (
     <>
       <TableRow 
-        className={cn("group cursor-pointer", item.status === 'on-site' && "opacity-75")}
+        className={cn("group cursor-pointer", item.orderPlacedDate && "opacity-75")}
         onClick={() => setIsEditDialogOpen(true)}
       >
         <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
         <TableCell className="font-bold text-sm truncate max-w-[180px]" title={item.trade}>{item.trade}</TableCell>
         <TableCell className="truncate max-w-[150px] text-xs font-semibold">{item.subcontractorName || 'TBC'}</TableCell>
-        <TableCell>
-          <Badge className={cn("capitalize text-[10px] font-bold h-5", currentStatus.color)}>
-            {currentStatus.label}
-          </Badge>
-        </TableCell>
         <TableCell>
             <div className={cn("flex items-center gap-1.5 text-[10px] font-bold", rag.color)}>
                 {rag.icon && <rag.icon className="h-3 w-3" />}
