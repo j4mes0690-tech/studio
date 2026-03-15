@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare, CheckCircle2, Loader2, Send, EyeOff, Bell } from 'lucide-react';
+import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare, CheckCircle2, Loader2, Send, EyeOff, Bell, Pencil } from 'lucide-react';
 import { cn, getPartnerEmails } from '@/lib/utils';
 import { sendInformationRequestEmailAction } from './actions';
 import { generateInformationRequestPDF } from '@/lib/pdf-utils';
@@ -76,7 +76,7 @@ export function InformationRequestTable({ items, projects, distributionUsers, cu
 }
 
 function RequestTableRow({ item, projects, distributionUsers, currentUser }: { item: InformationRequest, projects: Project[], distributionUsers: DistributionUser[], currentUser: DistributionUser }) {
-  const project = projects.find(p => p.id === item.projectId);
+  const project = projects.find(p => p.id === order.projectId);
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
@@ -239,171 +239,161 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
   };
 
   return (
-    <>
-      <TableRow 
-        className={cn(
-            "group cursor-pointer transition-all", 
-            item.status === 'closed' && "opacity-60", 
-            isDraft && "bg-orange-50/20",
-            isAttentionRequired && "bg-primary/[0.03] ring-1 ring-inset ring-primary/20"
+    <TableRow 
+      className={cn(
+          "group cursor-pointer transition-all", 
+          item.status === 'closed' && "opacity-60", 
+          isDraft && "bg-orange-50/20",
+          isAttentionRequired && "bg-primary/[0.03] ring-1 ring-inset ring-primary/20"
+      )}
+      href={`/information-requests/${item.id}`}
+    >
+      <TableCell className="font-mono text-[10px]">
+          <div className="flex items-center gap-2">
+              {isAttentionRequired && <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />}
+              {item.reference}
+          </div>
+      </TableCell>
+      <TableCell className="font-medium truncate max-w-[150px]">{project?.name || 'Unknown'}</TableCell>
+      <TableCell>
+        <div className="max-w-[300px] truncate text-sm" title={item.description}>
+          {item.description || <span className="italic text-muted-foreground">No description provided</span>}
+        </div>
+      </TableCell>
+      <TableCell>
+        {isDraft ? (
+          <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
+        ) : (
+          <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className="capitalize text-[10px]">
+            {item.status}
+          </Badge>
         )}
-        href={`/information-requests/${item.id}`}
-      >
-        <TableCell className="font-mono text-[10px]">
-            <div className="flex items-center gap-2">
-                {isAttentionRequired && <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />}
-                {item.reference}
-            </div>
-        </TableCell>
-        <TableCell className="font-medium truncate max-w-[150px]">{project?.name || 'Unknown'}</TableCell>
-        <TableCell>
-          <div className="max-w-[300px] truncate text-sm" title={item.description}>
-            {item.description || <span className="italic text-muted-foreground">No description provided</span>}
+      </TableCell>
+      <TableCell>
+        {item.requiredBy ? (
+          <div className={cn("flex items-center gap-1 text-xs font-medium", item.status === 'open' && new Date(item.requiredBy) < new Date() ? "text-destructive" : "text-muted-foreground")}>
+            <CalendarClock className="h-3 w-3" />
+            <ClientDate date={item.requiredBy} format="date" />
           </div>
-        </TableCell>
-        <TableCell>
-          {isDraft ? (
-            <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
-          ) : (
-            <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className="capitalize text-[10px]">
-              {item.status}
-            </Badge>
-          )}
-        </TableCell>
-        <TableCell>
-          {item.requiredBy ? (
-            <div className={cn("flex items-center gap-1 text-xs font-medium", item.status === 'open' && new Date(item.requiredBy) < new Date() ? "text-destructive" : "text-muted-foreground")}>
-              <CalendarClock className="h-3 w-3" />
-              <ClientDate date={item.requiredBy} format="date" />
-            </div>
-          ) : (
-            <span className="text-xs text-muted-foreground">None</span>
-          )}
-        </TableCell>
-        <TableCell className="text-center">
-          <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
-            <MessageSquare className="h-3 w-3" />
-            {item.messages?.length || 0}
-          </div>
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            {isAttentionRequired && (
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8 hover:text-primary" onClick={handleDismissAlert}>
-                                <EyeOff className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Dismiss Alert</p></TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            )}
-
-            {isDraft && (
+        ) : (
+          <span className="text-xs text-muted-foreground">None</span>
+        )}
+      </TableCell>
+      <TableCell className="text-center">
+        <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground">
+          <MessageSquare className="h-3 w-3" />
+          {item.messages?.length || 0}
+        </div>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {isAttentionRequired && (
               <TooltipProvider>
+                  <Tooltip>
+                      <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8 hover:text-primary" onClick={handleDismissAlert}>
+                              <EyeOff className="h-4 w-4" />
+                          </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Dismiss Alert</p></TooltipContent>
+                  </Tooltip>
+              </TooltipProvider>
+          )}
+
+          {isDraft && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-orange-600" onClick={handleIssue} disabled={isPending}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <span className="sr-only">Issue Request</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Issue Request</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          <TooltipProvider>
+            {!isDraft && (
+              <>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-orange-600" onClick={handleIssue} disabled={isPending}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      <span className="sr-only">Issue Request</span>
+                    <Button variant="ghost" size="icon" className="text-primary" onClick={handleDistribute} disabled={isPending}>
+                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      <span className="sr-only">Distribute/Resend Notification & Attachments</span>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>Issue Request</p></TooltipContent>
+                  <TooltipContent><p>Distribute/Resend Notification & Attachments</p></TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
-            )}
-            <TooltipProvider>
-              {!isDraft && (
-                <>
+
+                <RespondToRequest item={item} currentUser={currentUser} />
+                
+                <AlertDialog>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-primary" onClick={handleDistribute} disabled={isPending}>
-                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                        <span className="sr-only">Distribute/Resend Notification & Attachments</span>
-                      </Button>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          {item.status === 'open' ? <XCircle className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+                        </Button>
+                      </AlertDialogTrigger>
                     </TooltipTrigger>
-                    <TooltipContent><p>Distribute/Resend Notification & Attachments</p></TooltipContent>
+                    <TooltipContent><p>{item.status === 'open' ? 'Close' : 'Reopen'} Request</p></TooltipContent>
                   </Tooltip>
-
-                  <RespondToRequest item={item} currentUser={currentUser} />
-                  
-                  <AlertDialog>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            {item.status === 'open' ? <XCircle className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
-                          </Button>
-                        </AlertDialogTrigger>
-                      </TooltipTrigger>
-                      <TooltipContent><p>{item.status === 'open' ? 'Close' : 'Reopen'} Request</p></TooltipContent>
-                    </Tooltip>
-                    <AlertDialogContent onClick={e => e.stopPropagation()}>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>{item.status === 'open' ? 'Close RFI?' : 'Reopen RFI?'}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {item.status === 'open' 
-                                ? "Are you sure you want to mark this technical enquiry as resolved?" 
-                                : "This will move the request back to 'Open' status for further updates."}
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => handleUpdateStatus(item.status === 'open' ? 'closed' : 'open')} disabled={isPending}>
-                            Confirm
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </>
-              )}
-              
-              <EditInformationRequest 
-                item={item} 
-                projects={projects} 
-                distributionUsers={distributionUsers} 
-                open={isEditDialogOpen}
-                onOpenChange={setIsEditDialogOpen}
-              />
-              
-              <AlertDialog>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Delete Request</p></TooltipContent>
-                </Tooltip>
-                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                    <AlertDialogDescription>Permanently delete this information request.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
-                      {isPending ? 'Deleting...' : 'Delete'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </TooltipProvider>
-          </div>
-        </TableCell>
-      </TableRow>
-
-      <EditInformationRequest 
-        item={item} 
-        projects={projects} 
-        distributionUsers={distributionUsers} 
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-      />
-    </>
+                  <AlertDialogContent onClick={e => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{item.status === 'open' ? 'Close RFI?' : 'Reopen RFI?'}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                          {item.status === 'open' 
+                              ? "Are you sure you want to mark this technical enquiry as resolved?" 
+                              : "This will move the request back to 'Open' status for further updates."}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleUpdateStatus(item.status === 'open' ? 'closed' : 'open')} disabled={isPending}>
+                          Confirm
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
+            
+            <EditInformationRequest 
+              item={item} 
+              projects={projects} 
+              distributionUsers={distributionUsers} 
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
+            
+            <AlertDialog>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent><p>Delete Request</p></TooltipContent>
+              </Tooltip>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>Permanently delete this information request.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                    {isPending ? 'Deleting...' : 'Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TooltipProvider>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }

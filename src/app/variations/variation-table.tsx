@@ -273,103 +273,101 @@ function VariationTableRow({
   };
 
   return (
-    <>
-      <TableRow 
-        className={cn("group cursor-pointer", variation.status === 'draft' && "bg-orange-50/20")}
-        onClick={() => setIsEditDialogOpen(true)}
-      >
-        <TableCell className="font-mono text-[10px]">{variation.reference}</TableCell>
-        <TableCell className="font-medium truncate max-w-[250px]">{variation.title}</TableCell>
-        <TableCell className="truncate max-w-[150px] text-muted-foreground text-xs">{project?.name || 'Unknown'}</TableCell>
-        <TableCell className={cn(
-            "text-right font-bold",
-            variation.totalAmount >= 0 ? "text-green-600" : "text-red-600"
+    <TableRow 
+      className={cn("group cursor-pointer", variation.status === 'draft' && "bg-orange-50/20")}
+      onClick={() => setIsEditDialogOpen(true)}
+    >
+      <TableCell className="font-mono text-[10px]">{variation.reference}</TableCell>
+      <TableCell className="font-medium truncate max-w-[250px]">{variation.title}</TableCell>
+      <TableCell className="truncate max-w-[150px] text-muted-foreground text-xs">{project?.name || 'Unknown'}</TableCell>
+      <TableCell className={cn(
+          "text-right font-bold",
+          variation.totalAmount >= 0 ? "text-green-600" : "text-red-600"
+      )}>
+          {variation.totalAmount < 0 ? '-' : ''}£{Math.abs(variation.totalAmount || 0).toFixed(2)}
+      </TableCell>
+      <TableCell>
+        <Badge className={cn(
+          "capitalize text-[10px] font-bold",
+          variation.status === 'agreed' ? 'bg-green-100 text-green-800' :
+          variation.status === 'rejected' ? 'bg-red-100 text-red-800' :
+          variation.status === 'pending' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
         )}>
-            {variation.totalAmount < 0 ? '-' : ''}£{Math.abs(variation.totalAmount || 0).toFixed(2)}
-        </TableCell>
-        <TableCell>
-          <Badge className={cn(
-            "capitalize text-[10px] font-bold",
-            variation.status === 'agreed' ? 'bg-green-100 text-green-800' :
-            variation.status === 'rejected' ? 'bg-red-100 text-red-800' :
-            variation.status === 'pending' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
-          )}>
-            {variation.status === 'pending' ? 'Submitted' : variation.status}
-          </Badge>
-        </TableCell>
-        <TableCell>
-          <span className="text-xs text-muted-foreground">
-            <ClientDate date={variation.createdAt} format="date" />
-          </span>
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-            <TooltipProvider>
-              {isDraft ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleCommit} disabled={isPending}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      <span className="sr-only">Commit & Submit Variation</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Commit & Submit Variation</p></TooltipContent>
-                </Tooltip>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8" onClick={handleReopen} disabled={isPending}>
-                      <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Reopen for Editing</p></TooltipContent>
-                </Tooltip>
-              )}
-
+          {variation.status === 'pending' ? 'Submitted' : variation.status}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        <span className="text-xs text-muted-foreground">
+          <ClientDate date={variation.createdAt} format="date" />
+        </span>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+          <TooltipProvider>
+            {isDraft ? (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
-                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-                    <span className="sr-only">Download PDF</span>
+                  <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleCommit} disabled={isPending}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <span className="sr-only">Commit & Submit Variation</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent><p>Download Variation PDF</p></TooltipContent>
+                <TooltipContent><p>Commit & Submit Variation</p></TooltipContent>
               </Tooltip>
-              
-              <AlertDialog>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Delete Variation</p></TooltipContent>
-                </Tooltip>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader><AlertDialogTitle>Delete Variation?</AlertDialogTitle><AlertDialogDescription>This will permanently remove this financial record.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </TooltipProvider>
-          </div>
-        </TableCell>
-      </TableRow>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8" onClick={handleReopen} disabled={isPending}>
+                    <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Reopen for Editing</p></TooltipContent>
+              </Tooltip>
+            )}
 
-      <EditVariationDialog 
-        variation={variation}
-        projects={projects}
-        allVariations={allVariations}
-        clientInstructions={clientInstructions}
-        siteInstructions={siteInstructions}
-        currentUser={currentUser}
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-      />
-    </>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
+                  {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                  <span className="sr-only">Download PDF</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Download Variation PDF</p></TooltipContent>
+            </Tooltip>
+            
+            <EditVariationDialog 
+              variation={variation}
+              projects={projects}
+              allVariations={allVariations}
+              clientInstructions={clientInstructions}
+              siteInstructions={siteInstructions}
+              currentUser={currentUser}
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
+
+            <AlertDialog>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent><p>Delete Variation</p></TooltipContent>
+              </Tooltip>
+              <AlertDialogContent onClick={e => e.stopPropagation()}>
+                <AlertDialogHeader><AlertDialogTitle>Delete Variation?</AlertDialogTitle><AlertDialogDescription>This will permanently remove this financial record.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TooltipProvider>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }

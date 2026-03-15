@@ -183,92 +183,90 @@ function OrderTableRow({
   const offHireDisplayDate = order.status === 'off-hired' ? latestActualOffHire : latestAnticipatedOffHire;
 
   return (
-    <>
-      <TableRow 
-        className={cn("group cursor-pointer", order.status === 'off-hired' && "opacity-60", isDraft && "bg-orange-50/20")}
-        onClick={() => setIsEditDialogOpen(true)}
-      >
-        <TableCell className="font-mono text-[10px]">{order.reference}</TableCell>
-        <TableCell className="font-medium truncate max-w-[180px]">{order.description}</TableCell>
-        <TableCell className="truncate max-w-[120px] text-xs font-semibold">{order.supplierName}</TableCell>
-        <TableCell className="text-right font-bold">£{order.totalAmount?.toFixed(2) || '0.00'}</TableCell>
-        <TableCell>
-          <Badge className={cn(
-            "capitalize text-[10px] font-bold",
-            isDraft ? "bg-orange-100 text-orange-800 border-orange-200" :
-            (order.status === 'on-hire' || order.status === 'scheduled') ? "bg-green-100 text-green-800" : 
-            order.status === 'off-hired' ? "bg-muted text-muted-foreground" : "bg-indigo-600 text-white"
-          )}>
-            {(order.status === 'scheduled' || order.status === 'on-hire') ? 'Active' : order.status}
-          </Badge>
-        </TableCell>
-        <TableCell>
-          {offHireDisplayDate ? (
-            <div className={cn("flex items-center gap-1.5 text-xs font-bold", order.status !== 'off-hired' && ragStatus?.color)}>
-              {order.status !== 'off-hired' && ragStatus?.icon && <ragStatus.icon className="h-3 w-3" />}
-              {new Date(offHireDisplayDate).toLocaleDateString()}
-            </div>
-          ) : <span className="text-xs text-muted-foreground italic">N/A</span>}
-        </TableCell>
-        <TableCell><span className="text-xs text-muted-foreground"><ClientDate date={order.createdAt} format="date" /></span></TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-            <TooltipProvider>
-              {isDraft && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleCommit} disabled={isPending || isGenerating}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      <span className="sr-only">Activate Order</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Activate Order</p></TooltipContent>
-                </Tooltip>
-              )}
-
+    <TableRow 
+      className={cn("group cursor-pointer", order.status === 'off-hired' && "opacity-60", isDraft && "bg-orange-50/20")}
+      onClick={() => setIsEditDialogOpen(true)}
+    >
+      <TableCell className="font-mono text-[10px]">{order.reference}</TableCell>
+      <TableCell className="font-medium truncate max-w-[180px]">{order.description}</TableCell>
+      <TableCell className="truncate max-w-[120px] text-xs font-semibold">{order.supplierName}</TableCell>
+      <TableCell className="text-right font-bold">£{order.totalAmount?.toFixed(2) || '0.00'}</TableCell>
+      <TableCell>
+        <Badge className={cn(
+          "capitalize text-[10px] font-bold",
+          isDraft ? "bg-orange-100 text-orange-800 border-orange-200" :
+          (order.status === 'on-hire' || order.status === 'scheduled') ? "bg-green-100 text-green-800" : 
+          order.status === 'off-hired' ? "bg-muted text-muted-foreground" : "bg-indigo-600 text-white"
+        )}>
+          {(order.status === 'scheduled' || order.status === 'on-hire') ? 'Active' : order.status}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        {offHireDisplayDate ? (
+          <div className={cn("flex items-center gap-1.5 text-xs font-bold", order.status !== 'off-hired' && ragStatus?.color)}>
+            {order.status !== 'off-hired' && ragStatus?.icon && <ragStatus.icon className="h-3 w-3" />}
+            {new Date(offHireDisplayDate).toLocaleDateString()}
+          </div>
+        ) : <span className="text-xs text-muted-foreground italic">N/A</span>}
+      </TableCell>
+      <TableCell><span className="text-xs text-muted-foreground"><ClientDate date={order.createdAt} format="date" /></span></TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+          <TooltipProvider>
+            {isDraft && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => downloadPDF(order)} disabled={isGenerating}>
-                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-                    <span className="sr-only">Download PDF</span>
+                  <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleCommit} disabled={isPending || isGenerating}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <span className="sr-only">Activate Order</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent><p>Download PO as PDF</p></TooltipContent>
+                <TooltipContent><p>Activate Order</p></TooltipContent>
               </Tooltip>
+            )}
 
-              <AlertDialog>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent><p>Delete Order</p></TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove this plant hire record.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </TooltipProvider>
-          </div>
-        </TableCell>
-      </TableRow>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => downloadPDF(order)} disabled={isGenerating}>
+                  {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                  <span className="sr-only">Download PDF</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Download PO as PDF</p></TooltipContent>
+            </Tooltip>
 
-      <EditPlantOrderDialog 
-        order={order} 
-        projects={projects} 
-        subContractors={subContractors} 
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-      />
-    </>
+            <EditPlantOrderDialog 
+              order={order} 
+              projects={projects} 
+              subContractors={subContractors} 
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
+
+            <AlertDialog>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Delete Order</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <AlertDialogContent onClick={e => e.stopPropagation()}>
+                <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove this plant hire record.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TooltipProvider>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
