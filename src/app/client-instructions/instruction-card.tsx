@@ -338,12 +338,12 @@ function AcceptInstructionButton({
                                     <h3 className="font-bold">Information Requests (CRFI / RFI)</h3>
                                 </div>
                                 <Button type="button" variant="outline" size="sm" onClick={handleAddRfi} className="h-7 px-2">
-                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Inquiry
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Enquiry
                                 </Button>
                             </div>
                             
                             {rfis.length === 0 ? (
-                                <p className="text-xs text-muted-foreground italic py-2">No technical queries added.</p>
+                                <p className="text-xs text-muted-foreground italic py-2">No technical enquiries added.</p>
                             ) : (
                                 <div className="grid gap-4">
                                     {rfis.map((rfi, idx) => (
@@ -357,7 +357,7 @@ function AcceptInstructionButton({
                                                 <X className="h-3.5 w-3.5" />
                                             </Button>
                                             <div className="space-y-1">
-                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Inquiry Details</Label>
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Enquiry Details</Label>
                                                 <Input 
                                                     value={rfi.description} 
                                                     onChange={(e) => setRfis(rfis.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}

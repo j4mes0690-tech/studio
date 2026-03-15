@@ -163,7 +163,7 @@ function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: 
                     <AlertDialogTitle>{isClosing ? 'Close Information Request?' : 'Reopen Information Request?'}</AlertDialogTitle>
                     <AlertDialogDescription>
                         {isClosing 
-                            ? "This will mark the technical query as resolved. The implementation thread will remain as an audit record." 
+                            ? "This will mark the technical enquiry as resolved. The implementation thread will remain as an audit record." 
                             : "This will move the request back to 'Open' status, allowing for further technical clarification and responses."}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -366,7 +366,7 @@ export function InformationRequestCard({
         </CardHeader>
         <CardContent className="pt-6">
           <div className="bg-muted/30 p-4 rounded-lg border mb-6">
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Inquiry</p>
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Enquiry</p>
               <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap mb-4">{item.description || <span className="italic text-muted-foreground">No description provided</span>}</p>
               
               {/* Request Attachments */}

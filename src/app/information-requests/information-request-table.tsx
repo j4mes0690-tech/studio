@@ -170,7 +170,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
     if (!hasText || !hasRecipients) {
       toast({ 
         title: "Requirements Not Met", 
-        description: "Please complete the inquiry details and assign recipients before issuing.", 
+        description: "Please complete the enquiry details and assign recipients before issuing.", 
         variant: "destructive" 
       });
       setIsEditDialogOpen(true);
@@ -238,7 +238,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
       href={`/information-requests/${item.id}`}
     >
       <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
-      <TableCell className="font-medium">{project?.name || 'Unknown'}</TableCell>
+      <TableCell className="font-medium truncate max-w-[150px]">{project?.name || 'Unknown'}</TableCell>
       <TableCell>
         <div className="max-w-[300px] truncate text-sm" title={item.description}>
           {item.description || <span className="italic text-muted-foreground">No description provided</span>}
@@ -271,7 +271,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          {isDraft ? (
+          {isDraft && (
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -283,23 +283,23 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                 <TooltipContent><p>Issue Request</p></TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          ) : (
-            <>
-              <TooltipProvider>
+          )}
+          <TooltipProvider>
+            {!isDraft && (
+              <>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="text-primary" onClick={handleDistribute} disabled={isPending}>
                       {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      <span className="sr-only">Distribute/Resend Notification & Attachments</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent><p>Distribute/Resend Notification & Attachments</p></TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
 
-              <RespondToRequest item={item} currentUser={currentUser} />
-              
-              <AlertDialog>
-                <TooltipProvider>
+                <RespondToRequest item={item} currentUser={currentUser} />
+                
+                <AlertDialog>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <AlertDialogTrigger asChild>
@@ -310,37 +310,35 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                     </TooltipTrigger>
                     <TooltipContent><p>{item.status === 'open' ? 'Close' : 'Reopen'} Request</p></TooltipContent>
                   </Tooltip>
-                </TooltipProvider>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{item.status === 'open' ? 'Close RFI?' : 'Reopen RFI?'}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        {item.status === 'open' 
-                            ? "Are you sure you want to mark this technical query as resolved?" 
-                            : "This will move the request back to 'Open' status for further updates."}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleUpdateStatus(item.status === 'open' ? 'closed' : 'open')} disabled={isPending}>
-                        Confirm
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </>
-          )}
-          
-          <EditInformationRequest 
-            item={item} 
-            projects={projects} 
-            distributionUsers={distributionUsers} 
-            open={isEditDialogOpen}
-            onOpenChange={setIsEditDialogOpen}
-          />
-          
-          <AlertDialog>
-            <TooltipProvider>
+                  <AlertDialogContent onClick={e => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{item.status === 'open' ? 'Close RFI?' : 'Reopen RFI?'}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                          {item.status === 'open' 
+                              ? "Are you sure you want to mark this technical enquiry as resolved?" 
+                              : "This will move the request back to 'Open' status for further updates."}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleUpdateStatus(item.status === 'open' ? 'closed' : 'open')} disabled={isPending}>
+                          Confirm
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
+            
+            <EditInformationRequest 
+              item={item} 
+              projects={projects} 
+              distributionUsers={distributionUsers} 
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
+            
+            <AlertDialog>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertDialogTrigger asChild>
@@ -351,20 +349,20 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                 </TooltipTrigger>
                 <TooltipContent><p>Delete Request</p></TooltipContent>
               </Tooltip>
-            </TooltipProvider>
-            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>Permanently delete this information request.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
-                  {isPending ? 'Deleting...' : 'Delete'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>Permanently delete this information request.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                    {isPending ? 'Deleting...' : 'Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TooltipProvider>
         </div>
       </TableCell>
     </TableRow>

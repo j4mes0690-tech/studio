@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -141,7 +140,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
     if (values.status === 'open') {
       let hasError = false;
       if (!values.description || values.description.trim().length < 10) {
-        form.setError('description', { message: 'Inquiry details must be at least 10 characters to formally log.' }, { shouldFocus: true });
+        form.setError('description', { message: 'Enquiry details must be at least 10 characters to formally log.' }, { shouldFocus: true });
         hasError = true;
       }
       if (!values.assignedTo || values.assignedTo.length === 0) {
@@ -309,7 +308,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Information Request</DialogTitle>
-            <DialogDescription>Modify inquiry details or assigned recipients.</DialogDescription>
+            <DialogDescription>Modify enquiry details or assigned recipients.</DialogDescription>
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-4">
@@ -387,7 +386,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
-                      <FormLabel>Inquiry</FormLabel>
+                      <FormLabel>Enquiry</FormLabel>
                       <VoiceInput onResult={(text) => form.setValue('description', text)} />
                     </div>
                     <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>

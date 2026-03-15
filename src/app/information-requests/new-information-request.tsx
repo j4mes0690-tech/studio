@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -84,7 +83,7 @@ const NewInformationRequestSchema = z.object({
     if (!data.description || data.description.trim().length < 10) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Inquiry details must be at least 10 characters to formally log.",
+        message: "Enquiry details must be at least 10 characters to formally log.",
         path: ["description"],
       });
     }
@@ -271,8 +270,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
     }
   }, [open, form]);
 
-  const submissionStatus = form.watch('status');
-
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -367,7 +364,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex items-center justify-between">
-                      <FormLabel>Inquiry Details</FormLabel>
+                      <FormLabel>Enquiry Details</FormLabel>
                       <VoiceInput onResult={(text) => form.setValue('description', text)} />
                     </div>
                     <FormControl>

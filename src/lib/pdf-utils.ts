@@ -84,7 +84,7 @@ export async function generateInformationRequestPDF(
     </div>
 
     <div style="margin-bottom: 40px;">
-      <h2 style="font-size: 14px; color: #1e40af; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px; text-transform: uppercase;">Technical Inquiry</h2>
+      <h2 style="font-size: 14px; color: #1e40af; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px; text-transform: uppercase;">TECHNICAL ENQUIRY</h2>
       <p style="font-size: 13px; line-height: 1.6; white-space: pre-wrap;">${request.description}</p>
     </div>
 

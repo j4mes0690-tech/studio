@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useRef } from 'react';
@@ -208,7 +207,7 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
           
           <div className='py-4 space-y-4'>
               <div className='bg-muted/30 p-3 rounded-lg border-l-4 border-l-primary shadow-sm'>
-                  <p className='text-[10px] font-bold text-primary uppercase tracking-widest mb-1'>Original Inquiry</p>
+                  <p className='text-[10px] font-bold text-primary uppercase tracking-widest mb-1'>Original Enquiry</p>
                   <p className='text-sm text-foreground mb-2 line-clamp-3 font-medium'>{item.description}</p>
                   
                   {(item.photos && item.photos.length > 0) || (item.files && item.files.length > 0) ? (
