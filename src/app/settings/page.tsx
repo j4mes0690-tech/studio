@@ -127,7 +127,7 @@ function SettingsContent() {
             </div>
         )}
 
-        <Accordion type="single" collapsible className="w-full space-y-4" defaultValue="users">
+        <Accordion type="single" collapsible className="w-full space-y-4">
           
           {canManageUsers && (
             <>
