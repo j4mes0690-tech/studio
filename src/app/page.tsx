@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -34,9 +35,9 @@ import {
   ClipboardList
 } from 'lucide-react';
 import Link from 'next/link';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import type { DistributionUser } from '@/lib/types';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, collection, query, where } from 'firebase/firestore';
+import type { DistributionUser, InformationRequest, ClientInstruction } from '@/lib/types';
 import { useMemo, useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -68,6 +69,21 @@ const DASHBOARD_CARDS = [
   { id: 'information-requests', href: '/information-requests', label: 'Info Requests', icon: HelpCircle, desc: 'Technical queries and clarifications.', permission: 'accessInfoRequests' },
 ];
 
+/**
+ * FlashingBadge - A UI component to draw attention to outstanding requests.
+ */
+function FlashingBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return (
+    <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center z-40">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+      <span className="relative inline-flex rounded-full h-5 w-5 bg-accent text-[10px] font-black text-white items-center justify-center shadow-lg border border-white/20">
+        {count}
+      </span>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { user, isLoading: userLoading } = useUser();
   const db = useFirestore();
@@ -76,9 +92,20 @@ export default function Dashboard() {
   const [orderedCardIds, setOrderedCardIds] = useState<string[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [canDragId, setCanDragId] = useState<string | null>(null);
-  
-  // Acknowledgment State: Tracks which module is currently being opened
   const [loadingModule, setLoadingModule] = useState<string | null>(null);
+
+  // Fetch collections for outstanding count logic
+  const rfiQuery = useMemoFirebase(() => {
+    if (!db || !user?.email) return null;
+    return query(collection(db, 'information-requests'), where('status', '==', 'open'));
+  }, [db, user?.email]);
+  const { data: rawRequests } = useCollection<InformationRequest>(rfiQuery);
+
+  const ciQuery = useMemoFirebase(() => {
+    if (!db || !user?.email) return null;
+    return query(collection(db, 'client-instructions'), where('status', '==', 'open'));
+  }, [db, user?.email]);
+  const { data: rawClientInstructions } = useCollection<ClientInstruction>(ciQuery);
 
   // Load persistence and reset state on return
   useEffect(() => {
@@ -119,6 +146,32 @@ export default function Dashboard() {
   }, [db, user?.email]);
 
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
+
+  // Calculate outstanding counts for Communication modules
+  const pendingCounts = useMemo(() => {
+    if (!profile || !user?.email) return {};
+    const email = user.email.toLowerCase().trim();
+    
+    // Filter RFIs (Assigned to me or responses to mine)
+    const rfiCount = (rawRequests || []).filter(req => {
+        if (req.dismissedBy?.includes(email)) return false;
+        const isAssignedToMe = req.assignedTo.some(e => e.toLowerCase().trim() === email);
+        const lastMessage = req.messages?.length > 0 ? [...req.messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+        const isMyRaisedWithResponse = req.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
+        return isAssignedToMe || isMyRaisedWithResponse;
+    }).length;
+
+    // Filter CIs (In project distribution)
+    const ciCount = (rawClientInstructions || []).filter(ci => {
+        if (ci.dismissedBy?.includes(email)) return false;
+        return (ci.recipients || []).some(e => e.toLowerCase().trim() === email);
+    }).length;
+
+    return {
+        'information-requests': rfiCount,
+        'client-instructions': ciCount
+    };
+  }, [rawRequests, rawClientInstructions, profile, user?.email]);
 
   const allowedCards = useMemo(() => {
     if (!profile || orderedCardIds.length === 0) return [];
@@ -235,69 +288,73 @@ export default function Dashboard() {
                 ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3" 
                 : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 max-w-6xl"
         )}>
-          {allowedCards.map((card) => (
-            <div
-                key={card.id}
-                draggable={canDragId === card.id}
-                onDragStart={(e) => handleDragStart(e, card.id)}
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, card.id)}
-                onDragEnd={handleDragEnd}
-                className={cn(
-                    "relative transition-opacity group",
-                    draggedId === card.id ? "opacity-40" : "opacity-100"
-                )}
-            >
-                {/* Drag Handle */}
-                <div 
-                    className="absolute top-2 left-2 z-30 p-1.5 opacity-0 md:group-hover:opacity-40 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-background/90 rounded border border-border shadow-sm hidden md:block"
-                    onMouseEnter={() => setCanDragId(card.id)}
-                    onMouseLeave={() => setCanDragId(null)}
+          {allowedCards.map((card) => {
+            const pendingCount = pendingCounts[card.id as keyof typeof pendingCounts] || 0;
+            return (
+                <div
+                    key={card.id}
+                    draggable={canDragId === card.id}
+                    onDragStart={(e) => handleDragStart(e, card.id)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, card.id)}
+                    onDragEnd={handleDragEnd}
+                    className={cn(
+                        "relative transition-opacity group",
+                        draggedId === card.id ? "opacity-40" : "opacity-100"
+                    )}
                 >
-                    <GripVertical className="h-3.5 w-3.5 text-primary" />
+                    {/* Drag Handle */}
+                    <div 
+                        className="absolute top-2 left-2 z-30 p-1.5 opacity-0 md:group-hover:opacity-40 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-background/90 rounded border border-border shadow-sm hidden md:block"
+                        onMouseEnter={() => setCanDragId(card.id)}
+                        onMouseLeave={() => setCanDragId(null)}
+                    >
+                        <GripVertical className="h-3.5 w-3.5 text-primary" />
+                    </div>
+
+                    <Link 
+                        href={card.href} 
+                        className="block h-full"
+                        onClick={() => {
+                            // Only set loading if not dragging
+                            if (!draggedId) {
+                                setLoadingModule(card.id);
+                            }
+                        }}
+                    >
+                        <Card className={cn(
+                            "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary/50 hover:shadow-md h-full relative overflow-hidden",
+                            isCompact ? "p-3 md:p-4 text-center" : "p-5 md:p-8 text-center",
+                            loadingModule === card.id && "ring-2 ring-primary ring-offset-2"
+                        )}>
+                            {/* Acknowledgment Overlay */}
+                            {loadingModule === card.id && (
+                                <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200">
+                                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                                </div>
+                            )}
+
+                            <CardHeader className="p-0 relative">
+                                <card.icon className={cn(
+                                    "mb-2 transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary",
+                                    isCompact ? "h-6 w-6" : "h-8 w-8 mb-2 md:h-12 md:w-12 md:mb-4",
+                                    loadingModule === card.id && "opacity-20"
+                                )} />
+                                <FlashingBadge count={pendingCount} />
+                                <CardTitle className={cn("transition-all", isCompact ? "text-xs md:text-sm" : "text-sm md:text-xl")}>{card.label}</CardTitle>
+                            </CardHeader>
+                            {!isCompact && (
+                                <CardContent className="p-0 mt-2 hidden sm:block">
+                                    <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">
+                                        {card.desc}
+                                    </p>
+                                </CardContent>
+                            )}
+                        </Card>
+                    </Link>
                 </div>
-
-                <Link 
-                    href={card.href} 
-                    className="block h-full"
-                    onClick={() => {
-                        // Only set loading if not dragging
-                        if (!draggedId) {
-                            setLoadingModule(card.id);
-                        }
-                    }}
-                >
-                    <Card className={cn(
-                        "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary/50 hover:shadow-md h-full relative overflow-hidden",
-                        isCompact ? "p-3 md:p-4 text-center" : "p-5 md:p-8 text-center",
-                        loadingModule === card.id && "ring-2 ring-primary ring-offset-2"
-                    )}>
-                        {/* Acknowledgment Overlay */}
-                        {loadingModule === card.id && (
-                            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            </div>
-                        )}
-
-                        <CardHeader className="p-0">
-                        <card.icon className={cn(
-                            "mb-2 transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary",
-                            isCompact ? "h-6 w-6" : "h-8 w-8 mb-2 md:h-12 md:w-12 md:mb-4",
-                            loadingModule === card.id && "opacity-20"
-                        )} />
-                        <CardTitle className={cn("transition-all", isCompact ? "text-xs md:text-sm" : "text-sm md:text-xl")}>{card.label}</CardTitle>
-                        </CardHeader>
-                        {!isCompact && (
-                            <CardContent className="p-0 mt-2 hidden sm:block">
-                                <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">
-                                    {card.desc}
-                                </p>
-                            </CardContent>
-                        )}
-                    </Card>
-                </Link>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {allowedCards.length === 0 && (
