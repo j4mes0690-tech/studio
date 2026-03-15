@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -35,8 +36,20 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, FileIcon, FileText, Loader2, ShieldCheck, Users2, Save, Send } from 'lucide-react';
-import type { Project, Photo, FileAttachment, ClientInstruction, DistributionUser, SubContractor, InformationRequest } from '@/lib/types';
+import { 
+  PlusCircle, 
+  Camera, 
+  Image as ImageIcon, 
+  Paperclip, 
+  X, 
+  FileText, 
+  Loader2, 
+  ShieldCheck, 
+  Users2, 
+  Save, 
+  Send 
+} from 'lucide-react';
+import type { Project, Photo, FileAttachment, DistributionUser, SubContractor, InformationRequest } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -372,7 +385,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                         {photos.map((p, i) => (
                           <div key={`p-${i}`} className="relative group">
                             <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                            <Button type="button" variant="destructive" size="icon" className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                            <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-3 w-3" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
                               <X className="h-3 w-3" />
                             </Button>
                           </div>
@@ -395,20 +408,34 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                   )}
 
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files (Max 10MB)</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4 text-primary" />Camera</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><ImageIcon className="mr-2 h-4 w-4 text-primary" />Select Photos</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="mr-2 h-4 w-4 text-primary" />Select Files</Button>
                     
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                      const selected = e.target.files;
-                      if (!selected) return;
-                      Array.from(selected).forEach(f => {
-                        const reader = new FileReader();
-                        reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                        reader.readAsDataURL(f);
-                      });
-                    }} />
-                    <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      multiple 
+                      onChange={(e) => {
+                        const selected = e.target.files;
+                        if (!selected) return;
+                        Array.from(selected).forEach(f => {
+                          const reader = new FileReader();
+                          reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                          reader.readAsDataURL(f);
+                        });
+                      }} 
+                    />
+                    <input 
+                      type="file" 
+                      ref={docInputRef} 
+                      className="hidden" 
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                      multiple 
+                      onChange={handleFileSelect} 
+                    />
                   </div>
                 </div>
               </div>

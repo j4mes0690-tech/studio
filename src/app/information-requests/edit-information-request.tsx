@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -35,7 +36,19 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, ShieldCheck, Ruler, FileIcon, FileText, Users2, Loader2, Save, Send } from 'lucide-react';
+import { 
+  Pencil, 
+  Camera, 
+  Image as ImageIcon, 
+  Paperclip, 
+  X, 
+  ShieldCheck, 
+  FileText, 
+  Users2, 
+  Loader2, 
+  Save, 
+  Send 
+} from 'lucide-react';
 import type { Project, InformationRequest, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -416,20 +429,34 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                   )}
 
                   <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Take Photo</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileText className="mr-2 h-4 w-4" />Files</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4 text-primary" />Take Photo</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><ImageIcon className="mr-2 h-4 w-4 text-primary" />Select Photos</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="mr-2 h-4 w-4 text-primary" />Select Files</Button>
                     
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                      const selected = e.target.files;
-                      if (!selected) return;
-                      Array.from(selected).forEach(f => {
-                        const reader = new FileReader();
-                        reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                        reader.readAsDataURL(f);
-                      });
-                    }} />
-                    <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="image/*" 
+                      multiple 
+                      onChange={(e) => {
+                        const selected = e.target.files;
+                        if (!selected) return;
+                        Array.from(selected).forEach(f => {
+                          const reader = new FileReader();
+                          reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                          reader.readAsDataURL(f);
+                        });
+                      }} 
+                    />
+                    <input 
+                      type="file" 
+                      ref={docInputRef} 
+                      className="hidden" 
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                      multiple 
+                      onChange={handleFileSelect} 
+                    />
                   </div>
                 </div>
               </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useTransition, useRef } from 'react';
@@ -25,7 +26,15 @@ import {
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquareReply, Camera, Upload, FileIcon, X, RefreshCw, FileText, Loader2 } from 'lucide-react';
+import { 
+  MessageSquareReply, 
+  Camera, 
+  Image as ImageIcon, 
+  Paperclip, 
+  X, 
+  FileText, 
+  Loader2 
+} from 'lucide-react';
 import type { InformationRequest, DistributionUser, ChatMessage, Photo, FileAttachment } from '@/lib/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFirestore, useStorage } from '@/firebase';
@@ -323,8 +332,8 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1.5">
                       <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="h-3.5 w-3.5 mr-1" />Camera</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="h-3.5 w-3.5 mr-1" />Photos</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="h-3.5 w-3.5 mr-1" />Files</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5 mr-1" />Select Photos</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="h-3.5 w-3.5 mr-1" />Select Files</Button>
                     </div>
                     
                     <Button type="submit" className="ml-auto" disabled={isReadingFiles || isPending}>
@@ -332,21 +341,35 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
                     </Button>
                   </div>
 
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                    const selected = e.target.files;
-                    if (!selected) return;
-                    Array.from(selected).forEach(f => {
-                      const reader = new FileReader();
-                      reader.onload = (re) => {
-                          setPhotos(prev => [...prev, { 
-                              url: re.target?.result as string, 
-                              takenAt: new Date().toISOString() 
-                          }]);
-                      };
-                      reader.readAsDataURL(f);
-                    });
-                  }} />
-                  <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept="image/*" 
+                    multiple 
+                    onChange={(e) => {
+                      const selected = e.target.files;
+                      if (!selected) return;
+                      Array.from(selected).forEach(f => {
+                        const reader = new FileReader();
+                        reader.onload = (re) => {
+                            setPhotos(prev => [...prev, { 
+                                url: re.target?.result as string, 
+                                takenAt: new Date().toISOString() 
+                            }]);
+                        };
+                        reader.readAsDataURL(f);
+                      });
+                    }} 
+                  />
+                  <input 
+                    type="file" 
+                    ref={docInputRef} 
+                    className="hidden" 
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+                    multiple 
+                    onChange={handleFileSelect} 
+                  />
               </form>
           </Form>
         </DialogContent>
