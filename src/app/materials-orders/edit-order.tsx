@@ -35,6 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { addWeeks } from 'date-fns';
+import { generatePurchaseOrderPDF } from '@/lib/pdf-utils';
 
 const EditOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -150,7 +151,9 @@ export function EditOrderDialog({
     startTransition(async () => {
       try {
         const supplier = suppliers.find(s => s.id === values.supplierId);
+        const project = projects.find(p => p.id === values.projectId);
         const docRef = doc(db, 'purchase-orders', order.id);
+        
         const updates: any = {
           projectId: values.projectId,
           supplierId: values.supplierId,
@@ -161,9 +164,11 @@ export function EditOrderDialog({
           totalAmount: orderTotal,
           status: values.status,
         };
+
         if (values.status === 'issued' && order.status === 'draft') {
           updates.orderDate = new Date().toISOString();
         }
+
         await updateDoc(docRef, updates).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: docRef.path,
@@ -172,7 +177,16 @@ export function EditOrderDialog({
           }));
           throw error;
         });
-        toast({ title: 'Success', description: 'Order updated.' });
+
+        if (values.status === 'issued') {
+          toast({ title: 'Order Committed', description: 'Downloading purchase order PDF...' });
+          const fullOrderData = { ...order, ...updates };
+          const pdf = await generatePurchaseOrderPDF(fullOrderData as PurchaseOrder, project, supplier);
+          pdf.save(`PO-${order.orderNumber}-${fullOrderData.supplierName.replace(/\s+/g, '-')}.pdf`);
+        } else {
+          toast({ title: 'Success', description: 'Order updated.' });
+        }
+
         onOpenChange(false);
       } catch (err) {
         console.error(err);

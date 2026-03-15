@@ -37,6 +37,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
 import { addWeeks } from 'date-fns';
 import { VoiceInput } from '@/components/voice-input';
+import { generatePurchaseOrderPDF } from '@/lib/pdf-utils';
 
 const NewOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -110,7 +111,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
     const finalRate = isNaN(rate) ? 0 : rate;
 
     setOrderItems([...orderItems, {
-      description: pendingDescription,
+      description: pendingDesc,
       quantity: qty,
       unit: pendingUnit || 'item',
       rate: finalRate,
@@ -151,24 +152,23 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
         const orderNumber = getNextReference(existingRefs, values.projectId, 'PO', initials);
         const supplier = suppliers.find(s => s.id === values.supplierId);
 
-        const orderData = {
+        const orderData: Omit<PurchaseOrder, 'id'> = {
           orderNumber,
           projectId: values.projectId,
           supplierId: values.supplierId,
           supplierName: supplier?.name || 'Unknown',
           description: values.description,
-          orderDate: values.status === 'issued' ? new Date().toISOString() : new Date().toISOString(),
-          deliveryDate: null,
-          notes: values.notes || '',
-          items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
+          orderDate: new Date().toISOString(),
+          items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })) as PurchaseOrderItem[],
           totalAmount: orderTotal,
           status: values.status,
           createdAt: new Date().toISOString(),
-          createdByEmail: currentUser.email.toLowerCase().trim()
+          createdByEmail: currentUser.email.toLowerCase().trim(),
+          notes: values.notes || '',
         };
 
         const colRef = collection(db, 'purchase-orders');
-        await addDoc(colRef, orderData).catch((error) => {
+        const docRef = await addDoc(colRef, orderData).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: colRef.path,
             operation: 'create',
@@ -177,7 +177,14 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
           throw error;
         });
 
-        toast({ title: 'Success', description: values.status === 'draft' ? 'Order saved as draft.' : 'Order committed.' });
+        if (values.status === 'issued') {
+          toast({ title: 'Order Committed', description: 'Downloading purchase order PDF...' });
+          const pdf = await generatePurchaseOrderPDF({ ...orderData, id: docRef.id } as PurchaseOrder, selectedProject, supplier);
+          pdf.save(`PO-${orderNumber}-${orderData.supplierName.replace(/\s+/g, '-')}.pdf`);
+        } else {
+          toast({ title: 'Success', description: 'Order saved as draft.' });
+        }
+        
         setOpen(false);
       } catch (err) {
         console.error(err);
@@ -302,9 +309,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                   <Input type="number" step="0.01" placeholder="Rate £" value={pendingRate} onChange={e => setPendingRate(e.target.value)} onFocus={() => setPendingRate('')} className="bg-background" />
                 </div>
                 
-                <Button type="button" onClick={handleAddItem} disabled={!pendingDescription} className="w-full">
-                  <Plus className="h-4 w-4 mr-2" /> Add Line Item
-                </Button>
+                <Button type="button" onClick={handleAddItem} disabled={!pendingDescription} className="w-full h-10"><Plus className="h-4 w-4 mr-2" /> Add Line Item</Button>
               </div>
 
               <div className="space-y-2">
