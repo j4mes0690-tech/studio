@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -91,7 +92,6 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -413,7 +413,9 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                         {photos.map((photo, index) => (
                           <div key={`p-${index}`} className="relative group">
                             <Image src={photo.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                            <Button type="button" variant="destructive" size="icon" className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full" onClick={() => setPhotos(prev => prev.filter((_, i) => i !== index))}><X className="h-4 w-4" /></Button>
+                            <button type="button" className="absolute top-1 right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => setPhotos(prev => prev.filter((_, i) => i !== index))}>
+                              <X className="h-3 w-3" />
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -435,16 +437,12 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
 
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4 text-primary" />Take Photo</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><ImageIcon className="mr-2 h-4 w-4 text-primary" />Select Photos</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="mr-2 h-4 w-4 text-primary" />Select Files</Button>
-                    
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept="image/*" 
-                      multiple 
-                      onChange={(e) => {
+                    <Button type="button" variant="outline" size="sm" onClick={() => {
+                      const input = document.createElement('input');
+                      input.type = 'file';
+                      input.accept = 'image/*';
+                      input.multiple = true;
+                      input.onchange = (e: any) => {
                         const selected = e.target.files;
                         if (!selected) return;
                         Array.from(selected).forEach(f => {
@@ -452,8 +450,11 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                           reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
                           reader.readAsDataURL(f);
                         });
-                      }} 
-                    />
+                      };
+                      input.click();
+                    }}><ImageIcon className="mr-2 h-4 w-4 text-primary" />Select Photos</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="mr-2 h-4 w-4 text-primary" />Select Files</Button>
+                    
                     <input 
                       type="file" 
                       ref={docInputRef} 
@@ -496,6 +497,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         isOpen={isCameraOpen} 
         onClose={() => setIsCameraOpen(false)} 
         onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
+        title="RFI Revision Context"
       />
     </>
   );

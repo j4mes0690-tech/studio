@@ -45,7 +45,7 @@ import { cn } from '@/lib/utils';
 import { ClientDate } from '../../components/client-date';
 import { Badge } from '@/components/ui/badge';
 import { VoiceInput } from '@/components/voice-input';
-import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -127,6 +127,7 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
       try {
         toast({ title: 'Uploading', description: 'Persisting media...' });
 
+        // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -138,6 +139,7 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
           })
         );
 
+        // 2. Upload Files
         const uploadedFiles = await Promise.all(
           files.map(async (f, i) => {
             if (f.url.startsWith('data:')) {
@@ -196,7 +198,7 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Information Request Workspace</DialogTitle>
             <DialogDescription>
@@ -204,8 +206,8 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
             </DialogDescription>
           </DialogHeader>
           
-          <div className='flex-1 overflow-y-auto min-h-0 py-4 px-2 space-y-4 bg-muted/10 rounded-md border'>
-              <div className='bg-background p-3 rounded-lg border-l-4 border-l-primary shadow-sm mb-6'>
+          <div className='py-4 space-y-4'>
+              <div className='bg-muted/30 p-3 rounded-lg border-l-4 border-l-primary shadow-sm'>
                   <p className='text-[10px] font-bold text-primary uppercase tracking-widest mb-1'>Original Inquiry</p>
                   <p className='text-sm text-foreground mb-2 line-clamp-3 font-medium'>{item.description}</p>
                   
@@ -226,7 +228,7 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
                   ) : null}
               </div>
 
-              <div className='space-y-3'>
+              <div className='space-y-3 bg-muted/10 p-3 rounded-md border'>
                   {sortedMessages.map(msg => {
                       const senderEmail = msg.senderEmail || '';
                       const isSystem = senderEmail === 'system@sitecommand.internal';
@@ -279,7 +281,7 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
           </div>
 
           <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
                   <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
                           <span>Replying as:</span>
@@ -332,8 +334,8 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1.5">
                       <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="h-3.5 w-3.5 mr-1" />Camera</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5 mr-1" />Select Photos</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="h-3.5 w-3.5 mr-1" />Select Files</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><ImageIcon className="h-3.5 w-3.5 mr-1" />Photos</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="h-3.5 w-3.5 mr-1" />Files</Button>
                     </div>
                     
                     <Button type="submit" className="ml-auto" disabled={isReadingFiles || isPending}>
@@ -379,6 +381,7 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
         isOpen={isCameraOpen} 
         onClose={() => setIsCameraOpen(false)} 
         onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
+        title="RFI Documentation"
       />
     </>
   );

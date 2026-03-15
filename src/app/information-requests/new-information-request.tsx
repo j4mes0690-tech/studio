@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -395,9 +396,9 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                         {photos.map((p, i) => (
                           <div key={`p-${i}`} className="relative group">
                             <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                            <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-3 w-3" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                            <button type="button" className="absolute top-1 right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
                               <X className="h-3 w-3" />
-                            </Button>
+                            </button>
                           </div>
                         ))}
                       </div>
@@ -479,6 +480,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         isOpen={isCameraOpen} 
         onClose={() => setIsCameraOpen(false)} 
         onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
+        title="RFI Context Capture"
       />
     </>
   );
