@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
@@ -104,7 +105,7 @@ export function BrandingSettings() {
             </div>
           </AccordionTrigger>
           <AccordionContent className="p-0">
-            <CardContent className="p-6 space-y-8">
+            <CardContent className="px-6 py-6 space-y-8">
               <div className="flex flex-col md:flex-row gap-8 items-start">
                 <div className="flex flex-col items-center gap-4 shrink-0">
                   <div className="relative w-40 h-40 rounded-xl border-2 border-dashed border-muted flex items-center justify-center bg-muted/10 overflow-hidden group">
