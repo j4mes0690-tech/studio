@@ -160,6 +160,7 @@ export type UserPermissions = {
   accessSubContractOrders: boolean;
   accessIRS: boolean;
   accessPlanner: boolean;
+  accessProcurement: boolean;
   // Read Only Flags
   materialsReadOnly?: boolean;
   plantReadOnly?: boolean;
@@ -176,6 +177,7 @@ export type UserPermissions = {
   subContractOrdersReadOnly?: boolean;
   irsReadOnly?: boolean;
   plannerReadOnly?: boolean;
+  procurementReadOnly?: boolean;
 };
 
 export type DistributionUser = {
@@ -286,6 +288,30 @@ export type IRSItem = {
 };
 
 // --- PROCUREMENT MODULE TYPES ---
+
+export type ProcurementStatus = 'planned' | 'enquiry' | 'tender-returned' | 'ordered' | 'on-site';
+
+export type ProcurementItem = {
+  id: string;
+  reference: string;
+  projectId: string;
+  trade: string;
+  subcontractorId: string | null;
+  subcontractorName: string | null;
+  warrantyRequired: boolean;
+  targetEnquiryDate: string;
+  tenderPeriodWeeks: number;
+  actualEnquiryDate: string | null;
+  tenderReturnDate: string | null;
+  latestDateForOrder: string | null;
+  leadInPeriodWeeks: number;
+  startOnSiteDate: string | null;
+  preContractMeetingDate: string | null;
+  orderPlacedDate: string | null;
+  comments: string;
+  status: ProcurementStatus;
+  createdAt: string;
+};
 
 export type Supplier = {
   id: string;

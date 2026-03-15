@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -31,7 +30,8 @@ import {
   FileSignature,
   CalendarClock,
   AlertTriangle,
-  CalendarRange
+  CalendarRange,
+  ClipboardList
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -50,8 +50,9 @@ import {
 
 const DASHBOARD_CARDS = [
   { id: 'planner', href: '/planner', label: 'Work Planner', icon: CalendarRange, desc: 'walkthrough properties and identify activities.', permission: 'accessPlanner' },
+  { id: 'procurement', href: '/procurement', label: 'Procurement Schedule', icon: ShoppingCart, desc: 'Track the tendering lifecycle and milestone appointments.', permission: 'accessProcurement' },
   { id: 'irs', href: '/irs', label: 'IRS Schedule', icon: CalendarClock, desc: 'Information Required Schedule for design deliverables.', permission: 'accessIRS' },
-  { id: 'materials', href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, desc: 'Create and manage purchase orders for project materials.', permission: 'accessMaterials' },
+  { id: 'materials', href: '/materials-orders', label: 'Materials Orders', icon: ClipboardList, desc: 'Create and manage purchase orders for project materials.', permission: 'accessMaterials' },
   { id: 'plant', href: '/plant-orders', label: 'Plant Orders', icon: Truck, desc: 'Track equipment hire, off-hire dates, and commercial rates.', permission: 'accessPlant' },
   { id: 'subcontract-orders', href: '/subcontract-orders', label: 'Sub Contract Orders', icon: FileSignature, desc: 'Track the drafting and DocuSign signing status of partners.', permission: 'accessSubContractOrders' },
   { id: 'variations', href: '/variations', label: 'Variations', icon: Calculator, desc: 'Manage additions and omissions linked to instructions.', permission: 'accessVariations' },

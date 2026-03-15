@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -32,6 +31,7 @@ import {
   FileSignature,
   CalendarClock,
   CalendarRange,
+  ClipboardList,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -42,8 +42,9 @@ import { useMemo } from 'react';
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
   { href: '/planner', label: 'Planner', icon: CalendarRange, permission: 'accessPlanner' },
+  { href: '/procurement', label: 'Procurement', icon: ShoppingCart, permission: 'accessProcurement' },
   { href: '/irs', label: 'IRS Schedule', icon: CalendarClock, permission: 'accessIRS' },
-  { href: '/materials-orders', label: 'Materials Orders', icon: ShoppingCart, permission: 'accessMaterials' },
+  { href: '/materials-orders', label: 'Materials Orders', icon: ClipboardList, permission: 'accessMaterials' },
   { href: '/plant-orders', label: 'Plant Orders', icon: Truck, permission: 'accessPlant' },
   { href: '/subcontract-orders', label: 'Sub Contract Orders', icon: FileSignature, permission: 'accessSubContractOrders' },
   { href: '/variations', label: 'Variations', icon: Calculator, permission: 'accessVariations' },
@@ -127,7 +128,7 @@ export function AppSidebar() {
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
-      </SidebarFooter>
+      </SidebarContent>
     </Sidebar>
   );
 }

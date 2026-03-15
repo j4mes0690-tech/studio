@@ -40,5 +40,6 @@ service cloud.firestore {
     match /invitations/{id} { allow read, write: if isSignedIn(); }
     match /irs-items/{id} { allow read, write: if isSignedIn(); }
     match /planner-tasks/{id} { allow read, write: if isSignedIn(); }
+    match /procurement-items/{id} { allow read, write: if isSignedIn(); }
   }
 }
