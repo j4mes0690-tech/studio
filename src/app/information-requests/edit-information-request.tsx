@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -28,7 +27,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
@@ -37,7 +38,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Pencil, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText, Users2, Loader2, Save, Send } from 'lucide-react';
 import type { Project, InformationRequest, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DatePicker } from '@/components/date-picker';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
@@ -54,7 +54,7 @@ const EditInformationRequestSchema = z.object({
   id: z.string().min(1),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().optional().default(''),
-  assignedTo: z.array(z.string()).optional().default([]),
+  assignedTo: z.array(z.string()).min(1, 'A recipient must be assigned.'),
   requiredBy: z.string().optional(),
   status: z.enum(['draft', 'open', 'closed']).default('open'),
 });
@@ -135,7 +135,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         hasError = true;
       }
       if (!values.assignedTo || values.assignedTo.length === 0) {
-        form.setError('assignedTo', { message: 'At least one recipient must be assigned to log this request.' });
+        form.setError('assignedTo', { message: 'A recipient must be assigned to log this request.' });
         hasError = true;
       }
       if (hasError) return;
@@ -303,20 +303,69 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <input type="hidden" {...form.register('id')} />
             
-            <FormField
-              control={form.control}
-              name="projectId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Project</FormLabel>
-                  <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); }} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="projectId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project</FormLabel>
+                    <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); }} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="assignedTo"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Assign To (Recipient)</FormLabel>
+                    <Select 
+                      onValueChange={(val) => field.onChange([val])} 
+                      value={field.value?.[0] || ""}
+                      disabled={!selectedProjectId}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select project recipient" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel className="flex items-center gap-2 text-primary">
+                            <ShieldCheck className="h-3 w-3" /> Project Staff
+                          </SelectLabel>
+                          {availableInternalUsers.map(u => (
+                            <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>
+                          ))}
+                          {availableInternalUsers.length === 0 && (
+                            <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
+                          )}
+                        </SelectGroup>
+                        <Separator className="my-1" />
+                        <SelectGroup>
+                          <SelectLabel className="flex items-center gap-2 text-accent">
+                            <Users2 className="h-3 w-3" /> Trade Partners
+                          </SelectLabel>
+                          {availableExternalPartners.map(s => (
+                            <SelectItem key={s.id} value={s.email}>{s.name}</SelectItem>
+                          ))}
+                          {availableExternalPartners.length === 0 && (
+                            <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
+                          )}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <FormField
               control={form.control}
               name="description"
@@ -339,84 +388,6 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
             />
 
             <Separator />
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormItem>
-                    <div className='flex items-center gap-2 mb-2'>
-                        <ShieldCheck className='h-4 w-4 text-primary' />
-                        <FormLabel>Project Internal Contacts (CRFI)</FormLabel>
-                    </div>
-                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {availableInternalUsers.length === 0 ? (
-                            <p className="text-[10px] text-muted-foreground text-center py-8">No staff members assigned to this project.</p>
-                        ) : availableInternalUsers.map((u) => (
-                        <FormField
-                            key={u.id}
-                            control={form.control}
-                            name="assignedTo"
-                            render={({ field }) => (
-                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                                <FormControl>
-                                <Checkbox
-                                    checked={field.value?.includes(u.email)}
-                                    onCheckedChange={(c) => {
-                                    const curr = field.value || [];
-                                    field.onChange(c ? [...curr, u.email] : curr.filter(v => v !== u.email));
-                                    }}
-                                />
-                                </FormControl>
-                                <div className="flex flex-col leading-none">
-                                    <FormLabel className="text-xs font-semibold">{u.name}</FormLabel>
-                                    <span className="text-[10px] text-muted-foreground">{u.email}</span>
-                                </div>
-                            </FormItem>
-                            )}
-                        />
-                        ))}
-                    </ScrollArea>
-                </FormItem>
-
-                <FormItem>
-                    <div className='flex items-center gap-2 mb-2'>
-                        <Users2 className='h-4 w-4 text-accent' />
-                        <FormLabel>Sub-contractors / Designers (RFI)</FormLabel>
-                    </div>
-                    <ScrollArea className="h-48 rounded-md border p-4 bg-muted/5">
-                        {availableExternalPartners.length === 0 ? (
-                            <p className="text-[10px] text-muted-foreground text-center py-8">No partners assigned to this project.</p>
-                        ) : availableExternalPartners.map((sub) => (
-                        <FormField
-                            key={sub.id}
-                            control={form.control}
-                            name="assignedTo"
-                            render={({ field }) => (
-                            <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                                <FormControl>
-                                <Checkbox
-                                    checked={field.value?.includes(sub.email)}
-                                    onCheckedChange={(c) => {
-                                    const curr = field.value || [];
-                                    field.onChange(c ? [...curr, sub.email] : curr.filter(v => v !== sub.email));
-                                    }}
-                                />
-                                </FormControl>
-                                <div className="flex flex-col leading-none">
-                                    <div className="flex items-center gap-2">
-                                        <FormLabel className="text-xs font-semibold">{sub.name}</FormLabel>
-                                        <div className="flex gap-1">
-                                            {sub.isDesigner && <span className="text-[8px] px-1 bg-primary/10 text-primary rounded">D</span>}
-                                            {sub.isSubContractor && <span className="text-[8px] px-1 bg-accent/10 text-accent rounded">S</span>}
-                                        </div>
-                                    </div>
-                                    <span className="text-[10px] text-muted-foreground">{sub.email}</span>
-                                </div>
-                            </FormItem>
-                            )}
-                        />
-                        ))}
-                    </ScrollArea>
-                </FormItem>
-            </div>
 
             <div className="space-y-4">
               <FormLabel>Documentation & Photos</FormLabel>
@@ -486,7 +457,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 disabled={isPending}
                 onClick={() => form.setValue('status', 'draft')}
               >
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Save as Draft
               </Button>
               <Button 
@@ -495,7 +466,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 disabled={isPending}
                 onClick={() => form.setValue('status', 'open')}
               >
-                {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 mr-2" />}
                 Save & Log Request
               </Button>
             </DialogFooter>
