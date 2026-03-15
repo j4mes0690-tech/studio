@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -44,6 +45,16 @@
         }
       },
       "required": ["id", "name", "email"]
+    },
+    "SystemSettings": {
+      "title": "System Settings",
+      "description": "Global application configurations such as branding and company metadata.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "logoUrl": { "type": "string", "format": "uri" },
+        "companyName": { "type": "string" }
+      }
     },
     "PlannerTask": {
       "title": "Planner Task",
@@ -154,6 +165,7 @@
     "/projects/{projectId}": { "schema": { "$ref": "#/backend/entities/Project" }, "description": "Construction site project metadata." },
     "/irs-items/{id}": { "schema": { "$ref": "#/backend/entities/IRSItem" }, "description": "Information Required Schedule tracking items." },
     "/planner-tasks/{id}": { "schema": { "$ref": "#/backend/entities/PlannerTask" }, "description": "Short term construction planning tasks." },
-    "/procurement-items/{id}": { "schema": { "$ref": "#/backend/entities/ProcurementItem" }, "description": "Trade procurement scheduling and tracking." }
+    "/procurement-items/{id}": { "schema": { "$ref": "#/backend/entities/ProcurementItem" }, "description": "Trade procurement scheduling and tracking." },
+    "/system-settings/{id}": { "schema": { "$ref": "#/backend/entities/SystemSettings" }, "description": "Global app configurations." }
   }
 }
