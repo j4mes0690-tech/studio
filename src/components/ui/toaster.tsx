@@ -9,9 +9,21 @@ import {
   ToastTitle,
   ToastViewport,
 } from "@/components/ui/toast"
+import { useEffect, useState } from "react"
 
+/**
+ * Toaster - Global component for rendering active toast notifications.
+ * Uses a mounted check to prevent hydration mismatches with the external state hook.
+ */
 export function Toaster() {
   const { toasts } = useToast()
+  const [isMounted, setIsMounted] = useState(false)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
+  if (!isMounted) return null
 
   return (
     <ToastProvider>
