@@ -60,7 +60,7 @@ import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { Separator } from '@/components/ui/separator';
 import { VoiceInput } from '@/components/voice-input';
 import { sendInformationRequestEmailAction } from './actions';
-import { getPartnerEmails, getProjectInitials } from '@/lib/utils';
+import { getPartnerEmails, getProjectInitials, scrollToFirstError } from '@/lib/utils';
 import { generateInformationRequestPDF } from '@/lib/pdf-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 
@@ -308,7 +308,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
             <DialogDescription>Modify inquiry details or assigned recipients.</DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-4">
               <input type="hidden" {...form.register('id')} />
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

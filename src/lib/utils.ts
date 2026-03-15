@@ -122,21 +122,26 @@ export function scrollToFirstError() {
   // Delay slightly to ensure React Hook Form has finished rendering the error state
   setTimeout(() => {
     // Target ShadCN/Radix error patterns: aria-invalid fields or FormMessage containers
-    const errorElement = document.querySelector('[aria-invalid="true"], .text-destructive, [id*="-form-item-message"]');
+    const firstError = document.querySelector('[aria-invalid="true"], .text-destructive, [id*="-form-item-message"]');
     
-    if (errorElement) {
-      errorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (firstError) {
+      // Find the container FormItem so the label is also scrolled into view
+      const container = firstError.closest('.space-y-2') || firstError;
+      
+      container.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'start',
+        inline: 'nearest'
+      });
       
       // If it's a focusable control, put the cursor there
-      if (errorElement instanceof HTMLElement) {
-        const focusable = errorElement.tagName === 'INPUT' || errorElement.tagName === 'TEXTAREA' || errorElement.tagName === 'BUTTON'
-          ? errorElement
-          : errorElement.closest('.space-y-2')?.querySelector('input, textarea, button, [role="combobox"]');
+      const focusable = firstError.hasAttribute('aria-invalid')
+        ? firstError
+        : firstError.closest('.space-y-2')?.querySelector('input, textarea, button, [role="combobox"]');
           
-        if (focusable instanceof HTMLElement) {
-          focusable.focus({ preventScroll: true });
-        }
+      if (focusable instanceof HTMLElement) {
+        focusable.focus({ preventScroll: true });
       }
     }
-  }, 100);
+  }, 150);
 }

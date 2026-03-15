@@ -42,7 +42,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
+import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 
@@ -256,7 +256,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 py-6">
               <Form {...form}>
-                  <form className="space-y-8">
+                  <form onSubmit={form.handleSubmit(() => {}, () => scrollToFirstError())} className="space-y-8">
                       <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <FormField control={form.control} name="projectId" render={({ field }) => (
@@ -266,6 +266,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                           <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
                                           <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                                       </Select>
+                                      <FormMessage />
                                   </FormItem>
                               )} />
                               <FormField control={form.control} name="areaId" render={({ field }) => (
@@ -283,6 +284,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                         <SelectItem value="other">Other / Not Listed</SelectItem>
                                       </SelectContent>
                                     </Select>
+                                    <FormMessage />
                                   </FormItem>
                               )} />
                           </div>
@@ -290,6 +292,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                               <FormItem>
                                   <FormLabel>Title</FormLabel>
                                   <FormControl><Input {...field} onBlur={handleMetadataBlur} /></FormControl>
+                                  <FormMessage />
                               </FormItem>
                           )} />
                       </div>
@@ -315,7 +318,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                           {pendingItemPhotos.length > 0 && (
                             <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed">
                               {pendingItemPhotos.map((p, idx) => (
-                                <div key={idx} className="relative w-16 h-12"><Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" /><button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></button></div>
+                                <div key={idx} className="relative w-16 h-12"><Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" /><button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-2 w-2" /></button></div>
                               ))}
                             </div>
                           )}
