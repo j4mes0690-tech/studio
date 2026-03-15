@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { differenceInDays, parseISO, startOfDay } from 'date-fns';
+import { differenceInDays, parseISO, startOfDay, isAfter } from 'date-fns';
 import { EditProcurementDialog } from './edit-item';
 
 export function ProcurementCard({ 
@@ -51,14 +51,13 @@ export function ProcurementCard({
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  // RAG STATUS LOGIC
+  // RAG STATUS LOGIC (Overall Health)
   const rag = useMemo(() => {
     if (item.status === 'ordered' || item.status === 'on-site') {
       return { color: 'text-green-600', border: 'border-l-green-500', bg: 'bg-green-50', label: 'On Track', icon: CheckCircle2 };
     }
 
     const today = startOfDay(new Date());
-    // If planned, track against enquiry. If enquiry/evaluating, track against order deadline.
     const targetDateStr = (item.status === 'planned') ? item.targetEnquiryDate : item.latestDateForOrder;
     
     if (!targetDateStr) return { color: 'text-slate-400', border: 'border-l-slate-300', bg: 'bg-slate-100', label: 'No Schedule' };
@@ -93,11 +92,38 @@ export function ProcurementCard({
     });
   };
 
+  const getMilestoneColor = (actual: string | null, target: string | null) => {
+    if (!actual || !target) return "text-muted-foreground";
+    const dActual = startOfDay(parseISO(actual));
+    const dTarget = startOfDay(parseISO(target));
+    return isAfter(dActual, dTarget) ? "text-red-600" : "text-green-600";
+  };
+
   const milestones = [
-    { label: 'Enquiry', date: item.actualEnquiryDate || item.targetEnquiryDate, isActual: !!item.actualEnquiryDate },
-    { label: 'Return', date: item.tenderReturnDate, isActual: !!item.tenderReturnDate },
-    { label: 'Order', date: item.orderPlacedDate || item.latestDateForOrder, isActual: !!item.orderPlacedDate },
-    { label: 'Start', date: item.startOnSiteDate, isActual: !!item.startOnSiteDate },
+    { 
+      label: item.actualEnquiryDate ? 'Actual Enquiry' : 'Due Enquiry', 
+      date: item.actualEnquiryDate || item.targetEnquiryDate, 
+      isActual: !!item.actualEnquiryDate,
+      color: getMilestoneColor(item.actualEnquiryDate, item.targetEnquiryDate)
+    },
+    { 
+      label: 'Tender Return', 
+      date: item.tenderReturnDate, 
+      isActual: !!item.tenderReturnDate,
+      color: "text-muted-foreground" 
+    },
+    { 
+      label: item.orderPlacedDate ? 'Actual Order' : 'Due Order', 
+      date: item.orderPlacedDate || item.latestDateForOrder, 
+      isActual: !!item.orderPlacedDate,
+      color: getMilestoneColor(item.orderPlacedDate, item.latestDateForOrder)
+    },
+    { 
+      label: 'Site Start', 
+      date: item.startOnSiteDate, 
+      isActual: !!item.startOnSiteDate,
+      color: "text-muted-foreground"
+    },
   ];
 
   return (
@@ -153,7 +179,10 @@ export function ProcurementCard({
                   </Tooltip>
                   <AlertDialogContent onClick={e => e.stopPropagation()}>
                     <AlertDialogHeader><AlertDialogTitle>Delete Procurement Entry?</AlertDialogTitle><AlertDialogDescription>This will remove the procurement record for {item.trade}.</AlertDialogDescription></AlertDialogHeader>
-                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction></AlertDialogFooter>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               </TooltipProvider>
@@ -167,7 +196,7 @@ export function ProcurementCard({
                   {rag.label}
               </div>
               <div className={cn("text-[9px] font-bold", rag.color)}>
-                  {item.status === 'planned' ? 'Next: Enquiry' : 'Next: Order'}
+                  {item.status === 'planned' ? 'Next: Enquiry' : item.status === 'ordered' ? 'Completed' : 'Next: Order'}
               </div>
           </div>
 
@@ -178,7 +207,7 @@ export function ProcurementCard({
                 ms.isActual ? "bg-primary/5 border-primary/20 shadow-inner" : "bg-muted/30 border-dashed"
               )}>
                 <span className="text-[8px] font-black uppercase text-muted-foreground tracking-tighter">{ms.label}</span>
-                <span className={cn("text-[10px] font-bold", ms.isActual ? "text-primary" : "text-muted-foreground")}>
+                <span className={cn("text-[10px] font-bold", ms.color)}>
                   {ms.date ? new Date(ms.date).toLocaleDateString() : 'TBC'}
                 </span>
               </div>

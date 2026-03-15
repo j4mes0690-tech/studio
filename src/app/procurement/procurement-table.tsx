@@ -30,7 +30,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { EditProcurementDialog } from './edit-item';
-import { differenceInDays, parseISO, startOfDay } from 'date-fns';
+import { differenceInDays, parseISO, startOfDay, isAfter } from 'date-fns';
 
 export function ProcurementTable({ 
   items, 
@@ -126,6 +126,13 @@ function ProcurementTableRow({
 
   const currentStatus = statusConfig[item.status];
 
+  const getMilestoneColor = (actual: string | null, target: string | null) => {
+    if (!actual || !target) return "text-muted-foreground";
+    const dActual = startOfDay(parseISO(actual));
+    const dTarget = startOfDay(parseISO(target));
+    return isAfter(dActual, dTarget) ? "text-red-600" : "text-green-600";
+  };
+
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     startTransition(async () => {
@@ -154,10 +161,18 @@ function ProcurementTableRow({
                 {rag.label}
             </div>
         </TableCell>
-        <TableCell className="text-center font-mono text-[10px]">{item.actualEnquiryDate || item.targetEnquiryDate ? new Date(item.actualEnquiryDate || item.targetEnquiryDate).toLocaleDateString() : '---'}</TableCell>
-        <TableCell className="text-center font-mono text-[10px]">{item.tenderReturnDate ? new Date(item.tenderReturnDate).toLocaleDateString() : '---'}</TableCell>
-        <TableCell className="text-center font-mono text-[10px]">{item.orderPlacedDate ? new Date(item.orderPlacedDate).toLocaleDateString() : '---'}</TableCell>
-        <TableCell className="text-center font-mono text-[10px] font-bold text-primary">{item.startOnSiteDate ? new Date(item.startOnSiteDate).toLocaleDateString() : '---'}</TableCell>
+        <TableCell className={cn("text-center font-mono text-[10px] font-bold", getMilestoneColor(item.actualEnquiryDate, item.targetEnquiryDate))}>
+            {item.actualEnquiryDate ? new Date(item.actualEnquiryDate).toLocaleDateString() : (item.targetEnquiryDate ? new Date(item.targetEnquiryDate).toLocaleDateString() : '---')}
+        </TableCell>
+        <TableCell className="text-center font-mono text-[10px]">
+            {item.tenderReturnDate ? new Date(item.tenderReturnDate).toLocaleDateString() : '---'}
+        </TableCell>
+        <TableCell className={cn("text-center font-mono text-[10px] font-bold", getMilestoneColor(item.orderPlacedDate, item.latestDateForOrder))}>
+            {item.orderPlacedDate ? new Date(item.orderPlacedDate).toLocaleDateString() : (item.latestDateForOrder ? new Date(item.latestDateForOrder).toLocaleDateString() : '---')}
+        </TableCell>
+        <TableCell className="text-center font-mono text-[10px] font-bold text-primary">
+            {item.startOnSiteDate ? new Date(item.startOnSiteDate).toLocaleDateString() : '---'}
+        </TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
             <TooltipProvider>
@@ -183,7 +198,10 @@ function ProcurementTableRow({
                 </Tooltip>
                 <AlertDialogContent onClick={e => e.stopPropagation()}>
                   <AlertDialogHeader><AlertDialogTitle>Delete Procurement Entry?</AlertDialogTitle><AlertDialogDescription>This will remove the procurement record for {item.trade}.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction></AlertDialogFooter>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </TooltipProvider>
