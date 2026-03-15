@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -382,14 +381,14 @@ function AcceptInstructionButton({
                                                         {projectStaff.length === 0 ? (
                                                             <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to project</div>
                                                         ) : projectStaff.map(u => (
-                                                            <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>
+                                                            <SelectItem key={`staff-${u.id}`} value={u.email}>{u.name} ({u.email})</SelectItem>
                                                         ))}
                                                         
                                                         <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase mt-2 flex items-center gap-1 border-t"><Users2 className="h-3 w-3" /> Sub-contractors / Designers (RFI)</div>
                                                         {projectExternalPartners.length === 0 ? (
                                                             <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to project</div>
                                                         ) : projectExternalPartners.map(p => (
-                                                            <SelectItem key={p.id} value={p.email}>{p.name} ({p.email})</SelectItem>
+                                                            <SelectItem key={`partner-${p.id}`} value={p.email}>{p.name} ({p.email})</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
