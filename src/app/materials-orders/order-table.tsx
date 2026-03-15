@@ -298,7 +298,7 @@ function OrderTableRow({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
                       <Trash2 className="h-4 w-4" />
                       <span className="sr-only">Delete Order</span>
                     </Button>
@@ -309,7 +309,7 @@ function OrderTableRow({
               <AlertDialogContent onClick={e => e.stopPropagation()}>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Order?</AlertDialogTitle>
-                  <AlertDialogDescription>Permanently remove order {order.orderNumber}.</AlertDialogDescription>
+                  <AlertDialogDescription>This will remove order {order.orderNumber} from the system history. This action is permanent.</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>

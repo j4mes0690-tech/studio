@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -223,7 +222,9 @@ export function OrderCard({
                 <CardTitle className="text-lg group-hover:text-primary transition-colors">{order.description}</CardTitle>
               </div>
               <CardDescription className="flex items-center gap-3">
-                <span className="font-bold text-foreground uppercase tracking-tighter text-[10px] bg-muted px-1.5 rounded">{order.supplierName}</span>
+                <span className="font-bold text-foreground uppercase tracking-tighter text-[10px] bg-muted px-1.5 rounded flex items-center gap-1">
+                    <CheckCircle2 className="h-2 w-2" /> {order.supplierName}
+                </span>
                 <span className="font-semibold text-foreground">{project?.name || 'Unknown Project'}</span>
                 {!isDraft && (
                   <>
@@ -275,7 +276,7 @@ export function OrderCard({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
                           <Trash2 className="h-4 w-4" />
                           <span className="sr-only">Delete Order</span>
                         </Button>
