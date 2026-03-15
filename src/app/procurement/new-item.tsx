@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -26,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, ShoppingCart, Users2, Calendar, Clock, Info } from 'lucide-react';
+import { PlusCircle, Loader2, Save, ShoppingCart, Users2, Calendar, Clock, Info, CheckCircle2 } from 'lucide-react';
 import type { Project, SubContractor, ProcurementItem } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -34,7 +35,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { addWeeks, format, parseISO, subWeeks } from 'date-fns';
+import { format, parseISO, subWeeks } from 'date-fns';
 
 const NewProcurementSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -53,12 +54,14 @@ export function NewProcurementDialog({
   projects, 
   subContractors, 
   allProcurement,
-  currentUser 
+  currentUser,
+  initialProjectId
 }: { 
   projects: Project[]; 
   subContractors: SubContractor[]; 
   allProcurement: ProcurementItem[];
   currentUser: any;
+  initialProjectId?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
@@ -68,7 +71,7 @@ export function NewProcurementDialog({
   const form = useForm<NewProcurementFormValues>({
     resolver: zodResolver(NewProcurementSchema),
     defaultValues: {
-      projectId: '',
+      projectId: initialProjectId || '',
       trade: '',
       subcontractorId: null,
       warrantyRequired: false,
@@ -109,7 +112,7 @@ export function NewProcurementDialog({
     }
   }, [startOnSiteDate, tenderWeeks, leadInWeeks]);
 
-  const onSubmit = (values: NewProcurementFormValues) => {
+  const onSubmit = (values: NewProcurementFormValues, shouldClose: boolean = true) => {
     if (!calculatedDates) return;
 
     startTransition(async () => {
@@ -142,8 +145,19 @@ export function NewProcurementDialog({
         };
 
         await addDoc(collection(db, 'procurement-items'), procurementData);
-        toast({ title: 'Success', description: 'Trade procurement record initialized.' });
-        setOpen(false);
+        toast({ title: 'Success', description: `Trade package "${values.trade}" recorded.` });
+        
+        // Reset for next entry
+        form.reset({
+            ...values,
+            trade: '',
+            subcontractorId: null,
+            comments: '',
+        });
+
+        if (shouldClose) {
+          setOpen(false);
+        }
       } catch (err) {
         console.error(err);
         toast({ title: 'Error', description: 'Failed to save procurement item.', variant: 'destructive' });
@@ -152,8 +166,19 @@ export function NewProcurementDialog({
   };
 
   useEffect(() => {
-    if (!open) form.reset();
-  }, [open, form]);
+    if (open) {
+        form.reset({
+            projectId: initialProjectId || '',
+            trade: '',
+            subcontractorId: null,
+            warrantyRequired: false,
+            tenderPeriodWeeks: 4,
+            leadInPeriodWeeks: 4,
+            startOnSiteDate: '',
+            comments: '',
+        });
+    }
+  }, [open, initialProjectId, form]);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -170,19 +195,19 @@ export function NewProcurementDialog({
                 <ShoppingCart className="h-6 w-6" />
             </div>
             <div>
-                <DialogTitle>New Procurement Entry</DialogTitle>
-                <DialogDescription>Input the site start date and periods; enquiry milestones will be calculated automatically.</DialogDescription>
+                <DialogTitle>Rapid Procurement Logging</DialogTitle>
+                <DialogDescription>Input site milestones to calculate enquiry dates. Add multiple items in sequence.</DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+          <form onSubmit={form.handleSubmit((v) => onSubmit(v, true))} className="space-y-6 pt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField control={form.control} name="projectId" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Project</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!!initialProjectId}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Choose project" /></SelectTrigger></FormControl>
                             <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                         </Select>
@@ -273,10 +298,6 @@ export function NewProcurementDialog({
                                 <p className="text-sm font-bold text-primary">{new Date(calculatedDates.targetEnquiryDate).toLocaleDateString()}</p>
                             </div>
                         </div>
-                        <div className="mt-3 flex items-start gap-2 bg-muted/30 p-2 rounded text-[10px] text-muted-foreground italic">
-                            <Info className="h-3 w-3 shrink-0 mt-0.5" />
-                            To ensure successful site commencement on {new Date(startOnSiteDate).toLocaleDateString()}, enquiries must be issued by {new Date(calculatedDates.targetEnquiryDate).toLocaleDateString()}.
-                        </div>
                     </div>
                 )}
             </div>
@@ -288,11 +309,22 @@ export function NewProcurementDialog({
                 </FormItem>
             )} />
 
-            <DialogFooter className="border-t pt-6 gap-3">
-              <Button type="button" variant="ghost" className="font-bold" onClick={() => setOpen(false)} disabled={isPending}>Cancel</Button>
-              <Button type="submit" className="flex-1 h-12 text-lg font-bold" disabled={isPending || !calculatedDates}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Log Procurement Item
+            <DialogFooter className="flex flex-col sm:flex-row border-t pt-6 gap-3">
+              <Button type="button" variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
+              <div className="hidden sm:block flex-1" />
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="h-12 px-6 font-bold gap-2 border-primary/30 text-primary" 
+                disabled={isPending || !calculatedDates}
+                onClick={form.handleSubmit((v) => onSubmit(v, false))}
+              >
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />} 
+                Add & Continue
+              </Button>
+              <Button type="submit" className="h-12 px-8 font-bold gap-2 shadow-lg shadow-primary/20" disabled={isPending || !calculatedDates}>
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                Log & Finish
               </Button>
             </DialogFooter>
           </form>
