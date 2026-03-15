@@ -1,7 +1,19 @@
 import { Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export function Logo({ className }: { className?: string }) {
+/**
+ * Logo - The primary branding component for SiteCommand.
+ * Supports hiding text for compact or splash screen use cases.
+ */
+export function Logo({ 
+  className, 
+  iconClassName, 
+  hideText = false 
+}: { 
+  className?: string; 
+  iconClassName?: string; 
+  hideText?: boolean;
+}) {
   return (
     <div
       className={cn(
@@ -9,8 +21,8 @@ export function Logo({ className }: { className?: string }) {
         className
       )}
     >
-      <Building2 className="h-6 w-6" />
-      <span>SiteCommand</span>
+      <Building2 className={cn('h-6 w-6', iconClassName)} />
+      {!hideText && <span>SiteCommand</span>}
     </div>
   );
 }
