@@ -29,6 +29,7 @@ import {
   Calculator,
   CalendarRange,
   ClipboardCheck,
+  ClipboardList,
   TrendingUp,
   AlertTriangle,
   CheckCircle2,
