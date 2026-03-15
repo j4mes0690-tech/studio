@@ -26,25 +26,24 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, ShoppingCart, ShieldCheck, Users2, Calendar } from 'lucide-react';
-import type { Project, SubContractor, ProcurementItem, Trade } from '@/lib/types';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { PlusCircle, Loader2, Save, ShoppingCart, Users2, Calendar, Clock, Info } from 'lucide-react';
+import type { Project, SubContractor, ProcurementItem } from '@/lib/types';
+import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { addWeeks, format, parseISO } from 'date-fns';
+import { addWeeks, format, parseISO, subWeeks } from 'date-fns';
 
 const NewProcurementSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  trade: z.string().min(1, 'Trade is required.'),
+  trade: z.string().min(1, 'Trade description is required.'),
   subcontractorId: z.string().optional().nullable(),
   warrantyRequired: z.boolean().default(false),
-  targetEnquiryDate: z.string().min(1, 'Target enquiry date is required.'),
-  tenderPeriodWeeks: z.coerce.number().min(1).default(4),
+  tenderPeriodWeeks: z.coerce.number().min(1, 'Minimum 1 week tender period.').default(4),
   leadInPeriodWeeks: z.coerce.number().min(0).default(4),
-  startOnSiteDate: z.string().optional().nullable(),
+  startOnSiteDate: z.string().min(1, 'Start on site date is required.'),
   comments: z.string().optional().default(''),
 });
 
@@ -66,9 +65,6 @@ export function NewProcurementDialog({
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  const tradesQuery = useMemoFirebase(() => (db ? collection(db, 'trades') : null), [db]);
-  const { data: trades } = useCollection<Trade>(tradesQuery);
-
   const form = useForm<NewProcurementFormValues>({
     resolver: zodResolver(NewProcurementSchema),
     defaultValues: {
@@ -76,7 +72,6 @@ export function NewProcurementDialog({
       trade: '',
       subcontractorId: null,
       warrantyRequired: false,
-      targetEnquiryDate: new Date().toISOString().split('T')[0],
       tenderPeriodWeeks: 4,
       leadInPeriodWeeks: 4,
       startOnSiteDate: '',
@@ -93,7 +88,30 @@ export function NewProcurementDialog({
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, selectedProject, subContractors]);
 
+  // CALCULATION LOGIC
+  const startOnSiteDate = form.watch('startOnSiteDate');
+  const tenderWeeks = form.watch('tenderPeriodWeeks');
+  const leadInWeeks = form.watch('leadInPeriodWeeks');
+
+  const calculatedDates = useMemo(() => {
+    if (!startOnSiteDate) return null;
+    try {
+      const startDate = parseISO(startOnSiteDate);
+      const latestOrderDate = subWeeks(startDate, leadInWeeks);
+      const targetEnquiryDate = subWeeks(latestOrderDate, tenderWeeks);
+      
+      return {
+        latestOrderDate: format(latestOrderDate, 'yyyy-MM-dd'),
+        targetEnquiryDate: format(targetEnquiryDate, 'yyyy-MM-dd')
+      };
+    } catch (e) {
+      return null;
+    }
+  }, [startOnSiteDate, tenderWeeks, leadInWeeks]);
+
   const onSubmit = (values: NewProcurementFormValues) => {
+    if (!calculatedDates) return;
+
     startTransition(async () => {
       try {
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
@@ -109,13 +127,13 @@ export function NewProcurementDialog({
           subcontractorId: values.subcontractorId || null,
           subcontractorName: subcontractor?.name || null,
           warrantyRequired: values.warrantyRequired,
-          targetEnquiryDate: values.targetEnquiryDate,
+          targetEnquiryDate: calculatedDates.targetEnquiryDate,
           tenderPeriodWeeks: values.tenderPeriodWeeks,
           actualEnquiryDate: null,
           tenderReturnDate: null,
-          latestDateForOrder: null,
+          latestDateForOrder: calculatedDates.latestOrderDate,
           leadInPeriodWeeks: values.leadInPeriodWeeks,
-          startOnSiteDate: values.startOnSiteDate || null,
+          startOnSiteDate: values.startOnSiteDate,
           preContractMeetingDate: null,
           orderPlacedDate: null,
           comments: values.comments || '',
@@ -140,9 +158,9 @@ export function NewProcurementDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 shadow-lg shadow-primary/20">
+        <Button className="gap-2 shadow-lg shadow-primary/20 font-bold">
           <PlusCircle className="h-4 w-4" />
-          Schedule Procurement
+          Log Trade Package
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -153,7 +171,7 @@ export function NewProcurementDialog({
             </div>
             <div>
                 <DialogTitle>New Procurement Entry</DialogTitle>
-                <DialogDescription>Initialize a new trade package for the project tender schedule.</DialogDescription>
+                <DialogDescription>Input the site start date and periods; enquiry milestones will be calculated automatically.</DialogDescription>
             </div>
           </div>
         </DialogHeader>
@@ -174,12 +192,8 @@ export function NewProcurementDialog({
                 <FormField control={form.control} name="trade" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Trade Discipline</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="Select trade" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                {trades?.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        <FormControl><Input placeholder="e.g. Structural Steelwork" {...field} /></FormControl>
+                        <FormMessage />
                     </FormItem>
                 )} />
             </div>
@@ -214,52 +228,69 @@ export function NewProcurementDialog({
             <div className="bg-primary/5 p-6 rounded-xl border border-primary/10">
                 <div className="flex items-center gap-2 mb-4">
                     <Calendar className="h-4 w-4 text-primary" />
-                    <h4 className="font-bold text-primary text-sm uppercase tracking-widest">Enquiry & Lead Planning</h4>
+                    <h4 className="font-bold text-primary text-sm uppercase tracking-widest">Site Milestones & Lead Times</h4>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <FormField control={form.control} name="targetEnquiryDate" render={({ field }) => (
+                    <FormField control={form.control} name="startOnSiteDate" render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-xs">Target Enquiry Date</FormLabel>
+                            <FormLabel className="text-xs font-bold">Required Start on Site</FormLabel>
                             <FormControl><Input type="date" {...field} /></FormControl>
+                            <FormMessage />
                         </FormItem>
                     )} />
 
                     <FormField control={form.control} name="tenderPeriodWeeks" render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-xs">Tender Period (Weeks)</FormLabel>
+                            <FormLabel className="text-xs font-bold">Tender Period (Weeks)</FormLabel>
                             <FormControl><Input type="number" min="1" {...field} /></FormControl>
+                            <FormMessage />
                         </FormItem>
                     )} />
 
                     <FormField control={form.control} name="leadInPeriodWeeks" render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-xs">Lead-In Period (Weeks)</FormLabel>
+                            <FormLabel className="text-xs font-bold">Lead-In Period (Weeks)</FormLabel>
                             <FormControl><Input type="number" min="0" {...field} /></FormControl>
+                            <FormMessage />
                         </FormItem>
                     )} />
                 </div>
+
+                {calculatedDates && (
+                    <div className="mt-6 p-4 bg-white rounded-lg border border-primary/20 shadow-sm animate-in fade-in slide-in-from-top-2 duration-500">
+                        <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase tracking-widest mb-3">
+                            <Clock className="h-3.5 w-3.5" />
+                            Calculated Procurement Logic
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Latest Order Date</p>
+                                <p className="text-sm font-bold text-primary">{new Date(calculatedDates.latestOrderDate).toLocaleDateString()}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Target Enquiry Date</p>
+                                <p className="text-sm font-bold text-primary">{new Date(calculatedDates.targetEnquiryDate).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                        <div className="mt-3 flex items-start gap-2 bg-muted/30 p-2 rounded text-[10px] text-muted-foreground italic">
+                            <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                            To ensure successful site commencement on {new Date(startOnSiteDate).toLocaleDateString()}, enquiries must be issued by {new Date(calculatedDates.targetEnquiryDate).toLocaleDateString()}.
+                        </div>
+                    </div>
+                )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField control={form.control} name="startOnSiteDate" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Start on Site Date</FormLabel>
-                        <FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl>
-                    </FormItem>
-                )} />
-
-                <FormField control={form.control} name="comments" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>General Comments</FormLabel>
-                        <FormControl><Textarea placeholder="Any specific requirements or tender notes..." className="min-h-[80px]" {...field} /></FormControl>
-                    </FormItem>
-                )} />
-            </div>
+            <FormField control={form.control} name="comments" render={({ field }) => (
+                <FormItem>
+                    <FormLabel>General Management Comments</FormLabel>
+                    <FormControl><Textarea placeholder="Any specific requirements or tender notes..." className="min-h-[80px]" {...field} /></FormControl>
+                </FormItem>
+            )} />
 
             <DialogFooter className="border-t pt-6 gap-3">
-              <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>Cancel</Button>
-              <Button type="submit" className="flex-1 h-12 text-lg font-bold" disabled={isPending}>
+              <Button type="button" variant="ghost" className="font-bold" onClick={() => setOpen(false)} disabled={isPending}>Cancel</Button>
+              <Button type="submit" className="flex-1 h-12 text-lg font-bold" disabled={isPending || !calculatedDates}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 Log Procurement Item
               </Button>

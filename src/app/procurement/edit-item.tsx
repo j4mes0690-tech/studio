@@ -18,33 +18,33 @@ import {
   FormField,
   FormItem,
   FormLabel,
+  FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Save, ShoppingCart, Calendar, Users2 } from 'lucide-react';
-import type { Project, SubContractor, ProcurementItem, Trade, ProcurementStatus } from '@/lib/types';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection } from 'firebase/firestore';
+import { Loader2, Save, ShoppingCart, Calendar, Users2, Clock, Info } from 'lucide-react';
+import type { Project, SubContractor, ProcurementItem, ProcurementStatus } from '@/lib/types';
+import { useFirestore } from '@/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
+import { format, parseISO, subWeeks } from 'date-fns';
 
 const EditProcurementSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  trade: z.string().min(1, 'Trade is required.'),
+  trade: z.string().min(1, 'Trade discipline is required.'),
   subcontractorId: z.string().optional().nullable(),
   warrantyRequired: z.boolean().default(false),
-  targetEnquiryDate: z.string().min(1),
   tenderPeriodWeeks: z.coerce.number().min(1),
+  leadInPeriodWeeks: z.coerce.number().min(0),
+  startOnSiteDate: z.string().min(1, 'Start on site date is required.'),
   actualEnquiryDate: z.string().optional().nullable(),
   tenderReturnDate: z.string().optional().nullable(),
-  latestDateForOrder: z.string().optional().nullable(),
-  leadInPeriodWeeks: z.coerce.number().min(0),
-  startOnSiteDate: z.string().optional().nullable(),
-  preContractMeetingDate: z.string().optional().nullable(),
   orderPlacedDate: z.string().optional().nullable(),
+  preContractMeetingDate: z.string().optional().nullable(),
   comments: z.string().optional().default(''),
   status: z.enum(['planned', 'enquiry', 'tender-returned', 'ordered', 'on-site']),
 });
@@ -68,9 +68,6 @@ export function EditProcurementDialog({
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  const tradesQuery = useMemoFirebase(() => (db ? collection(db, 'trades') : null), [db]);
-  const { data: trades } = useCollection<Trade>(tradesQuery);
-
   const form = useForm<EditProcurementFormValues>({
     resolver: zodResolver(EditProcurementSchema),
     defaultValues: {
@@ -78,15 +75,13 @@ export function EditProcurementDialog({
       trade: item.trade,
       subcontractorId: item.subcontractorId,
       warrantyRequired: !!item.warrantyRequired,
-      targetEnquiryDate: item.targetEnquiryDate,
       tenderPeriodWeeks: item.tenderPeriodWeeks,
+      leadInPeriodWeeks: item.leadInPeriodWeeks,
+      startOnSiteDate: item.startOnSiteDate || '',
       actualEnquiryDate: item.actualEnquiryDate,
       tenderReturnDate: item.tenderReturnDate,
-      latestDateForOrder: item.latestDateForOrder,
-      leadInPeriodWeeks: item.leadInPeriodWeeks,
-      startOnSiteDate: item.startOnSiteDate,
-      preContractMeetingDate: item.preContractMeetingDate,
       orderPlacedDate: item.orderPlacedDate,
+      preContractMeetingDate: item.preContractMeetingDate,
       comments: item.comments || '',
       status: item.status,
     },
@@ -99,15 +94,13 @@ export function EditProcurementDialog({
         trade: item.trade,
         subcontractorId: item.subcontractorId,
         warrantyRequired: !!item.warrantyRequired,
-        targetEnquiryDate: item.targetEnquiryDate,
         tenderPeriodWeeks: item.tenderPeriodWeeks,
+        leadInPeriodWeeks: item.leadInPeriodWeeks,
+        startOnSiteDate: item.startOnSiteDate || '',
         actualEnquiryDate: item.actualEnquiryDate,
         tenderReturnDate: item.tenderReturnDate,
-        latestDateForOrder: item.latestDateForOrder,
-        leadInPeriodWeeks: item.leadInPeriodWeeks,
-        startOnSiteDate: item.startOnSiteDate,
-        preContractMeetingDate: item.preContractMeetingDate,
         orderPlacedDate: item.orderPlacedDate,
+        preContractMeetingDate: item.preContractMeetingDate,
         comments: item.comments || '',
         status: item.status,
       });
@@ -122,7 +115,30 @@ export function EditProcurementDialog({
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, selectedProject, subContractors]);
 
+  // CALCULATION LOGIC
+  const startOnSiteDate = form.watch('startOnSiteDate');
+  const tenderWeeks = form.watch('tenderPeriodWeeks');
+  const leadInWeeks = form.watch('leadInPeriodWeeks');
+
+  const calculatedDates = useMemo(() => {
+    if (!startOnSiteDate) return null;
+    try {
+      const startDate = parseISO(startOnSiteDate);
+      const latestOrderDate = subWeeks(startDate, leadInWeeks);
+      const targetEnquiryDate = subWeeks(latestOrderDate, tenderWeeks);
+      
+      return {
+        latestOrderDate: format(latestOrderDate, 'yyyy-MM-dd'),
+        targetEnquiryDate: format(targetEnquiryDate, 'yyyy-MM-dd')
+      };
+    } catch (e) {
+      return null;
+    }
+  }, [startOnSiteDate, tenderWeeks, leadInWeeks]);
+
   const onSubmit = (values: EditProcurementFormValues) => {
+    if (!calculatedDates) return;
+
     startTransition(async () => {
       try {
         const sub = subContractors.find(s => s.id === values.subcontractorId);
@@ -132,10 +148,12 @@ export function EditProcurementDialog({
           ...values,
           subcontractorName: sub?.name || null,
           subcontractorId: values.subcontractorId === 'none' ? null : values.subcontractorId,
+          targetEnquiryDate: calculatedDates.targetEnquiryDate,
+          latestDateForOrder: calculatedDates.latestOrderDate,
         };
 
         await updateDoc(docRef, updates);
-        toast({ title: 'Success', description: 'Procurement status updated.' });
+        toast({ title: 'Success', description: 'Procurement milestones revised.' });
         onOpenChange(false);
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to update record.', variant: 'destructive' });
@@ -147,8 +165,8 @@ export function EditProcurementDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto p-0">
         <DialogHeader className="p-6 pb-0">
-          <DialogTitle>Edit Procurement: {item.reference}</DialogTitle>
-          <DialogDescription>Update milestones and process status for this trade package.</DialogDescription>
+          <DialogTitle>Edit Procurement Record: {item.reference}</DialogTitle>
+          <DialogDescription>Revision of trade discipline milestones and appointment status.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -159,7 +177,7 @@ export function EditProcurementDialog({
                         <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
                     )} />
                     <FormField control={form.control} name="trade" render={({ field }) => (
-                        <FormItem><FormLabel>Trade</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{trades?.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                        <FormItem><FormLabel>Trade Discipline</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
 
@@ -178,44 +196,77 @@ export function EditProcurementDialog({
                     )} />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-muted/20 p-4 rounded-lg border border-dashed">
-                    <FormField control={form.control} name="targetEnquiryDate" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Target Enquiry</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
-                    )} />
+                <div className="bg-primary/5 p-6 rounded-xl border border-primary/10 space-y-6">
+                    <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        <h4 className="font-bold text-primary text-sm uppercase tracking-widest">Base Milestones & Calculated Logic</h4>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <FormField control={form.control} name="startOnSiteDate" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs font-bold">Start on Site Date</FormLabel>
+                                <FormControl><Input type="date" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+
+                        <FormField control={form.control} name="tenderPeriodWeeks" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs font-bold">Tender Period (Weeks)</FormLabel>
+                                <FormControl><Input type="number" min="1" {...field} /></FormControl>
+                            </FormItem>
+                        )} />
+
+                        <FormField control={form.control} name="leadInPeriodWeeks" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs font-bold">Lead-In Period (Weeks)</FormLabel>
+                                <FormControl><Input type="number" min="0" {...field} /></FormControl>
+                            </FormItem>
+                        )} />
+                    </div>
+
+                    {calculatedDates && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-4 rounded-lg border border-primary/20 shadow-sm">
+                            <div className="space-y-1">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Calculated Latest Order</p>
+                                <p className="text-sm font-bold text-primary">{new Date(calculatedDates.latestOrderDate).toLocaleDateString()}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Calculated Target Enquiry</p>
+                                <p className="text-sm font-bold text-primary">{new Date(calculatedDates.targetEnquiryDate).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-muted/20 p-4 rounded-lg border border-dashed">
                     <FormField control={form.control} name="actualEnquiryDate" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Actual Enquiry</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
+                        <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Actual Enquiry Date</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="tenderReturnDate" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Tender Return</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
+                        <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Tender Return Date</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
                     )} />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t pt-6">
-                    <FormField control={form.control} name="latestDateForOrder" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Latest Order Date</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
-                    )} />
                     <FormField control={form.control} name="orderPlacedDate" render={({ field }) => (
                         <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Order Placed</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="preContractMeetingDate" render={({ field }) => (
                         <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Pre-Contract Mtg</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
                     )} />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField control={form.control} name="startOnSiteDate" render={({ field }) => (
-                        <FormItem><FormLabel>Actual Start on Site</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
-                    )} />
                     <FormField control={form.control} name="comments" render={({ field }) => (
-                        <FormItem><FormLabel>Management Comments</FormLabel><FormControl><Textarea className="min-h-[80px]" {...field} /></FormControl></FormItem>
+                        <FormItem><FormLabel>Management Comments</FormLabel><FormControl><Textarea className="min-h-[40px] h-10" {...field} /></FormControl></FormItem>
                     )} />
                 </div>
             </div>
 
             <DialogFooter className="p-6 bg-muted/10 border-t sticky bottom-0 gap-3">
-              <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
+              <Button type="button" variant="ghost" className="font-bold" onClick={() => onOpenChange(false)}>Discard</Button>
+              <Button type="submit" className="flex-1 h-12 text-lg font-bold" disabled={isPending || !calculatedDates}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                Commit Updates
+                Save Changes
               </Button>
             </DialogFooter>
           </form>
