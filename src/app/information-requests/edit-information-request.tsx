@@ -71,7 +71,7 @@ const EditInformationRequestSchema = z.object({
   id: z.string().min(1),
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().optional().default(''),
-  assignedTo: z.array(z.string()).min(1, 'A recipient must be assigned.'),
+  assignedTo: z.array(z.string()).default([]),
   requiredBy: z.string().optional(),
   status: z.enum(['draft', 'open', 'closed']).default('open'),
 });
@@ -139,6 +139,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: EditInformationRequestFormValues) => {
+    // Explicitly enforce assignee for formal logging
     if (values.status === 'open') {
       let hasError = false;
       if (!values.description || values.description.trim().length < 10) {
@@ -146,7 +147,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         hasError = true;
       }
       if (!values.assignedTo || values.assignedTo.length === 0) {
-        form.setError('assignedTo', { message: 'A recipient must be assigned to log this request.' });
+        form.setError('assignedTo', { message: 'A recipient must be assigned to formally log this request.' });
         hasError = true;
       }
       if (hasError) return;
@@ -178,7 +179,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
           })
         );
 
-        const targetEmail = values.assignedTo[0].replace(/^(staff|partner):/, '');
+        const targetEmail = values.assignedTo[0]?.replace(/^(staff|partner):/, '') || '';
         const updates: any = {
           projectId: values.projectId,
           description: values.description || '',
@@ -208,7 +209,6 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     return (distributionUsers || []).find(u => u.email === email)?.name || email;
                 });
                 
-                // Generate PDF (includes the uploaded photos and lists the files)
                 const pdf = await generateInformationRequestPDF({ ...item, ...updates }, selectedProject, assignedToNames);
                 const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
@@ -335,7 +335,10 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     <FormItem>
                       <FormLabel>Assign To (Recipient)</FormLabel>
                       <Select 
-                        onValueChange={(val) => field.onChange([val])} 
+                        onValueChange={(val) => {
+                          field.onChange([val]);
+                          form.clearErrors('assignedTo');
+                        }} 
                         value={field.value?.[0] || ""}
                         disabled={!selectedProjectId}
                       >

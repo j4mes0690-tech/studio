@@ -68,7 +68,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().optional().default(''),
-  assignedTo: z.array(z.string()).min(1, 'A recipient must be assigned.'),
+  assignedTo: z.array(z.string()).default([]),
   requiredBy: z.string().optional(),
   status: z.enum(['draft', 'open']).default('open'),
 });
@@ -123,6 +123,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: NewInformationRequestFormValues) => {
+    // Explicitly enforce assignee for formal logging
     if (values.status === 'open') {
       let hasError = false;
       if (!values.description || values.description.trim().length < 10) {
@@ -130,7 +131,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         hasError = true;
       }
       if (!values.assignedTo || values.assignedTo.length === 0) {
-        form.setError('assignedTo', { message: 'A recipient must be assigned to log this request.' });
+        form.setError('assignedTo', { message: 'A recipient must be assigned to formally log this request.' });
         hasError = true;
       }
       if (hasError) return;
@@ -166,7 +167,8 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         const sub = availableExternalPartners.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
         const prefix = sub ? 'RFI' : 'CRFI';
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
-        const reference = getNextReference(allRequests, values.projectId, prefix, initials);
+        const existingRefs = allRequests.map(o => ({ reference: o.reference, projectId: o.projectId }));
+        const reference = getNextReference(existingRefs, values.projectId, prefix, initials);
 
         const requestData: any = {
           reference,
@@ -206,7 +208,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 return (distributionUsers || []).find(u => u.email === email)?.name || email;
             });
             
-            // Generate PDF (includes the uploaded photos and lists the files)
             const pdf = await generateInformationRequestPDF({ ...requestData, id: newDocRef.id } as InformationRequest, selectedProject, assignedToNames);
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
@@ -278,7 +279,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           <DialogHeader>
             <DialogTitle>Log Information Request (CRFI / RFI)</DialogTitle>
             <DialogDescription>
-              Record a query for project team members or trade partners. Formal issuance triggers an email with PDF and file attachments.
+              Record a query for project team members or trade partners. formal issuance triggers an email with PDF and file attachments.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -309,7 +310,10 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                     <FormItem>
                       <FormLabel>Assign To (Recipient)</FormLabel>
                       <Select 
-                        onValueChange={(val) => field.onChange([val])} 
+                        onValueChange={(val) => {
+                          field.onChange([val]);
+                          form.clearErrors('assignedTo');
+                        }} 
                         value={field.value?.[0] || ""}
                         disabled={!selectedProjectId}
                       >
@@ -457,7 +461,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                   disabled={isPending}
                   onClick={() => form.setValue('status', 'open')}
                 >
-                  {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 mr-2" />}
+                  {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 animate-spin mr-2" />}
                   Save & Log Request
                 </Button>
               </DialogFooter>
