@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -24,7 +25,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PlusCircle, Loader2, Save, ShieldCheck, Users2 } from 'lucide-react';
 import type { Project, DistributionUser, SubContractor, IRSItem } from '@/lib/types';
 import { useFirestore } from '@/firebase';
@@ -191,18 +192,23 @@ export function NewIRSItemDialog({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                                <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1 border-b">
-                                  <ShieldCheck className="h-3 w-3" /> Project Staff
-                                </div>
-                                {availableStaff.map(u => (
-                                  <SelectItem key={`staff-${u.id}`} value={u.email}>{u.name}</SelectItem>
-                                ))}
-                                <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1 border-b mt-2">
-                                  <Users2 className="h-3 w-3" /> Trade Partners
-                                </div>
-                                {availablePartners.map(s => (
-                                  <SelectItem key={`partner-${s.id}`} value={s.email}>{s.name}</SelectItem>
-                                ))}
+                                <SelectGroup>
+                                  <SelectLabel className="flex items-center gap-2 text-primary">
+                                    <ShieldCheck className="h-3 w-3" /> Project Staff
+                                  </SelectLabel>
+                                  {availableStaff.map(u => (
+                                    <SelectItem key={`staff-${u.id}`} value={u.email}>{u.name}</SelectItem>
+                                  ))}
+                                </SelectGroup>
+                                <Separator className="my-1" />
+                                <SelectGroup>
+                                  <SelectLabel className="flex items-center gap-2 text-accent">
+                                    <Users2 className="h-3 w-3" /> Trade Partners
+                                  </SelectLabel>
+                                  {availablePartners.map(s => (
+                                    <SelectItem key={`partner-${s.id}`} value={s.email}>{s.name}</SelectItem>
+                                  ))}
+                                </SelectGroup>
                             </SelectContent>
                         </Select>
                         <FormMessage />
@@ -240,7 +246,7 @@ export function NewIRSItemDialog({
 
             <DialogFooter>
               <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Save to Schedule
               </Button>
             </DialogFooter>

@@ -1,9 +1,11 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { ClientInstruction, Project, DistributionUser, ChatMessage, Photo, SubContractor, FileAttachment, Instruction, InformationRequest } from '@/lib/types';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -66,7 +68,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RespondToInstruction } from './respond-to-instruction';
 import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
 import { ImageLightbox } from '@/components/image-lightbox';
@@ -75,6 +77,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { sendClientInstructionEmailAction } from './actions';
+import { Separator } from '@/components/ui/separator';
 
 function ReopenInstructionButton({ instruction, currentUser }: { instruction: ClientInstruction, currentUser: DistributionUser }) {
     const { toast } = useToast();
@@ -192,12 +195,6 @@ function AcceptInstructionButton({
         const assignedEmails = project.assignedUsers || [];
         return allUsers.filter(u => assignedEmails.some(e => e.toLowerCase().trim() === u.email.toLowerCase().trim()));
     }, [allUsers, project]);
-
-    const projectSubs = useMemo(() => {
-        if (!allSubs || !project) return [];
-        const projectSubIds = project.assignedSubContractors || [];
-        return allSubs.filter(s => projectSubIds.includes(s.id));
-    }, [allSubs, project]);
 
     const projectExternalPartners = useMemo(() => {
         if (!allSubs || !project) return [];
@@ -377,19 +374,27 @@ function AcceptInstructionButton({
                                                         <SelectValue placeholder="Select Project Recipient" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1"><ShieldCheck className="h-3 w-3" /> Project Staff (CRFI)</div>
-                                                        {projectStaff.length === 0 ? (
-                                                            <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to project</div>
-                                                        ) : projectStaff.map(u => (
-                                                            <SelectItem key={`staff-${u.id}`} value={u.email}>{u.name} ({u.email})</SelectItem>
-                                                        ))}
-                                                        
-                                                        <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase mt-2 flex items-center gap-1 border-t"><Users2 className="h-3 w-3" /> Sub-contractors / Designers (RFI)</div>
-                                                        {projectExternalPartners.length === 0 ? (
-                                                            <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to project</div>
-                                                        ) : projectExternalPartners.map(p => (
-                                                            <SelectItem key={`partner-${p.id}`} value={p.email}>{p.name} ({p.email})</SelectItem>
-                                                        ))}
+                                                        <SelectGroup>
+                                                          <SelectLabel className="flex items-center gap-2 text-primary">
+                                                            <ShieldCheck className="h-3 w-3" /> Project Staff
+                                                          </SelectLabel>
+                                                          {projectStaff.length === 0 ? (
+                                                              <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to project</div>
+                                                          ) : projectStaff.map(u => (
+                                                              <SelectItem key={`staff-${u.id}`} value={u.email}>{u.name} ({u.email})</SelectItem>
+                                                          ))}
+                                                        </SelectGroup>
+                                                        <Separator className="my-1" />
+                                                        <SelectGroup>
+                                                          <SelectLabel className="flex items-center gap-2 text-accent">
+                                                            <Users2 className="h-3 w-3" /> Trade Partners
+                                                          </SelectLabel>
+                                                          {projectExternalPartners.length === 0 ? (
+                                                              <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to project</div>
+                                                          ) : projectExternalPartners.map(p => (
+                                                              <SelectItem key={`partner-${p.id}`} value={p.email}>{p.name} ({p.email})</SelectItem>
+                                                          ))}
+                                                        </SelectGroup>
                                                     </SelectContent>
                                                 </Select>
                                             </div>
@@ -441,10 +446,10 @@ function AcceptInstructionButton({
                                                         <SelectValue placeholder="Assign trade" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        {projectSubs.length === 0 ? (
+                                                        {projectExternalPartners.length === 0 ? (
                                                             <div className="p-2 text-[10px] text-muted-foreground italic">No sub-contractors assigned to project</div>
-                                                        ) : projectSubs.map(s => (
-                                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                                        ) : projectExternalPartners.map(s => (
+                                                            <SelectItem key={`si-sub-${s.id}`} value={s.id}>{s.name}</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
