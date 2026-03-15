@@ -34,7 +34,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw, Loader2, Send, Save } from 'lucide-react';
-import type { Project, SubContractor, Photo, CleanUpNotice } from '@/lib/types';
+import type { Project, SubContractor, Photo, CleanUpNotice, DistributionUser } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -44,7 +44,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { getProjectInitials, getNextReference } from '@/lib/utils';
+import { getProjectInitials, getNextReference, getPartnerEmails } from '@/lib/utils';
 import { sendCleanUpNoticeEmailAction } from './actions';
 
 const NewNoticeSchema = z.object({
@@ -60,9 +60,10 @@ type NewNoticeProps = {
   projects: Project[];
   subContractors: SubContractor[];
   allNotices: CleanUpNotice[];
+  allUsers: DistributionUser[];
 };
 
-export function NewNotice({ projects, subContractors, allNotices }: NewNoticeProps) {
+export function NewNotice({ projects, subContractors, allNotices, allUsers }: NewNoticeProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
@@ -127,8 +128,16 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
           })
         );
 
-        const recipientContacts = subContractors.filter(sub => values.recipients?.includes(sub.id));
-        const recipientEmails = recipientContacts.map(sub => sub.email);
+        // Calculate actual recipients (sub emails + assigned user emails)
+        const allRecipientEmails = new Set<string>();
+        const subEntities = subContractors.filter(sub => values.recipients?.includes(sub.id));
+        
+        values.recipients?.forEach(subId => {
+            const partnerEmails = getPartnerEmails(subId, subContractors, allUsers);
+            partnerEmails.forEach(e => allRecipientEmails.add(e));
+        });
+
+        const recipientEmailsList = Array.from(allRecipientEmails);
 
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const reference = getNextReference(allNotices, values.projectId, 'CN', initials);
@@ -137,7 +146,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
           reference,
           projectId: values.projectId,
           description: values.description || '',
-          recipients: recipientEmails,
+          recipients: recipientEmailsList,
           photos: uploadedPhotos,
           createdAt: new Date().toISOString(),
           status: values.status,
@@ -155,7 +164,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
         });
 
         // 3. Automated Distribution via PDF (Only if issued)
-        if (values.status === 'issued' && recipientContacts.length > 0) {
+        if (values.status === 'issued' && recipientEmailsList.length > 0) {
           try {
             const { jsPDF } = await import('jspdf');
             const html2canvas = (await import('html2canvas')).default;
@@ -218,18 +227,21 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
 
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
-            // Distribute to each selected sub-contractor
-            for (const sub of recipientContacts) {
-              await sendCleanUpNoticeEmailAction({
-                email: sub.email,
-                name: sub.name,
-                projectName: selectedProject?.name || 'Project',
-                reference,
-                pdfBase64,
-                fileName: `CleanUpNotice-${reference}.pdf`
-              });
+            // Distribute to every identified recipient (partner primary + assigned users)
+            for (const sub of subEntities) {
+              const partnerEmails = getPartnerEmails(sub.id, subContractors, allUsers);
+              for (const email of partnerEmails) {
+                  await sendCleanUpNoticeEmailAction({
+                    email,
+                    name: sub.name,
+                    projectName: selectedProject?.name || 'Project',
+                    reference,
+                    pdfBase64,
+                    fileName: `CleanUpNotice-${reference}.pdf`
+                  });
+              }
             }
-            toast({ title: 'Success', description: 'Notice issued and distributed to trade partners.' });
+            toast({ title: 'Success', description: 'Notice issued and distributed to trade partners and associated staff.' });
           } catch (err) {
             console.error('PDF Distribution Error:', err);
             toast({ title: 'Record Saved', description: 'Notice saved, but email distribution encountered an error.', variant: 'destructive' });
@@ -308,7 +320,7 @@ export function NewNotice({ projects, subContractors, allNotices }: NewNoticePro
         <DialogHeader>
           <DialogTitle>Record New Clean Up Notice</DialogTitle>
           <DialogDescription>
-            Capture an issue that requires cleaning. Formal issuing triggers a PDF report distribution.
+            Capture an issue that requires cleaning. Formal issuing triggers a PDF report distribution to the partner and their assigned staff.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>

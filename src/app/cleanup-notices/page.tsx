@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/tooltip';
 
 function CleanUpContent() {
-  const searchParams = useSearchParams();
+  const searchParams = searchParams || useSearchParams();
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
@@ -61,6 +61,12 @@ function CleanUpContent() {
     return collection(db, 'sub-contractors');
   }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
+
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
+  const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
   // Visibility logic
   const allowedProjects = useMemo(() => {
@@ -133,6 +139,7 @@ function CleanUpContent() {
               projects={allowedProjects} 
               subContractors={subContractors || []} 
               allNotices={allNotices || []}
+              allUsers={allUsers || []}
             />
           </div>
         </div>
@@ -144,6 +151,7 @@ function CleanUpContent() {
               items={filteredNotices}
               projects={allowedProjects}
               subContractors={subContractors || []}
+              allUsers={allUsers || []}
             />
           ) : (
             <div className="grid gap-4 md:gap-6">
@@ -153,6 +161,7 @@ function CleanUpContent() {
                   notice={notice}
                   projects={allowedProjects}
                   subContractors={subContractors || []}
+                  allUsers={allUsers || []}
                 />
               ))}
             </div>

@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Loader2, Save, Send, MailPlus, ShieldCheck, Eye, Edit3, Building2 } from 'lucide-react';
+import { Pencil, Loader2, Save, Send, MailPlus, ShieldCheck, Eye, Edit3, Building2, Mail } from 'lucide-react';
 import type { DistributionUser, Invitation, SubContractor } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
@@ -52,6 +52,7 @@ const EditUserSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters.'),
   userType: z.enum(['internal', 'partner']).default('internal'),
   subContractorId: z.string().optional(),
+  receivePartnerEmails: z.boolean().default(false),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -136,6 +137,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
       password: user.password || '',
       userType: user.userType || 'internal',
       subContractorId: user.subContractorId || 'none',
+      receivePartnerEmails: !!user.receivePartnerEmails,
       canManageUsers: user.permissions?.canManageUsers || false,
       canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
       canManageProjects: user.permissions?.canManageProjects || false,
@@ -205,6 +207,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         password: user.password || '',
         userType: user.userType || 'internal',
         subContractorId: user.subContractorId || 'none',
+        receivePartnerEmails: !!user.receivePartnerEmails,
         canManageUsers: user.permissions?.canManageUsers || false,
         canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
         canManageProjects: user.permissions?.canManageProjects || false,
@@ -267,6 +270,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
   }, [open, user, form]);
 
   const selectedUserType = form.watch('userType');
+  const selectedSubId = form.watch('subContractorId');
 
   const handleSendInvite = async () => {
     setIsInviting(true);
@@ -322,6 +326,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         password: values.password,
         userType: values.userType,
         subContractorId: values.subContractorId !== 'none' ? values.subContractorId : null,
+        receivePartnerEmails: values.receivePartnerEmails,
         permissions: {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,
@@ -477,23 +482,40 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
                     )} />
                 </div>
 
-                {selectedUserType === 'partner' && (
-                    <FormField control={form.control} name="subContractorId" render={({ field }) => (
-                        <FormItem className="animate-in fade-in slide-in-from-top-2">
-                            <FormLabel className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Company Association</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Select partner company" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    <SelectItem value="none">Independent / Freelance</SelectItem>
-                                    {subContractors?.map(s => (
-                                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormDescription className="text-[10px]">Users associated with a company automatically see records linked to that partner.</FormDescription>
-                        </FormItem>
-                    )} />
-                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedUserType === 'partner' && (
+                        <FormField control={form.control} name="subContractorId" render={({ field }) => (
+                            <FormItem className="animate-in fade-in slide-in-from-top-2">
+                                <FormLabel className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Company Association</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select partner company" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="none">Independent / Freelance</SelectItem>
+                                        {subContractors?.map(s => (
+                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormDescription className="text-[10px]">Users associated with a company automatically see records linked to that partner.</FormDescription>
+                            </FormItem>
+                        )} />
+                    )}
+
+                    {(selectedUserType === 'partner' || (selectedSubId && selectedSubId !== 'none')) && (
+                        <FormField control={form.control} name="receivePartnerEmails" render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-accent/20 p-3 bg-accent/5 animate-in fade-in slide-in-from-top-2 mt-auto">
+                                <div className="space-y-0.5">
+                                    <div className="flex items-center gap-2">
+                                        <Mail className="h-4 w-4 text-accent" />
+                                        <FormLabel className="text-accent font-bold">Partner Correspondence</FormLabel>
+                                    </div>
+                                    <FormDescription className="text-[10px]">Include this user in automated partner distribution lists.</FormDescription>
+                                </div>
+                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            </FormItem>
+                        )} />
+                    )}
+                </div>
 
                 <Separator />
 

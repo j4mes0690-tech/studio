@@ -30,7 +30,7 @@ import { doc, setDoc, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Eye, Edit3, Loader2, Save, Building2 } from 'lucide-react';
+import { Eye, Edit3, Loader2, Save, Building2, Mail } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { SubContractor } from '@/lib/types';
@@ -41,6 +41,7 @@ const AddUserSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters.'),
   userType: z.enum(['internal', 'partner']).default('internal'),
   subContractorId: z.string().optional(),
+  receivePartnerEmails: z.boolean().default(false),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -121,6 +122,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
       password: '',
       userType: 'internal',
       subContractorId: 'none',
+      receivePartnerEmails: false,
       canManageUsers: false,
       canManageSubcontractors: false,
       canManageProjects: false,
@@ -166,6 +168,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
   });
 
   const selectedUserType = form.watch('userType');
+  const selectedSubId = form.watch('subContractorId');
 
   const onSubmit = (values: AddUserFormValues) => {
     startTransition(async () => {
@@ -177,6 +180,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
         password: values.password,
         userType: values.userType,
         subContractorId: values.subContractorId !== 'none' ? values.subContractorId : null,
+        receivePartnerEmails: values.receivePartnerEmails,
         permissions: {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,
@@ -288,7 +292,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <ScrollArea className="flex-1">
           <div className="p-6 space-y-8">
             <div className="space-y-4">
@@ -318,23 +322,40 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
                     )} />
                 </div>
 
-                {selectedUserType === 'partner' && (
-                    <FormField control={form.control} name="subContractorId" render={({ field }) => (
-                        <FormItem className="animate-in fade-in slide-in-from-top-2">
-                            <FormLabel className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Company Association</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl><SelectTrigger><SelectValue placeholder="Select partner company" /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                    <SelectItem value="none">Independent / Freelance</SelectItem>
-                                    {subContractors?.map(s => (
-                                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormDescription className="text-[10px]">Users associated with a company automatically see records linked to that partner.</FormDescription>
-                        </FormItem>
-                    )} />
-                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedUserType === 'partner' && (
+                        <FormField control={form.control} name="subContractorId" render={({ field }) => (
+                            <FormItem className="animate-in fade-in slide-in-from-top-2">
+                                <FormLabel className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Company Association</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select partner company" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="none">Independent / Freelance</SelectItem>
+                                        {subContractors?.map(s => (
+                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormDescription className="text-[10px]">Users associated with a company automatically see records linked to that partner.</FormDescription>
+                            </FormItem>
+                        )} />
+                    )}
+
+                    {(selectedUserType === 'partner' || (selectedSubId && selectedSubId !== 'none')) && (
+                        <FormField control={form.control} name="receivePartnerEmails" render={({ field }) => (
+                            <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-accent/20 p-3 bg-accent/5 animate-in fade-in slide-in-from-top-2 mt-auto">
+                                <div className="space-y-0.5">
+                                    <div className="flex items-center gap-2">
+                                        <Mail className="h-4 w-4 text-accent" />
+                                        <FormLabel className="text-accent font-bold">Partner Correspondence</FormLabel>
+                                    </div>
+                                    <FormDescription className="text-[10px]">Include this user in automated partner distribution lists.</FormDescription>
+                                </div>
+                                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            </FormItem>
+                        )} />
+                    )}
+                </div>
             </div>
 
             <Separator />

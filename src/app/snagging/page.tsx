@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -75,6 +74,12 @@ function SnaggingContent() {
     return collection(db, 'sub-contractors');
   }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
+
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
+  const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
   // STABLE QUERY: Fetch all by date to avoid composite index requirements
   const snaggingQuery = useMemoFirebase(() => {
@@ -187,6 +192,7 @@ function SnaggingContent() {
                   projects={allowedProjects} 
                   allSnaggingLists={allItems || []}
                   subContractors={subContractors || []}
+                  allUsers={allUsers || []}
                   initialProjectId={projectId}
               />
             )}
@@ -253,6 +259,7 @@ function SnaggingContent() {
                 items={displayItems}
                 projects={allProjects || []}
                 subContractors={subContractors || []}
+                allUsers={allUsers || []}
                 />
             </div>
           ) : (
@@ -263,6 +270,7 @@ function SnaggingContent() {
                   item={item}
                   projects={allProjects || []}
                   subContractors={subContractors || []}
+                  allUsers={allUsers || []}
                 />
               ))}
             </div>

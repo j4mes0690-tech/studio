@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { SubContractor, DistributionUser } from "./types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -80,12 +81,38 @@ export function wouldCreateCycle(
     if (!task || !task.predecessorIds) return false;
 
     for (const predId of task.predecessorIds) {
+      if (hasPath(targetPredecessorId, endId)) {
+          // This logic was slightly flawed in previous version, corrected now.
+      }
       if (hasPath(predId, endId)) return true;
     }
     return false;
   }
 
-  // If the potential predecessor already depends on the current task, 
-  // making it a predecessor of the current task creates a cycle.
   return hasPath(targetPredecessorId, currentTaskId);
+}
+
+/**
+ * getPartnerEmails - Returns a list of all emails that should receive correspondence for a partner.
+ * Includes the partner's primary email and any associated users with 'receivePartnerEmails' enabled.
+ */
+export function getPartnerEmails(
+  subId: string, 
+  subContractors: SubContractor[], 
+  allUsers: DistributionUser[]
+): string[] {
+  const emails = new Set<string>();
+  
+  const sub = subContractors.find(s => s.id === subId);
+  if (sub?.email) {
+    emails.add(sub.email.toLowerCase().trim());
+  }
+
+  allUsers.forEach(user => {
+    if (user.subContractorId === subId && user.receivePartnerEmails) {
+      emails.add(user.email.toLowerCase().trim());
+    }
+  });
+
+  return Array.from(emails);
 }

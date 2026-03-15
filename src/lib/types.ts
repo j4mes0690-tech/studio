@@ -188,6 +188,7 @@ export type DistributionUser = {
   password?: string;
   userType?: 'internal' | 'partner';
   subContractorId?: string;
+  receivePartnerEmails?: boolean;
   requirePasswordChange?: boolean;
   permissions?: UserPermissions;
 };
