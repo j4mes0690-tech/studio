@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -32,6 +33,7 @@ import {
   CalendarClock,
   CalendarRange,
   ClipboardList,
+  BarChart3
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -41,6 +43,7 @@ import { useMemo } from 'react';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
+  { href: '/insights', label: 'Project Insights', icon: BarChart3, permission: 'hasFullVisibility' },
   { href: '/planner', label: 'Planner', icon: CalendarRange, permission: 'accessPlanner' },
   { href: '/procurement', label: 'Procurement', icon: ShoppingCart, permission: 'accessProcurement' },
   { href: '/irs', label: 'IRS Schedule', icon: CalendarClock, permission: 'accessIRS' },
