@@ -20,19 +20,21 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Save, ShoppingCart, Calendar, Users2, Clock, Info } from 'lucide-react';
+import { Loader2, Save, ShoppingCart, Calendar, Users2, Clock, Info, AlertCircle } from 'lucide-react';
 import type { Project, SubContractor, ProcurementItem } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { format, parseISO, subWeeks } from 'date-fns';
+import { format, parseISO, subWeeks, addWeeks } from 'date-fns';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const EditProcurementSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -104,6 +106,10 @@ export function EditProcurementDialog({
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = projects.find(p => p.id === selectedProjectId);
+  
+  const actualEnquiryDate = form.watch('actualEnquiryDate');
+  const tenderReturnDate = form.watch('tenderReturnDate');
+
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
@@ -130,6 +136,16 @@ export function EditProcurementDialog({
       return null;
     }
   }, [startOnSiteDate, tenderWeeks, leadInWeeks]);
+
+  const setQuickReturnDate = (weeks: number) => {
+    const baseDateStr = actualEnquiryDate || calculatedDates?.targetEnquiryDate;
+    if (!baseDateStr) return;
+    try {
+      const baseDate = parseISO(baseDateStr);
+      const newDate = addWeeks(baseDate, weeks);
+      form.setValue('tenderReturnDate', format(newDate, 'yyyy-MM-dd'));
+    } catch (e) {}
+  };
 
   const onSubmit = (values: EditProcurementFormValues) => {
     if (!calculatedDates) return;
@@ -232,13 +248,39 @@ export function EditProcurementDialog({
                     )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-muted/20 p-4 rounded-lg border border-dashed">
-                    <FormField control={form.control} name="actualEnquiryDate" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Actual Enquiry Date</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
-                    )} />
-                    <FormField control={form.control} name="tenderReturnDate" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Tender Return Date</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
-                    )} />
+                <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-muted/20 p-4 rounded-lg border border-dashed">
+                        <FormField control={form.control} name="actualEnquiryDate" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs font-bold uppercase text-muted-foreground">Actual Enquiry Date</FormLabel>
+                                <FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl>
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="tenderReturnDate" render={({ field }) => (
+                            <FormItem>
+                                <div className="flex items-center justify-between mb-1">
+                                    <FormLabel className="text-xs font-bold uppercase text-muted-foreground">Tender Return Date</FormLabel>
+                                    <div className="flex gap-1">
+                                        <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickReturnDate(1)}>+1w</Button>
+                                        <Button type="button" variant="ghost" className="h-5 px-1.5 text-[9px] font-bold text-primary hover:bg-primary/10" onClick={() => setQuickReturnDate(2)}>+2w</Button>
+                                    </div>
+                                </div>
+                                <FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl>
+                            </FormItem>
+                        )} />
+
+                        {actualEnquiryDate && !tenderReturnDate && (
+                            <div className="col-span-full mt-2 animate-in fade-in slide-in-from-top-1">
+                                <Alert className="bg-primary/5 border-primary/20 py-2 px-3 h-auto">
+                                    <Info className="h-3.5 w-3.5 text-primary" />
+                                    <AlertTitle className="text-[10px] font-bold text-primary uppercase tracking-wider mb-0">Action Required</AlertTitle>
+                                    <AlertDescription className="text-[11px] text-muted-foreground">
+                                        Enquiry recorded. Please specify the date trade partners must return their tenders.
+                                    </AlertDescription>
+                                </Alert>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-6">
