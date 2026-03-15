@@ -507,13 +507,13 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
           <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
           <div className="absolute inset-0 flex flex-col justify-between p-6">
             <div className="flex justify-end">
-              <Button variant="secondary" onClick={() => setIsCameraOpen(false)} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
+              <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
             </div>
             <div className="flex items-center justify-center gap-8 mb-8">
-              <Button variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
+              <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
                 <RefreshCw className="h-7 w-7" />
               </Button>
-              <Button size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
+              <Button type="button" size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
                 <div className="h-14 w-14 rounded-full border-2 border-black/10" />
               </Button>
               <div className="w-14" />

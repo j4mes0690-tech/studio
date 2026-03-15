@@ -383,7 +383,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
         </div>
 
         <DialogFooter className="p-6 bg-white border-t shrink-0">
-            <Button className="w-full h-12 text-lg font-bold" onClick={() => setOpen(false)}>
+            <Button type="button" className="w-full h-12 text-lg font-bold" onClick={() => setOpen(false)}>
                 Done & Close
             </Button>
         </DialogFooter>
@@ -392,10 +392,12 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
           <div className="fixed inset-0 z-[100] bg-black">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
             <div className="absolute inset-0 flex flex-col justify-between p-6">
-              <div className="flex justify-end"><Button variant="secondary" onClick={() => { setIsCameraOpen(false); setIsItemCameraOpen(false); setItemPhotoTargetIdx(null); }} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
+              <div className="flex justify-end"><Button type="button" variant="secondary" onClick={() => { setIsCameraOpen(false); setIsItemCameraOpen(false); setItemPhotoTargetIdx(null); }} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
               <div className="flex items-center justify-center gap-8 mb-8">
-                <Button variant="secondary" size="icon" className="rounded-full h-14 w-14" onClick={toggleCamera}><RefreshCw className="h-7 w-7" /></Button>
-                <Button size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90"><div className="h-14 w-14 rounded-full border-2 border-black/10" /></Button>
+                <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
+                  <RefreshCw className="h-7 w-7" />
+                </Button>
+                <Button type="button" size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90"><div className="h-14 w-14 rounded-full border-2 border-black/10" /></Button>
                 <div className="w-14" />
               </div>
             </div>

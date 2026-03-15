@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -442,10 +441,10 @@ function EditSnaggingContent() {
         <div className="fixed inset-0 z-[100] bg-black">
           <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
           <div className="absolute inset-0 flex flex-col justify-between p-6">
-            <div className="flex justify-end"><Button variant="secondary" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
+            <div className="flex justify-end"><Button type="button" variant="secondary" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
             <div className="flex items-center justify-center gap-8 mb-8">
-              <Button variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}><RefreshCw className="h-7 w-7" /></Button>
-              <Button size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-20 w-20 bg-white"><div className="h-14 w-14 rounded-full border-2 border-black/10" /></Button>
+              <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}><RefreshCw className="h-7 w-7" /></Button>
+              <Button type="button" size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-20 w-20 bg-white"><div className="h-14 w-14 rounded-full border-2 border-black/10" /></Button>
               <div className="w-14" />
             </div>
           </div>

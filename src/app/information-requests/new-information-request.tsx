@@ -37,19 +37,18 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw, ShieldCheck, FileIcon, FileText, Loader2, Users2, Save, Send } from 'lucide-react';
-import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, InformationRequest } from '@/lib/types';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { DatePicker } from '@/components/date-picker';
-import { useFirestore, useStorage } from '@/firebase';
+import type { Project, Photo, FileAttachment, ClientInstruction, DistributionUser, SubContractor, InformationRequest } from '@/lib/types';
+import { Separator } from '@/components/ui/separator';
+import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference, getPartnerEmails } from '@/lib/utils';
-import { Separator } from '@/components/ui/separator';
 import { sendInformationRequestEmailAction } from './actions';
 import { generateInformationRequestPDF } from '@/lib/pdf-utils';
+import { DatePicker } from '@/components/date-picker';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -303,6 +302,8 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
   };
 
+  const submissionStatus = form.watch('status');
+
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -427,7 +428,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                         {photos.map((p, i) => (
                           <div key={`p-${i}`} className="relative group">
                             <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                            <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                            <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-3 w-3" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
                               <X className="h-3 w-3" />
                             </Button>
                           </div>
@@ -501,13 +502,13 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
           <div className="absolute inset-0 flex flex-col justify-between p-6">
             <div className="flex justify-end">
-              <Button variant="secondary" onClick={() => setIsCameraOpen(false)} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
+              <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
             </div>
             <div className="flex items-center justify-center gap-8 mb-8">
-              <Button variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
+              <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
                 <RefreshCw className="h-7 w-7" />
               </Button>
-              <Button size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
+              <Button type="button" size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
                 <div className="h-14 w-14 rounded-full border-2 border-black/10" />
               </Button>
               <div className="w-14" />
