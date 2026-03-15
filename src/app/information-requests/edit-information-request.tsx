@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, RefreshCw, ShieldCheck, Ruler, FileIcon, FileText, Users2, Loader2, Save, Send } from 'lucide-react';
+import { Pencil, Camera, Upload, X, ShieldCheck, Ruler, FileIcon, FileText, Users2, Loader2, Save, Send } from 'lucide-react';
 import type { Project, InformationRequest, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -50,6 +50,7 @@ import { VoiceInput } from '@/components/voice-input';
 import { sendInformationRequestEmailAction } from './actions';
 import { getPartnerEmails, getProjectInitials } from '@/lib/utils';
 import { generateInformationRequestPDF } from '@/lib/pdf-utils';
+import { CameraOverlay } from '@/components/camera-overlay';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -75,20 +76,16 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = setExternalOpen !== undefined ? setExternalOpen : setInternalOpen;
 
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const subsQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -112,10 +109,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
   });
 
   const selectedProjectId = form.watch('projectId');
-
-  const selectedProject = useMemo(() => {
-    return projects.find(p => p.id === selectedProjectId);
-  }, [projects, selectedProjectId]);
+  const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
 
   const availableInternalUsers = useMemo(() => {
     if (!selectedProject) return [];
@@ -149,7 +143,6 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
       try {
         toast({ title: 'Processing', description: 'Generating PDF and updating record...' });
 
-        // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -161,7 +154,6 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
           })
         );
 
-        // 2. Upload Files
         const uploadedFiles = await Promise.all(
           files.map(async (f, i) => {
             if (f.url.startsWith('data:')) {
@@ -188,7 +180,6 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         
         await updateDoc(docRef, updates)
           .then(async () => {
-            // Trigger distribution if transitioning to open
             if (values.status === 'open' && item.status === 'draft') {
                 const sub = availableExternalPartners.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
                 const recipientEmails = new Set<string>();
@@ -199,7 +190,6 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     partnerUsers.forEach(e => recipientEmails.add(e));
                 }
 
-                // Generate PDF for attachment
                 const assignedToNames = values.assignedTo.map(val => {
                     const email = val.replace(/^(staff|partner):/, '');
                     return (distributionUsers || []).find(u => u.email === email)?.name || email;
@@ -275,56 +265,8 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
       });
       setPhotos(item.photos || []);
       setFiles(item.files || []);
-    } else {
-      setIsCameraOpen(false);
     }
   }, [open, form, item, distributionUsers]);
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
-        setHasCameraPermission(true);
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (error) {
-        setHasCameraPermission(false);
-      }
-    };
-    if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
-  }, [isCameraOpen, facingMode]);
-
-  const takePhoto = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1600;
-      canvas.height = 1600 / aspectRatio;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const rawUri = canvas.toDataURL('image/jpeg', 0.9);
-      const optimizedUri = await optimizeImage(rawUri);
-      setPhotos(prev => [...prev, { url: optimizedUri, takenAt: new Date().toISOString() }]);
-      setIsCameraOpen(false);
-    }
-  };
-
-  const toggleCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-
-  const closeCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsCameraOpen(false);
-  };
 
   const submissionStatus = form.watch('status');
 
@@ -489,7 +431,6 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 </div>
               </div>
               
-              <canvas ref={canvasRef} className="hidden" />
               <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                 <Button 
                   type="submit" 
@@ -514,28 +455,13 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
             </form>
           </Form>
         </DialogContent>
-
-        {/* Camera Overlay - Outside form to prevent accidental submission */}
-        {isCameraOpen && (
-          <div className="fixed inset-0 z-[100] bg-black">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            <div className="absolute inset-0 flex flex-col justify-between p-6">
-              <div className="flex justify-end">
-                <Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
-              </div>
-              <div className="flex items-center justify-center gap-8 mb-8">
-                <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
-                  <RefreshCw className="h-7 w-7" />
-                </Button>
-                <Button type="button" size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
-                  <div className="h-14 w-14 rounded-full border-2 border-black/10" />
-                </Button>
-                <div className="w-14" />
-              </div>
-            </div>
-          </div>
-        )}
       </Dialog>
+
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
+      />
     </>
   );
 }

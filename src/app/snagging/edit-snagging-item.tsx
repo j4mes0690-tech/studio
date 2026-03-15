@@ -45,6 +45,7 @@ import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { VoiceInput } from '@/components/voice-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { CameraOverlay } from '@/components/camera-overlay';
 
 const EditSnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -61,10 +62,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   const db = useFirestore();
   const storage = useStorage();
   
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [availableAreas, setAreas] = useState<Area[]>([]);
@@ -74,7 +71,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
 
   const form = useForm<EditSnaggingListFormValues>({
@@ -102,36 +98,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
       setItems(item.items || []);
     }
   }, [open, item, form]);
-
-  const toggleCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-
-  const closeCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsCameraOpen(false);
-    setItemPhotoTargetId(null);
-  };
-
-  const captureAndOptimize = async () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context || video.videoWidth === 0) return null;
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1600;
-      canvas.height = 1600 / aspectRatio;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const rawUri = canvas.toDataURL('image/jpeg', 0.9);
-      const optimizedUri = await optimizeImage(rawUri);
-      return { url: optimizedUri, takenAt: new Date().toISOString() };
-    }
-    return null;
-  };
 
   const handleMetadataChange = () => {
     const values = form.getValues();
@@ -169,12 +135,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
     updateDoc(doc(db, 'snagging-items', item.id), { items: newItemsList });
   };
 
-  const takeGeneralPhoto = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const photo = await captureAndOptimize();
-    if (photo) {
-      startTransition(async () => {
+  const onCaptureGeneral = (photo: Photo) => {
+    startTransition(async () => {
         const blob = await dataUriToBlob(photo.url);
         const url = await uploadFile(storage, `snagging/general/${item.id}-${Date.now()}.jpg`, blob);
         const updatedPhoto = { ...photo, url };
@@ -182,16 +144,11 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
           photos: arrayUnion(updatedPhoto)
         });
         setPhotos(prev => [...prev, updatedPhoto]);
-      });
-      setIsCameraOpen(false);
-    }
+    });
   };
 
-  const takeItemPhoto = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const photo = await captureAndOptimize();
-    if (photo && itemPhotoTargetId) {
+  const onCaptureItem = (photo: Photo) => {
+    if (itemPhotoTargetId) {
       startTransition(async () => {
         const blob = await dataUriToBlob(photo.url);
         const url = await uploadFile(storage, `snagging/items/${itemPhotoTargetId}-${Date.now()}.jpg`, blob);
@@ -258,7 +215,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                               <SelectTrigger className="w-40"><SelectValue placeholder="Assign" /></SelectTrigger>
                               <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                           </Select>
-                          <Button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddItem(); }} disabled={!newItemText.trim()}><Plus className="h-4 w-4" /></Button>
+                          <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim()}><Plus className="h-4 w-4" /></Button>
                       </div>
 
                       <div className="space-y-3">
@@ -269,8 +226,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                       {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
                                   </div>
                                   <div className="flex gap-1">
-                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setItemPhotoTargetId(listItem.id); }}><Camera className="h-4 w-4" /></Button>
-                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleRemoveItem(listItem.id); }}><Trash2 className="h-4 w-4" /></Button>
+                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
                                   </div>
                               </div>
                           ))}
@@ -283,7 +240,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                           {photos.map((p, i) => (
                               <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
                           ))}
-                          <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCameraOpen(true); }}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
+                          <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
                       </div>
                     </div>
                   </form>
@@ -295,23 +252,21 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
             <Button type="button" className="w-full h-12 font-bold" onClick={() => setOpen(false)}>Done & Finish Editing</Button>
           </DialogFooter>
         </DialogContent>
-
-        {/* Full-screen Camera Overlay - Explicitly outside the form tag */}
-        {(isCameraOpen || itemPhotoTargetId !== null) && (
-          <div className="fixed inset-0 z-[100] bg-black">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            <div className="absolute inset-0 flex flex-col justify-between p-6">
-              <div className="flex justify-end"><Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
-              <div className="flex items-center justify-center gap-8 mb-8">
-                <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}><RefreshCw className="h-7 w-7" /></Button>
-                <Button type="button" size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90"><div className="h-14 w-14 rounded-full border-2 border-black/10" /></Button>
-                <div className="w-14" />
-              </div>
-            </div>
-          </div>
-        )}
-        <canvas ref={canvasRef} className="hidden" />
       </Dialog>
+
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={onCaptureGeneral}
+        title="Snag List Evidence"
+      />
+
+      <CameraOverlay 
+        isOpen={itemPhotoTargetId !== null} 
+        onClose={() => setItemPhotoTargetId(null)} 
+        onCapture={onCaptureItem}
+        title="Specific Defect Photo"
+      />
     </>
   );
 }

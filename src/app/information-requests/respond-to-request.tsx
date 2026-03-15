@@ -37,6 +37,7 @@ import { ClientDate } from '../../components/client-date';
 import { Badge } from '@/components/ui/badge';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import { CameraOverlay } from '@/components/camera-overlay';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -63,9 +64,6 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isReadingFiles, setIsReadingFiles] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
@@ -85,53 +83,6 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
       setIsReadingFiles(false);
     }
   }, [open, form]);
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (err) {
-        console.error('Camera failed', err);
-      }
-    };
-    if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach(t => t.stop());
-  }, [isCameraOpen, facingMode]);
-
-  const capturePhoto = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-      
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1600; 
-      canvas.height = 1600 / aspectRatio;
-      
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const rawUri = canvas.toDataURL('image/jpeg', 0.85);
-      const optimizedUri = await optimizeImage(rawUri);
-      setPhotos(prev => [...prev, { url: optimizedUri, takenAt: new Date().toISOString() }]);
-      setIsCameraOpen(false);
-    }
-  };
-
-  const toggleCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-
-  const closeCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsCameraOpen(false);
-  };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -167,7 +118,6 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
       try {
         toast({ title: 'Uploading', description: 'Persisting media...' });
 
-        // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -179,7 +129,6 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
           })
         );
 
-        // 2. Upload Files
         const uploadedFiles = await Promise.all(
           files.map(async (f, i) => {
             if (f.url.startsWith('data:')) {
@@ -373,9 +322,9 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
 
                   <div className="flex items-center gap-2">
                     <div className="flex gap-1.5">
-                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCameraOpen(true); }}><Camera className="h-3.5 w-3.5 mr-1" />Camera</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); fileInputRef.current?.click(); }}><Upload className="h-3.5 w-3.5 mr-1" />Photos</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={(e) => { e.preventDefault(); e.stopPropagation(); docInputRef.current?.click(); }}><FileIcon className="h-3.5 w-3.5 mr-1" />Files</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="h-3.5 w-3.5 mr-1" />Camera</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="h-3.5 w-3.5 mr-1" />Photos</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="h-3.5 w-3.5 mr-1" />Files</Button>
                     </div>
                     
                     <Button type="submit" className="ml-auto" disabled={isReadingFiles || isPending}>
@@ -398,32 +347,16 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
                     });
                   }} />
                   <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
-                  <canvas ref={canvasRef} className="hidden" />
               </form>
           </Form>
         </DialogContent>
-
-        {/* Full-screen Camera Overlay - Explicitly outside the form tag */}
-        {isCameraOpen && (
-          <div className="fixed inset-0 z-[100] bg-black">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            <div className="absolute inset-0 flex flex-col justify-between p-6">
-              <div className="flex justify-end">
-                <Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
-              </div>
-              <div className="flex items-center justify-center gap-8 mb-8">
-                <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
-                  <RefreshCw className="h-7 w-7" />
-                </Button>
-                <Button type="button" size="lg" onClick={capturePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
-                  <div className="h-14 w-14 rounded-full border-2 border-black/10" />
-                </Button>
-                <div className="w-14" />
-              </div>
-            </div>
-          </div>
-        )}
       </Dialog>
+
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
+      />
     </>
   );
 }

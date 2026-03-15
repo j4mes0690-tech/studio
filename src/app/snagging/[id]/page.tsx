@@ -32,6 +32,7 @@ import {
 import { VoiceInput } from '@/components/voice-input';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ClientDate } from '@/components/client-date';
+import { CameraOverlay } from '@/components/camera-overlay';
 
 function EditSnaggingContent() {
   const { id } = useParams() as { id: string };
@@ -41,11 +42,6 @@ function EditSnaggingContent() {
   const storage = useStorage();
   const { user: sessionUser } = useUser();
   const [isPending, startTransition] = useTransition();
-
-  // Refs
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Data
   const snagRef = useMemoFirebase(() => (db && id ? doc(db, 'snagging-items', id) : null), [db, id]);
@@ -79,7 +75,6 @@ function EditSnaggingContent() {
   const [newItemText, setNewItemText] = useState('');
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
   const [viewingHistoryRecord, setViewingHistoryRecord] = useState<SnaggingHistoryRecord | null>(null);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
@@ -119,30 +114,8 @@ function EditSnaggingContent() {
     return allowedProjects.some(p => p.id === item.projectId);
   }, [profile, item, allowedProjects]);
 
-  const toggleCamera = () => {
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-
-  const captureAndOptimize = async () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context || video.videoWidth === 0) return null;
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1600;
-      canvas.height = 1600 / aspectRatio;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const rawUri = canvas.toDataURL('image/jpeg', 0.9);
-      const optimizedUri = await optimizeImage(rawUri);
-      return { url: optimizedUri, takenAt: new Date().toISOString() };
-    }
-    return null;
-  };
-
-  const takeGeneralPhoto = async () => {
-    const photo = await captureAndOptimize();
-    if (photo && snagRef) {
+  const onCaptureGeneral = (photo: Photo) => {
+    if (snagRef) {
       startTransition(async () => {
         const blob = await dataUriToBlob(photo.url);
         const url = await uploadFile(storage, `snagging/general/${id}-${Date.now()}.jpg`, blob);
@@ -152,13 +125,11 @@ function EditSnaggingContent() {
         });
         setPhotos(prev => [...prev, updatedPhoto]);
       });
-      setIsCameraOpen(false);
     }
   };
 
-  const takeItemPhoto = async () => {
-    const photo = await captureAndOptimize();
-    if (photo && itemPhotoTargetId && snagRef) {
+  const onCaptureItem = (photo: Photo) => {
+    if (itemPhotoTargetId && snagRef) {
       startTransition(async () => {
         const blob = await dataUriToBlob(photo.url);
         const url = await uploadFile(storage, `snagging/items/${itemPhotoTargetId}-${Date.now()}.jpg`, blob);
@@ -413,7 +384,6 @@ function EditSnaggingContent() {
         </div>
       </div>
 
-      {/* Snapshot Viewer Dialog */}
       <Dialog open={!!viewingHistoryRecord} onOpenChange={() => setViewingHistoryRecord(null)}>
           <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col p-0 overflow-hidden">
               <DialogHeader className="p-6 pb-0 shrink-0">
@@ -436,23 +406,21 @@ function EditSnaggingContent() {
           </DialogContent>
       </Dialog>
 
-      {/* Camera Overlay */}
-      {(isCameraOpen || itemPhotoTargetId) && (
-        <div className="fixed inset-0 z-[100] bg-black">
-          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-          <div className="absolute inset-0 flex flex-col justify-between p-6">
-            <div className="flex justify-end"><Button type="button" variant="secondary" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
-            <div className="flex items-center justify-center gap-8 mb-8">
-              <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}><RefreshCw className="h-7 w-7" /></Button>
-              <Button type="button" size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-20 w-20 bg-white"><div className="h-14 w-14 rounded-full border-2 border-black/10" /></Button>
-              <div className="w-14" />
-            </div>
-          </div>
-        </div>
-      )}
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={onCaptureGeneral}
+        title="Audit Evidence"
+      />
+
+      <CameraOverlay 
+        isOpen={itemPhotoTargetId !== null} 
+        onClose={() => setItemPhotoTargetId(null)} 
+        onCapture={onCaptureItem}
+        title="Defect Documentation"
+      />
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
-      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }

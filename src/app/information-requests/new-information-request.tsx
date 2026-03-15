@@ -24,7 +24,6 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -36,7 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, ShieldCheck, FileIcon, FileText, Loader2, Users2, Save, Send } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, FileIcon, FileText, Loader2, ShieldCheck, Users2, Save, Send } from 'lucide-react';
 import type { Project, Photo, FileAttachment, ClientInstruction, DistributionUser, SubContractor, InformationRequest } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
@@ -44,18 +43,19 @@ import { collection, addDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
-import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference, getPartnerEmails } from '@/lib/utils';
 import { sendInformationRequestEmailAction } from './actions';
 import { generateInformationRequestPDF } from '@/lib/pdf-utils';
 import { DatePicker } from '@/components/date-picker';
+import { CameraOverlay } from '@/components/camera-overlay';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   description: z.string().optional().default(''),
-  assignedTo: z.array(z.string()).min(1, 'At least one recipient must be assigned.'),
+  assignedTo: z.array(z.string()).min(1, 'A recipient must be assigned.'),
   requiredBy: z.string().optional(),
   status: z.enum(['draft', 'open']).default('open'),
 });
@@ -70,20 +70,16 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   allRequests: InformationRequest[];
 }) {
   const [open, setOpen] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const form = useForm<NewInformationRequestFormValues>({
     resolver: zodResolver(NewInformationRequestSchema),
@@ -97,10 +93,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   });
 
   const selectedProjectId = form.watch('projectId');
-
-  const selectedProject = useMemo(() => {
-    return projects.find(p => p.id === selectedProjectId);
-  }, [projects, selectedProjectId]);
+  const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
 
   const availableInternalUsers = useMemo(() => {
     if (!selectedProject) return [];
@@ -134,7 +127,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
       try {
         toast({ title: 'Processing', description: 'Generating PDF and sending notification...' });
 
-        // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -146,7 +138,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           })
         );
 
-        // 2. Upload Files
         const uploadedFiles = await Promise.all(
           files.map(async (f, i) => {
             if (f.url.startsWith('data:')) {
@@ -188,7 +179,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           throw error;
         });
 
-        // 3. Distribution with PDF
         if (values.status === 'open') {
             const recipientEmails = new Set<string>();
             recipientEmails.add(targetEmail.toLowerCase().trim());
@@ -198,7 +188,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 partnerUsers.forEach(e => recipientEmails.add(e));
             }
 
-            // Generate PDF for attachment
             const assignedToNames = values.assignedTo.map(val => {
                 const email = val.replace(/^(staff|partner):/, '');
                 return (distributionUsers || []).find(u => u.email === email)?.name || email;
@@ -252,68 +241,11 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
 
   useEffect(() => {
     if (!open) {
-      setIsCameraOpen(false);
       setPhotos([]);
       setFiles([]);
       form.reset();
     }
   }, [open, form]);
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode } 
-        });
-        setHasCameraPermission(true);
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (error) {
-        setHasCameraPermission(false);
-      }
-    };
-
-    if (isCameraOpen) {
-      getCameraPermission();
-    }
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-    };
-  }, [isCameraOpen, facingMode]);
-
-  const takePhoto = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1600;
-      canvas.height = 1600 / aspectRatio;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const rawUri = canvas.toDataURL('image/jpeg', 0.9);
-      const optimizedUri = await optimizeImage(rawUri);
-      setPhotos(prev => [...prev, { url: optimizedUri, takenAt: new Date().toISOString() }]);
-      setIsCameraOpen(false);
-    }
-  };
-
-  const toggleCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-
-  const closeCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsCameraOpen(false);
-  };
 
   const submissionStatus = form.watch('status');
 
@@ -478,7 +410,6 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 </div>
               </div>
               
-              <canvas ref={canvasRef} className="hidden" />
               <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                 <Button 
                   type="submit" 
@@ -503,28 +434,13 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
             </form>
           </Form>
         </DialogContent>
-
-        {/* Camera Overlay - Explicitly outside the Form tag to prevent submission side-effects */}
-        {isCameraOpen && (
-          <div className="fixed inset-0 z-[100] bg-black">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            <div className="absolute inset-0 flex flex-col justify-between p-6">
-              <div className="flex justify-end">
-                <Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
-              </div>
-              <div className="flex items-center justify-center gap-8 mb-8">
-                <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
-                  <RefreshCw className="h-7 w-7" />
-                </Button>
-                <Button type="button" size="lg" onClick={takePhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90">
-                  <div className="h-14 w-14 rounded-full border-2 border-black/10" />
-                </Button>
-                <div className="w-14" />
-              </div>
-            </div>
-          </div>
-        )}
       </Dialog>
+
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
+      />
     </>
   );
 }

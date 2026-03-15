@@ -46,6 +46,7 @@ import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { sendSiteInstructionEmailAction } from './actions';
 import { generateInstructionPDF } from '@/lib/pdf-utils';
+import { CameraOverlay } from '@/components/camera-overlay';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -65,20 +66,16 @@ interface NewInstructionProps {
 
 export function NewInstruction({ projects, distributionUsers, subContractors, allInstructions }: NewInstructionProps) {
   const [open, setOpen] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const form = useForm<NewInstructionFormValues>({
     resolver: zodResolver(NewInstructionSchema),
@@ -199,34 +196,6 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     });
   };
 
-  useEffect(() => { if (!open) { setPhotos([]); setFiles([]); form.reset(); } }, [open, form]);
-
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (error) {}
-    };
-    if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
-  }, [isCameraOpen, facingMode]);
-
-  const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1200; canvas.height = 1200 / aspectRatio;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      setPhotos([...photos, { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: new Date().toISOString() }]);
-      setIsCameraOpen(false);
-    }
-  };
-
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (!selectedFiles) return;
@@ -237,103 +206,106 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     });
   };
 
+  useEffect(() => { if (!open) { setPhotos([]); setFiles([]); form.reset(); } }, [open, form]);
+
   const submissionStatus = form.watch('status');
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />New Instruction</Button></DialogTrigger>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Record New Site Instruction</DialogTitle></DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField control={form.control} name="projectId" render={({ field }) => (
-              <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
-            )} />
-            
-            <FormField
-              control={form.control}
-              name="externalRecipient"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="flex items-center gap-2">
-                    <Users2 className="h-4 w-4 text-accent" />
-                    Primary Trade Partner
-                  </FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Assign a contractor or designer" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {availableSubContractors.map((sub) => (
-                        <SelectItem key={sub.id} value={sub.email}>
-                          {sub.name}
-                        </SelectItem>
-                      ))}
-                      {availableSubContractors.length === 0 && (
-                        <div className="p-2 text-xs text-muted-foreground italic text-center">
-                          No partners assigned to this project.
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription className="text-[10px]">
-                    The selected partner and all project staff will be notified automatically upon issuance.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />New Instruction</Button></DialogTrigger>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Record New Site Instruction</DialogTitle></DialogHeader>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField control={form.control} name="projectId" render={({ field }) => (
+                <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+              )} />
+              
+              <FormField
+                control={form.control}
+                name="externalRecipient"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2">
+                      <Users2 className="h-4 w-4 text-accent" />
+                      Primary Trade Partner
+                    </FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Assign a contractor or designer" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {availableSubContractors.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.email}>
+                            {sub.name}
+                          </SelectItem>
+                        ))}
+                        {availableSubContractors.length === 0 && (
+                          <div className="p-2 text-xs text-muted-foreground italic text-center">
+                            No partners assigned to this project.
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription className="text-[10px]">
+                      The selected partner and all project staff will be notified automatically upon issuance.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <FormField control={form.control} name="originalText" render={({ field }) => (
-              <FormItem><div className="flex items-center justify-between"><FormLabel>Instruction Text</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-            <div className="space-y-4">
-              <FormLabel>Documentation & Files</FormLabel>
-              <div className="flex gap-2 flex-wrap">
-                {photos.map((p, i) => (<div key={i} className="relative w-20 h-20"><Image src={p.url} alt="Site" fill className="rounded-md object-cover border" /><button type="button" className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></button></div>))}
-                <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
+              <FormField control={form.control} name="originalText" render={({ field }) => (
+                <FormItem><div className="flex items-center justify-between"><FormLabel>Instruction Text</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <div className="space-y-4">
+                <FormLabel>Documentation & Files</FormLabel>
+                <div className="flex gap-2 flex-wrap">
+                  {photos.map((p, i) => (<div key={i} className="relative w-20 h-20"><Image src={p.url} alt="Site" fill className="rounded-md object-cover border" /><button type="button" className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></button></div>))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
+                </div>
+                
+                <div className="space-y-1">
+                  {files.map((f, i) => (
+                    <div key={i} className="flex items-center justify-between p-2 rounded border bg-muted/30 text-xs">
+                      <span className="truncate">{f.name}</span>
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                    </div>
+                  ))}
+                </div>
               </div>
               
-              <div className="space-y-1">
-                {files.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between p-2 rounded border bg-muted/30 text-xs">
-                    <span className="truncate">{f.name}</span>
-                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
-                  </div>
-                ))}
-              </div>
+              <Separator />
 
-              {isCameraOpen && (
-                <div className="space-y-2 border rounded-md p-2 bg-muted/30">
-                  <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
-                  <div className="flex gap-2"><Button type="button" onClick={takePhoto}>Capture</Button><Button type="button" variant="outline" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button><Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button></div>
-                </div>
-              )}
-            </div>
-            
-            <Separator />
+              <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button>
+                <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Save & Issue Instruction</Button>
+              </DialogFooter>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                const selected = e.target.files; if (!selected) return;
+                Array.from(selected).forEach(f => {
+                  const reader = new FileReader();
+                  reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                  reader.readAsDataURL(f);
+                });
+              }} />
+              <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
 
-            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-              <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Save & Issue Instruction</Button>
-            </DialogFooter>
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-              const selected = e.target.files; if (!selected) return;
-              Array.from(selected).forEach(f => {
-                const reader = new FileReader();
-                reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                reader.readAsDataURL(f);
-              });
-            }} />
-            <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
-            <canvas ref={canvasRef} className="hidden" />
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
+        title="Site Instruction Photo"
+      />
+    </>
   );
 }

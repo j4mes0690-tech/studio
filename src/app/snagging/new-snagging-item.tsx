@@ -43,7 +43,8 @@ import { VoiceInput } from '@/components/voice-input';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
-import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { CameraOverlay } from '@/components/camera-overlay';
 
 const SnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -62,9 +63,6 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   const { user: sessionUser } = useUser();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
   const [isPending, startTransition] = useTransition();
   const [activeListId, setActiveListId] = useState<string | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -77,7 +75,6 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
   const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); 
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [itemPhotoTargetIdx, setItemPhotoTargetIdx] = useState<number | null>(null);
 
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
@@ -95,7 +92,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const selectedSub = useMemo(() => projectSubs.find(s => s.id === pendingSubId), [projectSubs, pendingSubId]);
@@ -119,39 +116,6 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
     }
   }, [selectedAreaId, availableAreas, form]);
 
-  const toggleCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-
-  const closeCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsCameraOpen(false);
-    setIsItemCameraOpen(false);
-    setItemPhotoTargetIdx(null);
-  };
-
-  const captureAndOptimize = async () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context || video.videoWidth === 0) return null;
-
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1600;
-      canvas.height = 1600 / aspectRatio;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      const rawUri = canvas.toDataURL('image/jpeg', 0.9);
-      const optimizedUri = await optimizeImage(rawUri);
-      return { url: optimizedUri, takenAt: new Date().toISOString() };
-    }
-    return null;
-  };
-
   const handleMetadataBlur = () => {
     if (activeListId) {
         const values = form.getValues();
@@ -163,52 +127,6 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
         });
     }
   }
-
-  const takeGeneralPhoto = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const photo = await captureAndOptimize();
-    if (photo) {
-      if (activeListId) {
-        const blob = await dataUriToBlob(photo.url);
-        const url = await uploadFile(storage, `snagging/general/${activeListId}-${Date.now()}.jpg`, blob);
-        const updatedPhoto = { ...photo, url };
-        await updateDoc(doc(db, 'snagging-items', activeListId), {
-          photos: arrayUnion(updatedPhoto)
-        });
-        setPhotos(prev => [...prev, updatedPhoto]);
-      } else {
-        setPhotos(prev => [...prev, photo]);
-      }
-      setIsCameraOpen(false);
-    }
-  };
-
-  const takeItemPhoto = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const photo = await captureAndOptimize();
-    if (photo) {
-      if (itemPhotoTargetIdx !== null) {
-        // Handle existing item photo add
-        const itemToUpdate = items[itemPhotoTargetIdx];
-        if (activeListId) {
-            const blob = await dataUriToBlob(photo.url);
-            const url = await uploadFile(storage, `snagging/items/${itemToUpdate.id}-${Date.now()}.jpg`, blob);
-            const updatedPhoto = { ...photo, url };
-            const newItems = items.map((itm, i) => i === itemPhotoTargetIdx ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } : itm);
-            await updateDoc(doc(db, 'snagging-items', activeListId), { items: newItems });
-            setItems(newItems);
-        } else {
-            setItems(prev => prev.map((itm, i) => i === itemPhotoTargetIdx ? { ...itm, photos: [...(itm.photos || []), photo] } : itm));
-        }
-        setItemPhotoTargetIdx(null);
-      } else {
-        setPendingItemPhotos(prev => [...prev, photo]);
-        setIsItemCameraOpen(false);
-      }
-    }
-  };
 
   const ensureListCreated = async (): Promise<string | null> => {
     if (activeListId) return activeListId;
@@ -271,13 +189,49 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
         setNewItemText('');
         setPendingItemPhotos([]);
         setPendingSubId(undefined);
-        setIsItemCameraOpen(false);
         
         toast({ title: 'Item Persisted', description: 'Auto-saved to list.' });
       } catch (err) {
         toast({ title: 'Save Error', description: 'Failed to add item.', variant: 'destructive' });
       }
     });
+  };
+
+  const onCaptureGeneral = (photo: Photo) => {
+    startTransition(async () => {
+        if (activeListId) {
+            const blob = await dataUriToBlob(photo.url);
+            const url = await uploadFile(storage, `snagging/general/${activeListId}-${Date.now()}.jpg`, blob);
+            const updatedPhoto = { ...photo, url };
+            await updateDoc(doc(db, 'snagging-items', activeListId), {
+                photos: arrayUnion(updatedPhoto)
+            });
+            setPhotos(prev => [...prev, updatedPhoto]);
+        } else {
+            setPhotos(prev => [...prev, photo]);
+        }
+    });
+  };
+
+  const onCaptureItem = (photo: Photo) => {
+    if (itemPhotoTargetIdx !== null) {
+        const itemToUpdate = items[itemPhotoTargetIdx];
+        startTransition(async () => {
+            if (activeListId) {
+                const blob = await dataUriToBlob(photo.url);
+                const url = await uploadFile(storage, `snagging/items/${itemToUpdate.id}-${Date.now()}.jpg`, blob);
+                const updatedPhoto = { ...photo, url };
+                const newItems = items.map((itm, i) => i === itemPhotoTargetIdx ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } : itm);
+                await updateDoc(doc(db, 'snagging-items', activeListId), { items: newItems });
+                setItems(newItems);
+            } else {
+                setItems(prev => prev.map((itm, i) => i === itemPhotoTargetIdx ? { ...itm, photos: [...(itm.photos || []), photo] } : itm));
+            }
+        });
+        setItemPhotoTargetIdx(null);
+    } else {
+        setPendingItemPhotos(prev => [...prev, photo]);
+    }
   };
 
   useEffect(() => {
@@ -290,136 +244,134 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   }, [open, form]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button className="font-bold"><PlusCircle className="mr-2 h-4 w-4" />New List</Button></DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
-        <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
-            <div className="flex items-center justify-between">
-                <DialogTitle>New Snagging List</DialogTitle>
-                {activeListId && <Badge variant="secondary" className="font-mono animate-in fade-in">Auto-saving Active</Badge>}
-            </div>
-        </DialogHeader>
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-            <Form {...form}>
-                <form className="space-y-8">
-                    <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField control={form.control} name="projectId" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Project</FormLabel>
-                                    <Select onValueChange={(val) => { field.onChange(val); handleMetadataBlur(); }} value={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
-                                        <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                                    </Select>
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="areaId" render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Area / Level</FormLabel>
-                                  <Select onValueChange={(val) => { field.onChange(val); handleMetadataBlur(); }} value={field.value} disabled={!selectedProjectId}>
-                                    <FormControl>
-                                      <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                      {availableAreas.map(a => (
-                                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                                      ))}
-                                      {availableAreas.length > 0 && <Separator className="my-1" />}
-                                      <SelectItem value="other">Other / Not Listed</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                </FormItem>
-                            )} />
-                        </div>
-                        <FormField control={form.control} name="title" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Title</FormLabel>
-                                <FormControl><Input {...field} onBlur={handleMetadataBlur} /></FormControl>
-                            </FormItem>
-                        )} />
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex justify-between items-center"><FormLabel className="font-black text-xs uppercase text-muted-foreground">Add Defects</FormLabel><VoiceInput onResult={setNewItemText} /></div>
-                        <div className="flex gap-2 items-end bg-background p-4 rounded-xl border shadow-sm">
-                            <div className="flex-1"><Input placeholder="Item description..." value={newItemText} onChange={e => setNewItemText(e.target.value)} className="h-11 border-none shadow-none focus-visible:ring-0 px-0" /></div>
-                            <div className="flex gap-1">
-                                <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
-                                    <SelectTrigger className={cn("px-2 border-none h-11 transition-all", pendingSubId ? "w-auto" : "w-10 justify-center")}>
-                                        {selectedSub ? <Badge variant="secondary" className="h-6 text-[9px] uppercase tracking-tighter">{selectedSub.name}</Badge> : <UserPlus className="h-4 w-4 text-primary" />}
-                                    </SelectTrigger>
-                                    <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                                </Select>
-                                <Button type="button" variant="ghost" className="h-11" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsItemCameraOpen(true); }}><Camera className="h-5 w-5 text-primary" /></Button>
-                                <Button type="button" size="icon" className="h-11 rounded-lg" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddItem(); }} disabled={isPending}>
-                                    {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
-                                </Button>
-                            </div>
-                        </div>
-
-                        {pendingItemPhotos.length > 0 && (
-                          <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed">
-                            {pendingItemPhotos.map((p, idx) => (
-                              <div key={idx} className="relative w-16 h-12"><Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" /><button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></button></div>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="space-y-3">
-                            {items.map((item, idx) => (
-                                <div key={item.id} className="bg-white p-4 rounded-xl border shadow-sm flex items-center justify-between group animate-in fade-in">
-                                    <div className="flex flex-col gap-1 min-w-0 flex-1">
-                                        <span className="text-sm font-bold truncate">{item.description}</span>
-                                        <div className="mt-1 flex items-center gap-2">
-                                            {item.subContractorId && <Badge variant="secondary" className="text-[10px]">{projectSubs.find(s => s.id === item.subContractorId)?.name}</Badge>}
-                                            {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-1 shrink-0">
-                                        <Button type="button" variant="ghost" size="icon" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setItemPhotoTargetIdx(idx); }}><Camera className="h-4 w-4" /></Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
-                        <FormLabel className="font-black text-xs uppercase text-muted-foreground">General Documentation</FormLabel>
-                        <div className="flex flex-wrap gap-3">
-                            {photos.map((p, i) => (
-                                <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
-                            ))}
-                            <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCameraOpen(true); }}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
-                        </div>
-                    </div>
-                </form>
-            </Form>
-        </div>
-
-        <DialogFooter className="p-6 bg-white border-t shrink-0">
-            <Button type="button" className="w-full h-12 font-bold" onClick={() => setOpen(false)}>
-                Done & Close
-            </Button>
-        </DialogFooter>
-
-        {/* Full-screen Camera Overlay - Explicitly outside the form tag */}
-        {(isCameraOpen || isItemCameraOpen || itemPhotoTargetIdx !== null) && (
-          <div className="fixed inset-0 z-[100] bg-black">
-            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            <div className="absolute inset-0 flex flex-col justify-between p-6">
-              <div className="flex justify-end"><Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
-              <div className="flex items-center justify-center gap-8 mb-8">
-                <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
-                  <RefreshCw className="h-7 w-7" />
-                </Button>
-                <Button type="button" size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90"><div className="h-14 w-14 rounded-full border-2 border-black/10" /></Button>
-                <div className="w-14" />
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild><Button className="font-bold"><PlusCircle className="mr-2 h-4 w-4" />New List</Button></DialogTrigger>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+          <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
+              <div className="flex items-center justify-between">
+                  <DialogTitle>New Snagging List</DialogTitle>
+                  {activeListId && <Badge variant="secondary" className="font-mono animate-in fade-in">Auto-saving Active</Badge>}
               </div>
-            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+              <Form {...form}>
+                  <form className="space-y-8">
+                      <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <FormField control={form.control} name="projectId" render={({ field }) => (
+                                  <FormItem>
+                                      <FormLabel>Project</FormLabel>
+                                      <Select onValueChange={(val) => { field.onChange(val); handleMetadataBlur(); }} value={field.value}>
+                                          <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                                          <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                      </Select>
+                                  </FormItem>
+                              )} />
+                              <FormField control={form.control} name="areaId" render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Area / Level</FormLabel>
+                                    <Select onValueChange={(val) => { field.onChange(val); handleMetadataBlur(); }} value={field.value} disabled={!selectedProjectId}>
+                                      <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {availableAreas.map(a => (
+                                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                                        ))}
+                                        {availableAreas.length > 0 && <Separator className="my-1" />}
+                                        <SelectItem value="other">Other / Not Listed</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </FormItem>
+                              )} />
+                          </div>
+                          <FormField control={form.control} name="title" render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Title</FormLabel>
+                                  <FormControl><Input {...field} onBlur={handleMetadataBlur} /></FormControl>
+                              </FormItem>
+                          )} />
+                      </div>
+
+                      <div className="space-y-4">
+                          <div className="flex justify-between items-center"><FormLabel className="font-black text-xs uppercase text-muted-foreground">Add Defects</FormLabel><VoiceInput onResult={setNewItemText} /></div>
+                          <div className="flex gap-2 items-end bg-background p-4 rounded-xl border shadow-sm">
+                              <div className="flex-1"><Input placeholder="Item description..." value={newItemText} onChange={e => setNewItemText(e.target.value)} className="h-11 border-none shadow-none focus-visible:ring-0 px-0" /></div>
+                              <div className="flex gap-1">
+                                  <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
+                                      <SelectTrigger className={cn("px-2 border-none h-11 transition-all", pendingSubId ? "w-auto" : "w-10 justify-center")}>
+                                          {selectedSub ? <Badge variant="secondary" className="h-6 text-[9px] uppercase tracking-tighter">{selectedSub.name}</Badge> : <UserPlus className="h-4 w-4 text-primary" />}
+                                      </SelectTrigger>
+                                      <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                  <Button type="button" variant="ghost" className="h-11" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
+                                  <Button type="button" size="icon" className="h-11 rounded-lg" onClick={handleAddItem} disabled={isPending}>
+                                      {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
+                                  </Button>
+                              </div>
+                          </div>
+
+                          {pendingItemPhotos.length > 0 && (
+                            <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed">
+                              {pendingItemPhotos.map((p, idx) => (
+                                <div key={idx} className="relative w-16 h-12"><Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" /><button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-3 w-3" /></button></div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="space-y-3">
+                              {items.map((item, idx) => (
+                                  <div key={item.id} className="bg-white p-4 rounded-xl border shadow-sm flex items-center justify-between group animate-in fade-in">
+                                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                          <span className="text-sm font-bold truncate">{item.description}</span>
+                                          <div className="mt-1 flex items-center gap-2">
+                                              {item.subContractorId && <Badge variant="secondary" className="text-[10px]">{projectSubs.find(s => s.id === item.subContractorId)?.name}</Badge>}
+                                              {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
+                                          </div>
+                                      </div>
+                                      <div className="flex gap-1 shrink-0">
+                                          <Button type="button" variant="ghost" size="icon" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                      <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
+                          <FormLabel className="font-black text-xs uppercase text-muted-foreground">General Documentation</FormLabel>
+                          <div className="flex flex-wrap gap-3">
+                              {photos.map((p, i) => (
+                                  <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
+                              ))}
+                              <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
+                          </div>
+                      </div>
+                  </form>
+              </Form>
           </div>
-        )}
-        <canvas ref={canvasRef} className="hidden" />
-      </DialogContent>
-    </Dialog>
+
+          <DialogFooter className="p-6 bg-white border-t shrink-0">
+              <Button type="button" className="w-full h-12 font-bold" onClick={() => setOpen(false)}>
+                  Done & Close
+              </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={onCaptureGeneral}
+        title="General Site Evidence"
+      />
+
+      <CameraOverlay 
+        isOpen={isItemCameraOpen || itemPhotoTargetIdx !== null} 
+        onClose={() => { setIsItemCameraOpen(false); setItemPhotoTargetIdx(null); }} 
+        onCapture={onCaptureItem}
+        title="Item Specific Defect"
+      />
+    </>
   );
 }

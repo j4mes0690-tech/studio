@@ -44,6 +44,7 @@ import { Button } from '@/components/ui/button';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { DistributeChecklistButton } from './distribute-checklist-button';
 import { ImageLightbox } from '@/components/image-lightbox';
+import { CameraOverlay } from '@/components/camera-overlay';
 
 type ChecklistCardProps = {
   checklist: QualityChecklist;
@@ -68,12 +69,8 @@ export function ChecklistCard({
   // Camera & Media State
   const [activeItemForPhoto, setActiveItemForPhoto] = useState<string | null>(null);
   const [isCapturingGeneral, setIsCapturingGeneral] = useState(false);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
   
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const generalFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -94,7 +91,6 @@ export function ChecklistCard({
               requestResourceData: updates,
             });
             errorEmitter.emit('permission-error', permissionError);
-            // Revert local states on error
             if (updates.items) setItems(checklist.items);
             if (updates.photos) setGeneralPhotos(checklist.photos || []);
           });
@@ -140,67 +136,19 @@ export function ChecklistCard({
     }
   }
 
-  // Camera Logic
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (err) {}
-    };
-    if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach(t => t.stop());
-  }, [isCameraOpen, facingMode]);
-
-  const capturePhoto = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1200;
-      canvas.height = 1200 / aspectRatio;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      const newPhoto = { url: dataUrl, takenAt: new Date().toISOString() };
-      
-      if (isCapturingGeneral) {
-        handleGeneralPhotoUpdate(newPhoto);
-      } else if (activeItemForPhoto) {
-        handlePhotoUpdate(activeItemForPhoto, newPhoto);
-      }
-      
-      setIsCameraOpen(false);
-      setActiveItemForPhoto(null);
-      setIsCapturingGeneral(false);
+  const onCapture = (photo: Photo) => {
+    if (isCapturingGeneral) {
+        handleGeneralPhotoUpdate(photo);
+    } else if (activeItemForPhoto) {
+        handlePhotoUpdate(activeItemForPhoto, photo);
     }
-  };
-
-  const toggleCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  };
-
-  const closeCamera = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsCameraOpen(false);
-    setActiveItemForPhoto(null);
     setIsCapturingGeneral(false);
+    setActiveItemForPhoto(null);
   };
 
   const handleGeneralPhotoUpdate = (photo: Photo) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Uploading', description: 'Persisting general documentation...' });
-        
         let url = photo.url;
         if (photo.url.startsWith('data:')) {
           const blob = await dataUriToBlob(photo.url);
@@ -225,8 +173,6 @@ export function ChecklistCard({
   const handlePhotoUpdate = (itemId: string, photo: Photo) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Uploading', description: 'Persisting item documentation...' });
-        
         let url = photo.url;
         if (photo.url.startsWith('data:')) {
           const blob = await dataUriToBlob(photo.url);
@@ -293,30 +239,14 @@ export function ChecklistCard({
             </div>
             <div className="flex items-center gap-2">
               <Badge variant={hasFailure ? 'destructive' : 'secondary'}>{checklist.trade}</Badge>
-              
               <DistributeChecklistButton checklist={checklist} project={project} />
-
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Delete Checklist</span>
-                  </Button>
+                  <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Assigned Checklist?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently remove the "{checklist.title}" checklist and all its recorded evidence for this area.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
+                  <AlertDialogHeader><AlertDialogTitle>Delete Assigned Checklist?</AlertDialogTitle><AlertDialogDescription>This will permanently remove the "{checklist.title}" checklist and all its recorded evidence for this area.</AlertDialogDescription></AlertDialogHeader>
+                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </div>
@@ -333,91 +263,28 @@ export function ChecklistCard({
 
           <Accordion type="single" collapsible className="w-full" defaultValue={defaultExpanded ? "items" : undefined}>
             <AccordionItem value="items">
-              <AccordionTrigger className="text-sm font-semibold">
-                Compliance Points
-              </AccordionTrigger>
+              <AccordionTrigger className="text-sm font-semibold">Compliance Points</AccordionTrigger>
               <AccordionContent className="pt-2">
                 <div className="space-y-6">
                   {items.map((item) => (
                     <div key={item.id} className={cn("space-y-3 p-3 rounded-md border transition-colors", item.status === 'no' ? 'border-destructive bg-destructive/5' : 'border-transparent bg-muted/10 hover:border-border')}>
                       <Label className="font-bold text-foreground text-sm leading-relaxed">{item.text}</Label>
-                      
                       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                        <RadioGroup
-                            value={item.status}
-                            onValueChange={(status) => handleStatusChange(item.id, status as ChecklistItemStatus)}
-                            className="flex items-center space-x-6"
-                            disabled={isPending}
-                        >
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="yes" id={`${item.id}-yes`} className="text-green-600 border-green-200" />
-                                <Label htmlFor={`${item.id}-yes`} className="cursor-pointer">Pass</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="no" id={`${item.id}-no`} className="text-destructive border-destructive/30" />
-                                <Label htmlFor={`${item.id}-no`} className="cursor-pointer">Fail</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="na" id={`${item.id}-na`} />
-                                <Label htmlFor={`${item.id}-na`} className="cursor-pointer">N/A</Label>
-                            </div>
+                        <RadioGroup value={item.status} onValueChange={(status) => handleStatusChange(item.id, status as ChecklistItemStatus)} className="flex items-center space-x-6" disabled={isPending}>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="yes" id={`${item.id}-yes`} /><Label htmlFor={`${item.id}-yes`}>Pass</Label></div>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="no" id={`${item.id}-no`} /><Label htmlFor={`${item.id}-no`}>Fail</Label></div>
+                            <div className="flex items-center space-x-2"><RadioGroupItem value="na" id={`${item.id}-na`} /><Label htmlFor={`${item.id}-na`}>N/A</Label></div>
                         </RadioGroup>
-
                         <div className="flex gap-1">
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="icon" 
-                            className="h-8 w-8"
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActiveItemForPhoto(item.id); setIsCapturingGeneral(false); setIsCameraOpen(true); }}
-                            title="Take photo"
-                          >
-                            <Camera className="h-4 w-4" />
-                            <span className="sr-only">Take photo</span>
-                          </Button>
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="icon" 
-                            className="h-8 w-8"
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActiveItemForPhoto(item.id); setIsCapturingGeneral(false); fileInputRef.current?.click(); }}
-                            title="Upload photo"
-                          >
-                            <Upload className="h-4 w-4" />
-                            <span className="sr-only">Upload photo</span>
-                          </Button>
+                          <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => { setActiveItemForPhoto(item.id); setIsCapturingGeneral(false); }}><Camera className="h-4 w-4" /></Button>
+                          <Button type="button" variant="outline" size="icon" className="h-8 w-8" onClick={() => { setActiveItemForPhoto(item.id); setIsCapturingGeneral(false); fileInputRef.current?.click(); }}><Upload className="h-4 w-4" /></Button>
                         </div>
                       </div>
-
-                      <Input 
-                          placeholder="Trade compliance notes..."
-                          value={item.comment || ''}
-                          onChange={(e) => handleCommentChange(item.id, e.target.value)}
-                          onBlur={() => handleCommentBlur(item.id)}
-                          disabled={isPending}
-                          className="text-sm bg-background"
-                      />
-
-                      {/* Item Photo Gallery */}
+                      <Input placeholder="Trade compliance notes..." value={item.comment || ''} onChange={(e) => handleCommentChange(item.id, e.target.value)} onBlur={() => handleCommentBlur(item.id)} disabled={isPending} className="text-sm bg-background" />
                       {item.photos && item.photos.length > 0 && (
                         <div className="flex flex-wrap gap-2 pt-2">
                           {item.photos.map((p, idx) => (
-                            <div key={idx} className="relative w-16 h-12 rounded border bg-background overflow-hidden group">
-                              <Image 
-                                src={p.url} 
-                                alt="Inspection evidence" 
-                                fill 
-                                className="object-cover cursor-pointer" 
-                                onClick={() => setViewingPhoto(p)}
-                              />
-                              <button 
-                                type="button" 
-                                className="absolute top-0 right-0 bg-destructive text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => removePhoto(item.id, idx)}
-                              >
-                                <X className="h-2.5 w-2.5" />
-                              </button>
-                            </div>
+                            <div key={idx} className="relative w-16 h-12 rounded border bg-background overflow-hidden group"><Image src={p.url} alt="Ins" fill className="object-cover cursor-pointer" onClick={() => setViewingPhoto(p)}/><button type="button" className="absolute top-0 right-0 bg-destructive text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removePhoto(item.id, idx)}><X className="h-2.5 w-2.5" /></button></div>
                           ))}
                         </div>
                       )}
@@ -428,148 +295,53 @@ export function ChecklistCard({
             </AccordionItem>
 
             <AccordionItem value="general-photos">
-              <AccordionTrigger className="text-sm font-semibold">
-                General Site Photos
-              </AccordionTrigger>
+              <AccordionTrigger className="text-sm font-semibold">General Site Photos</AccordionTrigger>
               <AccordionContent className="pt-4 space-y-4">
                 <div className="flex gap-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-2"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCapturingGeneral(true); setActiveItemForPhoto(null); setIsCameraOpen(true); }}
-                  >
-                    <Camera className="h-4 w-4" /> Take Photo
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    className="gap-2"
-                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsCapturingGeneral(true); setActiveItemForPhoto(null); generalFileInputRef.current?.click(); }}
-                  >
-                    <Upload className="h-4 w-4" /> Upload
-                  </Button>
+                  <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => { setIsCapturingGeneral(true); setActiveItemForPhoto(null); }}><Camera className="h-4 w-4" /> Take Photo</Button>
+                  <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => { setIsCapturingGeneral(true); setActiveItemForPhoto(null); generalFileInputRef.current?.click(); }}><Upload className="h-4 w-4" /> Upload</Button>
                 </div>
-
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                   {generalPhotos.map((p, idx) => (
-                    <div key={idx} className="relative aspect-video rounded-md border overflow-hidden group bg-muted">
-                      <Image 
-                        src={p.url} 
-                         alt="General site view" 
-                        fill 
-                        className="object-cover cursor-pointer" 
-                        onClick={() => setViewingPhoto(p)}
-                      />
-                      <button 
-                        type="button" 
-                        className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => removeGeneralPhoto(idx)}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
+                    <div key={idx} className="relative aspect-video rounded-md border overflow-hidden group bg-muted"><Image src={p.url} alt="Gen" fill className="object-cover cursor-pointer" onClick={() => setViewingPhoto(p)}/><button type="button" className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeGeneralPhoto(idx)}><X className="h-3 w-3" /></button></div>
                   ))}
-                  {generalPhotos.length === 0 && (
-                    <div className="col-span-full py-8 text-center border-2 border-dashed rounded-lg text-muted-foreground">
-                      <p className="text-xs">No general documentation photos captured.</p>
-                    </div>
-                  )}
                 </div>
               </AccordionContent>
             </AccordionItem>
-
-            {checklist.recipients && checklist.recipients.length > 0 && (
-               <AccordionItem value="recipients">
-               <AccordionTrigger className="text-sm font-semibold">
-                 Distribution List ({checklist.recipients.length})
-               </AccordionTrigger>
-               <AccordionContent>
-                <div className="flex flex-wrap gap-1">
-                  {checklist.recipients.map((email, index) => (
-                    <Badge key={index} variant="outline" className="bg-background">{email}</Badge>
-                  ))}
-                </div>
-               </AccordionContent>
-             </AccordionItem>
-            )}
           </Accordion>
         </CardContent>
       </Card>
 
-      {/* Full-screen Camera Modal - Outside Card to avoid form nesting issues if the card was part of one */}
-      {isCameraOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
-          <div className="w-full max-w-lg space-y-4">
-            <div className="relative aspect-video bg-muted rounded-lg overflow-hidden border border-white/10 shadow-2xl">
-              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-            </div>
-            <div className="flex justify-center gap-4">
-              <Button type="button" size="lg" onClick={capturePhoto} className="rounded-full h-16 w-16 p-0 border-4 border-white/20">
-                <div className="h-10 w-10 rounded-full bg-white" />
-              </Button>
-              <Button type="button" variant="outline" size="icon" onClick={toggleCamera} className="rounded-full h-12 w-12 text-white border-white/40 hover:bg-white/20">
-                <RefreshCw className="h-6 w-6" />
-              </Button>
-              <Button type="button" variant="outline" onClick={closeCamera} className="rounded-full h-12 px-6 border-white/40 text-white hover:bg-white/20">
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CameraOverlay 
+        isOpen={isCapturingGeneral || activeItemForPhoto !== null} 
+        onClose={() => { setIsCapturingGeneral(false); setActiveItemForPhoto(null); }} 
+        onCapture={onCapture}
+        title="Quality Verification Photo"
+      />
 
-      {/* Hidden File Inputs */}
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        className="hidden" 
-        accept="image/*" 
-        multiple 
-        onChange={(e) => {
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
           const files = e.target.files;
           if (!files || !activeItemForPhoto) return;
           Array.from(files).forEach(f => {
             const reader = new FileReader();
-            reader.onload = (re) => {
-              handlePhotoUpdate(activeItemForPhoto, { 
-                url: re.target?.result as string, 
-                takenAt: new Date().toISOString() 
-              });
-            };
+            reader.onload = (re) => handlePhotoUpdate(activeItemForPhoto, { url: re.target?.result as string, takenAt: new Date().toISOString() });
             reader.readAsDataURL(f);
           });
           setActiveItemForPhoto(null);
-        }} 
-      />
+      }} />
 
-      <input 
-        type="file" 
-        ref={generalFileInputRef} 
-        className="hidden" 
-        accept="image/*" 
-        multiple 
-        onChange={(e) => {
+      <input type="file" ref={generalFileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
           const files = e.target.files;
           if (!files) return;
           Array.from(files).forEach(f => {
             const reader = new FileReader();
-            reader.onload = (re) => {
-              handleGeneralPhotoUpdate({ 
-                url: re.target?.result as string, 
-                takenAt: new Date().toISOString() 
-              });
-            };
+            reader.onload = (re) => handleGeneralPhotoUpdate({ url: re.target?.result as string, takenAt: new Date().toISOString() });
             reader.readAsDataURL(f);
           });
           setIsCapturingGeneral(false);
-        }} 
-      />
+      }} />
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
-      <canvas ref={canvasRef} className="hidden" />
     </>
   );
 }
