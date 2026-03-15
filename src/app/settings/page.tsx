@@ -90,6 +90,8 @@ function SettingsContent() {
 
   const permissions = profile?.permissions;
   const isAdmin = profile?.email.toLowerCase().trim() === 'admin@example.com';
+  
+  const canManageBranding = !!permissions?.canManageBranding || isAdmin;
   const canManageUsers = !!permissions?.canManageUsers || isAdmin;
   const canManageSubcontractors = !!permissions?.canManageSubcontractors || isAdmin;
   const canManageProjects = !!permissions?.canManageProjects || isAdmin;
@@ -97,7 +99,7 @@ function SettingsContent() {
   const canManagePermitTemplates = !!permissions?.canManagePermitTemplates || isAdmin;
   const canManageTraining = !!permissions?.canManageTraining || isAdmin;
 
-  const hasAnyAdminPermission = canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManagePermitTemplates || canManageTraining;
+  const hasAnyAdminPermission = canManageBranding || canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManagePermitTemplates || canManageTraining;
 
   if (!hasAnyAdminPermission) {
     return (
@@ -121,14 +123,12 @@ function SettingsContent() {
 
   return (
     <main className="flex-1 p-4 md:p-8 space-y-4">
-        {hasAnyAdminPermission && (
-            <div className="max-w-none">
-                <BrandingSettings />
-            </div>
-        )}
-
         <Accordion type="single" collapsible className="w-full space-y-4">
           
+          {canManageBranding && (
+            <BrandingSettings />
+          )}
+
           {canManageUsers && (
             <>
               <Card className="overflow-hidden">

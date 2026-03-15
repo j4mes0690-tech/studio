@@ -143,6 +143,7 @@ export type UserPermissions = {
   canManagePermitTemplates: boolean;
   canManageTraining: boolean;
   canManageIRS: boolean;
+  canManageBranding: boolean;
   hasFullVisibility: boolean;
   // Module Access
   accessMaterials: boolean;

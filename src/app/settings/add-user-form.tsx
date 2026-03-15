@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -49,6 +48,7 @@ const AddUserSchema = z.object({
   canManagePermitTemplates: z.boolean().default(false),
   canManageTraining: z.boolean().default(false),
   canManageIRS: z.boolean().default(false),
+  canManageBranding: z.boolean().default(false),
   hasFullVisibility: z.boolean().default(false),
   
   accessMaterials: z.boolean().default(true),
@@ -92,6 +92,12 @@ const AddUserSchema = z.object({
   
   accessIRS: z.boolean().default(true),
   irsReadOnly: z.boolean().default(false),
+
+  accessPlanner: z.boolean().default(true),
+  plannerReadOnly: z.boolean().default(false),
+
+  accessProcurement: z.boolean().default(true),
+  procurementReadOnly: z.boolean().default(false),
 });
 
 type AddUserFormValues = z.infer<typeof AddUserSchema>;
@@ -122,6 +128,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
       canManagePermitTemplates: false,
       canManageTraining: false,
       canManageIRS: false,
+      canManageBranding: false,
       hasFullVisibility: false,
       accessMaterials: true,
       materialsReadOnly: false,
@@ -151,6 +158,10 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
       subContractOrdersReadOnly: false,
       accessIRS: true,
       irsReadOnly: false,
+      accessPlanner: true,
+      plannerReadOnly: false,
+      accessProcurement: true,
+      procurementReadOnly: false,
     },
   });
 
@@ -174,6 +185,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
           canManagePermitTemplates: values.canManagePermitTemplates,
           canManageTraining: values.canManageTraining,
           canManageIRS: values.canManageIRS,
+          canManageBranding: values.canManageBranding,
           hasFullVisibility: values.hasFullVisibility,
           
           accessMaterials: values.accessMaterials,
@@ -217,6 +229,12 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
           
           accessIRS: values.accessIRS,
           irsReadOnly: values.irsReadOnly,
+
+          accessPlanner: values.accessPlanner,
+          plannerReadOnly: values.plannerReadOnly,
+
+          accessProcurement: values.accessProcurement,
+          procurementReadOnly: values.procurementReadOnly,
         }
       };
 
@@ -239,6 +257,9 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
   };
 
   const modules = [
+    { access: 'accessPlanner', ro: 'plannerReadOnly', label: 'Planner' },
+    { access: 'accessProcurement', ro: 'procurementReadOnly', label: 'Procurement' },
+    { access: 'accessIRS', ro: 'irsReadOnly', label: 'IRS Schedule' },
     { access: 'accessMaterials', ro: 'materialsReadOnly', label: 'Materials' },
     { access: 'accessPlant', ro: 'plantReadOnly', label: 'Plant Hire' },
     { access: 'accessSubContractOrders', ro: 'subContractOrdersReadOnly', label: 'Sub Contract Orders' },
@@ -252,7 +273,17 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
     { access: 'accessSnagging', ro: 'snaggingReadOnly', label: 'Snagging' },
     { access: 'accessQualityControl', ro: 'qualityControlReadOnly', label: 'Quality Control' },
     { access: 'accessInfoRequests', ro: 'infoRequestsReadOnly', label: 'Info Requests' },
-    { access: 'accessIRS', ro: 'irsReadOnly', label: 'IRS Schedule' },
+  ];
+
+  const adminRights = [
+    { name: 'canManageBranding', label: 'Company Branding', desc: 'Manage company logo and address.' },
+    { name: 'canManageUsers', label: 'Manage Users', desc: 'Control user access and permissions.' },
+    { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Registry of external collaborators.' },
+    { name: 'canManageProjects', label: 'Manage Projects', desc: 'Project configuration and teams.' },
+    { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Global quality standard setup.' },
+    { name: 'canManagePermitTemplates', label: 'Manage Permit Templates', desc: 'High-risk permit form logic.' },
+    { name: 'canManageTraining', label: 'Manage Training Needs', desc: 'Identify staff training gaps.' },
+    { name: 'canManageIRS', label: 'Manage Master IRS', desc: 'Global schedule tracking.' },
   ];
 
   return (
@@ -310,23 +341,15 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
-                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Admin Permissions</FormLabel>
+                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Admin Access Rights</FormLabel>
                     <div className="space-y-3">
                         <FormField control={form.control} name="hasFullVisibility" render={({ field }) => (
                             <FormItem className="flex items-center justify-between rounded-lg border-2 border-primary/20 p-3 bg-primary/5">
-                                <div className="space-y-0.5"><FormLabel className="text-primary font-bold">Admin Visibility</FormLabel><FormDescription className="text-[10px]">Full data access.</FormDescription></div>
+                                <div className="space-y-0.5"><FormLabel className="text-primary font-bold">Admin Visibility</FormLabel><FormDescription className="text-[10px]">Full access to all project data.</FormDescription></div>
                                 <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                             </FormItem>
                         )} />
-                        {[
-                            { name: 'canManageUsers', label: 'Manage Users', desc: 'Internal staff control.' },
-                            { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Subcontractors & Suppliers.' },
-                            { name: 'canManageProjects', label: 'Manage Projects', desc: 'Setup and assignments.' },
-                            { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Master checklist setup.' },
-                            { name: 'canManagePermitTemplates', label: 'Manage Permits', desc: 'Permit form setup.' },
-                            { name: 'canManageTraining', label: 'Manage Training', desc: 'Compliance oversight.' },
-                            { name: 'canManageIRS', label: 'Manage IRS', desc: 'Master schedule control.' },
-                        ].map(perm => (
+                        {adminRights.map(perm => (
                             <FormField key={perm.name} control={form.control} name={perm.name as any} render={({ field }) => (
                             <FormItem className="flex items-center justify-between rounded-lg border p-3 bg-background">
                                 <div className="space-y-0.5"><FormLabel className="text-xs font-semibold">{perm.label}</FormLabel><FormDescription className="text-[10px]">{perm.desc}</FormDescription></div>
@@ -338,7 +361,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
                 </div>
 
                 <div className="space-y-4">
-                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Module Access & Mode</FormLabel>
+                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Module Specific Access</FormLabel>
                     <div className="space-y-3">
                         {modules.map(mod => (
                             <div key={mod.access} className="flex flex-col p-3 rounded-lg border bg-background gap-3">
