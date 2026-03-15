@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -123,15 +122,14 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: NewInformationRequestFormValues) => {
-    // Explicitly enforce assignee for formal logging
     if (values.status === 'open') {
       let hasError = false;
       if (!values.description || values.description.trim().length < 10) {
-        form.setError('description', { message: 'Inquiry details must be at least 10 characters to formally log.' });
+        form.setError('description', { message: 'Inquiry details must be at least 10 characters to formally log.' }, { shouldFocus: true });
         hasError = true;
       }
       if (!values.assignedTo || values.assignedTo.length === 0) {
-        form.setError('assignedTo', { message: 'A recipient must be assigned to formally log this request.' });
+        form.setError('assignedTo', { message: 'A recipient must be assigned to formally log this request.' }, { shouldFocus: true });
         hasError = true;
       }
       if (hasError) return;

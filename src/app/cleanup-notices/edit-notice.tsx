@@ -117,11 +117,11 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
     if (values.status === 'issued') {
       let hasError = false;
       if (!values.description || values.description.trim().length < 10) {
-        form.setError('description', { message: 'Description must be at least 10 characters.' });
+        form.setError('description', { message: 'Description must be at least 10 characters.' }, { shouldFocus: true });
         hasError = true;
       }
       if (!values.recipients || values.recipients.length === 0) {
-        form.setError('recipients', { message: 'Assign a recipient.' });
+        form.setError('recipients', { message: 'Assign a recipient.' }, { shouldFocus: true });
         hasError = true;
       }
       if (hasError) return;
@@ -175,10 +175,10 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('recipients', []); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('recipients', []); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="description" render={({ field }) => (
-                <FormItem><div className="flex items-center justify-between"><FormLabel>Description</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea className="min-h-[120px]" {...field} /></FormControl></FormItem>
+                <FormItem><div className="flex items-center justify-between"><FormLabel>Description</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea className="min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
 
               <div className="space-y-4">
@@ -216,6 +216,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
                     )} />
                   ))}
                 </ScrollArea>
+                <FormMessage />
               </FormItem>
 
               <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">

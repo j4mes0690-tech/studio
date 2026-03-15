@@ -99,11 +99,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     if (values.status === 'issued') {
       let hasError = false;
       if (!values.originalText || values.originalText.trim().length < 10) {
-        form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' });
+        form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' }, { shouldFocus: true });
         hasError = true;
       }
       if (!values.externalRecipient) {
-        form.setError('externalRecipient', { message: 'An external partner must be selected to formally issue this instruction.' });
+        form.setError('externalRecipient', { message: 'An external partner must be selected to formally issue this instruction.' }, { shouldFocus: true });
         hasError = true;
       }
       if (hasError) return;
@@ -218,7 +218,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
               )} />
               
               <FormField

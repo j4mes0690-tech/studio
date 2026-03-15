@@ -98,11 +98,11 @@ export function NewNotice({ projects, subContractors, allNotices, allUsers }: Ne
     if (values.status === 'issued') {
       let hasError = false;
       if (!values.description || values.description.trim().length < 10) {
-        form.setError('description', { message: 'Description must be at least 10 characters to formally issue.' });
+        form.setError('description', { message: 'Description must be at least 10 characters to formally issue.' }, { shouldFocus: true });
         hasError = true;
       }
       if (!values.recipients || values.recipients.length === 0) {
-        form.setError('recipients', { message: 'At least one sub-contractor must be selected to issue this notice.' });
+        form.setError('recipients', { message: 'At least one sub-contractor must be selected to issue this notice.' }, { shouldFocus: true });
         hasError = true;
       }
       if (hasError) return;
@@ -279,6 +279,7 @@ export function NewNotice({ projects, subContractors, allNotices, allUsers }: Ne
                     )} />
                   ))}
                 </ScrollArea>
+                <FormMessage />
               </FormItem>
 
               <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">

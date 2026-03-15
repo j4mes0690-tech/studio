@@ -44,6 +44,7 @@ import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { sendSiteInstructionEmailAction } from './actions';
 import { generateInstructionPDF } from '@/lib/pdf-utils';
+import { CameraOverlay } from '@/components/camera-overlay';
 
 const EditInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -78,8 +79,6 @@ export function EditInstruction({
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -87,7 +86,6 @@ export function EditInstruction({
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
 
   const form = useForm<EditInstructionFormValues>({
     resolver: zodResolver(EditInstructionSchema),
@@ -129,11 +127,11 @@ export function EditInstruction({
     if (values.status === 'issued') {
       let hasError = false;
       if (!values.originalText || values.originalText.trim().length < 10) {
-        form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' });
+        form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' }, { shouldFocus: true });
         hasError = true;
       }
       if (!values.externalRecipient) {
-        form.setError('externalRecipient', { message: 'An external partner must be selected to formally issue this instruction.' });
+        form.setError('externalRecipient', { message: 'An external partner must be selected to formally issue this instruction.' }, { shouldFocus: true });
         hasError = true;
       }
       if (hasError) return;
@@ -228,20 +226,6 @@ export function EditInstruction({
     });
   };
 
-  const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1200; canvas.height = 1200 / aspectRatio;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      setPhotos([...photos, { url: canvas.toDataURL('image/jpeg', 0.85), takenAt: new Date().toISOString() }]);
-      setIsCameraOpen(false);
-    }
-  };
-
   const submissionStatus = form.watch('status');
 
   return (
@@ -251,7 +235,7 @@ export function EditInstruction({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField control={form.control} name="projectId" render={({ field }) => (
-              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
             )} />
             
             <FormField
@@ -310,13 +294,6 @@ export function EditInstruction({
                   </div>
                 ))}
               </div>
-
-              {isCameraOpen && (
-                <div className="space-y-2 border rounded-md p-2 bg-muted/30">
-                  <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
-                  <div className="flex gap-2"><Button type="button" onClick={takePhoto}>Capture</Button><Button type="button" variant="outline" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button><Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)}>Cancel</Button></div>
-                </div>
-              )}
             </div>
             
             <Separator />
@@ -334,10 +311,16 @@ export function EditInstruction({
               });
             }} />
             <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
-            <canvas ref={canvasRef} className="hidden" />
           </form>
         </Form>
       </DialogContent>
+
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
+        title="Site Instruction Photo"
+      />
     </Dialog>
   );
 }
