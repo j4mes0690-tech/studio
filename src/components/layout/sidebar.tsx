@@ -61,7 +61,7 @@ const links = [
 ];
 
 const secondaryLinks = [
-    { href: '/account', label: 'My Account', icon: CircleUser },
+  { href: '/account', label: 'My Account', icon: CircleUser },
 ];
 
 export function AppSidebar() {
@@ -77,13 +77,11 @@ export function AppSidebar() {
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   const filteredLinks = useMemo(() => {
-    if (!profile) return links.filter(l => !l.permission); // Fallback to basic links during load
-    
-    return links.filter(link => {
-        if (!link.permission) return true;
-        // If the permission field doesn't exist on older records, default to true
-        const hasPermission = profile.permissions?.[link.permission as keyof typeof profile.permissions] !== false;
-        return hasPermission;
+    if (!profile) return links.filter((l) => !l.permission);
+    return links.filter((link) => {
+      if (!link.permission) return true;
+      const hasPermission = profile.permissions?.[link.permission as keyof typeof profile.permissions] !== false;
+      return hasPermission;
     });
   }, [profile]);
 
@@ -94,41 +92,47 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {filteredLinks.map((link) => (
-            <SidebarMenuItem key={link.href}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname.startsWith(link.href) && (link.href === '/' ? pathname === '/' : true) }
-                tooltip={{ children: link.label }}
-              >
-                <Link href={link.href}>
-                  <link.icon />
-                  <span>{link.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {filteredLinks.map((link) => {
+            const Icon = link.icon;
+            return (
+              <SidebarMenuItem key={link.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith(link.href) && (link.href === '/' ? pathname === '/' : true)}
+                  tooltip={{ children: link.label }}
+                >
+                  <Link href={link.href}>
+                    <Icon />
+                    <span>{link.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarContent>
       <SidebarFooter>
         <SidebarSeparator />
         <SidebarMenu>
-          {secondaryLinks.map((link) => (
-            <SidebarMenuItem key={link.href}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname.startsWith(link.href)}
-                tooltip={{ children: link.label }}
-              >
-                <Link href={link.href}>
-                  <link.icon />
-                  <span>{link.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {secondaryLinks.map((link) => {
+            const Icon = link.icon;
+            return (
+              <SidebarMenuItem key={link.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname.startsWith(link.href)}
+                  tooltip={{ children: link.label }}
+                >
+                  <Link href={link.href}>
+                    <Icon />
+                    <span>{link.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
-      </SidebarContent>
+      </SidebarFooter>
     </Sidebar>
   );
 }
