@@ -5,18 +5,42 @@ import { NoticeCard } from './notice-card';
 import { NewNotice } from './new-notice';
 import { NoticeFilters } from './notice-filters';
 import { ExportButton } from './export-button';
+import { NoticeTable } from './notice-table';
 import { useSearchParams } from 'next/navigation';
-import { useMemo, Suspense } from 'react';
+import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { CleanUpNotice, Project, SubContractor, DistributionUser } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LayoutGrid, List } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 function CleanUpContent() {
   const searchParams = useSearchParams();
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
+
+  const [isCompact, setIsCompact] = useState(false);
+
+  // Load persistence
+  useEffect(() => {
+    const saved = localStorage.getItem('sitecommand_view_cleanup_notices');
+    if (saved !== null) {
+      setIsCompact(saved === 'true');
+    }
+  }, []);
+
+  const toggleView = () => {
+    const newVal = !isCompact;
+    setIsCompact(newVal);
+    localStorage.setItem('sitecommand_view_cleanup_notices', String(newVal));
+  };
 
   // Profile check
   const profileRef = useMemoFirebase(() => {
@@ -72,7 +96,7 @@ function CleanUpContent() {
 
   const isLoading = projectsLoading || subsLoading || noticesLoading || profileLoading;
 
-  if (isLoading) {
+  if (isLoading && !allNotices) {
     return (
         <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -87,6 +111,24 @@ function CleanUpContent() {
             Notice Log
           </h2>
           <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={toggleView}
+                    className="flex h-9 w-9"
+                  >
+                    {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Switch to {isCompact ? 'Card' : 'Compact'} View</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
             <NewNotice 
               projects={allowedProjects} 
               subContractors={subContractors || []} 
@@ -95,23 +137,33 @@ function CleanUpContent() {
           </div>
         </div>
         <NoticeFilters projects={allowedProjects} />
-        <div className="grid gap-4 md:gap-6">
-          {filteredNotices.length > 0 ? (
-            filteredNotices.map((notice) => (
-              <NoticeCard
-                key={notice.id}
-                notice={notice}
-                projects={allowedProjects}
-                subContractors={subContractors || []}
-              />
-            ))
+        
+        {filteredNotices.length > 0 ? (
+          isCompact ? (
+            <NoticeTable 
+              items={filteredNotices}
+              projects={allowedProjects}
+              subContractors={subContractors || []}
+            />
           ) : (
-            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
-              <p className="text-lg font-semibold">No records found</p>
-              <p className="text-sm">You only see cleanup notices for projects you are assigned to.</p>
+            <div className="grid gap-4 md:gap-6">
+              {filteredNotices.map((notice) => (
+                <NoticeCard
+                  key={notice.id}
+                  notice={notice}
+                  projects={allowedProjects}
+                  subContractors={subContractors || []}
+                />
+              ))}
             </div>
-          )}
-        </div>
+          )
+        ) : (
+          <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+            <p className="text-lg font-semibold">No records found</p>
+            <p className="text-sm">You only see cleanup notices for projects you are assigned to.</p>
+          </div>
+        )}
+
         {filteredNotices.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
             <ExportButton notices={filteredNotices} projects={allowedProjects} />
