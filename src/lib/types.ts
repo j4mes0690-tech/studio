@@ -505,6 +505,7 @@ export type TrainingNeed = {
   status: TrainingNeedStatus;
   notes?: string;
   requestedDate: string;
+  bookedDate?: string | null;
 };
 
 // --- PAYMENT NOTICE MODULE TYPES ---
