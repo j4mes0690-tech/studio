@@ -119,7 +119,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
   const availableInternalUsers = useMemo(() => {
     if (!selectedProject) return [];
     const assignedEmails = selectedProject.assignedUsers || [];
-    return distributionUsers.filter(u => 
+    return (distributionUsers || []).filter(u => 
       assignedEmails.some(email => email.toLowerCase().trim() === u.email.toLowerCase().trim())
     );
   }, [selectedProject, distributionUsers]);
@@ -199,7 +199,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 }
 
                 // Generate PDF for attachment
-                const assignedToNames = values.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
+                const assignedToNames = values.assignedTo.map(email => (distributionUsers || []).find(u => u.email === email)?.name || email);
                 const pdf = await generateInformationRequestPDF({ ...item, ...updates }, selectedProject, assignedToNames);
                 const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
@@ -208,7 +208,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     projectName: selectedProject?.name || 'Project',
                     reference: item.reference,
                     description: values.description,
-                    raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
+                    raisedBy: (distributionUsers || []).find(u => u.email === item.raisedBy)?.name || item.raisedBy,
                     requestId: item.id,
                     pdfBase64,
                     fileName: `RFI-${item.reference}.pdf`
@@ -375,7 +375,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                               <ShieldCheck className="h-3 w-3" /> Project Staff
                             </SelectLabel>
                             {availableInternalUsers.map(u => (
-                              <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>
+                              <SelectItem key={`staff-${u.id}`} value={u.email}>{u.name} ({u.email})</SelectItem>
                             ))}
                             {availableInternalUsers.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
@@ -387,7 +387,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                               <Users2 className="h-3 w-3" /> Trade Partners
                             </SelectLabel>
                             {availableExternalPartners.map(s => (
-                              <SelectItem key={s.id} value={s.email}>{s.name}</SelectItem>
+                              <SelectItem key={`partner-${s.id}`} value={s.email}>{s.name}</SelectItem>
                             ))}
                             {availableExternalPartners.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>

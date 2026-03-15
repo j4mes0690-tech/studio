@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -196,13 +195,13 @@ export function NewIRSItemDialog({
                                   <ShieldCheck className="h-3 w-3" /> Project Staff
                                 </div>
                                 {availableStaff.map(u => (
-                                  <SelectItem key={u.id} value={u.email}>{u.name}</SelectItem>
+                                  <SelectItem key={`staff-${u.id}`} value={u.email}>{u.name}</SelectItem>
                                 ))}
                                 <div className="p-2 text-[10px] font-bold text-muted-foreground uppercase flex items-center gap-1 border-b mt-2">
                                   <Users2 className="h-3 w-3" /> Trade Partners
                                 </div>
                                 {availablePartners.map(s => (
-                                  <SelectItem key={s.id} value={s.email}>{s.name}</SelectItem>
+                                  <SelectItem key={`partner-${s.id}`} value={s.email}>{s.name}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
