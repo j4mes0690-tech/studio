@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -15,6 +14,8 @@ import { ProcurementCard } from './procurement-card';
 import { ProcurementTable } from './procurement-table';
 import { NewProcurementDialog } from './new-item';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 function ProcurementContent() {
   const db = useFirestore();
