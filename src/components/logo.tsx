@@ -1,4 +1,4 @@
-import { Building2 } from 'lucide-react';
+import { HardHat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -17,11 +17,13 @@ export function Logo({
   return (
     <div
       className={cn(
-        'flex items-center gap-2 text-lg font-semibold',
+        'flex items-center gap-2 text-lg font-extrabold tracking-tighter',
         className
       )}
     >
-      <Building2 className={cn('h-6 w-6', iconClassName)} />
+      <div className="bg-primary p-1.5 rounded-lg shadow-sm">
+        <HardHat className={cn('h-5 w-5 text-primary-foreground', iconClassName)} />
+      </div>
       {!hideText && <span>SiteCommand</span>}
     </div>
   );
