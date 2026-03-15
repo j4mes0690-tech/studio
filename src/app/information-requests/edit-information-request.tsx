@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -47,6 +48,8 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { Separator } from '@/components/ui/separator';
 import { VoiceInput } from '@/components/voice-input';
+import { sendInformationRequestEmailAction } from './actions';
+import { getPartnerEmails } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -169,6 +172,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
           })
         );
 
+        const targetEmail = values.assignedTo[0];
         const updates = {
           projectId: values.projectId,
           description: values.description || '',
@@ -182,7 +186,28 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         const docRef = doc(db, 'information-requests', values.id);
         
         await updateDoc(docRef, updates)
-          .then(() => {
+          .then(async () => {
+            // Trigger distribution if transitioning to open
+            if (values.status === 'open' && item.status === 'draft') {
+                const sub = availableExternalPartners.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
+                const recipientEmails = new Set<string>();
+                recipientEmails.add(targetEmail.toLowerCase().trim());
+
+                if (sub) {
+                    const partnerUsers = getPartnerEmails(sub.id, subContractors || [], distributionUsers);
+                    partnerUsers.forEach(e => recipientEmails.add(e));
+                }
+
+                await sendInformationRequestEmailAction({
+                    emails: Array.from(recipientEmails),
+                    projectName: selectedProject?.name || 'Project',
+                    reference: item.reference,
+                    description: values.description,
+                    raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
+                    requestId: item.id
+                });
+            }
+
             toast({ title: 'Success', description: 'Information request updated.' });
             setOpen(false);
           })

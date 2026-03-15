@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
-import type { InformationRequest, Project, DistributionUser, ChatMessage, Photo } from '@/lib/types';
+import type { InformationRequest, Project, DistributionUser, ChatMessage, Photo, SubContractor } from '@/lib/types';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -48,12 +49,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { ClientDate } from '../../components/client-date';
-import { useFirestore } from '@/firebase';
-import { doc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, updateDoc, deleteDoc, arrayUnion, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { cn } from '@/lib/utils';
+import { cn, getPartnerEmails } from '@/lib/utils';
 import { ImageLightbox } from '@/components/image-lightbox';
+import { sendInformationRequestEmailAction } from './actions';
 
 
 function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: string, newStatus: 'open' | 'closed', currentUser: DistributionUser }) {
@@ -121,6 +123,9 @@ export function InformationRequestCard({
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
 
+  const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
+  const { data: allSubs } = useCollection<SubContractor>(subsQuery);
+
   const assignedToArray = useMemo(() => Array.isArray(item.assignedTo) ? item.assignedTo : (item.assignedTo ? [item.assignedTo] : []), [item.assignedTo]);
   const sortedMessages = useMemo(() => [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [item.messages]);
 
@@ -159,17 +164,38 @@ export function InformationRequestCard({
     }
 
     startTransition(async () => {
-      const docRef = doc(db, 'information-requests', item.id);
-      updateDoc(docRef, { status: 'open' })
-        .then(() => toast({ title: 'Success', description: 'Request formally logged.' }))
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'update',
-            requestResourceData: { status: 'open' }
-          });
-          errorEmitter.emit('permission-error', permissionError);
+      try {
+        const docRef = doc(db, 'information-requests', item.id);
+        await updateDoc(docRef, { status: 'open' });
+
+        const targetEmail = item.assignedTo[0];
+        const sub = allSubs?.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
+        const recipientEmails = new Set<string>();
+        recipientEmails.add(targetEmail.toLowerCase().trim());
+
+        if (sub) {
+            const partnerUsers = getPartnerEmails(sub.id, allSubs || [], distributionUsers);
+            partnerUsers.forEach(e => recipientEmails.add(e));
+        }
+
+        await sendInformationRequestEmailAction({
+            emails: Array.from(recipientEmails),
+            projectName: project?.name || 'Project',
+            reference: item.reference,
+            description: item.description,
+            raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
+            requestId: item.id
         });
+
+        toast({ title: 'Success', description: 'Request formally logged and distributed.' });
+      } catch (error) {
+        const permissionError = new FirestorePermissionError({
+          path: `information-requests/${item.id}`,
+          operation: 'update',
+          requestResourceData: { status: 'open' }
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      }
     });
   };
 

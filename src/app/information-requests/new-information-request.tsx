@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -46,8 +47,9 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { getProjectInitials, getNextReference } from '@/lib/utils';
+import { getProjectInitials, getNextReference, getPartnerEmails } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
+import { sendInformationRequestEmailAction } from './actions';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -159,8 +161,9 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           })
         );
 
-        const hasExternalPartner = availableExternalPartners.some(d => values.assignedTo?.includes(d.email.toLowerCase().trim()));
-        const prefix = hasExternalPartner ? 'RFI' : 'CRFI';
+        const targetEmail = values.assignedTo[0];
+        const sub = availableExternalPartners.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
+        const prefix = sub ? 'RFI' : 'CRFI';
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const reference = getNextReference(allRequests, values.projectId, prefix, initials);
 
@@ -179,7 +182,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         };
 
         const colRef = collection(db, 'information-requests');
-        await addDoc(colRef, requestData).catch((error) => {
+        const newDocRef = await addDoc(colRef, requestData).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: colRef.path,
             operation: 'create',
@@ -188,7 +191,28 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           throw error;
         });
 
-        toast({ title: 'Success', description: values.status === 'draft' ? 'Request saved as draft.' : `${prefix} logged successfully.` });
+        // 3. Distribution
+        if (values.status === 'open') {
+            const recipientEmails = new Set<string>();
+            recipientEmails.add(targetEmail.toLowerCase().trim());
+
+            // If it's a partner, find associated users
+            if (sub) {
+                const partnerUsers = getPartnerEmails(sub.id, subContractors, distributionUsers);
+                partnerUsers.forEach(e => recipientEmails.add(e));
+            }
+
+            await sendInformationRequestEmailAction({
+                emails: Array.from(recipientEmails),
+                projectName: selectedProject?.name || 'Project',
+                reference,
+                description: values.description,
+                raisedBy: currentUser.name,
+                requestId: newDocRef.id
+            });
+        }
+
+        toast({ title: 'Success', description: values.status === 'draft' ? 'Request saved as draft.' : `${prefix} logged and distributed.` });
         setOpen(false);
       } catch (err) {
         console.error(err);
@@ -287,7 +311,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
         <DialogHeader>
           <DialogTitle>Log Information Request (CRFI / RFI)</DialogTitle>
           <DialogDescription>
-            Record a query for project team members or trade partners. Status can be saved as Draft.
+            Record a query for project team members or trade partners. Formal issuance triggers an email notification.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
