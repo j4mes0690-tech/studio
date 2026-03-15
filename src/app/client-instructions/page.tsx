@@ -100,6 +100,34 @@ function InstructionsContent() {
     });
   }, [allInstructions, profile, allProjects, projectId]);
 
+  // Sort for display (Priority sorting: Attention Required first, then Open status, then Newest)
+  const sortedInstructions = useMemo(() => {
+    if (!filteredInstructions || !profile) return [];
+    const email = profile.email.toLowerCase().trim();
+
+    const isAttentionRequired = (ci: ClientInstruction) => {
+        if (ci.status !== 'open') return false;
+        if (ci.dismissedBy?.includes(email)) return false;
+        return (ci.recipients || []).some(e => e.toLowerCase().trim() === email);
+    };
+
+    return [...filteredInstructions].sort((a, b) => {
+        // 1. Attention Required Priority
+        const aReq = isAttentionRequired(a);
+        const bReq = isAttentionRequired(b);
+        if (aReq && !bReq) return -1;
+        if (!aReq && bReq) return 1;
+
+        // 2. Status Priority
+        if (a.status !== b.status) {
+            return a.status === 'open' ? -1 : 1;
+        }
+
+        // 3. Newest first
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+  }, [filteredInstructions, profile]);
+
   const isLoading = (projectsLoading || instructionsLoading || profileLoading) && !allInstructions;
 
   if (isLoading) {
@@ -167,19 +195,19 @@ function InstructionsContent() {
         </div>
         <InstructionFilters projects={allowedProjects} />
         
-        {filteredInstructions.length > 0 ? (
+        {sortedInstructions.length > 0 ? (
           isCompact ? (
             <InstructionTable 
-              items={filteredInstructions}
+              items={sortedInstructions}
               projects={allProjects || []}
-              distributionUsers={[]} // Passed as empty since it's no longer used for row actions here
+              distributionUsers={[]} 
               currentUser={profile!}
               allSiteInstructions={allSiteInstructions || []}
               allRfis={allRfis || []}
             />
           ) : (
             <div className="grid gap-4 md:gap-6">
-              {filteredInstructions.map((instruction) => (
+              {sortedInstructions.map((instruction) => (
                 <ClientInstructionCard
                   key={instruction.id}
                   instruction={instruction}
@@ -198,9 +226,9 @@ function InstructionsContent() {
           </div>
         )}
 
-        {filteredInstructions.length > 0 && (
+        {sortedInstructions.length > 0 && (
           <div className="flex justify-center mt-auto pt-6">
-            <ExportButton instructions={filteredInstructions} projects={allProjects || []} />
+            <ExportButton instructions={sortedInstructions} projects={allProjects || []} />
           </div>
         )}
       </main>

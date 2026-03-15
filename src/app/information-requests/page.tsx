@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -116,15 +115,36 @@ function InfoRequestsContent() {
     }).filter(item => projectId ? item.projectId === projectId : true);
   }, [allItems, currentUser, allProjects, projectId, subContractors]);
 
-  // Sort for display (Active/Open status first)
+  // Sort for display (Attention Required first, then active/open status, then newest)
   const sortedItems = useMemo(() => {
+    if (!filteredItems || !currentUser) return [];
+    const email = currentUser.email.toLowerCase().trim();
+
+    const isAttentionRequired = (item: InformationRequest) => {
+        if (item.status !== 'open') return false;
+        if (item.dismissedBy?.includes(email)) return false;
+        const isAssignedToMe = item.assignedTo.some(e => e.toLowerCase().trim() === email);
+        const lastMessage = item.messages?.length > 0 ? [...item.messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+        const isMyRaisedWithResponse = item.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
+        return isAssignedToMe || isMyRaisedWithResponse;
+    };
+
     return [...filteredItems].sort((a, b) => {
+      // 1. Attention Required Priority
+      const aReq = isAttentionRequired(a);
+      const bReq = isAttentionRequired(b);
+      if (aReq && !bReq) return -1;
+      if (!aReq && bReq) return 1;
+
+      // 2. Status Priority
       if (a.status !== b.status) {
         return a.status === 'open' ? -1 : 1;
       }
+
+      // 3. Newest first
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
-  }, [filteredItems]);
+  }, [filteredItems, currentUser]);
 
   const loading = usersLoading || projectsLoading || itemsLoading || profileLoading || subsLoading;
 

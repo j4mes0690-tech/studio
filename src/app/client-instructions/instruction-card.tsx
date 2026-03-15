@@ -37,7 +37,9 @@ import {
   ShieldCheck,
   Ruler,
   Users2,
-  RefreshCw
+  RefreshCw,
+  Bell,
+  EyeOff
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ClientDate } from '../../components/client-date';
@@ -97,7 +99,8 @@ function ReopenInstructionButton({ instruction, currentUser }: { instruction: Cl
 
             updateDoc(docRef, {
                 status: 'open',
-                messages: arrayUnion(systemMessage)
+                messages: arrayUnion(systemMessage),
+                dismissedBy: []
             }).then(() => {
                 toast({ title: 'Directive Reopened', description: 'Communication workspace is now active.' });
             }).catch(err => {
@@ -498,6 +501,23 @@ export function ClientInstructionCard({
   // Determine if navigation is needed (only if not already on the detail page)
   const isDetailPage = pathname === `/client-instructions/${instruction.id}`;
 
+  const isAccepted = instruction.status === 'accepted';
+  const email = currentUser?.email.toLowerCase().trim();
+
+  // Attention Check
+  const isAttentionRequired = useMemo(() => {
+    if (!instruction || !email || isAccepted || instruction.status !== 'open') return false;
+    if (instruction.dismissedBy?.includes(email)) return false;
+    return (instruction.recipients || []).some(e => e.toLowerCase().trim() === email);
+  }, [instruction, email, isAccepted]);
+
+  const handleDismissAlert = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const docRef = doc(db, 'client-instructions', instruction.id);
+    updateDoc(docRef, { dismissedBy: arrayUnion(email) })
+        .then(() => toast({ title: 'Alert Dismissed', description: 'Item removed from priority.' }));
+  };
+
   const handleCardClick = () => {
     if (!isDetailPage) {
       router.push(`/client-instructions/${instruction.id}`);
@@ -513,7 +533,6 @@ export function ClientInstructionCard({
     });
   };
 
-  const isAccepted = instruction.status === 'accepted';
   const sortedMessages = useMemo(() => [...(instruction.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [instruction.messages]);
 
   return (
@@ -522,6 +541,7 @@ export function ClientInstructionCard({
         className={cn(
             "border-l-4 transition-all", 
             isAccepted ? "border-l-green-500 bg-green-50/10" : "border-l-primary",
+            isAttentionRequired && "border-primary border-2 shadow-primary/10 bg-primary/[0.02] ring-1 ring-primary",
             !isDetailPage && "cursor-pointer hover:shadow-md hover:border-l-primary/80 group/card"
         )}
         onClick={handleCardClick}
@@ -535,13 +555,32 @@ export function ClientInstructionCard({
                 </CardTitle>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
               </div>
-              <CardDescription className="flex items-center gap-2 pt-1">
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
                 <span className="text-xs text-muted-foreground/80">
                   <ClientDate date={instruction.createdAt} />
                 </span>
-              </CardDescription>
+                {isAttentionRequired && (
+                    <Badge className="bg-primary text-white h-5 px-2 text-[9px] font-black uppercase tracking-widest animate-pulse gap-1.5">
+                        <Bell className="h-2.5 w-2.5" />
+                        Action Required
+                    </Badge>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {isAttentionRequired && (
+                  <TooltipProvider>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={handleDismissAlert}>
+                                  <EyeOff className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Dismiss Alert</p></TooltipContent>
+                      </Tooltip>
+                  </TooltipProvider>
+              )}
+
               <Badge variant={isAccepted ? "secondary" : "default"} className={cn(isAccepted && "bg-green-100 text-green-800 border-green-200")}>
                   {isAccepted ? "Accepted" : "Open Directive"}
               </Badge>
@@ -609,7 +648,7 @@ export function ClientInstructionCard({
                   )}
               </div>
               {sortedMessages.map((msg) => {
-                  const isMe = msg.senderEmail === currentUser.email.toLowerCase().trim();
+                  const isMe = msg.senderEmail === email;
                   const isSystem = msg.senderEmail === 'system@sitecommand.internal';
                   if (isSystem) return <div key={msg.id} className="flex justify-center my-2"><Badge variant="outline" className="bg-background text-[10px] py-0.5 px-3 rounded-full border-dashed font-semibold text-muted-foreground">{msg.message}</Badge></div>;
                   return (

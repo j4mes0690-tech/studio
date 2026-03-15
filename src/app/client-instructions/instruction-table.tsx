@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
@@ -32,7 +31,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, MessageSquare, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Trash2, MessageSquare, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, RefreshCw, EyeOff, Bell } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SortKey = 'reference' | 'project' | 'directive' | 'status' | 'date';
@@ -152,6 +151,20 @@ function InstructionRow({ item, projects, currentUser }: { item: ClientInstructi
   const [isPending, startTransition] = useTransition();
 
   const isAccepted = item.status === 'accepted';
+  const email = currentUser?.email.toLowerCase().trim();
+
+  // Attention Check
+  const isAttentionRequired = useMemo(() => {
+    if (!item || !email || isAccepted || item.status !== 'open') return false;
+    if (item.dismissedBy?.includes(email)) return false;
+    return (item.recipients || []).some(e => e.toLowerCase().trim() === email);
+  }, [item, email, isAccepted]);
+
+  const handleDismissAlert = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const docRef = doc(db, 'client-instructions', item.id);
+    updateDoc(docRef, { dismissedBy: arrayUnion(email) });
+  };
 
   const handleReopen = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -167,7 +180,8 @@ function InstructionRow({ item, projects, currentUser }: { item: ClientInstructi
 
       updateDoc(docRef, {
         status: 'open',
-        messages: arrayUnion(systemMessage)
+        messages: arrayUnion(systemMessage),
+        dismissedBy: []
       }).then(() => {
         toast({ title: 'Success', description: 'Directive reopened.' });
       }).catch(err => {
@@ -199,9 +213,18 @@ function InstructionRow({ item, projects, currentUser }: { item: ClientInstructi
   return (
     <TableRow 
       href={`/client-instructions/${item.id}`}
-      className={cn("group", isAccepted && "bg-green-50/10")}
+      className={cn(
+          "group transition-all", 
+          isAccepted && "bg-green-50/10",
+          isAttentionRequired && "bg-primary/[0.03] ring-1 ring-inset ring-primary/20"
+      )}
     >
-      <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
+      <TableCell className="font-mono text-[10px]">
+          <div className="flex items-center gap-2">
+              {isAttentionRequired && <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />}
+              {item.reference}
+          </div>
+      </TableCell>
       <TableCell className="font-medium">{project?.name || 'Unknown'}</TableCell>
       <TableCell>
         <div className="max-w-[300px] truncate text-sm" title={item.originalText}>
@@ -228,6 +251,19 @@ function InstructionRow({ item, projects, currentUser }: { item: ClientInstructi
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+          {isAttentionRequired && (
+              <TooltipProvider>
+                  <Tooltip>
+                      <TooltipTrigger asChild>
+                          <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8 hover:text-primary" onClick={handleDismissAlert}>
+                              <EyeOff className="h-4 w-4" />
+                          </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Dismiss Alert</p></TooltipContent>
+                  </Tooltip>
+              </TooltipProvider>
+          )}
+
           {isAccepted ? (
             <TooltipProvider>
               <Tooltip>
