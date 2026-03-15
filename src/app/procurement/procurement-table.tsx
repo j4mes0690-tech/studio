@@ -116,7 +116,7 @@ function ProcurementTableRow({
     return { color: 'text-green-600', icon: CheckCircle2, label: 'Ahead' };
   }, [item.status, item.targetEnquiryDate, item.latestDateForOrder]);
 
-  const statusConfig = {
+  const statusConfig: Record<string, { label: string, color: string }> = {
     'planned': { label: 'Planned', color: 'bg-slate-100 text-slate-800' },
     'enquiry': { label: 'Tendering', color: 'bg-blue-100 text-blue-800' },
     'tender-returned': { label: 'Evaluating', color: 'bg-amber-100 text-amber-800' },
@@ -124,7 +124,8 @@ function ProcurementTableRow({
     'on-site': { label: 'On Site', color: 'bg-indigo-100 text-indigo-800' },
   };
 
-  const currentStatus = statusConfig[item.status];
+  // Safety fallback for legacy data or unexpected status values
+  const currentStatus = statusConfig[item.status] || { label: item.status, color: 'bg-muted text-muted-foreground' };
 
   const getMilestoneColor = (actual: string | null, target: string | null) => {
     if (!actual || !target) return "text-muted-foreground";

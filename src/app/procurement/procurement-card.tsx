@@ -74,7 +74,7 @@ export function ProcurementCard({
     return { color: 'text-green-600', border: 'border-l-green-500', bg: 'bg-green-50', label: 'ON TRACK', icon: CheckCircle2 };
   }, [item.status, item.targetEnquiryDate, item.latestDateForOrder]);
 
-  const statusConfig = {
+  const statusConfig: Record<string, { label: string, color: string }> = {
     'planned': { label: 'Planned', color: 'bg-slate-100 text-slate-800' },
     'enquiry': { label: 'Tendering', color: 'bg-blue-100 text-blue-800' },
     'tender-returned': { label: 'Evaluating', color: 'bg-amber-100 text-amber-800' },
@@ -82,7 +82,7 @@ export function ProcurementCard({
     'on-site': { label: 'On Site', color: 'bg-indigo-100 text-indigo-800' },
   };
 
-  const currentStatus = statusConfig[item.status];
+  const currentStatus = statusConfig[item.status] || { label: item.status, color: 'bg-muted text-muted-foreground' };
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();

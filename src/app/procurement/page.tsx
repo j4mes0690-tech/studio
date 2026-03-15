@@ -265,6 +265,33 @@ function ProcurementContent() {
   );
 }
 
+function NoticeFilters({ projects }: { projects: Project[] }) {
+    const searchParams = useSearchParams();
+    const projectId = searchParams.get('project') || 'all';
+    
+    return (
+        <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="flex-1 w-full sm:w-auto">
+                <Select
+                    value={projectId}
+                    onValueChange={(val) => {
+                        const params = new URLSearchParams(window.location.search);
+                        if (val === 'all') params.delete('project');
+                        else params.set('project', val);
+                        window.history.pushState(null, '', `?${params.toString()}`);
+                    }}
+                >
+                    <SelectTrigger><SelectValue placeholder="Filter by project..." /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Projects</SelectItem>
+                        {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
+    );
+}
+
 export default function ProcurementPage() {
   return (
     <div className="flex flex-col w-full min-h-screen">
