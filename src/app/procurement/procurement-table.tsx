@@ -220,81 +220,80 @@ function ProcurementTableRow({
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
     startTransition(async () => {
-      await deleteDoc(doc(db, 'procurement-items', item.id));
+      const docRef = doc(db, 'procurement-items', item.id);
+      await deleteDoc(docRef);
       toast({ title: 'Removed', description: 'Item deleted.' });
     });
   };
 
   return (
-    <>
-      <TableRow 
-        className={cn("group cursor-pointer", item.orderPlacedDate && "opacity-75")}
-        onClick={() => setIsEditDialogOpen(true)}
-      >
-        <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
-        <TableCell className="font-bold text-sm truncate max-w-[180px]" title={item.trade}>{item.trade}</TableCell>
-        <TableCell className="truncate max-w-[150px] text-xs font-semibold">{item.subcontractorName || 'TBC'}</TableCell>
-        <TableCell>
-            <div className={cn("flex items-center gap-1.5 text-[10px] font-bold", rag.color)}>
-                {rag.icon && <rag.icon className="h-3 w-3" />}
-                {rag.label}
-            </div>
-        </TableCell>
-        <TableCell className={cn("text-center font-mono text-[10px] font-bold", getMilestoneColor(item.actualEnquiryDate, item.targetEnquiryDate))}>
-            {item.actualEnquiryDate ? new Date(item.actualEnquiryDate).toLocaleDateString() : (item.targetEnquiryDate ? new Date(item.targetEnquiryDate).toLocaleDateString() : '---')}
-        </TableCell>
-        <TableCell className="text-center font-mono text-[10px]">
-            {item.tenderReturnDate ? new Date(item.tenderReturnDate).toLocaleDateString() : '---'}
-        </TableCell>
-        <TableCell className={cn("text-center font-mono text-[10px] font-bold", getMilestoneColor(item.orderPlacedDate, item.latestDateForOrder))}>
-            {item.orderPlacedDate ? new Date(item.orderPlacedDate).toLocaleDateString() : (item.latestDateForOrder ? new Date(item.latestDateForOrder).toLocaleDateString() : '---')}
-        </TableCell>
-        <TableCell className="text-center font-mono text-[10px] font-bold text-primary">
-            {item.startOnSiteDate ? new Date(item.startOnSiteDate).toLocaleDateString() : '---'}
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-            <TooltipProvider>
+    <TableRow 
+      className={cn("group cursor-pointer", item.orderPlacedDate && "opacity-75")}
+      onClick={() => setIsEditDialogOpen(true)}
+    >
+      <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
+      <TableCell className="font-bold text-sm truncate max-w-[180px]" title={item.trade}>{item.trade}</TableCell>
+      <TableCell className="truncate max-w-[150px] text-xs font-semibold">{item.subcontractorName || 'TBC'}</TableCell>
+      <TableCell>
+          <div className={cn("flex items-center gap-1.5 text-[10px] font-bold", rag.color)}>
+              {rag.icon && <rag.icon className="h-3 w-3" />}
+              {rag.label}
+          </div>
+      </TableCell>
+      <TableCell className={cn("text-center font-mono text-[10px] font-bold", getMilestoneColor(item.actualEnquiryDate, item.targetEnquiryDate))}>
+          {item.actualEnquiryDate ? new Date(item.actualEnquiryDate).toLocaleDateString() : (item.targetEnquiryDate ? new Date(item.targetEnquiryDate).toLocaleDateString() : '---')}
+      </TableCell>
+      <TableCell className="text-center font-mono text-[10px]">
+          {item.tenderReturnDate ? new Date(item.tenderReturnDate).toLocaleDateString() : '---'}
+      </TableCell>
+      <TableCell className={cn("text-center font-mono text-[10px] font-bold", getMilestoneColor(item.orderPlacedDate, item.latestDateForOrder))}>
+          {item.orderPlacedDate ? new Date(item.orderPlacedDate).toLocaleDateString() : (item.latestDateForOrder ? new Date(item.latestDateForOrder).toLocaleDateString() : '---')}
+      </TableCell>
+      <TableCell className="text-center font-mono text-[10px] font-bold text-primary">
+          {item.startOnSiteDate ? new Date(item.startOnSiteDate).toLocaleDateString() : '---'}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setIsEditDialogOpen(true)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Edit Item</p></TooltipContent>
+            </Tooltip>
+
+            <EditProcurementDialog 
+              item={item} 
+              projects={projects} 
+              subContractors={subContractors} 
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
+
+            <AlertDialog>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setIsEditDialogOpen(true)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
                 </TooltipTrigger>
-                <TooltipContent><p>Edit Item</p></TooltipContent>
+                <TooltipContent><p>Remove from Schedule</p></TooltipContent>
               </Tooltip>
-
-              <AlertDialog>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Remove from Schedule</p></TooltipContent>
-                </Tooltip>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader><AlertDialogTitle>Delete Procurement Entry?</AlertDialogTitle><AlertDialogDescription>This will remove the procurement record for {item.trade}.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </TooltipProvider>
-          </div>
-        </TableCell>
-      </TableRow>
-
-      <EditProcurementDialog 
-        item={item} 
-        projects={projects} 
-        subContractors={subContractors} 
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-      />
-    </>
+              <AlertDialogContent onClick={e => e.stopPropagation()}>
+                <AlertDialogHeader><AlertDialogTitle>Delete Procurement Entry?</AlertDialogTitle><AlertDialogDescription>This will remove the procurement record for {item.trade}.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TooltipProvider>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }

@@ -252,102 +252,92 @@ function NoticeRow({ item, projects, subContractors }: { item: CleanUpNotice, pr
   };
 
   return (
-    <>
-      <TableRow 
-        className={cn("group cursor-pointer", isDraft && "bg-orange-50/20")}
-        onClick={() => setIsEditDialogOpen(true)}
-      >
-        <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
-        <TableCell className="font-medium truncate max-w-[150px]">{project?.name || 'Unknown'}</TableCell>
-        <TableCell>
-          <div className="max-w-[300px] truncate text-sm" title={item.description}>
-            {item.description || <span className="italic text-muted-foreground">No description</span>}
-          </div>
-        </TableCell>
-        <TableCell className="text-center">
-          {isDraft ? (
-            <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
-          ) : (
-            <Badge variant="destructive" className="text-[10px] uppercase font-bold">ISSUED</Badge>
+    <TableRow 
+      className={cn("group cursor-pointer", isDraft && "bg-orange-50/20")}
+      onClick={() => setIsEditDialogOpen(true)}
+    >
+      <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
+      <TableCell className="font-medium truncate max-w-[150px]">{project?.name || 'Unknown'}</TableCell>
+      <TableCell>
+        <div className="max-w-[300px] truncate text-sm" title={item.description}>
+          {item.description || <span className="italic text-muted-foreground">No description</span>}
+        </div>
+      </TableCell>
+      <TableCell className="text-center">
+        {isDraft ? (
+          <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
+        ) : (
+          <Badge variant="destructive" className="text-[10px] uppercase font-bold">ISSUED</Badge>
+        )}
+      </TableCell>
+      <TableCell>
+        <span className="text-xs text-muted-foreground">
+          <ClientDate date={item.createdAt} format="date" />
+        </span>
+      </TableCell>
+      <TableCell className="text-center">
+        <div className="flex items-center justify-center gap-2 text-muted-foreground">
+          {item.photos && item.photos.length > 0 && (
+              <div className="flex items-center gap-1">
+                  <Camera className="h-3 w-3" />
+                  <span className="text-[10px] font-bold">{item.photos.length}</span>
+              </div>
           )}
-        </TableCell>
-        <TableCell>
-          <span className="text-xs text-muted-foreground">
-            <ClientDate date={item.createdAt} format="date" />
-          </span>
-        </TableCell>
-        <TableCell className="text-center">
-          <div className="flex items-center justify-center gap-2 text-muted-foreground">
-            {item.photos && item.photos.length > 0 && (
-                <div className="flex items-center gap-1">
-                    <Camera className="h-3 w-3" />
-                    <span className="text-[10px] font-bold">{item.photos.length}</span>
-                </div>
+          {item.recipients && item.recipients.length > 0 && (
+              <div className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  <span className="text-[10px] font-bold">{item.recipients.length}</span>
+              </div>
+          )}
+        </div>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+          <TooltipProvider>
+            {isDraft && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleIssue} disabled={isPending}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <span className="sr-only">Issue Notice</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Issue & Distribute Notice</p></TooltipContent>
+              </Tooltip>
             )}
-            {item.recipients && item.recipients.length > 0 && (
-                <div className="flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    <span className="text-[10px] font-bold">{item.recipients.length}</span>
-                </div>
-            )}
-          </div>
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-            <TooltipProvider>
-              {isDraft && (
+
+            <EditCleanUpNotice 
+              notice={item} 
+              projects={projects} 
+              subContractors={subContractors} 
+              open={isEditDialogOpen} 
+              onOpenChange={setIsEditDialogOpen} 
+            />
+            
+            <AlertDialog>
+              <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleIssue} disabled={isPending}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      <span className="sr-only">Issue Notice</span>
-                    </Button>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
                   </TooltipTrigger>
-                  <TooltipContent><p>Issue & Distribute Notice</p></TooltipContent>
+                  <TooltipContent><p>Delete Notice</p></TooltipContent>
                 </Tooltip>
-              )}
-
-              <EditCleanUpNotice 
-                notice={item} 
-                projects={projects} 
-                subContractors={subContractors} 
-                open={isEditDialogOpen} 
-                onOpenChange={setIsEditDialogOpen} 
-              />
-              
-              <AlertDialog>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent><p>Delete Notice</p></TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader><AlertDialogTitle>Delete Notice?</AlertDialogTitle><AlertDialogDescription>Permanently remove this clean up notice from the log.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </TooltipProvider>
-          </div>
-        </TableCell>
-      </TableRow>
-
-      <EditCleanUpNotice 
-        notice={item} 
-        projects={projects} 
-        subContractors={subContractors} 
-        open={isEditDialogOpen} 
-        onOpenChange={setIsEditDialogOpen} 
-      />
-    </>
+              </TooltipProvider>
+              <AlertDialogContent onClick={e => e.stopPropagation()}>
+                <AlertDialogHeader><AlertDialogTitle>Delete Notice?</AlertDialogTitle><AlertDialogDescription>Permanently remove this clean up notice from the log.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TooltipProvider>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }

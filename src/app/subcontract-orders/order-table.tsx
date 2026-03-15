@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -123,77 +122,75 @@ function OrderTableRow({
   const currentStatus = statusConfig[order.status];
 
   return (
-    <>
-      <TableRow 
-        className={cn("group cursor-pointer", isCompleted && "opacity-75", order.status === 'draft' && "bg-orange-50/20")}
-        onClick={() => setIsEditDialogOpen(true)}
-      >
-        <TableCell className="font-mono text-[10px]">{order.reference}</TableCell>
-        <TableCell className="font-bold text-sm truncate max-w-[180px]">{order.subcontractorName}</TableCell>
-        <TableCell className="truncate max-w-[150px] text-xs font-semibold">{project?.name || 'Unknown'}</TableCell>
-        <TableCell>
-          <Badge className={cn("capitalize text-[10px] font-bold h-5", currentStatus.color)}>
-            {currentStatus.label}
-          </Badge>
-        </TableCell>
-        <TableCell className="text-center font-mono text-[10px]">{order.draftedDate ? new Date(order.draftedDate).toLocaleDateString() : '---'}</TableCell>
-        <TableCell className="text-center font-mono text-[10px]">{order.sentForApprovalDate ? new Date(order.sentForApprovalDate).toLocaleDateString() : '---'}</TableCell>
-        <TableCell className="text-center font-mono text-[10px]">{order.loadedOnDocuSignDate ? new Date(order.loadedOnDocuSignDate).toLocaleDateString() : '---'}</TableCell>
-        <TableCell className="text-center font-mono text-[10px] font-bold">{order.signedDate ? new Date(order.signedDate).toLocaleDateString() : '---'}</TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-            <TooltipProvider>
+    <TableRow 
+      className={cn("group cursor-pointer", isCompleted && "opacity-75", order.status === 'draft' && "bg-orange-50/20")}
+      onClick={() => setIsEditDialogOpen(true)}
+    >
+      <TableCell className="font-mono text-[10px]">{order.reference}</TableCell>
+      <TableCell className="font-bold text-sm truncate max-w-[180px]">{order.subcontractorName}</TableCell>
+      <TableCell className="truncate max-w-[150px] text-xs font-semibold">{project?.name || 'Unknown'}</TableCell>
+      <TableCell>
+        <Badge className={cn("capitalize text-[10px] font-bold h-5", currentStatus.color)}>
+          {currentStatus.label}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-center font-mono text-[10px]">{order.draftedDate ? new Date(order.draftedDate).toLocaleDateString() : '---'}</TableCell>
+      <TableCell className="text-center font-mono text-[10px]">{order.sentForApprovalDate ? new Date(order.sentForApprovalDate).toLocaleDateString() : '---'}</TableCell>
+      <TableCell className="text-center font-mono text-[10px]">{order.loadedOnDocuSignDate ? new Date(order.loadedOnDocuSignDate).toLocaleDateString() : '---'}</TableCell>
+      <TableCell className="text-center font-mono text-[10px] font-bold">{order.signedDate ? new Date(order.signedDate).toLocaleDateString() : '---'}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setIsEditDialogOpen(true)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Edit Order</p></TooltipContent>
+            </Tooltip>
+
+            {isCompleted && !isSubAssignedToProject && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setIsEditDialogOpen(true)}>
-                    <Pencil className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600" onClick={handleAssignToProject} disabled={isPending}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent><p>Edit Order</p></TooltipContent>
+                <TooltipContent><p>Assign to project team</p></TooltipContent>
               </Tooltip>
+            )}
 
-              {isCompleted && !isSubAssignedToProject && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-amber-600" onClick={handleAssignToProject} disabled={isPending}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+            <EditSubContractOrderDialog 
+              order={order} 
+              projects={projects} 
+              subContractors={subContractors} 
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
+
+            <AlertDialog>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Assign to project team</p></TooltipContent>
-                </Tooltip>
-              )}
-
-              <AlertDialog>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Delete Order</p></TooltipContent>
-                </Tooltip>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove this agreement history.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </TooltipProvider>
-          </div>
-        </TableCell>
-      </TableRow>
-
-      <EditSubContractOrderDialog 
-        order={order} 
-        projects={projects} 
-        subContractors={subContractors} 
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-      />
-    </>
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent><p>Delete Order</p></TooltipContent>
+              </Tooltip>
+              <AlertDialogContent onClick={e => e.stopPropagation()}>
+                <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove this agreement history.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TooltipProvider>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }

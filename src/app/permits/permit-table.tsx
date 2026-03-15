@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -130,8 +129,7 @@ function PermitTableRow({
     });
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = () => {
     startTransition(async () => {
       const docRef = doc(db, 'permits', permit.id);
       await deleteDoc(docRef);
@@ -140,58 +138,69 @@ function PermitTableRow({
   };
 
   return (
-    <>
-      <TableRow 
-        className={cn("group cursor-pointer", isClosed && "opacity-60", isDraft && "bg-orange-50/20")}
-        onClick={() => setIsEditDialogOpen(true)}
-      >
-        <TableCell className="font-mono text-[10px]">{permit.reference}</TableCell>
-        <TableCell className="font-medium">{permit.type}</TableCell>
-        <TableCell className="truncate max-w-[150px] text-xs">{permit.contractorName}</TableCell>
-        <TableCell className="truncate max-w-[150px] text-muted-foreground text-xs">{project?.name || 'Unknown'}</TableCell>
-        <TableCell>
-          {isDraft ? (
-            <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
-          ) : isClosed ? (
-            <Badge variant="outline" className="text-[10px]">CLOSED</Badge>
-          ) : (
-            <Badge variant="outline" className={cn("text-[10px]", isExpired ? "text-destructive border-destructive/20" : "text-green-600 border-green-200")}>
-                {isExpired ? 'EXPIRED' : 'ACTIVE'}
-            </Badge>
-          )}
-        </TableCell>
-        <TableCell>
-          <div className={cn("flex items-center gap-1 text-[11px]", isExpired && !isClosed && "text-destructive font-bold")}>
-            <Clock className="h-3 w-3" />
-            <ClientDate date={permit.validTo} />
-          </div>
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-            <TooltipProvider>
-              {isDraft && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleIssue} disabled={isPending}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Issue Permit</p></TooltipContent>
-                </Tooltip>
-              )}
+    <TableRow 
+      className={cn("group cursor-pointer", isClosed && "opacity-60", isDraft && "bg-orange-50/20")}
+      onClick={() => setIsEditDialogOpen(true)}
+    >
+      <TableCell className="font-mono text-[10px]">{permit.reference}</TableCell>
+      <TableCell className="font-medium">{permit.type}</TableCell>
+      <TableCell className="truncate max-w-[150px] text-xs">{permit.contractorName}</TableCell>
+      <TableCell className="truncate max-w-[150px] text-muted-foreground text-xs">{project?.name || 'Unknown'}</TableCell>
+      <TableCell>
+        {isDraft ? (
+          <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
+        ) : isClosed ? (
+          <Badge variant="outline" className="text-[10px]">CLOSED</Badge>
+        ) : (
+          <Badge variant="outline" className={cn("text-[10px]", isExpired ? "text-destructive border-destructive/20" : "text-green-600 border-green-200")}>
+              {isExpired ? 'EXPIRED' : 'ACTIVE'}
+          </Badge>
+        )}
+      </TableCell>
+      <TableCell>
+        <div className={cn("flex items-center gap-1 text-[11px]", isExpired && !isClosed && "text-destructive font-bold")}>
+          <Clock className="h-3 w-3" />
+          <ClientDate date={permit.validTo} />
+        </div>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+          <TooltipProvider>
+            {isDraft && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleIssue} disabled={isPending}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <span className="sr-only">Issue Permit</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Issue Permit</p></TooltipContent>
+              </Tooltip>
+            )}
 
-              {!isDraft && !isClosed && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600" onClick={handleClose} disabled={isPending}>
-                      <XCircle className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Close Permit</p></TooltipContent>
-                </Tooltip>
-              )}
-              
-              <AlertDialog>
+            {!isDraft && !isClosed && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600" onClick={handleClose} disabled={isPending}>
+                    <XCircle className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Close Permit</p></TooltipContent>
+              </Tooltip>
+            )}
+            
+            <EditPermitDialog 
+              permit={permit} 
+              projects={projects} 
+              subContractors={subContractors} 
+              allPermits={allPermits}
+              currentUser={currentUser}
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
+
+            <AlertDialog>
+              <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <AlertDialogTrigger asChild>
@@ -202,25 +211,18 @@ function PermitTableRow({
                   </TooltipTrigger>
                   <TooltipContent><p>Delete Permit</p></TooltipContent>
                 </Tooltip>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>This will remove permit audit trail for {permit.reference}.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction></AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </TooltipProvider>
-          </div>
-        </TableCell>
-      </TableRow>
-
-      <EditPermitDialog 
-        permit={permit} 
-        projects={projects} 
-        subContractors={subContractors} 
-        allPermits={allPermits}
-        currentUser={currentUser}
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-      />
-    </>
+              </TooltipProvider>
+              <AlertDialogContent onClick={e => e.stopPropagation()}>
+                <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>This will remove permit audit trail for {permit.reference}.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TooltipProvider>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }

@@ -225,8 +225,7 @@ function OrderTableRow({
     }
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = () => {
     startTransition(async () => {
       const docRef = doc(db, 'purchase-orders', order.id);
       await deleteDoc(docRef);
@@ -235,94 +234,92 @@ function OrderTableRow({
   };
 
   return (
-    <>
-      <TableRow 
-        className={cn("group cursor-pointer", isDraft && "bg-orange-50/20")}
-        onClick={() => setIsEditDialogOpen(true)}
-      >
-        <TableCell className="font-mono text-[10px]">{order.orderNumber}</TableCell>
-        <TableCell className="font-medium truncate max-w-[250px]">{order.description}</TableCell>
-        <TableCell className="truncate max-w-[150px] text-muted-foreground text-xs">{project?.name || 'Unknown'}</TableCell>
-        <TableCell className="truncate max-w-[150px] text-xs">{order.supplierName}</TableCell>
-        <TableCell className="text-right font-bold">£{order.totalAmount.toFixed(2)}</TableCell>
-        <TableCell>
-          {isDraft ? (
-            <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
-          ) : (
-            <Badge variant="outline" className="text-[10px] text-green-600 border-green-200">ISSUED</Badge>
-          )}
-        </TableCell>
-        <TableCell>
-          {!isDraft ? (
-            <span className="text-xs text-muted-foreground">
-              <ClientDate date={order.orderDate} format="date" />
-            </span>
-          ) : (
-            <span className="text-xs text-muted-foreground italic">Pending</span>
-          )}
-        </TableCell>
-        <TableCell className="text-right">
-          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
-            <TooltipProvider>
-              {isDraft && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleCommit} disabled={isPending}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                      <span className="sr-only">Commit Order</span>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Commit Order</p></TooltipContent>
-                </Tooltip>
-              )}
-
+    <TableRow 
+      className={cn("group cursor-pointer", isDraft && "bg-orange-50/20")}
+      onClick={() => setIsEditDialogOpen(true)}
+    >
+      <TableCell className="font-mono text-[10px]">{order.orderNumber}</TableCell>
+      <TableCell className="font-medium truncate max-w-[250px]">{order.description}</TableCell>
+      <TableCell className="truncate max-w-[150px] text-muted-foreground text-xs">{project?.name || 'Unknown'}</TableCell>
+      <TableCell className="truncate max-w-[150px] text-xs">{order.supplierName}</TableCell>
+      <TableCell className="text-right font-bold">£{order.totalAmount.toFixed(2)}</TableCell>
+      <TableCell>
+        {isDraft ? (
+          <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px]">DRAFT</Badge>
+        ) : (
+          <Badge variant="outline" className="text-[10px] text-green-600 border-green-200">ISSUED</Badge>
+        )}
+      </TableCell>
+      <TableCell>
+        {!isDraft ? (
+          <span className="text-xs text-muted-foreground">
+            <ClientDate date={order.orderDate} format="date" />
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground italic">Pending</span>
+        )}
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+          <TooltipProvider>
+            {isDraft && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
-                    {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-                    <span className="sr-only">Download PDF</span>
+                  <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleCommit} disabled={isPending}>
+                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <span className="sr-only">Commit Order</span>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent><p>Download PO as PDF</p></TooltipContent>
+                <TooltipContent><p>Commit Order</p></TooltipContent>
               </Tooltip>
-              
-              <AlertDialog>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete Order</span>
-                      </Button>
-                    </AlertDialogTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Delete Order</p></TooltipContent>
-                </Tooltip>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Order?</AlertDialogTitle>
-                    <AlertDialogDescription>Permanently remove order {order.orderNumber}.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </TooltipProvider>
-          </div>
-        </TableCell>
-      </TableRow>
+            )}
 
-      <EditOrderDialog 
-        order={order} 
-        projects={projects} 
-        suppliers={suppliers} 
-        allOrders={allOrders}
-        currentUser={currentUser}
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-      />
-    </>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDF} disabled={isGenerating}>
+                  {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                  <span className="sr-only">Download PDF</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Download PO as PDF</p></TooltipContent>
+            </Tooltip>
+            
+            <EditOrderDialog 
+              order={order} 
+              projects={projects} 
+              suppliers={suppliers} 
+              allOrders={allOrders}
+              currentUser={currentUser}
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
+
+            <AlertDialog>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only">Delete Order</span>
+                    </Button>
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent><p>Delete Order</p></TooltipContent>
+              </Tooltip>
+              <AlertDialogContent onClick={e => e.stopPropagation()}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Order?</AlertDialogTitle>
+                  <AlertDialogDescription>Permanently remove order {order.orderNumber}.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </TooltipProvider>
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
