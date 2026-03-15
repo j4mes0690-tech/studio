@@ -1,6 +1,6 @@
-
 import { LoginForm } from './login-form';
 import Image from 'next/image';
+import { Logo } from '@/components/logo';
 
 export function LoginPage() {
   return (
@@ -8,6 +8,17 @@ export function LoginPage() {
       <div className="flex w-full items-center justify-center p-8 lg:w-1/2">
         <div className="w-full max-w-md space-y-8">
           <div className="flex flex-col items-center text-center">
+            {/* Animated Logo Section */}
+            <div className="mb-6 relative">
+              <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full animate-pulse scale-150" />
+              <div className="relative z-10 animate-bounce duration-1000">
+                <Logo 
+                  hideText 
+                  iconClassName="h-12 w-12 md:h-16 md:w-16" 
+                />
+              </div>
+            </div>
+            
             <h1 className="text-4xl font-bold tracking-tight text-primary">SiteCommand</h1>
             <p className="mt-2 text-muted-foreground">Manage your construction site records internally.</p>
           </div>
