@@ -39,7 +39,7 @@ import {
     DialogTrigger 
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { VoiceInput } from '@/components/voice-input';
 
@@ -155,9 +155,9 @@ export function TrainingNeeds({ needs, users, currentUser, canManageAll }: {
         };
         await addDoc(collection(db, 'training-records'), recordData);
 
-        // 2. Mark need as completed
+        // 2. Delete the requirement as it is now satisfied and recorded formally
         const needRef = doc(db, 'training-needs', completingNeed.id);
-        await updateDoc(needRef, { status: 'completed' });
+        await deleteDoc(needRef);
 
         toast({ title: 'Success', description: 'Training verified and record added.' });
         setCompletingNeed(null);
