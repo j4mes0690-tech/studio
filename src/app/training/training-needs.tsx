@@ -18,7 +18,8 @@ import {
   ClipboardList,
   Camera,
   RefreshCw,
-  X
+  X,
+  Upload
 } from 'lucide-react';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -325,7 +326,7 @@ export function TrainingNeeds({ needs, users, currentUser, canManageAll }: {
                         )}
                         {need.status === 'booked' && (
                             <Button size="sm" variant="outline" className="h-8 gap-1.5 text-green-600 border-green-200 hover:bg-green-50" onClick={() => setCompletingNeed(need)}>
-                                <Check className="h-3 w-3" /> Training Completed
+                                <Upload className="h-3 w-3" /> Upload Certificate
                             </Button>
                         )}
                     </div>
