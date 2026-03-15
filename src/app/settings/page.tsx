@@ -133,10 +133,10 @@ function SettingsContent() {
             <>
               <Card className="overflow-hidden">
                   <AccordionItem value="users" className="border-b-0">
-                      <AccordionTrigger className="px-6 py-5 hover:no-underline group">
-                          <div className="flex items-center gap-3">
-                              <Users className="h-6 w-6 text-primary" />
-                              <span className="text-xl font-bold">System User Directory</span>
+                      <AccordionTrigger className="px-6 py-4 hover:no-underline group">
+                          <div className="flex items-center gap-3 text-left w-full">
+                              <Users className="h-5 w-5 text-primary shrink-0" />
+                              <span className="text-base font-bold">System User Directory</span>
                           </div>
                       </AccordionTrigger>
                       <AccordionContent className="px-6 pb-6 pt-0 border-t">
@@ -159,10 +159,10 @@ function SettingsContent() {
 
               <Card className="overflow-hidden">
                   <AccordionItem value="invitations" className="border-b-0">
-                      <AccordionTrigger className="px-6 py-5 hover:no-underline group">
-                          <div className="flex items-center gap-3">
-                              <MailPlus className="h-6 w-6 text-primary" />
-                              <span className="text-xl font-bold">Onboarding & Invitations</span>
+                      <AccordionTrigger className="px-6 py-4 hover:no-underline group">
+                          <div className="flex items-center gap-3 text-left w-full">
+                              <MailPlus className="h-5 w-5 text-primary shrink-0" />
+                              <span className="text-base font-bold">Onboarding & Invitations</span>
                           </div>
                       </AccordionTrigger>
                       <AccordionContent className="px-6 pb-6 pt-0 border-t">
@@ -184,10 +184,10 @@ function SettingsContent() {
           {canManageSubcontractors && (
             <Card className="overflow-hidden">
                 <AccordionItem value="subcontractors" className="border-b-0">
-                    <AccordionTrigger className="px-6 py-5 hover:no-underline group">
-                        <div className="flex items-center gap-3">
-                            <HardHat className="h-6 w-6 text-primary" />
-                            <span className="text-xl font-bold">Manage External Partners</span>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline group">
+                        <div className="flex items-center gap-3 text-left w-full">
+                            <HardHat className="h-5 w-5 text-primary shrink-0" />
+                            <span className="text-base font-bold">Manage External Partners</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="px-6 pb-6 pt-0 border-t">
@@ -211,10 +211,10 @@ function SettingsContent() {
           {canManageProjects && (
             <Card className="overflow-hidden">
                 <AccordionItem value="projects" className="border-b-0">
-                    <AccordionTrigger className="px-6 py-5 hover:no-underline group">
-                        <div className="flex items-center gap-3">
-                            <Building2 className="h-6 w-6 text-primary" />
-                            <span className="text-xl font-bold">Manage Projects</span>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline group">
+                        <div className="flex items-center gap-3 text-left w-full">
+                            <Building2 className="h-5 w-5 text-primary shrink-0" />
+                            <span className="text-base font-bold">Manage Projects</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="px-6 pb-6 pt-0 border-t">
@@ -236,10 +236,10 @@ function SettingsContent() {
           {canManageChecklists && (
             <Card className="overflow-hidden">
                 <AccordionItem value="checklists" className="border-b-0">
-                    <AccordionTrigger className="px-6 py-5 hover:no-underline group">
-                        <div className="flex items-center gap-3">
-                            <ClipboardCheck className="h-6 w-6 text-primary" />
-                            <span className="text-xl font-bold">Manage Checklist Templates</span>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline group">
+                        <div className="flex items-center gap-3 text-left w-full">
+                            <ClipboardCheck className="h-5 w-5 text-primary shrink-0" />
+                            <span className="text-base font-bold">Manage Checklist Templates</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="px-6 pb-6 pt-0 border-t">
@@ -269,10 +269,10 @@ function SettingsContent() {
           {canManagePermitTemplates && (
             <Card className="overflow-hidden">
                 <AccordionItem value="permit-templates" className="border-b-0">
-                    <AccordionTrigger className="px-6 py-5 hover:no-underline group">
-                        <div className="flex items-center gap-3">
-                            <FileCheck className="h-6 w-6 text-primary" />
-                            <span className="text-xl font-bold">Manage Permit Templates</span>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline group">
+                        <div className="flex items-center gap-3 text-left w-full">
+                            <FileCheck className="h-5 w-5 text-primary shrink-0" />
+                            <span className="text-base font-bold">Manage Permit Templates</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="px-6 pb-6 pt-0 border-t">

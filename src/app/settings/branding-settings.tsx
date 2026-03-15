@@ -4,7 +4,7 @@ import { useState, useTransition, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
@@ -93,10 +93,10 @@ export function BrandingSettings() {
     <Card className="overflow-hidden">
       <Accordion type="single" collapsible>
         <AccordionItem value="branding" className="border-b-0">
-          <AccordionTrigger className="px-6 py-5 hover:no-underline group">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold">Company Branding</span>
+          <AccordionTrigger className="px-6 py-4 hover:no-underline group">
+            <div className="flex items-center gap-3 text-left w-full">
+              <Sparkles className="h-5 w-5 text-primary shrink-0" />
+              <span className="text-base font-bold">Company Branding</span>
             </div>
           </AccordionTrigger>
           <AccordionContent className="p-0">
