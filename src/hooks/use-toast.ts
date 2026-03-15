@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useSyncExternalStore } from "react"
 
 import type {
   ToastActionElement,
@@ -126,14 +127,13 @@ export const reducer = (state: State, action: Action): State => {
   }
 }
 
-const listeners: Array<(state: State) => void> = []
-
 let memoryState: State = { toasts: [] }
+let listeners: Array<() => void> = []
 
 function dispatch(action: Action) {
   memoryState = reducer(memoryState, action)
   listeners.forEach((listener) => {
-    listener(memoryState)
+    listener()
   })
 }
 
@@ -166,18 +166,27 @@ function toast({ ...props }: Omit<ToasterToast, "id">) {
   }
 }
 
-function useToast() {
-  const [state, setState] = React.useState<State>(memoryState)
-
-  React.useEffect(() => {
-    listeners.push(setState)
+const store = {
+  subscribe(cb: () => void) {
+    listeners.push(cb)
     return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) {
-        listeners.splice(index, 1)
-      }
+      listeners = listeners.filter((l) => l !== cb)
     }
-  }, [])
+  },
+  getSnapshot() {
+    return memoryState
+  },
+  getServerSnapshot() {
+    return memoryState
+  }
+}
+
+function useToast() {
+  const state = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getServerSnapshot
+  )
 
   return {
     ...state,

@@ -477,7 +477,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                   disabled={isPending}
                   onClick={() => form.setValue('status', 'draft')}
                 >
-                  {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                   Save as Draft
                 </Button>
                 <Button 
@@ -486,7 +486,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                   disabled={isPending}
                   onClick={() => form.setValue('status', 'open')}
                 >
-                  {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 mr-2" />}
+                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 mr-2" />}
                   Save & Log Request
                 </Button>
               </DialogFooter>
