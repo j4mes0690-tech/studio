@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare, CheckCircle2, Loader2, Send, EyeOff, Bell, Pencil } from 'lucide-react';
+import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare, CheckCircle2, Loader2, Send, EyeOff, Bell } from 'lucide-react';
 import { cn, getPartnerEmails } from '@/lib/utils';
 import { sendInformationRequestEmailAction } from './actions';
 import { generateInformationRequestPDF } from '@/lib/pdf-utils';
@@ -76,7 +76,7 @@ export function InformationRequestTable({ items, projects, distributionUsers, cu
 }
 
 function RequestTableRow({ item, projects, distributionUsers, currentUser }: { item: InformationRequest, projects: Project[], distributionUsers: DistributionUser[], currentUser: DistributionUser }) {
-  const project = projects.find(p => p.id === order.projectId);
+  const project = projects.find(p => p.id === item.projectId);
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
@@ -240,12 +240,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
 
   return (
     <TableRow 
-      className={cn(
-          "group cursor-pointer transition-all", 
-          item.status === 'closed' && "opacity-60", 
-          isDraft && "bg-orange-50/20",
-          isAttentionRequired && "bg-primary/[0.03] ring-1 ring-inset ring-primary/20"
-      )}
+      className={cn("group cursor-pointer transition-all", item.status === 'closed' && "opacity-60", isDraft && "bg-orange-50/20")}
       href={`/information-requests/${item.id}`}
     >
       <TableCell className="font-mono text-[10px]">
@@ -287,21 +282,19 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          {isAttentionRequired && (
-              <TooltipProvider>
-                  <Tooltip>
-                      <TooltipTrigger asChild>
-                          <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8 hover:text-primary" onClick={handleDismissAlert}>
-                              <EyeOff className="h-4 w-4" />
-                          </Button>
-                      </TooltipTrigger>
-                      <TooltipContent><p>Dismiss Alert</p></TooltipContent>
-                  </Tooltip>
-              </TooltipProvider>
-          )}
+          <TooltipProvider>
+            {isAttentionRequired && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8 hover:text-primary" onClick={handleDismissAlert}>
+                            <EyeOff className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Dismiss Alert</p></TooltipContent>
+                </Tooltip>
+            )}
 
-          {isDraft && (
-            <TooltipProvider>
+            {isDraft && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon" className="text-orange-600" onClick={handleIssue} disabled={isPending}>
@@ -311,9 +304,8 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                 </TooltipTrigger>
                 <TooltipContent><p>Issue Request</p></TooltipContent>
               </Tooltip>
-            </TooltipProvider>
-          )}
-          <TooltipProvider>
+            )}
+            
             {!isDraft && (
               <>
                 <Tooltip>
