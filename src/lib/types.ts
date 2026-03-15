@@ -289,7 +289,7 @@ export type IRSItem = {
 
 // --- PROCUREMENT MODULE TYPES ---
 
-export type ProcurementStatus = 'planned' | 'enquiry' | 'tender-returned' | 'ordered' | 'on-site';
+export type ProcurementStatus = 'planned' | 'enquiry' | 'tender-returned' | 'complete' | 'on-site';
 
 export type ProcurementItem = {
   id: string;

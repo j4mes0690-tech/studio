@@ -43,13 +43,13 @@ function ProcurementContent() {
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
-  const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
+  const projectsQuery = useMemoFirebase(() => (db) ? collection(db, 'projects') : null, [db]);
   const { data: allProjects } = useCollection<Project>(projectsQuery);
 
-  const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
+  const subsQuery = useMemoFirebase(() => (db) ? collection(db, 'sub-contractors') : null, [db]);
   const { data: allSubContractors } = useCollection<SubContractor>(subsQuery);
 
-  const procurementQuery = useMemoFirebase(() => (db ? query(collection(db, 'procurement-items'), orderBy('createdAt', 'desc')) : null), [db]);
+  const procurementQuery = useMemoFirebase(() => (db) ? query(collection(db, 'procurement-items'), orderBy('createdAt', 'desc')) : null, [db]);
   const { data: allProcurement, isLoading: procLoading } = useCollection<ProcurementItem>(procurementQuery);
 
   // Security & Visibility
@@ -159,7 +159,7 @@ function ProcurementContent() {
                 <SelectItem value="planned">Planned</SelectItem>
                 <SelectItem value="enquiry">Enquiry Issued</SelectItem>
                 <SelectItem value="tender-returned">Tender Returned</SelectItem>
-                <SelectItem value="ordered">Order Placed</SelectItem>
+                <SelectItem value="complete">Complete</SelectItem>
                 <SelectItem value="on-site">Start on Site</SelectItem>
               </SelectContent>
             </Select>

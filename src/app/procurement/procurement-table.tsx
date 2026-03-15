@@ -95,7 +95,7 @@ function ProcurementTableRow({
 
   // RAG STATUS LOGIC
   const rag = useMemo(() => {
-    if (item.status === 'ordered' || item.status === 'on-site') {
+    if (item.status === 'complete' || item.status === 'on-site') {
       return { color: 'text-green-600', icon: CheckCircle2, label: 'On Track' };
     }
 
@@ -120,7 +120,7 @@ function ProcurementTableRow({
     'planned': { label: 'Planned', color: 'bg-slate-100 text-slate-800' },
     'enquiry': { label: 'Tendering', color: 'bg-blue-100 text-blue-800' },
     'tender-returned': { label: 'Evaluating', color: 'bg-amber-100 text-amber-800' },
-    'ordered': { label: 'Order Placed', color: 'bg-green-100 text-green-800' },
+    'complete': { label: 'Complete', color: 'bg-green-100 text-green-800' },
     'on-site': { label: 'On Site', color: 'bg-indigo-100 text-indigo-800' },
   };
 

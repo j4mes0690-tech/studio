@@ -53,7 +53,7 @@ export function ProcurementCard({
 
   // RAG STATUS LOGIC (Overall Health)
   const rag = useMemo(() => {
-    if (item.status === 'ordered' || item.status === 'on-site') {
+    if (item.status === 'complete' || item.status === 'on-site') {
       return { color: 'text-green-600', border: 'border-l-green-500', bg: 'bg-green-50', label: 'On Track', icon: CheckCircle2 };
     }
 
@@ -78,7 +78,7 @@ export function ProcurementCard({
     'planned': { label: 'Planned', color: 'bg-slate-100 text-slate-800' },
     'enquiry': { label: 'Tendering', color: 'bg-blue-100 text-blue-800' },
     'tender-returned': { label: 'Evaluating', color: 'bg-amber-100 text-amber-800' },
-    'ordered': { label: 'Order Placed', color: 'bg-green-100 text-green-800' },
+    'complete': { label: 'Complete', color: 'bg-green-100 text-green-800' },
     'on-site': { label: 'On Site', color: 'bg-indigo-100 text-indigo-800' },
   };
 
@@ -132,7 +132,7 @@ export function ProcurementCard({
         className={cn(
           "hover:border-primary transition-all shadow-sm group cursor-pointer border-l-4",
           rag.border,
-          (item.status === 'ordered' || item.status === 'on-site') && "bg-green-50/5"
+          (item.status === 'complete' || item.status === 'on-site') && "bg-green-50/5"
         )}
         onClick={() => setIsEditDialogOpen(true)}
       >
@@ -196,7 +196,7 @@ export function ProcurementCard({
                   {rag.label}
               </div>
               <div className={cn("text-[9px] font-bold", rag.color)}>
-                  {item.status === 'planned' ? 'Next: Enquiry' : item.status === 'ordered' ? 'Completed' : 'Next: Order'}
+                  {item.status === 'planned' ? 'Next: Enquiry' : item.status === 'complete' ? 'Completed' : 'Next: Order'}
               </div>
           </div>
 
