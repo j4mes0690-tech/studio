@@ -20,7 +20,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -130,11 +129,11 @@ export function NewSubContractOrderDialog({ projects, subContractors, allOrders,
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2"><PlusCircle className="h-4 w-4" />Track Sub Contract</Button>
+        <Button className="gap-2"><PlusCircle className="h-4 w-4" />Add Subcontract Order</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New Sub Contract Order</DialogTitle>
+          <DialogTitle>Add Subcontract Order</DialogTitle>
           <DialogDescription>Initiate tracking for a new subcontractor agreement.</DialogDescription>
         </DialogHeader>
 
