@@ -10,12 +10,11 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import type { ProcurementItem, Project, SubContractor, DistributionUser } from '@/lib/types';
-import { ClientDate } from '@/components/client-date';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
-import { Trash2, Loader2, Pencil, Calendar, Clock, ShieldCheck } from 'lucide-react';
+import { Trash2, Loader2, Pencil, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -31,6 +30,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { EditProcurementDialog } from './edit-item';
+import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 
 export function ProcurementTable({ 
   items, 
@@ -52,6 +52,7 @@ export function ProcurementTable({
             <TableHead>Trade Discipline</TableHead>
             <TableHead className="w-[150px]">Appointed Partner</TableHead>
             <TableHead className="w-[120px]">Status</TableHead>
+            <TableHead className="w-[130px]">Schedule</TableHead>
             <TableHead className="w-[100px] text-center">Enquiry</TableHead>
             <TableHead className="w-[100px] text-center">Return</TableHead>
             <TableHead className="w-[100px] text-center">Order</TableHead>
@@ -92,6 +93,29 @@ function ProcurementTableRow({
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
+  // RAG STATUS LOGIC
+  const rag = useMemo(() => {
+    if (item.status === 'ordered' || item.status === 'on-site') {
+      return { color: 'text-green-600', icon: CheckCircle2, label: 'On Track' };
+    }
+
+    const today = startOfDay(new Date());
+    const targetDateStr = (item.status === 'planned') ? item.targetEnquiryDate : item.latestDateForOrder;
+    
+    if (!targetDateStr) return { color: 'text-slate-400', label: '---' };
+
+    const target = startOfDay(parseISO(targetDateStr));
+    const daysUntil = differenceInDays(target, today);
+
+    if (daysUntil < 0) {
+      return { color: 'text-red-600', icon: AlertTriangle, label: 'Overdue' };
+    }
+    if (daysUntil <= 14) {
+      return { color: 'text-amber-600', icon: Clock, label: 'Due Soon' };
+    }
+    return { color: 'text-green-600', icon: CheckCircle2, label: 'Ahead' };
+  }, [item.status, item.targetEnquiryDate, item.latestDateForOrder]);
+
   const statusConfig = {
     'planned': { label: 'Planned', color: 'bg-slate-100 text-slate-800' },
     'enquiry': { label: 'Tendering', color: 'bg-blue-100 text-blue-800' },
@@ -117,24 +141,18 @@ function ProcurementTableRow({
         onClick={() => setIsEditDialogOpen(true)}
       >
         <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
-        <TableCell className="font-bold text-sm">
-            <div className="flex items-center gap-2">
-                <span>{item.trade}</span>
-                {item.warrantyRequired && (
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild><ShieldCheck className="h-3 w-3 text-amber-600" /></TooltipTrigger>
-                            <TooltipContent><p>Warranty Required</p></TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                )}
-            </div>
-        </TableCell>
+        <TableCell className="font-bold text-sm truncate max-w-[180px]" title={item.trade}>{item.trade}</TableCell>
         <TableCell className="truncate max-w-[150px] text-xs font-semibold">{item.subcontractorName || 'TBC'}</TableCell>
         <TableCell>
           <Badge className={cn("capitalize text-[10px] font-bold h-5", currentStatus.color)}>
             {currentStatus.label}
           </Badge>
+        </TableCell>
+        <TableCell>
+            <div className={cn("flex items-center gap-1.5 text-[10px] font-bold", rag.color)}>
+                {rag.icon && <rag.icon className="h-3 w-3" />}
+                {rag.label}
+            </div>
         </TableCell>
         <TableCell className="text-center font-mono text-[10px]">{item.actualEnquiryDate || item.targetEnquiryDate ? new Date(item.actualEnquiryDate || item.targetEnquiryDate).toLocaleDateString() : '---'}</TableCell>
         <TableCell className="text-center font-mono text-[10px]">{item.tenderReturnDate ? new Date(item.tenderReturnDate).toLocaleDateString() : '---'}</TableCell>
@@ -161,14 +179,11 @@ function ProcurementTableRow({
                       </Button>
                     </AlertDialogTrigger>
                   </TooltipTrigger>
-                  <TooltipContent><p>Delete Record</p></TooltipContent>
+                  <TooltipContent><p>Remove from Schedule</p></TooltipContent>
                 </Tooltip>
                 <AlertDialogContent onClick={e => e.stopPropagation()}>
-                  <AlertDialogHeader><AlertDialogTitle>Confirm Removal</AlertDialogTitle><AlertDialogDescription>Permanently remove the procurement entry for {item.trade}?</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
+                  <AlertDialogHeader><AlertDialogTitle>Delete Procurement Entry?</AlertDialogTitle><AlertDialogDescription>This will remove the procurement record for {item.trade}.</AlertDialogDescription></AlertDialogHeader>
+                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction></AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </TooltipProvider>

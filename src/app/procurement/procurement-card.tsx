@@ -7,18 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   Trash2, 
-  Calendar, 
   Loader2, 
-  ShoppingCart,
   Clock,
-  Users2,
+  Pencil,
   AlertTriangle,
   CheckCircle2,
-  FileSignature,
-  Building2,
-  Pencil
+  Calendar
 } from 'lucide-react';
-import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -56,7 +51,29 @@ export function ProcurementCard({
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const isCompleted = item.status === 'ordered' || item.status === 'on-site';
+  // RAG STATUS LOGIC
+  const rag = useMemo(() => {
+    if (item.status === 'ordered' || item.status === 'on-site') {
+      return { color: 'text-green-600', border: 'border-l-green-500', bg: 'bg-green-50', label: 'On Track', icon: CheckCircle2 };
+    }
+
+    const today = startOfDay(new Date());
+    // If planned, track against enquiry. If enquiry/evaluating, track against order deadline.
+    const targetDateStr = (item.status === 'planned') ? item.targetEnquiryDate : item.latestDateForOrder;
+    
+    if (!targetDateStr) return { color: 'text-slate-400', border: 'border-l-slate-300', bg: 'bg-slate-100', label: 'No Schedule' };
+
+    const target = startOfDay(parseISO(targetDateStr));
+    const daysUntil = differenceInDays(target, today);
+
+    if (daysUntil < 0) {
+      return { color: 'text-red-600', border: 'border-l-red-500', bg: 'bg-red-50', label: 'OVERDUE', icon: AlertTriangle };
+    }
+    if (daysUntil <= 14) {
+      return { color: 'text-amber-600', border: 'border-l-amber-500', bg: 'bg-amber-50', label: 'DUE SOON', icon: Clock };
+    }
+    return { color: 'text-green-600', border: 'border-l-green-500', bg: 'bg-green-50', label: 'ON TRACK', icon: CheckCircle2 };
+  }, [item.status, item.targetEnquiryDate, item.latestDateForOrder]);
 
   const statusConfig = {
     'planned': { label: 'Planned', color: 'bg-slate-100 text-slate-800' },
@@ -88,7 +105,8 @@ export function ProcurementCard({
       <Card 
         className={cn(
           "hover:border-primary transition-all shadow-sm group cursor-pointer border-l-4",
-          isCompleted ? "border-l-green-500 bg-green-50/5" : "border-l-primary"
+          rag.border,
+          (item.status === 'ordered' || item.status === 'on-site') && "bg-green-50/5"
         )}
         onClick={() => setIsEditDialogOpen(true)}
       >
@@ -143,6 +161,16 @@ export function ProcurementCard({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className={cn("px-3 py-1.5 rounded-md flex items-center justify-between", rag.bg)}>
+              <div className={cn("flex items-center gap-2 text-[10px] font-black uppercase tracking-widest", rag.color)}>
+                  {rag.icon && <rag.icon className="h-3.5 w-3.5" />}
+                  {rag.label}
+              </div>
+              <div className={cn("text-[9px] font-bold", rag.color)}>
+                  {item.status === 'planned' ? 'Next: Enquiry' : 'Next: Order'}
+              </div>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {milestones.map((ms, i) => (
               <div key={i} className={cn(
