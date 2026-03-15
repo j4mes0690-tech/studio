@@ -330,7 +330,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                       <FormLabel>Project</FormLabel>
                       <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); }} value={field.value}>
                         <FormControl>
-                          <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
+                          <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -478,7 +478,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 </Button>
                 <Button 
                   type="submit" 
-                  className="w-full sm:flex-1" 
+                  className="w-full sm:flex-1 h-12 text-lg font-bold" 
                   disabled={isPending}
                   onClick={() => form.setValue('status', 'open')}
                 >

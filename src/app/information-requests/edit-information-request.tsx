@@ -64,14 +64,6 @@ const EditInformationRequestSchema = z.object({
 
 type EditInformationRequestFormValues = z.infer<typeof EditInformationRequestSchema>;
 
-type EditInformationRequestProps = {
-  item: InformationRequest;
-  projects: Project[];
-  distributionUsers: DistributionUser[];
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-};
-
 export function EditInformationRequest({ item, projects, distributionUsers, open: externalOpen, onOpenChange: setExternalOpen }: EditInformationRequestProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
