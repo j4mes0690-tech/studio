@@ -76,7 +76,7 @@ export function InformationRequestTable({ items, projects, distributionUsers, cu
 }
 
 function RequestTableRow({ item, projects, distributionUsers, currentUser }: { item: InformationRequest, projects: Project[], distributionUsers: DistributionUser[], currentUser: DistributionUser }) {
-  const project = projects.find((p) => p.id === item.projectId);
+  const project = projects.find(p => p.id === item.projectId);
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
@@ -133,7 +133,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                 partnerUsers.forEach(e => recipientEmails.add(e));
             }
 
-            // Generate PDF for attachment
+            // Generate PDF for attachment (includes photos and file list)
             const assignedToNames = item.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
             const pdf = await generateInformationRequestPDF(item, project, assignedToNames);
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
@@ -146,11 +146,12 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                 raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
                 requestId: item.id,
                 pdfBase64,
-                fileName: `RFI-${item.reference}.pdf`
+                fileName: `RFI-${item.reference}.pdf`,
+                additionalFiles: item.files || []
             });
 
             if (result.success) {
-                toast({ title: 'Success', description: 'Request notification and PDF resent.' });
+                toast({ title: 'Success', description: 'Request notification, PDF and attachments resent.' });
             } else {
                 toast({ title: 'Error', description: result.message, variant: 'destructive' });
             }
@@ -204,10 +205,11 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
             raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
             requestId: item.id,
             pdfBase64,
-            fileName: `RFI-${item.reference}.pdf`
+            fileName: `RFI-${item.reference}.pdf`,
+            additionalFiles: item.files || []
         });
 
-        toast({ title: 'Success', description: 'Request formally logged with PDF attachment.' });
+        toast({ title: 'Success', description: 'Request formally logged with PDF and file attachments.' });
       } catch (err) {
         console.error(err);
         const permissionError = new FirestorePermissionError({
@@ -227,6 +229,8 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
       toast({ title: 'Success', description: 'Request deleted.' });
     });
   };
+
+  const offHireDisplayDate = ''; // Not relevant for RFI, removing artifact from copy-paste
 
   return (
     <TableRow 
@@ -288,7 +292,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                       {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>Distribute/Resend Notification</p></TooltipContent>
+                  <TooltipContent><p>Distribute/Resend Notification & Attachments</p></TooltipContent>
                 </Tooltip>
               </TooltipProvider>
 

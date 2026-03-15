@@ -78,7 +78,7 @@ function DistributeRequestButton({ item, project, distributionUsers, subContract
                     partnerUsers.forEach(e => recipientEmails.add(e));
                 }
 
-                // Generate PDF for attachment
+                // Generate PDF for attachment (now includes photos and file registry)
                 const assignedToNames = item.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
                 const pdf = await generateInformationRequestPDF(item, project, assignedToNames);
                 const pdfBase64 = pdf.output('datauristring').split(',')[1];
@@ -91,11 +91,12 @@ function DistributeRequestButton({ item, project, distributionUsers, subContract
                     raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
                     requestId: item.id,
                     pdfBase64,
-                    fileName: `RFI-${item.reference}.pdf`
+                    fileName: `RFI-${item.reference}.pdf`,
+                    additionalFiles: item.files || []
                 });
 
                 if (result.success) {
-                    toast({ title: 'Success', description: 'Request and PDF distributed to stakeholders.' });
+                    toast({ title: 'Success', description: 'Request, PDF and technical files distributed.' });
                 } else {
                     toast({ title: 'Error', description: result.message, variant: 'destructive' });
                 }
@@ -250,7 +251,7 @@ export function InformationRequestCard({
             partnerUsers.forEach(e => recipientEmails.add(e));
         }
 
-        // Generate PDF for attachment
+        // Generate PDF for attachment (now includes photos and file registry)
         const assignedToNames = item.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
         const pdf = await generateInformationRequestPDF(item, project, assignedToNames);
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
@@ -263,10 +264,11 @@ export function InformationRequestCard({
             raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
             requestId: item.id,
             pdfBase64,
-            fileName: `RFI-${item.reference}.pdf`
+            fileName: `RFI-${item.reference}.pdf`,
+            additionalFiles: item.files || []
         });
 
-        toast({ title: 'Success', description: 'Request formally logged and distributed with PDF.' });
+        toast({ title: 'Success', description: 'Request formally logged and distributed with PDF and attachments.' });
       } catch (error) {
         console.error(error);
         const permissionError = new FirestorePermissionError({

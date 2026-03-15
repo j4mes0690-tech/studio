@@ -194,6 +194,8 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     const email = val.replace(/^(staff|partner):/, '');
                     return (distributionUsers || []).find(u => u.email === email)?.name || email;
                 });
+                
+                // Generate PDF (includes the uploaded photos and lists the files)
                 const pdf = await generateInformationRequestPDF({ ...item, ...updates }, selectedProject, assignedToNames);
                 const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
@@ -205,7 +207,8 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     raisedBy: (distributionUsers || []).find(u => u.email === item.raisedBy)?.name || item.raisedBy,
                     requestId: item.id,
                     pdfBase64,
-                    fileName: `RFI-${item.reference}.pdf`
+                    fileName: `RFI-${item.reference}.pdf`,
+                    additionalFiles: uploadedFiles
                 });
             }
 
@@ -334,7 +337,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                               <ShieldCheck className="h-3 w-3" /> Project Staff
                             </SelectLabel>
                             {availableInternalUsers.map(u => (
-                              <SelectItem key={`staff-${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
+                              <SelectItem key={`staff:${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
                             ))}
                             {availableInternalUsers.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
@@ -346,7 +349,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                               <Users2 className="h-3 w-3" /> Trade Partners
                             </SelectLabel>
                             {availableExternalPartners.map(s => (
-                              <SelectItem key={`partner-${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
+                              <SelectItem key={`partner:${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
                             ))}
                             {availableExternalPartners.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
@@ -435,7 +438,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 <Button 
                   type="submit" 
                   variant="outline" 
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto h-12"
                   disabled={isPending}
                   onClick={() => form.setValue('status', 'draft')}
                 >

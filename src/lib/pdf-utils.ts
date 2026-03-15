@@ -37,7 +37,7 @@ async function getSystemBranding(): Promise<{ logoUri: string | null, address: s
 }
 
 /**
- * generateInformationRequestPDF - Creates a formal RFI document with branding and history.
+ * generateInformationRequestPDF - Creates a formal RFI document with branding, history, photos, and file list.
  */
 export async function generateInformationRequestPDF(
   request: InformationRequest,
@@ -88,6 +88,15 @@ export async function generateInformationRequestPDF(
       <p style="font-size: 13px; line-height: 1.6; white-space: pre-wrap;">${request.description}</p>
     </div>
 
+    ${request.files && request.files.length > 0 ? `
+      <div style="margin-bottom: 40px; background: #f1f5f9; padding: 15px; border-radius: 6px;">
+        <h2 style="font-size: 12px; color: #1e40af; margin: 0 0 10px 0; text-transform: uppercase; font-weight: bold;">Linked Documentation</h2>
+        <div style="display: grid; grid-template-columns: 1fr; gap: 5px;">
+          ${request.files.map(f => `<div style="font-size: 11px; color: #334155;">• ${f.name} (${(f.size / 1024 / 1024).toFixed(2)} MB)</div>`).join('')}
+        </div>
+      </div>
+    ` : ''}
+
     ${request.messages && request.messages.length > 0 ? `
       <div style="margin-top: 40px;">
         <h2 style="font-size: 14px; color: #1e40af; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px; text-transform: uppercase;">Implementation Thread</h2>
@@ -112,11 +121,45 @@ export async function generateInformationRequestPDF(
   const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
   document.body.removeChild(reportElement);
 
-  const imgData = canvas.toDataURL('image/jpeg', 0.9);
   const pdf = new jsPDF('p', 'mm', 'a4');
   const pdfWidth = pdf.internal.pageSize.getWidth();
-  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-  pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  const canvasHeightInPdf = (canvas.height * pdfWidth) / canvas.width;
+  
+  pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, pdfWidth, canvasHeightInPdf);
+
+  // Add Appendix for Photos
+  const photos = request.photos || [];
+  if (photos.length > 0) {
+    pdf.addPage();
+    pdf.setFontSize(16);
+    pdf.setTextColor(30, 41, 59);
+    pdf.text("Visual Evidence Appendix", 10, 20);
+    
+    let currentY = 30;
+    for (const p of photos) {
+      if (currentY + 110 > pdfHeight) {
+        pdf.addPage();
+        currentY = 20;
+      }
+      
+      const dataUri = await safeLoadImage(p.url);
+      if (dataUri) {
+        pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 100);
+      } else {
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(10, currentY, 190, 100, 'F');
+        pdf.setFontSize(10);
+        pdf.text("Image failed to load for report.", 105, currentY + 50, { align: 'center' });
+      }
+      
+      pdf.setFontSize(8);
+      pdf.setTextColor(100, 116, 139);
+      pdf.text(`Captured: ${new Date(p.takenAt).toLocaleString()}`, 10, currentY + 105);
+      
+      currentY += 115;
+    }
+  }
   
   return pdf;
 }

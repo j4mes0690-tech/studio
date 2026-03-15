@@ -192,6 +192,8 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 const email = val.replace(/^(staff|partner):/, '');
                 return (distributionUsers || []).find(u => u.email === email)?.name || email;
             });
+            
+            // Generate PDF (includes the uploaded photos and lists the files)
             const pdf = await generateInformationRequestPDF({ ...requestData, id: newDocRef.id } as InformationRequest, selectedProject, assignedToNames);
             const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
@@ -203,11 +205,12 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                 raisedBy: currentUser.name,
                 requestId: newDocRef.id,
                 pdfBase64,
-                fileName: `RFI-${reference}.pdf`
+                fileName: `RFI-${reference}.pdf`,
+                additionalFiles: uploadedFiles
             });
         }
 
-        toast({ title: 'Success', description: values.status === 'draft' ? 'Request saved as draft.' : `${prefix} logged and distributed with PDF.` });
+        toast({ title: 'Success', description: values.status === 'draft' ? 'Request saved as draft.' : `${prefix} logged and distributed with attachments.` });
         setOpen(false);
       } catch (err) {
         console.error(err);
@@ -262,7 +265,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
           <DialogHeader>
             <DialogTitle>Log Information Request (CRFI / RFI)</DialogTitle>
             <DialogDescription>
-              Record a query for project team members or trade partners. Formal issuance triggers an email with PDF attachment.
+              Record a query for project team members or trade partners. Formal issuance triggers an email with PDF and file attachments.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -308,7 +311,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                               <ShieldCheck className="h-3 w-3" /> Project Staff
                             </SelectLabel>
                             {availableInternalUsers.map(u => (
-                              <SelectItem key={`staff-${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
+                              <SelectItem key={`staff:${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
                             ))}
                             {availableInternalUsers.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
@@ -320,7 +323,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                               <Users2 className="h-3 w-3" /> Trade Partners
                             </SelectLabel>
                             {availableExternalPartners.map(s => (
-                              <SelectItem key={`partner-${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
+                              <SelectItem key={`partner:${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
                             ))}
                             {availableExternalPartners.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>

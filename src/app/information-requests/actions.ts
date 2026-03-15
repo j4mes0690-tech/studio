@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 /**
  * sendInformationRequestEmailAction - Uses the Resend API to notify stakeholders
  * about new or issued Information Requests (RFIs / CRFIs).
- * Now supports PDF attachments.
+ * Now supports PDF attachments and automatic fetching of linked documents.
  */
 export async function sendInformationRequestEmailAction({
   emails,
@@ -15,7 +15,8 @@ export async function sendInformationRequestEmailAction({
   raisedBy,
   requestId,
   pdfBase64,
-  fileName
+  fileName,
+  additionalFiles = []
 }: {
   emails: string[];
   projectName: string;
@@ -25,6 +26,7 @@ export async function sendInformationRequestEmailAction({
   requestId: string;
   pdfBase64?: string;
   fileName?: string;
+  additionalFiles?: { name: string, url: string, size: number }[];
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
@@ -40,12 +42,26 @@ export async function sendInformationRequestEmailAction({
   const host = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://site-command.com');
   const directLink = `${host}/information-requests/${requestId}`;
 
-  const attachments = [];
+  const attachments: any[] = [];
+  
+  // 1. Primary RFI PDF
   if (pdfBase64 && fileName) {
     attachments.push({
       filename: fileName,
       content: pdfBase64,
     });
+  }
+
+  // 2. Linked Documentation (if under size limit)
+  // Standard safe limit for Resend/SMTP attachments is ~10-25MB total.
+  // We'll skip individual files over 10MB to be safe.
+  for (const file of additionalFiles) {
+    if (file.size < 10 * 1024 * 1024) { // 10MB limit
+      attachments.push({
+        filename: file.name,
+        path: file.url
+      });
+    }
   }
 
   try {
@@ -70,7 +86,7 @@ export async function sendInformationRequestEmailAction({
               <p style="margin: 2px 0 0 0; font-size: 14px; color: #334155;">"${description}"</p>
             </div>
 
-            <p>A formal PDF copy of this request is attached to this email for your records.</p>
+            <p>A formal PDF copy of this request and any relevant technical documentation are attached to this email for your records.</p>
 
             <div style="text-align: center; margin: 35px 0;">
               <a href="${directLink}" style="background: #1e40af; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
