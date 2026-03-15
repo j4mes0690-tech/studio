@@ -330,7 +330,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                               <ShieldCheck className="h-3 w-3" /> Project Staff
                             </SelectLabel>
                             {availableInternalUsers.map(u => (
-                              <SelectItem key={`staff-${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
+                              <SelectItem key={`staff:${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
                             ))}
                             {availableInternalUsers.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
@@ -342,7 +342,7 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
                               <Users2 className="h-3 w-3" /> Trade Partners
                             </SelectLabel>
                             {availableExternalPartners.map(s => (
-                              <SelectItem key={`partner-${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
+                              <SelectItem key={`partner:${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
                             ))}
                             {availableExternalPartners.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>

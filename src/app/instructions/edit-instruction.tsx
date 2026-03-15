@@ -45,6 +45,7 @@ import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { sendSiteInstructionEmailAction } from './actions';
 import { generateInstructionPDF } from '@/lib/pdf-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
+import { scrollToFirstError } from '@/lib/utils';
 
 const EditInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -230,10 +231,12 @@ export function EditInstruction({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Edit Site Instruction</DialogTitle></DialogHeader>
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle>Edit Site Instruction</DialogTitle>
+        </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6 p-6">
             <FormField control={form.control} name="projectId" render={({ field }) => (
               <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
             )} />
@@ -298,7 +301,7 @@ export function EditInstruction({
             
             <Separator />
 
-            <DialogFooter className="flex flex-col sm:flex-row gap-3">
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t sticky bottom-0 bg-background">
               <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button>
               <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Update & Issue</Button>
             </DialogFooter>

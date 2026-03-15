@@ -116,7 +116,7 @@ export function getPartnerEmails(
 
 /**
  * scrollToFirstError - Finds the first element with a validation error and scrolls it into view.
- * Essential for providing immediate visual feedback in long documentation forms.
+ * Uses 'center' block alignment for better reliability on mobile devices.
  */
 export function scrollToFirstError() {
   // Delay slightly to ensure React Hook Form has finished rendering the error state
@@ -126,11 +126,11 @@ export function scrollToFirstError() {
     
     if (firstError) {
       // Find the container FormItem so the label is also scrolled into view
-      const container = firstError.closest('.space-y-2') || firstError;
+      const container = firstError.closest('.space-y-2') || firstError.closest('[data-radix-collection-item]') || firstError;
       
       container.scrollIntoView({ 
         behavior: 'smooth', 
-        block: 'start',
+        block: 'center', // Center in viewport to avoid overlaps from headers or keyboards
         inline: 'nearest'
       });
       
@@ -140,7 +140,8 @@ export function scrollToFirstError() {
         : firstError.closest('.space-y-2')?.querySelector('input, textarea, button, [role="combobox"]');
           
       if (focusable instanceof HTMLElement) {
-        focusable.focus({ preventScroll: true });
+        // Focus without triggering another scroll to avoid fighting the smooth animation
+        setTimeout(() => focusable.focus({ preventScroll: true }), 100);
       }
     }
   }, 150);
