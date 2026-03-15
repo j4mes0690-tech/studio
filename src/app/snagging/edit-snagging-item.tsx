@@ -103,8 +103,17 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
     }
   }, [open, item, form]);
 
-  const toggleCamera = () => {
+  const toggleCamera = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
+  const closeCamera = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCameraOpen(false);
+    setItemPhotoTargetId(null);
   };
 
   const captureAndOptimize = async () => {
@@ -160,7 +169,9 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
     updateDoc(doc(db, 'snagging-items', item.id), { items: newItemsList });
   };
 
-  const takeGeneralPhoto = async () => {
+  const takeGeneralPhoto = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     const photo = await captureAndOptimize();
     if (photo) {
       startTransition(async () => {
@@ -176,7 +187,9 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
     }
   };
 
-  const takeItemPhoto = async () => {
+  const takeItemPhoto = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     const photo = await captureAndOptimize();
     if (photo && itemPhotoTargetId) {
       startTransition(async () => {
@@ -279,7 +292,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
           </ScrollArea>
           
           <DialogFooter className="p-6 border-t bg-white">
-            <Button className="w-full h-12 font-bold" onClick={() => setOpen(false)}>Done & Finish Editing</Button>
+            <Button type="button" className="w-full h-12 font-bold" onClick={() => setOpen(false)}>Done & Finish Editing</Button>
           </DialogFooter>
         </DialogContent>
 
@@ -287,10 +300,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
           <div className="fixed inset-0 z-[100] bg-black">
             <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
             <div className="absolute inset-0 flex flex-col justify-between p-6">
-              <div className="flex justify-end"><Button variant="secondary" onClick={() => { setIsCameraOpen(false); setItemPhotoTargetId(null); }} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
+              <div className="flex justify-end"><Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button></div>
               <div className="flex items-center justify-center gap-8 mb-8">
-                <Button variant="secondary" size="icon" className="rounded-full h-14 w-14" onClick={toggleCamera}><RefreshCw className="h-7 w-7" /></Button>
-                <Button size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90"><div className="h-14 w-14 rounded-full border-2 border-black/10" /></Button>
+                <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}><RefreshCw className="h-7 w-7" /></Button>
+                <Button type="button" size="lg" onClick={isCameraOpen ? takeGeneralPhoto : takeItemPhoto} className="rounded-full h-20 w-20 bg-white hover:bg-white/90"><div className="h-14 w-14 rounded-full border-2 border-black/10" /></Button>
                 <div className="w-14" />
               </div>
             </div>

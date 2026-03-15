@@ -153,7 +153,9 @@ export function ChecklistCard({
     return () => stream?.getTracks().forEach(t => t.stop());
   }, [isCameraOpen, facingMode]);
 
-  const capturePhoto = () => {
+  const capturePhoto = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -178,6 +180,20 @@ export function ChecklistCard({
       setActiveItemForPhoto(null);
       setIsCapturingGeneral(false);
     }
+  };
+
+  const toggleCamera = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
+  const closeCamera = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCameraOpen(false);
+    setActiveItemForPhoto(null);
+    setIsCapturingGeneral(false);
   };
 
   const handleGeneralPhotoUpdate = (photo: Photo) => {
@@ -491,13 +507,13 @@ export function ChecklistCard({
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
             </div>
             <div className="flex justify-center gap-4">
-              <Button size="lg" onClick={capturePhoto} className="rounded-full h-16 w-16 p-0 border-4 border-white/20">
+              <Button type="button" size="lg" onClick={capturePhoto} className="rounded-full h-16 w-16 p-0 border-4 border-white/20">
                 <div className="h-10 w-10 rounded-full bg-white" />
               </Button>
-              <Button variant="outline" size="icon" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')} className="rounded-full h-12 w-12 text-white border-white/40 hover:bg-white/20">
+              <Button type="button" variant="outline" size="icon" onClick={toggleCamera} className="rounded-full h-12 w-12 text-white border-white/40 hover:bg-white/20">
                 <RefreshCw className="h-6 w-6" />
               </Button>
-              <Button variant="outline" onClick={() => { setIsCameraOpen(false); setActiveItemForPhoto(null); setIsCapturingGeneral(false); }} className="rounded-full h-12 px-6 border-white/40 text-white hover:bg-white/20">
+              <Button type="button" variant="outline" onClick={closeCamera} className="rounded-full h-12 px-6 border-white/40 text-white hover:bg-white/20">
                 Cancel
               </Button>
             </div>

@@ -286,7 +286,9 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
     return () => stream?.getTracks().forEach((track) => track.stop());
   }, [isCameraOpen, facingMode]);
 
-  const takePhoto = async () => {
+  const takePhoto = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -303,8 +305,16 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
     }
   };
 
-  const toggleCamera = () => {
+  const toggleCamera = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
+  };
+
+  const closeCamera = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsCameraOpen(false);
   };
 
   const submissionStatus = form.watch('status');
@@ -377,7 +387,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                               <ShieldCheck className="h-3 w-3" /> Project Staff
                             </SelectLabel>
                             {availableInternalUsers.map(u => (
-                              <SelectItem key={`staff-${u.id}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
+                              <SelectItem key={`staff:${u.id}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
                             ))}
                             {availableInternalUsers.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
@@ -389,7 +399,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                               <Users2 className="h-3 w-3" /> Trade Partners
                             </SelectLabel>
                             {availableExternalPartners.map(s => (
-                              <SelectItem key={`partner-${s.id}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
+                              <SelectItem key={`partner:${s.id}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
                             ))}
                             {availableExternalPartners.length === 0 && (
                               <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
@@ -488,7 +498,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 </Button>
                 <Button 
                   type="submit" 
-                  className="w-full sm:flex-1" 
+                  className="w-full sm:flex-1 h-12 text-lg font-bold" 
                   disabled={isPending}
                   onClick={() => form.setValue('status', 'open')}
                 >
@@ -507,7 +517,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
           <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
           <div className="absolute inset-0 flex flex-col justify-between p-6">
             <div className="flex justify-end">
-              <Button type="button" variant="secondary" onClick={() => setIsCameraOpen(false)} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
+              <Button type="button" variant="secondary" onClick={closeCamera} className="rounded-full h-12 px-6 font-bold shadow-lg">Cancel</Button>
             </div>
             <div className="flex items-center justify-center gap-8 mb-8">
               <Button type="button" variant="secondary" size="icon" className="rounded-full h-14 w-14 shadow-lg" onClick={toggleCamera}>
