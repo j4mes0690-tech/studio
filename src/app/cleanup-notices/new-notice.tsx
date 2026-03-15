@@ -114,7 +114,11 @@ export function NewNotice({ projects, subContractors, allNotices, allUsers }: Ne
   const onSubmit = (values: NewNoticeFormValues) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Persisting documentation and media...' });
+        const isIssuing = values.status === 'issued';
+        toast({ 
+          title: isIssuing ? 'Issuing Notice' : 'Saving Draft', 
+          description: isIssuing ? 'Generating report and distributing...' : 'Uploading evidence and saving...' 
+        });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -241,7 +245,7 @@ export function NewNotice({ projects, subContractors, allNotices, allUsers }: Ne
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('recipients', []); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('recipients', []); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</Select><FormMessage /></FormItem>
               )} />
               <FormField control={form.control} name="description" render={({ field }) => (
                 <FormItem><div className="flex items-center justify-between"><FormLabel>Description of Issue</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="e.g., Debris from drywall installation..." className="min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>

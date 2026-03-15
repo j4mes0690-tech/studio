@@ -141,7 +141,11 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   const onSubmit = (values: NewInformationRequestFormValues) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Generating PDF and sending notification...' });
+        const isIssuing = values.status === 'open';
+        toast({ 
+          title: isIssuing ? 'Issuing Request' : 'Saving Draft', 
+          description: isIssuing ? 'Generating PDF and distributing...' : 'Uploading attachments and saving...' 
+        });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {

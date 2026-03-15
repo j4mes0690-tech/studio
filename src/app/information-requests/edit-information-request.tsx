@@ -153,7 +153,11 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
 
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Generating PDF and updating record...' });
+        const isIssuingNow = values.status === 'open' && item.status === 'draft';
+        toast({ 
+          title: isIssuingNow ? 'Issuing Request' : 'Updating Record', 
+          description: isIssuingNow ? 'Generating PDF and distributing...' : 'Saving changes and media...' 
+        });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -192,7 +196,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         
         await updateDoc(docRef, updates)
           .then(async () => {
-            if (values.status === 'open' && item.status === 'draft') {
+            if (isIssuingNow) {
                 const sub = availableExternalPartners.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
                 const recipientEmails = new Set<string>();
                 recipientEmails.add(targetEmail.toLowerCase().trim());

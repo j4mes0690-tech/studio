@@ -140,7 +140,11 @@ export function EditInstruction({
 
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Updating documentation and generating PDF...' });
+        const isIssuingNow = values.status === 'issued' && item.status !== 'issued';
+        toast({ 
+          title: values.status === 'issued' ? 'Issuing Instruction' : 'Updating Draft', 
+          description: isIssuingNow ? 'Generating PDF and distributing...' : 'Saving changes and media...' 
+        });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {

@@ -116,7 +116,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
   const onSubmit = (values: NewInstructionFormValues) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Uploading documentation and generating PDF...' });
+        const isIssuing = values.status === 'issued';
+        toast({ 
+          title: isIssuing ? 'Issuing Instruction' : 'Saving Draft', 
+          description: isIssuing ? 'Uploading documentation and generating PDF...' : 'Saving progress and media...' 
+        });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -223,7 +227,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6">
               <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</Select><FormMessage /></FormItem>
               )} />
               
               <FormField
@@ -301,8 +305,14 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               <Separator />
 
               <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-                <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button>
-                <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Save & Issue Instruction</Button>
+                <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
+                  {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Save Draft
+                </Button>
+                <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>
+                  {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                  Save & Issue Instruction
+                </Button>
               </DialogFooter>
               <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
             </form>
