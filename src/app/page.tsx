@@ -38,6 +38,7 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { DistributionUser } from '@/lib/types';
 import { useMemo, useState, useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -49,7 +50,7 @@ import {
 } from '@/components/ui/tooltip';
 
 const DASHBOARD_CARDS = [
-  { id: 'planner', href: '/planner', label: 'Work Planner', icon: CalendarRange, desc: 'walkthrough properties and identify activities.', permission: 'accessPlanner' },
+  { id: 'planner', href: '/planner', label: 'Work Planner', icon: CalendarRange, desc: 'Walkthrough properties and identify activities.', permission: 'accessPlanner' },
   { id: 'procurement', href: '/procurement', label: 'Procurement Schedule', icon: ShoppingCart, desc: 'Track the tendering lifecycle and milestone appointments.', permission: 'accessProcurement' },
   { id: 'irs', href: '/irs', label: 'IRS Schedule', icon: CalendarClock, desc: 'Information Required Schedule for design deliverables.', permission: 'accessIRS' },
   { id: 'materials', href: '/materials-orders', label: 'Materials Orders', icon: ClipboardList, desc: 'Create and manage purchase orders for project materials.', permission: 'accessMaterials' },
@@ -70,13 +71,19 @@ const DASHBOARD_CARDS = [
 export default function Dashboard() {
   const { user, isLoading: userLoading } = useUser();
   const db = useFirestore();
+  const pathname = usePathname();
   const [isCompact, setIsCompact] = useState(false);
   const [orderedCardIds, setOrderedCardIds] = useState<string[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [canDragId, setCanDragId] = useState<string | null>(null);
+  
+  // Acknowledgment State: Tracks which module is currently being opened
+  const [loadingModule, setLoadingModule] = useState<string | null>(null);
 
-  // Load persistence
+  // Load persistence and reset state on return
   useEffect(() => {
+    setLoadingModule(null);
+
     const savedDensity = localStorage.getItem('sitecommand_dashboard_compact');
     if (savedDensity !== null) {
       setIsCompact(savedDensity === 'true');
@@ -98,7 +105,7 @@ export default function Dashboard() {
     } else {
       setOrderedCardIds(defaultIds);
     }
-  }, []);
+  }, [pathname]);
 
   const toggleView = () => {
     const newVal = !isCompact;
@@ -241,7 +248,7 @@ export default function Dashboard() {
                     draggedId === card.id ? "opacity-40" : "opacity-100"
                 )}
             >
-                {/* Drag Handle - Only this area allows reordering cursors and initiation */}
+                {/* Drag Handle */}
                 <div 
                     className="absolute top-2 left-2 z-30 p-1.5 opacity-0 md:group-hover:opacity-40 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-background/90 rounded border border-border shadow-sm hidden md:block"
                     onMouseEnter={() => setCanDragId(card.id)}
@@ -250,15 +257,33 @@ export default function Dashboard() {
                     <GripVertical className="h-3.5 w-3.5 text-primary" />
                 </div>
 
-                <Link href={card.href} className="block h-full">
+                <Link 
+                    href={card.href} 
+                    className="block h-full"
+                    onClick={() => {
+                        // Only set loading if not dragging
+                        if (!draggedId) {
+                            setLoadingModule(card.id);
+                        }
+                    }}
+                >
                     <Card className={cn(
-                        "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary/50 hover:shadow-md h-full relative",
-                        isCompact ? "p-3 md:p-4 text-center" : "p-5 md:p-8 text-center"
+                        "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary/50 hover:shadow-md h-full relative overflow-hidden",
+                        isCompact ? "p-3 md:p-4 text-center" : "p-5 md:p-8 text-center",
+                        loadingModule === card.id && "ring-2 ring-primary ring-offset-2"
                     )}>
+                        {/* Acknowledgment Overlay */}
+                        {loadingModule === card.id && (
+                            <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                        )}
+
                         <CardHeader className="p-0">
                         <card.icon className={cn(
                             "mb-2 transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary",
-                            isCompact ? "h-6 w-6" : "h-8 w-8 mb-2 md:h-12 md:w-12 md:mb-4"
+                            isCompact ? "h-6 w-6" : "h-8 w-8 mb-2 md:h-12 md:w-12 md:mb-4",
+                            loadingModule === card.id && "opacity-20"
                         )} />
                         <CardTitle className={cn("transition-all", isCompact ? "text-xs md:text-sm" : "text-sm md:text-xl")}>{card.label}</CardTitle>
                         </CardHeader>
