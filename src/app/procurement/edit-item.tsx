@@ -48,6 +48,15 @@ const EditProcurementSchema = z.object({
   tenderReturnDate: z.string().optional().nullable(),
   orderPlacedDate: z.string().optional().nullable(),
   comments: z.string().optional().default(''),
+}).refine((data) => {
+  // If actual enquiry date is set, tender return date MUST be set
+  if (data.actualEnquiryDate && !data.tenderReturnDate) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Tender return date is required once enquiry is sent.",
+  path: ["tenderReturnDate"],
 });
 
 type EditProcurementFormValues = z.infer<typeof EditProcurementSchema>;
@@ -143,7 +152,7 @@ export function EditProcurementDialog({
     try {
       const baseDate = parseISO(baseDateStr);
       const newDate = addWeeks(baseDate, weeks);
-      form.setValue('tenderReturnDate', format(newDate, 'yyyy-MM-dd'));
+      form.setValue('tenderReturnDate', format(newDate, 'yyyy-MM-dd'), { shouldValidate: true });
     } catch (e) {}
   };
 
@@ -266,6 +275,7 @@ export function EditProcurementDialog({
                                     </div>
                                 </div>
                                 <FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl>
+                                <FormMessage />
                             </FormItem>
                         )} />
 
