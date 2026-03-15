@@ -248,6 +248,7 @@ export type SystemSettings = {
   id: string;
   logoUrl?: string;
   companyName?: string;
+  companyAddress?: string;
 };
 
 // --- PLANNER MODULE TYPES ---

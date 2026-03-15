@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -53,7 +52,8 @@
       "properties": {
         "id": { "type": "string" },
         "logoUrl": { "type": "string", "format": "uri" },
-        "companyName": { "type": "string" }
+        "companyName": { "type": "string" },
+        "companyAddress": { "type": "string" }
       }
     },
     "PlannerTask": {
