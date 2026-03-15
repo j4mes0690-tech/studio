@@ -14,7 +14,8 @@ import {
   User, 
   BookOpen,
   Check,
-  Save
+  Save,
+  ClipboardList
 } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
