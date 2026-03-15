@@ -38,6 +38,7 @@ import { VoiceInput } from '@/components/voice-input';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { generatePlantOrderPDF } from '@/lib/pdf-utils';
 
 const NewPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -176,15 +177,23 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
         };
 
         const colRef = collection(db, 'plant-orders');
-        addDoc(colRef, orderData).catch((error) => {
+        const docRef = await addDoc(colRef, orderData).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: colRef.path,
             operation: 'create',
             requestResourceData: orderData,
           }));
+          throw error;
         });
 
-        toast({ title: 'Success', description: values.status === 'draft' ? 'Order saved as draft.' : 'Order recorded.' });
+        if (values.status === 'scheduled' || values.status === 'on-hire') {
+          toast({ title: 'Order Activated', description: 'Downloading hire contract PDF...' });
+          const pdf = await generatePlantOrderPDF({ ...orderData, id: docRef.id } as PlantOrder, selectedProject, supplier);
+          pdf.save(`PLANT-${reference}.pdf`);
+        } else {
+          toast({ title: 'Success', description: values.status === 'draft' ? 'Order saved as draft.' : 'Order recorded.' });
+        }
+
         setOpen(false);
       } catch (err) {
         console.error(err);

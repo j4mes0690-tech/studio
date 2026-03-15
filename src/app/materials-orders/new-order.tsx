@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar, Pencil, Save, RefreshCw } from 'lucide-react';
+import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar, Pencil, Save } from 'lucide-react';
 import type { Project, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -36,7 +36,6 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
 import { addWeeks } from 'date-fns';
-import { VoiceInput } from '@/components/voice-input';
 import { generatePurchaseOrderPDF } from '@/lib/pdf-utils';
 
 const NewOrderSchema = z.object({
@@ -111,7 +110,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
     const finalRate = isNaN(rate) ? 0 : rate;
 
     setOrderItems([...orderItems, {
-      description: pendingDesc,
+      description: pendingDescription,
       quantity: qty,
       unit: pendingUnit || 'item',
       rate: finalRate,

@@ -42,6 +42,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { generatePlantOrderPDF } from '@/lib/pdf-utils';
 
 const EditPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -211,6 +212,7 @@ export function EditPlantOrderDialog({
     startTransition(async () => {
       try {
         const supplier = plantSuppliers.find(s => s.id === values.supplierId);
+        const project = projects.find(p => p.id === values.projectId);
         const docRef = doc(db, 'plant-orders', order.id);
         
         let overallStatus = values.status;
@@ -231,15 +233,24 @@ export function EditPlantOrderDialog({
           status: overallStatus
         };
 
-        updateDoc(docRef, updates).catch((error) => {
+        await updateDoc(docRef, updates).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: docRef.path,
             operation: 'update',
             requestResourceData: updates,
           }));
+          throw error;
         });
 
-        toast({ title: 'Success', description: 'Hire record updated.' });
+        if (overallStatus === 'scheduled' || overallStatus === 'on-hire') {
+          toast({ title: 'Order Committed', description: 'Downloading hire record PDF...' });
+          const fullOrderData = { ...order, ...updates };
+          const pdf = await generatePlantOrderPDF(fullOrderData as PlantOrder, project, supplier);
+          pdf.save(`PLANT-${order.reference}.pdf`);
+        } else {
+          toast({ title: 'Success', description: 'Hire record updated.' });
+        }
+
         onOpenChange(false);
       } catch (err) {
         console.error(err);

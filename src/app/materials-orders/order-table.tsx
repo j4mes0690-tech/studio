@@ -210,17 +210,18 @@ function OrderTableRow({
             />
 
             <AlertDialog>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                      <span className="sr-only">Delete Order</span>
-                    </Button>
-                  </AlertDialogTrigger>
-                </TooltipTrigger>
-                <TooltipContent><p>Delete Order</p></TooltipContent>
-              </Tooltip>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Delete Order</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <AlertDialogContent onClick={e => e.stopPropagation()}>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete Order?</AlertDialogTitle>
