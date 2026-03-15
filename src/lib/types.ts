@@ -244,6 +244,12 @@ export type Trade = {
   name: string;
 };
 
+export type SystemSettings = {
+  id: string;
+  logoUrl?: string;
+  companyName?: string;
+};
+
 // --- PLANNER MODULE TYPES ---
 
 export type PlannerTaskStatus = 'pending' | 'in-progress' | 'completed';

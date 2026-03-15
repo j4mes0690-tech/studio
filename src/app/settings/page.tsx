@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -21,7 +20,7 @@ import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation } from '@/lib/types';
-import { Loader2, ShieldAlert, FileCheck, Tag, Users, UserPlus, ShieldCheck, MailPlus, Sparkles } from 'lucide-react';
+import { Loader2, ShieldAlert, FileCheck, Tag, Users, UserPlus, ShieldCheck, MailPlus, Sparkles, Building2 } from 'lucide-react';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
@@ -31,6 +30,7 @@ import { InviteCollaboratorDialog } from './invite-collaborator-dialog';
 import { InvitationsList } from './invitations-list';
 import { Suspense } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { BrandingSettings } from './branding-settings';
 
 function SettingsContent() {
   const db = useFirestore();
@@ -121,7 +121,13 @@ function SettingsContent() {
   }
 
   return (
-    <main className="flex-1 p-4 md:p-8">
+    <main className="flex-1 p-4 md:p-8 space-y-8">
+        {hasAnyAdminPermission && (
+            <div className="max-w-4xl">
+                <BrandingSettings />
+            </div>
+        )}
+
         <Accordion type="single" collapsible className="w-full space-y-4" defaultValue="users">
           
           {canManageUsers && (

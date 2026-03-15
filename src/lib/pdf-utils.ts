@@ -1,7 +1,8 @@
 'use client';
 
-import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 /**
  * safeLoadImage - Proxies an image via server action to bypass CORS.
@@ -14,6 +15,26 @@ async function safeLoadImage(url: string): Promise<string | null> {
 }
 
 /**
+ * getSystemBrandingLogo - Fetches the custom company logo if available.
+ */
+async function getSystemBrandingLogo(): Promise<string | null> {
+  try {
+    const db = getFirestore();
+    const settingsRef = doc(db, 'system-settings', 'branding');
+    const settingsSnap = await getDoc(settingsRef);
+    if (settingsSnap.exists()) {
+      const data = settingsSnap.data() as SystemSettings;
+      if (data.logoUrl) {
+        return await safeLoadImage(data.logoUrl);
+      }
+    }
+  } catch (e) {
+    console.error("Failed to fetch branding logo for PDF:", e);
+  }
+  return null;
+}
+
+/**
  * generatePurchaseOrderPDF - Creates a professional PO document.
  */
 export async function generatePurchaseOrderPDF(
@@ -23,6 +44,7 @@ export async function generatePurchaseOrderPDF(
 ) {
   const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
+  const logoDataUri = await getSystemBrandingLogo();
 
   const reportElement = document.createElement('div');
   reportElement.style.position = 'absolute';
@@ -41,6 +63,7 @@ export async function generatePurchaseOrderPDF(
         <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Ref: ${order.orderNumber}</p>
       </div>
       <div style="text-align: right;">
+        ${logoDataUri ? `<img src="${logoDataUri}" style="max-height: 60px; max-width: 200px; margin-bottom: 10px;" />` : ''}
         <p style="margin: 0; font-size: 12px; color: #64748b; text-transform: uppercase;">Generated via SiteCommand</p>
       </div>
     </div>
@@ -128,6 +151,7 @@ export async function generatePlantOrderPDF(
 ) {
   const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
+  const logoDataUri = await getSystemBrandingLogo();
 
   const reportElement = document.createElement('div');
   reportElement.style.position = 'absolute';
@@ -146,6 +170,7 @@ export async function generatePlantOrderPDF(
         <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Ref: ${order.reference}</p>
       </div>
       <div style="text-align: right;">
+        ${logoDataUri ? `<img src="${logoDataUri}" style="max-height: 60px; max-width: 200px; margin-bottom: 10px;" />` : ''}
         <p style="margin: 0; font-size: 12px; color: #64748b; text-transform: uppercase;">Generated via SiteCommand</p>
       </div>
     </div>
@@ -324,6 +349,7 @@ export async function generateSnaggingPDF(
   const { title, project, subContractors, aggregatedEntries, generalPhotos, scopeLabel } = params;
   const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
+  const logoDataUri = await getSystemBrandingLogo();
 
   // 1. Create Layout Header via html2canvas for rich styling
   const headerElement = document.createElement('div');
@@ -336,10 +362,13 @@ export async function generateSnaggingPDF(
   headerElement.style.fontFamily = 'sans-serif';
 
   headerElement.innerHTML = `
-    <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px;">
-      <h1 style="margin: 0; color: #1e40af; font-size: 28px;">${title}</h1>
-      <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Project: ${project?.name || 'Unknown'}</p>
-      ${scopeLabel ? `<p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Scope: ${scopeLabel}</p>` : ''}
+    <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <h1 style="margin: 0; color: #1e40af; font-size: 28px;">${title}</h1>
+        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Project: ${project?.name || 'Unknown'}</p>
+        ${scopeLabel ? `<p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Scope: ${scopeLabel}</p>` : ''}
+      </div>
+      ${logoDataUri ? `<img src="${logoDataUri}" style="max-height: 60px; max-width: 200px; margin-bottom: 10px;" />` : ''}
     </div>
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; background: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
       <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Contract Authority</p><p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${project?.siteManager || '---'}</p></div>
