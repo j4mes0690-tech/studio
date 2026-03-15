@@ -8,9 +8,9 @@ import Link from 'next/link';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import {
   Accordion,
@@ -18,7 +18,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw, Trash2, Maximize2, Link as LinkIcon, ExternalLink, FileText, Download, CheckCircle2, Loader2 } from 'lucide-react';
+import { Camera, Users, MessageSquareReply, CalendarClock, XCircle, RefreshCw, Trash2, Maximize2, Link as LinkIcon, ExternalLink, FileText, Download, CheckCircle2, Loader2, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { EditInformationRequest } from './edit-information-request';
 import {
@@ -57,6 +57,60 @@ import { cn, getPartnerEmails } from '@/lib/utils';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { sendInformationRequestEmailAction } from './actions';
 
+/**
+ * DistributeRequestButton - Triggers manual email notification for an open RFI.
+ */
+function DistributeRequestButton({ item, project, distributionUsers, subContractors }: { item: InformationRequest, project?: Project, distributionUsers: DistributionUser[], subContractors: SubContractor[] }) {
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+
+    const handleDistribute = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        startTransition(async () => {
+            try {
+                const targetEmail = item.assignedTo[0];
+                const sub = subContractors?.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
+                const recipientEmails = new Set<string>();
+                recipientEmails.add(targetEmail.toLowerCase().trim());
+
+                if (sub) {
+                    const partnerUsers = getPartnerEmails(sub.id, subContractors || [], distributionUsers);
+                    partnerUsers.forEach(e => recipientEmails.add(e));
+                }
+
+                const result = await sendInformationRequestEmailAction({
+                    emails: Array.from(recipientEmails),
+                    projectName: project?.name || 'Project',
+                    reference: item.reference,
+                    description: item.description,
+                    raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
+                    requestId: item.id
+                });
+
+                if (result.success) {
+                    toast({ title: 'Success', description: 'Request distributed to stakeholders.' });
+                } else {
+                    toast({ title: 'Error', description: result.message, variant: 'destructive' });
+                }
+            } catch (err) {
+                toast({ title: 'Error', description: 'Failed to send notification.', variant: 'destructive' });
+            }
+        });
+    };
+
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-primary" onClick={handleDistribute} disabled={isPending}>
+                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Distribute via Email</p></TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
+}
 
 function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: string, newStatus: 'open' | 'closed', currentUser: DistributionUser }) {
     const [isPending, startTransition] = useTransition();
@@ -95,9 +149,19 @@ function UpdateStatusButton({ requestId, newStatus, currentUser }: { requestId: 
                     <TooltipContent><p>{isClosing ? 'Close' : 'Reopen'} Request</p></TooltipContent>
                 </Tooltip>
             </TooltipProvider>
-            <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Update Status?</AlertDialogTitle><AlertDialogDescription>Change RFI status to {newStatus}.</AlertDialogDescription></AlertDialogHeader>
-                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleUpdate} disabled={isPending}>Confirm</AlertDialogAction></AlertDialogFooter>
+            <AlertDialogContent onClick={e => e.stopPropagation()}>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>{isClosing ? 'Close Information Request?' : 'Reopen Information Request?'}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {isClosing 
+                            ? "This will mark the technical query as resolved. The implementation thread will remain as an audit record." 
+                            : "This will move the request back to 'Open' status, allowing for further technical clarification and responses."}
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleUpdate} disabled={isPending}>Confirm Status Update</AlertDialogAction>
+                </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
     );
@@ -241,7 +305,12 @@ export function InformationRequestCard({
                 <Badge variant={item.status === 'open' ? 'default' : 'secondary'} className='capitalize'>{item.status}</Badge>
               )}
               
-              {!isDraft && item.status === 'open' && <RespondToRequest item={item} currentUser={currentUser} />}
+              {!isDraft && item.status === 'open' && (
+                  <div className="flex items-center gap-1">
+                      <DistributeRequestButton item={item} project={project} distributionUsers={distributionUsers} subContractors={allSubs || []} />
+                      <RespondToRequest item={item} currentUser={currentUser} />
+                  </div>
+              )}
               {!isDraft && <UpdateStatusButton requestId={item.id} newStatus={item.status === 'open' ? 'closed' : 'open'} currentUser={currentUser} />}
               
               <EditInformationRequest 
@@ -350,6 +419,7 @@ export function InformationRequestCard({
           </Accordion>
         </CardContent>
       </Card>
+
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
   );

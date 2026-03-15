@@ -10,14 +10,14 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { InformationRequest, Project, DistributionUser, ChatMessage } from '@/lib/types';
+import type { InformationRequest, Project, DistributionUser, ChatMessage, SubContractor } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { RespondToRequest } from './respond-to-request';
 import { EditInformationRequest } from './edit-information-request';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
-import { doc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, updateDoc, deleteDoc, arrayUnion, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import {
@@ -33,8 +33,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare, CheckCircle2, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare, CheckCircle2, Loader2, Send } from 'lucide-react';
+import { cn, getPartnerEmails } from '@/lib/utils';
+import { sendInformationRequestEmailAction } from './actions';
 
 type TableProps = {
   items: InformationRequest[];
@@ -81,6 +82,9 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
   const [isPending, startTransition] = useTransition();
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
+  const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
+  const { data: allSubs } = useCollection<SubContractor>(subsQuery);
+
   const isDraft = item.status === 'draft';
 
   const handleUpdateStatus = (newStatus: 'open' | 'closed') => {
@@ -115,6 +119,40 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
     });
   };
 
+  const handleDistribute = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    startTransition(async () => {
+        try {
+            const targetEmail = item.assignedTo[0];
+            const sub = allSubs?.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
+            const recipientEmails = new Set<string>();
+            recipientEmails.add(targetEmail.toLowerCase().trim());
+
+            if (sub) {
+                const partnerUsers = getPartnerEmails(sub.id, allSubs || [], distributionUsers);
+                partnerUsers.forEach(e => recipientEmails.add(e));
+            }
+
+            const result = await sendInformationRequestEmailAction({
+                emails: Array.from(recipientEmails),
+                projectName: project?.name || 'Project',
+                reference: item.reference,
+                description: item.description,
+                raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
+                requestId: item.id
+            });
+
+            if (result.success) {
+                toast({ title: 'Success', description: 'Request notification resent.' });
+            } else {
+                toast({ title: 'Error', description: result.message, variant: 'destructive' });
+            }
+        } catch (err) {
+            toast({ title: 'Error', description: 'Failed to send notification.', variant: 'destructive' });
+        }
+    });
+  };
+
   const handleIssue = (e: React.MouseEvent) => {
     e.stopPropagation();
     const hasText = item.description && item.description.trim().length >= 10;
@@ -133,7 +171,10 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
     startTransition(async () => {
       const docRef = doc(db, 'information-requests', item.id);
       updateDoc(docRef, { status: 'open' })
-        .then(() => toast({ title: 'Success', description: 'Request formally logged.' }))
+        .then(() => {
+            toast({ title: 'Success', description: 'Request formally logged.' });
+            // Initial distribution is handled by the issue logic usually, but we ensure it here if needed.
+        })
         .catch((err) => {
           const permissionError = new FirestorePermissionError({
             path: docRef.path,
@@ -148,15 +189,8 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
   const handleDelete = () => {
     startTransition(async () => {
       const docRef = doc(db, 'information-requests', item.id);
-      deleteDoc(docRef)
-        .then(() => toast({ title: 'Success', description: 'Request deleted.' }))
-        .catch((err) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'delete',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+      await deleteDoc(docRef);
+      toast({ title: 'Success', description: 'Request deleted.' });
     });
   };
 
@@ -183,7 +217,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
       </TableCell>
       <TableCell>
         {item.requiredBy ? (
-          <div className="flex items-center gap-1 text-xs font-medium text-destructive">
+          <div className={cn("flex items-center gap-1 text-xs font-medium", item.status === 'open' && new Date(item.requiredBy) < new Date() ? "text-destructive" : "text-muted-foreground")}>
             <CalendarClock className="h-3 w-3" />
             <ClientDate date={item.requiredBy} format="date" />
           </div>
@@ -205,6 +239,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                 <TooltipTrigger asChild>
                   <Button variant="ghost" size="icon" className="text-orange-600" onClick={handleIssue} disabled={isPending}>
                     {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                    <span className="sr-only">Issue Request</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent><p>Issue Request</p></TooltipContent>
@@ -212,17 +247,49 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
             </TooltipProvider>
           ) : (
             <>
-              <RespondToRequest item={item} distributionUsers={distributionUsers} currentUser={currentUser} />
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={() => handleUpdateStatus(item.status === 'open' ? 'closed' : 'open')} disabled={isPending}>
-                      {item.status === 'open' ? <XCircle className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+                    <Button variant="ghost" size="icon" className="text-primary" onClick={handleDistribute} disabled={isPending}>
+                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>{item.status === 'open' ? 'Close' : 'Reopen'} Request</p></TooltipContent>
+                  <TooltipContent><p>Distribute/Resend Notification</p></TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+
+              <RespondToRequest item={item} currentUser={currentUser} />
+              
+              <AlertDialog>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          {item.status === 'open' ? <XCircle className="h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
+                        </Button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{item.status === 'open' ? 'Close' : 'Reopen'} Request</p></TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <AlertDialogContent onClick={e => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{item.status === 'open' ? 'Close RFI?' : 'Reopen RFI?'}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {item.status === 'open' 
+                            ? "Are you sure you want to mark this technical query as resolved?" 
+                            : "This will move the request back to 'Open' status for further updates."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleUpdateStatus(item.status === 'open' ? 'closed' : 'open')} disabled={isPending}>
+                        Confirm
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </>
           )}
           
