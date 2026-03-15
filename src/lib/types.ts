@@ -306,7 +306,6 @@ export type ProcurementItem = {
   latestDateForOrder: string | null;
   leadInPeriodWeeks: number;
   startOnSiteDate: string | null;
-  preContractMeetingDate: string | null;
   orderPlacedDate: string | null;
   comments: string;
   status: ProcurementStatus;

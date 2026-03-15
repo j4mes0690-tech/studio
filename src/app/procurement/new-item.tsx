@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -137,7 +136,6 @@ export function NewProcurementDialog({
           latestDateForOrder: calculatedDates.latestOrderDate,
           leadInPeriodWeeks: values.leadInPeriodWeeks,
           startOnSiteDate: values.startOnSiteDate,
-          preContractMeetingDate: null,
           orderPlacedDate: null,
           comments: values.comments || '',
           status: 'planned',

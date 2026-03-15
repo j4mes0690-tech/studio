@@ -44,7 +44,6 @@ const EditProcurementSchema = z.object({
   actualEnquiryDate: z.string().optional().nullable(),
   tenderReturnDate: z.string().optional().nullable(),
   orderPlacedDate: z.string().optional().nullable(),
-  preContractMeetingDate: z.string().optional().nullable(),
   comments: z.string().optional().default(''),
   status: z.enum(['planned', 'enquiry', 'tender-returned', 'ordered', 'on-site']),
 });
@@ -81,7 +80,6 @@ export function EditProcurementDialog({
       actualEnquiryDate: item.actualEnquiryDate,
       tenderReturnDate: item.tenderReturnDate,
       orderPlacedDate: item.orderPlacedDate,
-      preContractMeetingDate: item.preContractMeetingDate,
       comments: item.comments || '',
       status: item.status,
     },
@@ -100,7 +98,6 @@ export function EditProcurementDialog({
         actualEnquiryDate: item.actualEnquiryDate,
         tenderReturnDate: item.tenderReturnDate,
         orderPlacedDate: item.orderPlacedDate,
-        preContractMeetingDate: item.preContractMeetingDate,
         comments: item.comments || '',
         status: item.status,
       });
@@ -249,12 +246,9 @@ export function EditProcurementDialog({
                     )} />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-t pt-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t pt-6">
                     <FormField control={form.control} name="orderPlacedDate" render={({ field }) => (
                         <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Order Placed</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
-                    )} />
-                    <FormField control={form.control} name="preContractMeetingDate" render={({ field }) => (
-                        <FormItem><FormLabel className="text-xs font-bold uppercase text-muted-foreground">Pre-Contract Mtg</FormLabel><FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="comments" render={({ field }) => (
                         <FormItem><FormLabel>Management Comments</FormLabel><FormControl><Textarea className="min-h-[40px] h-10" {...field} /></FormControl></FormItem>
