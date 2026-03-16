@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -82,12 +81,14 @@ type SnaggingItemCardProps = {
   item: SnaggingItem & { isProjectAggregation?: boolean };
   projects: Project[];
   subContractors: SubContractor[];
+  allUsers: DistributionUser[];
 };
 
 export function SnaggingItemCard({
   item,
   projects,
   subContractors,
+  allUsers,
 }: SnaggingItemCardProps) {
   const router = useRouter();
   const project = projects.find((p) => p.id === item.projectId);
@@ -203,7 +204,7 @@ export function SnaggingItemCard({
               
               <div className="flex items-center gap-1">
                 <PdfReportButton item={item} project={project} subContractors={subContractors} />
-                <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
+                <DistributeReportsButton item={item} project={project} subContractors={subContractors} allUsers={allUsers} />
               </div>
               
               {!item.isProjectAggregation && (

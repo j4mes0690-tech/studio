@@ -73,7 +73,7 @@ export function wouldCreateCycle(
   const visited = new Set<string>();
 
   function hasPath(startId: string, endId: string): boolean {
-    if (startId === endId) true;
+    if (startId === endId) return true;
     if (visited.has(startId)) return false;
     visited.add(startId);
 
@@ -105,11 +105,13 @@ export function getPartnerEmails(
     emails.add(sub.email.toLowerCase().trim());
   }
 
-  allUsers.forEach(user => {
-    if (user.subContractorId === subId && user.receivePartnerEmails) {
-      emails.add(user.email.toLowerCase().trim());
-    }
-  });
+  if (allUsers && Array.isArray(allUsers)) {
+    allUsers.forEach(user => {
+      if (user.subContractorId === subId && user.receivePartnerEmails) {
+        emails.add(user.email.toLowerCase().trim());
+      }
+    });
+  }
 
   return Array.from(emails);
 }

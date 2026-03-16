@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -11,7 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { SnaggingItem, Project, SubContractor, SnaggingHistoryRecord } from '@/lib/types';
+import type { SnaggingItem, Project, SubContractor, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { PdfReportButton } from './pdf-report-button';
 import { DistributeReportsButton } from './distribute-reports-button';
@@ -45,9 +44,10 @@ type TableProps = {
   items: (SnaggingItem & { isProjectAggregation?: boolean })[];
   projects: Project[];
   subContractors: SubContractor[];
+  allUsers: DistributionUser[];
 };
 
-export function SnaggingTable({ items, projects, subContractors }: TableProps) {
+export function SnaggingTable({ items, projects, subContractors, allUsers }: TableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
@@ -152,6 +152,7 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
               item={item} 
               projects={projects} 
               subContractors={subContractors}
+              allUsers={allUsers}
             />
           ))}
         </TableBody>
@@ -160,7 +161,7 @@ export function SnaggingTable({ items, projects, subContractors }: TableProps) {
   );
 }
 
-function SnagRow({ item, projects, subContractors }: { item: SnaggingItem & { isProjectAggregation?: boolean }, projects: Project[], subContractors: SubContractor[] }) {
+function SnagRow({ item, projects, subContractors, allUsers }: { item: SnaggingItem & { isProjectAggregation?: boolean }, projects: Project[], subContractors: SubContractor[], allUsers: DistributionUser[] }) {
   const router = useRouter();
   const project = projects.find((p) => p.id === item.projectId);
   const area = project?.areas?.find((a) => a.id === item.areaId);
@@ -248,7 +249,7 @@ function SnagRow({ item, projects, subContractors }: { item: SnaggingItem & { is
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
           <div className='flex items-center gap-1'>
             <PdfReportButton item={item} project={project} subContractors={subContractors} />
-            <DistributeReportsButton item={item} project={project} subContractors={subContractors} />
+            <DistributeReportsButton item={item} project={project} subContractors={subContractors} allUsers={allUsers} />
           </div>
           
           {!item.isProjectAggregation && (
