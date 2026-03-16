@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import { PlusCircle, Loader2, Save, Sun, Calculator } from 'lucide-react';
 import type { HolidayRequest, DistributionUser } from '@/lib/types';
 import { useFirestore } from '@/firebase';
