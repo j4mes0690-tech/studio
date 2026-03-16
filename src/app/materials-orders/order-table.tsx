@@ -156,14 +156,7 @@ function OrderTableRow({
       onClick={() => setIsEditDialogOpen(true)}
     >
       <TableCell className="font-mono text-[10px]">
-        <div className="flex flex-col gap-1">
-          <span>{order.orderNumber}</span>
-          {order.cvrCode && (
-            <Badge variant="outline" className="text-[8px] h-3 px-1 w-fit bg-primary/5 text-primary border-primary/10">
-              CVR: {order.cvrCode}
-            </Badge>
-          )}
-        </div>
+        <span>{order.orderNumber}</span>
       </TableCell>
       <TableCell className="font-medium truncate max-w-[250px]">{order.description}</TableCell>
       <TableCell className="truncate max-w-[150px] text-muted-foreground text-xs">{project?.name || 'Unknown'}</TableCell>

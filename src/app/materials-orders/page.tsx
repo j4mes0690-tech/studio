@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { NewOrderDialog } from './new-order';
 import { OrderCard } from './order-card';
 import { OrderTable } from './order-table';
+import { ExportButton } from './export-button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import {
@@ -97,7 +98,7 @@ function MaterialsOrdersContent() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={toggleView}>
+                <Button variant="outline" size="icon" onClick={toggleView} className="h-10 w-10">
                   {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                 </Button>
               </TooltipTrigger>
@@ -106,6 +107,10 @@ function MaterialsOrdersContent() {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+
+          {filteredOrders.length > 0 && (
+            <ExportButton orders={filteredOrders} projects={allowedProjects} />
+          )}
 
           <NewOrderDialog 
             projects={allowedProjects} 
