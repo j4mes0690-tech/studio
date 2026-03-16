@@ -43,8 +43,7 @@ import { VoiceInput } from '@/components/voice-input';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { CameraOverlay } from '@/components/camera-overlay';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 
 const NewNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -59,7 +58,6 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const { user: sessionUser } = useUser();
   
   const [isPending, startTransition] = useTransition();
   const [activeNoticeId, setActiveNoticeId] = useState<string | null>(null);
@@ -71,9 +69,13 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   
+  // Camera State
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
   const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); 
   const [itemPhotoTargetIdx, setItemPhotoTargetIdx] = useState<number | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const form = useForm<NewNoticeFormValues>({
     resolver: zodResolver(NewNoticeSchema),
@@ -108,6 +110,19 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
       }
     }
   }, [selectedAreaId, availableAreas, form]);
+
+  // Camera Management Effect
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const getCameraPermission = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (err) {}
+    };
+    if (isCameraOpen || isItemCameraOpen || itemPhotoTargetIdx !== null) getCameraPermission();
+    return () => stream?.getTracks().forEach(t => t.stop());
+  }, [isCameraOpen, isItemCameraOpen, itemPhotoTargetIdx, facingMode]);
 
   const handleMetadataBlur = () => {
     if (activeNoticeId) {
@@ -145,7 +160,7 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
     };
 
     const docRef = await addDoc(collection(db, 'cleanup-notices'), noticeData);
-    setActiveNoticeId(docRef.id);
+    setActiveListId(docRef.id);
     return docRef.id;
   };
 
@@ -158,9 +173,12 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
 
       try {
         const uploadedItemPhotos = await Promise.all(pendingItemPhotos.map(async (p, i) => {
-          const blob = await dataUriToBlob(p.url);
-          const url = await uploadFile(storage, `cleanup-notices/items/${noticeId}-${Date.now()}-${i}.jpg`, blob);
-          return { ...p, url };
+          if (p.url.startsWith('data:')) {
+            const blob = await dataUriToBlob(p.url);
+            const url = await uploadFile(storage, `cleanup-notices/items/${noticeId}-${Date.now()}-${i}.jpg`, blob);
+            return { ...p, url };
+          }
+          return p;
         }));
 
         const newItem: CleanUpListItem = {
@@ -188,24 +206,38 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
     });
   };
 
-  const onCaptureGeneral = (photo: Photo) => {
-    startTransition(async () => {
-        if (activeNoticeId) {
-            const blob = await dataUriToBlob(photo.url);
-            const url = await uploadFile(storage, `cleanup-notices/general/${activeNoticeId}-${Date.now()}.jpg`, blob);
-            const updatedPhoto = { ...photo, url };
-            await updateDoc(doc(db, 'cleanup-notices', activeNoticeId), {
-                photos: arrayUnion(updatedPhoto)
-            });
-            setPhotos(prev => [...prev, updatedPhoto]);
-        } else {
-            setPhotos(prev => [...prev, photo]);
-        }
-    });
-  };
+  const capturePhoto = async (target: 'general' | 'item' | 'existing') => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      const aspectRatio = video.videoWidth / video.videoHeight;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const raw = canvas.toDataURL('image/jpeg', 0.85);
+      const optimized = await optimizeImage(raw);
+      const photo: Photo = { url: optimized, takenAt: new Date().toISOString() };
 
-  const onCaptureItem = (photo: Photo) => {
-    if (itemPhotoTargetIdx !== null) {
+      if (target === 'general') {
+        startTransition(async () => {
+            if (activeNoticeId) {
+                const blob = await dataUriToBlob(photo.url);
+                const url = await uploadFile(storage, `cleanup-notices/general/${activeNoticeId}-${Date.now()}.jpg`, blob);
+                await updateDoc(doc(db, 'cleanup-notices', activeNoticeId), {
+                    photos: arrayUnion({ ...photo, url })
+                });
+                setPhotos(prev => [...prev, { ...photo, url }]);
+            } else {
+                setPhotos(prev => [...prev, photo]);
+            }
+            setIsCameraOpen(false);
+        });
+      } else if (target === 'item') {
+        setPendingItemPhotos(prev => [...prev, photo]);
+        setIsItemCameraOpen(false);
+      } else if (target === 'existing' && itemPhotoTargetIdx !== null) {
         const itemToUpdate = items[itemPhotoTargetIdx];
         startTransition(async () => {
             if (activeNoticeId) {
@@ -218,10 +250,9 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
             } else {
                 setItems(prev => prev.map((itm, i) => i === itemPhotoTargetIdx ? { ...itm, photos: [...(itm.photos || []), photo] } : itm));
             }
+            setItemPhotoTargetIdx(null);
         });
-        setItemPhotoTargetIdx(null);
-    } else {
-        setPendingItemPhotos(prev => [...prev, photo]);
+      }
     }
   };
 
@@ -230,6 +261,9 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
       setPhotos([]);
       setItems([]);
       setActiveNoticeId(null);
+      setIsCameraOpen(false);
+      setIsItemCameraOpen(false);
+      setItemPhotoTargetIdx(null);
       form.reset();
     }
   }, [open, form]);
@@ -306,6 +340,17 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
                               </div>
                           </div>
 
+                          {isItemCameraOpen && (
+                            <div className="space-y-2 border-2 border-primary/20 rounded-xl p-2 bg-primary/5 animate-in fade-in">
+                                <video ref={videoRef} className="w-full aspect-video bg-black rounded-lg object-cover" autoPlay muted playsInline />
+                                <div className="flex gap-2">
+                                    <Button type="button" size="sm" onClick={() => capturePhoto('item')}>Capture</Button>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => setIsItemCameraOpen(false)}>Cancel</Button>
+                                </div>
+                            </div>
+                          )}
+
                           {pendingItemPhotos.length > 0 && (
                             <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed">
                               {pendingItemPhotos.map((p, idx) => (
@@ -316,17 +361,40 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
 
                           <div className="space-y-3">
                               {items.map((item, idx) => (
-                                  <div key={item.id} className="bg-white p-4 rounded-xl border shadow-sm flex items-center justify-between group animate-in fade-in">
-                                      <div className="flex flex-col gap-1 min-w-0 flex-1">
-                                          <span className="text-sm font-bold truncate">{item.description}</span>
-                                          <div className="mt-1 flex items-center gap-2">
-                                              {item.subContractorId && <Badge variant="secondary" className="text-[10px]">{projectSubs.find(s => s.id === item.subContractorId)?.name}</Badge>}
-                                              {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
+                                  <div key={item.id} className="bg-white p-4 rounded-xl border shadow-sm flex flex-col gap-3 group animate-in fade-in">
+                                      <div className="flex items-center justify-between">
+                                          <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                              <span className="text-sm font-bold truncate">{item.description}</span>
+                                              <div className="mt-1 flex items-center gap-2">
+                                                  {item.subContractorId && <Badge variant="secondary" className="text-[10px]">{projectSubs.find(s => s.id === item.subContractorId)?.name}</Badge>}
+                                                  {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
+                                              </div>
+                                          </div>
+                                          <div className="flex gap-1 shrink-0">
+                                              <Button type="button" variant="ghost" size="icon" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
                                           </div>
                                       </div>
-                                      <div className="flex gap-1 shrink-0">
-                                          <Button type="button" variant="ghost" size="icon" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
-                                      </div>
+
+                                      {itemPhotoTargetIdx === idx && (
+                                        <div className="space-y-2 border-2 border-primary/20 rounded-xl p-2 bg-primary/5">
+                                            <video ref={videoRef} className="w-full aspect-video bg-black rounded-lg object-cover" autoPlay muted playsInline />
+                                            <div className="flex gap-2">
+                                                <Button type="button" size="sm" onClick={() => capturePhoto('existing')}>Capture</Button>
+                                                <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
+                                                <Button type="button" variant="ghost" size="sm" onClick={() => setItemPhotoTargetIdx(null)}>Cancel</Button>
+                                            </div>
+                                        </div>
+                                      )}
+
+                                      {item.photos && item.photos.length > 0 && (
+                                        <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
+                                            {item.photos.map((p, pi) => (
+                                                <div key={pi} className="relative w-12 h-9 rounded border overflow-hidden">
+                                                    <Image src={p.url} alt="Site" fill className="object-cover" />
+                                                </div>
+                                            ))}
+                                        </div>
+                                      )}
                                   </div>
                               ))}
                           </div>
@@ -340,6 +408,17 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
                               ))}
                               <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
                           </div>
+
+                          {isCameraOpen && (
+                            <div className="space-y-2 border-2 border-primary/20 rounded-xl p-2 bg-primary/5 animate-in fade-in">
+                                <video ref={videoRef} className="w-full aspect-video bg-black rounded-lg object-cover" autoPlay muted playsInline />
+                                <div className="flex gap-2">
+                                    <Button type="button" size="sm" onClick={() => capturePhoto('general')}>Capture</Button>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
+                                    <Button type="button" variant="ghost" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                                </div>
+                            </div>
+                          )}
                       </div>
                   </form>
               </Form>
@@ -352,20 +431,7 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <CameraOverlay 
-        isOpen={isCameraOpen} 
-        onClose={() => setIsCameraOpen(false)} 
-        onCapture={onCaptureGeneral}
-        title="General Clean Up Evidence"
-      />
-
-      <CameraOverlay 
-        isOpen={isItemCameraOpen || itemPhotoTargetIdx !== null} 
-        onClose={() => { setIsItemCameraOpen(false); setItemPhotoTargetIdx(null); }} 
-        onCapture={onCaptureItem}
-        title="Requirement Specific Photo"
-      />
+      <canvas ref={canvasRef} className="hidden" />
     </>
   );
 }

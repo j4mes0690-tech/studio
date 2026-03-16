@@ -43,8 +43,7 @@ import { VoiceInput } from '@/components/voice-input';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { cn, scrollToFirstError } from '@/lib/utils';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { CameraOverlay } from '@/components/camera-overlay';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const EditNoticeSchema = z.object({
@@ -78,8 +77,12 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
   const [newItemText, setNewItemText] = useState('');
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   
+  // Camera State
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const form = useForm<EditNoticeFormValues>({
     resolver: zodResolver(EditNoticeSchema),
@@ -106,6 +109,19 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
       setItems(notice.items || []);
     }
   }, [open, notice, form]);
+
+  // Camera Management Effect
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const getCameraPermission = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (err) {}
+    };
+    if (isCameraOpen || itemPhotoTargetId !== null) getCameraPermission();
+    return () => stream?.getTracks().forEach(t => t.stop());
+  }, [isCameraOpen, itemPhotoTargetId, facingMode]);
 
   const handleMetadataChange = () => {
     const values = form.getValues();
@@ -141,29 +157,41 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
     updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItemsList });
   };
 
-  const onCaptureGeneral = (photo: Photo) => {
-    startTransition(async () => {
-        const blob = await dataUriToBlob(photo.url);
-        const url = await uploadFile(storage, `cleanup-notices/general/${notice.id}-${Date.now()}.jpg`, blob);
-        const updatedPhoto = { ...photo, url };
-        await updateDoc(doc(db, 'cleanup-notices', notice.id), {
-            photos: arrayUnion(updatedPhoto)
-        });
-        setPhotos(prev => [...prev, updatedPhoto]);
-    });
-  };
+  const capturePhoto = async (target: 'general' | 'item') => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      const aspectRatio = video.videoWidth / video.videoHeight;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const raw = canvas.toDataURL('image/jpeg', 0.85);
+      const optimized = await optimizeImage(raw);
+      const photo: Photo = { url: optimized, takenAt: new Date().toISOString() };
 
-  const onCaptureItem = (photo: Photo) => {
-    if (itemPhotoTargetId) {
-      startTransition(async () => {
-        const blob = await dataUriToBlob(photo.url);
-        const url = await uploadFile(storage, `cleanup-notices/items/${itemPhotoTargetId}-${Date.now()}.jpg`, blob);
-        const updatedPhoto = { ...photo, url };
-        const newItems = items.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } : itm);
-        setItems(newItems);
-        await updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItems });
-      });
-      setItemPhotoTargetId(null);
+      if (target === 'general') {
+        startTransition(async () => {
+            const blob = await dataUriToBlob(photo.url);
+            const url = await uploadFile(storage, `cleanup-notices/general/${notice.id}-${Date.now()}.jpg`, blob);
+            await updateDoc(doc(db, 'cleanup-notices', notice.id), {
+                photos: arrayUnion({ ...photo, url })
+            });
+            setPhotos(prev => [...prev, { ...photo, url }]);
+            setIsCameraOpen(false);
+        });
+      } else if (target === 'item' && itemPhotoTargetId) {
+        startTransition(async () => {
+            const blob = await dataUriToBlob(photo.url);
+            const url = await uploadFile(storage, `cleanup-notices/items/${itemPhotoTargetId}-${Date.now()}.jpg`, blob);
+            const updatedPhoto = { ...photo, url };
+            const newItems = items.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } : itm);
+            setItems(newItems);
+            await updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItems });
+            setItemPhotoTargetId(null);
+        });
+      }
     }
   };
 
@@ -226,15 +254,38 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
 
                       <div className="space-y-3">
                           {items.map((listItem) => (
-                              <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 flex items-center justify-between">
-                                  <div className="flex flex-col">
-                                      <span className={cn("text-sm font-bold", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</span>
-                                      {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
+                              <div key={listItem.id} className="flex flex-col gap-3 p-3 border rounded-md bg-muted/10">
+                                  <div className="flex items-center justify-between">
+                                      <div className="flex flex-col">
+                                          <span className={cn("text-sm font-bold", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</span>
+                                          {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
+                                      </div>
+                                      <div className="flex gap-1">
+                                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
+                                      </div>
                                   </div>
-                                  <div className="flex gap-1">
-                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
-                                  </div>
+
+                                  {itemPhotoTargetId === listItem.id && (
+                                    <div className="space-y-2 border-2 border-primary/20 rounded-xl p-2 bg-primary/5">
+                                        <video ref={videoRef} className="w-full aspect-video bg-black rounded-lg object-cover" autoPlay muted playsInline />
+                                        <div className="flex gap-2">
+                                            <Button type="button" size="sm" onClick={() => capturePhoto('item')}>Capture</Button>
+                                            <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
+                                            <Button type="button" variant="ghost" size="sm" onClick={() => setItemPhotoTargetId(null)}>Cancel</Button>
+                                        </div>
+                                    </div>
+                                  )}
+
+                                  {listItem.photos && listItem.photos.length > 0 && (
+                                    <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
+                                        {listItem.photos.map((p, pi) => (
+                                            <div key={pi} className="relative w-12 h-9 rounded border overflow-hidden">
+                                                <Image src={p.url} alt="Site" fill className="object-cover" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                  )}
                               </div>
                           ))}
                       </div>
@@ -248,6 +299,17 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
                           ))}
                           <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
                       </div>
+
+                      {isCameraOpen && (
+                        <div className="space-y-2 border-2 border-primary/20 rounded-xl p-2 bg-primary/5">
+                            <video ref={videoRef} className="w-full aspect-video bg-black rounded-lg object-cover" autoPlay muted playsInline />
+                            <div className="flex gap-2">
+                                <Button type="button" size="sm" onClick={() => capturePhoto('general')}>Capture</Button>
+                                <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                            </div>
+                        </div>
+                      )}
                     </div>
                   </form>
               </Form>
@@ -259,20 +321,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <CameraOverlay 
-        isOpen={isCameraOpen} 
-        onClose={() => setIsCameraOpen(false)} 
-        onCapture={onCaptureGeneral}
-        title="General Clean Up Evidence"
-      />
-
-      <CameraOverlay 
-        isOpen={itemPhotoTargetId !== null} 
-        onClose={() => setItemPhotoTargetId(null)} 
-        onCapture={onCaptureItem}
-        title="Specific Requirement Photo"
-      />
+      <canvas ref={canvasRef} className="hidden" />
     </>
   );
 }
