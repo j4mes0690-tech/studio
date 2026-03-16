@@ -227,7 +227,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6">
               <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</Select><FormMessage /></FormItem>
+                <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
               )} />
               
               <FormField
