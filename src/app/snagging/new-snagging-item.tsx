@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, CheckCircle2 } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, CheckCircle2 } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
 import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -106,13 +106,15 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   }, [selectedProjectId, selectedProject]);
 
   useEffect(() => {
-    if (selectedAreaId && selectedAreaId !== 'none' && selectedAreaId !== '') {
-      if (selectedAreaId !== 'other') {
-        const area = availableAreas.find(a => a.id === selectedAreaId);
-        if (area) {
-          form.setValue('title', `${area.name} Completion Snags`);
-        }
+    if (selectedAreaId === 'other') {
+      form.setValue('title', 'Manual Snag List: ');
+    } else if (selectedAreaId && selectedAreaId !== 'none' && selectedAreaId !== '') {
+      const area = availableAreas.find(a => a.id === selectedAreaId);
+      if (area) {
+        form.setValue('title', `${area.name} Completion Snags`);
       }
+    } else {
+      form.setValue('title', '');
     }
   }, [selectedAreaId, availableAreas, form]);
 

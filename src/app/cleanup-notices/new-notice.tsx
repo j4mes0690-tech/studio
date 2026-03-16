@@ -104,13 +104,15 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
   }, [selectedProjectId, selectedProject]);
 
   useEffect(() => {
-    if (selectedAreaId && selectedAreaId !== 'none' && selectedAreaId !== '') {
-      if (selectedAreaId !== 'other') {
-        const area = availableAreas.find(a => a.id === selectedAreaId);
-        if (area) {
-          form.setValue('title', `Clean Up Requirement: ${area.name}`);
-        }
+    if (selectedAreaId === 'other') {
+      form.setValue('title', 'Clean Up Requirement: ');
+    } else if (selectedAreaId && selectedAreaId !== 'none' && selectedAreaId !== '') {
+      const area = availableAreas.find(a => a.id === selectedAreaId);
+      if (area) {
+        form.setValue('title', `Clean Up Requirement: ${area.name}`);
       }
+    } else {
+      form.setValue('title', '');
     }
   }, [selectedAreaId, availableAreas, form]);
 
