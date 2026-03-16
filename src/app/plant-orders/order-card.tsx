@@ -18,7 +18,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   ShoppingCart,
-  Tag
+  Tag,
+  MapPin
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
