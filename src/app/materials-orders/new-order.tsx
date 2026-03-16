@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar, Pencil, Save } from 'lucide-react';
+import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar, Pencil, Save, Tag } from 'lucide-react';
 import type { Project, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -42,6 +42,7 @@ const NewOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
   description: z.string().min(3, 'Order description is required for identification.'),
+  cvrCode: z.string().optional(),
   notes: z.string().optional(),
   status: z.enum(['draft', 'issued']).default('issued'),
 });
@@ -75,7 +76,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
   // Pending Item State
   const [pendingDescription, setPendingDescription] = useState<string>('');
   const [pendingQty, setPendingQuantity] = useState<number | string>(1);
-  const [pendingUnit, setPendingUnit] = useState<string>('');
+  const [pendingUnit, setPendingUnit] = useState('');
   const [pendingRate, setPendingRate] = useState<number | string>(0);
   const [pendingDeliveryDate, setPendingDeliveryDate] = useState<string | null>(null);
   const [isDateInputFocused, setIsDateInputFocused] = useState(false);
@@ -86,6 +87,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
       projectId: '', 
       supplierId: '', 
       description: '',
+      cvrCode: '',
       notes: '', 
       status: 'issued' 
     },
@@ -157,6 +159,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
           supplierId: values.supplierId,
           supplierName: supplier?.name || 'Unknown',
           description: values.description,
+          cvrCode: values.cvrCode || '',
           orderDate: new Date().toISOString(),
           items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })) as PurchaseOrderItem[],
           totalAmount: orderTotal,
@@ -247,17 +250,35 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
               />
             </div>
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Order Description</FormLabel>
-                  <FormControl><Input placeholder="e.g. Ground Floor Drainage Pipework" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Order Description</FormLabel>
+                      <FormControl><Input placeholder="e.g. Ground Floor Drainage Pipework" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="cvrCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormLabel>CVR Code</FormLabel>
+                      <Badge variant="outline" className="text-[8px] h-3 px-1 uppercase font-bold text-muted-foreground">Internal Only</Badge>
+                    </div>
+                    <FormControl><Input placeholder="e.g. 104.02" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <Separator />
 

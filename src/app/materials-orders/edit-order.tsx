@@ -25,7 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, ShoppingCart, Loader2, Calculator, Plus, Calendar, Pencil, Save } from 'lucide-react';
+import { Trash2, ShoppingCart, Loader2, Calculator, Plus, Calendar, Pencil, Save, Tag } from 'lucide-react';
 import type { Project, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -36,11 +36,13 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { addWeeks } from 'date-fns';
 import { generatePurchaseOrderPDF } from '@/lib/pdf-utils';
+import { Badge } from '@/components/ui/badge';
 
 const EditOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
   description: z.string().min(3, 'Order description is required.'),
+  cvrCode: z.string().optional(),
   notes: z.string().optional(),
   status: z.enum(['draft', 'issued']).default('issued'),
 });
@@ -92,6 +94,7 @@ export function EditOrderDialog({
       projectId: order.projectId, 
       supplierId: order.supplierId, 
       description: order.description || '',
+      cvrCode: order.cvrCode || '',
       notes: order.notes || '', 
       status: order.status === 'issued' ? 'issued' : 'draft' 
     },
@@ -103,6 +106,7 @@ export function EditOrderDialog({
         projectId: order.projectId,
         supplierId: order.supplierId,
         description: order.description || '',
+        cvrCode: order.cvrCode || '',
         notes: order.notes || '',
         status: order.status === 'issued' ? 'issued' : 'draft',
       });
@@ -159,6 +163,7 @@ export function EditOrderDialog({
           supplierId: values.supplierId,
           supplierName: supplier?.name || order.supplierName,
           description: values.description,
+          cvrCode: values.cvrCode || '',
           notes: values.notes || '',
           items: orderItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
           totalAmount: orderTotal,
@@ -216,9 +221,28 @@ export function EditOrderDialog({
                 <FormItem><FormLabel>Supplier</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
               )} />
             </div>
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><FormLabel>Order Description</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-            )} />
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <FormField control={form.control} name="description" render={({ field }) => (
+                  <FormItem><FormLabel>Order Description</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                )} />
+              </div>
+              <FormField
+                control={form.control}
+                name="cvrCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormLabel>CVR Code</FormLabel>
+                      <Badge variant="outline" className="text-[8px] h-3 px-1 uppercase font-bold text-muted-foreground">Internal Only</Badge>
+                    </div>
+                    <FormControl><Input placeholder="e.g. 104.02" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <Separator />
 
@@ -243,7 +267,10 @@ export function EditOrderDialog({
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <Input type="number" placeholder="Qty" value={pendingQty} onChange={e => setPendingQuantity(e.target.value)} onFocus={() => setPendingQuantity('')} className="bg-background" />
-                  <Select value={pendingUnit} onValueChange={setPendingUnit}><SelectTrigger className="bg-background"><SelectValue placeholder="Unit" /></SelectTrigger><SelectContent>{UNIT_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>
+                  <Select value={pendingUnit} onValueChange={setPendingUnit}>
+                    <SelectTrigger className="bg-background"><SelectValue placeholder="Unit" /></SelectTrigger>
+                    <SelectContent>{UNIT_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                  </Select>
                   <Input type="number" step="0.01" placeholder="Rate £" value={pendingRate} onChange={e => setPendingRate(e.target.value)} onFocus={() => setPendingRate('')} className="bg-background" />
                 </div>
                 <Button type="button" onClick={handleAddItem} disabled={!pendingDescription} className="w-full"><Plus className="h-4 w-4 mr-2" /> Add Item</Button>

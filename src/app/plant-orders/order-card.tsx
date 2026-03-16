@@ -17,7 +17,8 @@ import {
   Save,
   CheckCircle2,
   AlertTriangle,
-  ShoppingCart
+  ShoppingCart,
+  Tag
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -121,10 +122,11 @@ export function OrderCard({
         toast({ title: 'Success', description: 'Order removed from log.' });
       })
       .catch((error) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
+        const permissionError = new FirestorePermissionError({
           path: docRef.path,
           operation: 'delete',
-        }));
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
   };
 
@@ -180,12 +182,26 @@ export function OrderCard({
                   isDraft ? "border-orange-200 text-orange-600" : "text-primary border-primary/20"
                 )}>{order.reference}</Badge>
                 <CardTitle className="text-lg group-hover:text-primary transition-colors">{order.description}</CardTitle>
+                {order.cvrCode && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="secondary" className="text-[9px] h-4 gap-1 px-1.5 bg-primary/10 text-primary border-primary/20 font-bold uppercase tracking-tighter">
+                          <Tag className="h-2.5 w-2.5" /> {order.cvrCode}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Internal CVR Reference</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
-              <CardDescription className="flex items-center gap-3">
+              <CardDescription className="flex items-center gap-3 flex-wrap">
                 <span className="font-bold text-foreground uppercase tracking-tight text-[10px] bg-muted px-1.5 rounded flex items-center gap-1">
                     <HardHat className="h-2 w-2" /> {order.supplierName}
                 </span>
-                <span className="font-semibold text-foreground">{project?.name || 'Unknown Project'}</span>
+                <span className="font-semibold text-foreground flex items-center gap-1">
+                    <MapPin className="h-3 w-3 text-muted-foreground" /> {project?.name || 'Unknown'}
+                </span>
               </CardDescription>
             </div>
             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>

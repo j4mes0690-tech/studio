@@ -19,7 +19,9 @@ import {
   Trash2, 
   CheckCircle2, 
   Loader2, 
-  FileDown 
+  FileDown,
+  Tag,
+  Pencil
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -153,7 +155,16 @@ function OrderTableRow({
       className={cn("group cursor-pointer", isDraft && "bg-orange-50/20")}
       onClick={() => setIsEditDialogOpen(true)}
     >
-      <TableCell className="font-mono text-[10px]">{order.orderNumber}</TableCell>
+      <TableCell className="font-mono text-[10px]">
+        <div className="flex flex-col gap-1">
+          <span>{order.orderNumber}</span>
+          {order.cvrCode && (
+            <Badge variant="outline" className="text-[8px] h-3 px-1 w-fit bg-primary/5 text-primary border-primary/10">
+              CVR: {order.cvrCode}
+            </Badge>
+          )}
+        </div>
+      </TableCell>
       <TableCell className="font-medium truncate max-w-[250px]">{order.description}</TableCell>
       <TableCell className="truncate max-w-[150px] text-muted-foreground text-xs">{project?.name || 'Unknown'}</TableCell>
       <TableCell className="truncate max-w-[150px] text-xs">{order.supplierName}</TableCell>

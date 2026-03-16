@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, StopCircle, Plus, Trash2, Calculator, Pencil, PoundSterling, ShoppingCart } from 'lucide-react';
+import { Loader2, Save, StopCircle, Plus, Trash2, Calculator, Pencil, PoundSterling, ShoppingCart, Tag } from 'lucide-react';
 import type { Project, SubContractor, PlantOrder, PlantOrderItem, PlantRateUnit } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -48,6 +48,7 @@ const EditPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
   description: z.string().min(3, 'Order description is required.'),
+  cvrCode: z.string().optional(),
   notes: z.string().optional(),
   status: z.enum(['draft', 'scheduled', 'on-hire', 'off-hired']).default('scheduled'),
 });
@@ -86,6 +87,7 @@ export function EditPlantOrderDialog({
       projectId: '',
       supplierId: '',
       description: '',
+      cvrCode: '',
       notes: '',
       status: 'scheduled',
     },
@@ -97,6 +99,7 @@ export function EditPlantOrderDialog({
         projectId: order.projectId,
         supplierId: order.supplierId,
         description: order.description,
+        cvrCode: order.cvrCode || '',
         notes: order.notes || '',
         status: order.status,
       });
@@ -227,6 +230,7 @@ export function EditPlantOrderDialog({
           supplierId: values.supplierId,
           supplierName: supplier?.name || order.supplierName,
           description: values.description,
+          cvrCode: values.cvrCode || '',
           notes: values.notes || '',
           items: finalItems,
           totalAmount: finalItems.reduce((sum, i) => sum + i.estimatedCost, 0),
@@ -278,9 +282,27 @@ export function EditPlantOrderDialog({
               )} />
             </div>
 
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><FormLabel>Contract Description</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-            )} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <FormField control={form.control} name="description" render={({ field }) => (
+                  <FormItem><FormLabel>Contract Description</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                )} />
+              </div>
+              <FormField
+                control={form.control}
+                name="cvrCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormLabel>CVR Code</FormLabel>
+                      <Badge variant="outline" className="text-[8px] h-3 px-1 uppercase font-bold text-muted-foreground">Internal Only</Badge>
+                    </div>
+                    <FormControl><Input placeholder="e.g. 104.02" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <Separator />
 

@@ -363,6 +363,7 @@ export type PurchaseOrder = {
   notes?: string;
   createdAt: string;
   createdByEmail: string;
+  cvrCode?: string;
 };
 
 // --- PERMITS MODULE TYPES ---
@@ -450,6 +451,7 @@ export type PlantOrder = {
   createdAt: string;
   createdByEmail: string;
   notes?: string;
+  cvrCode?: string;
 };
 
 // --- VARIATIONS MODULE TYPES ---

@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Calculator, Pencil, ShoppingCart } from 'lucide-react';
+import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Calculator, Pencil, ShoppingCart, Tag } from 'lucide-react';
 import type { Project, SubContractor, DistributionUser, PlantOrder, PlantOrderItem, PlantRateUnit } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -44,6 +44,7 @@ const NewPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   supplierId: z.string().min(1, 'Supplier is required.'),
   description: z.string().min(3, 'Order description is required.'),
+  cvrCode: z.string().optional(),
   notes: z.string().optional(),
   status: z.enum(['draft', 'scheduled', 'on-hire', 'off-hired']).default('scheduled'),
 });
@@ -74,6 +75,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
       projectId: '',
       supplierId: '',
       description: '',
+      cvrCode: '',
       notes: '',
       status: 'scheduled',
     },
@@ -168,6 +170,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
           supplierId: values.supplierId,
           supplierName: supplier?.name || 'Unknown',
           description: values.description,
+          cvrCode: values.cvrCode || '',
           items: finalItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
           totalAmount: finalItems.reduce((sum, i) => sum + i.estimatedCost, 0),
           status: values.status,
@@ -233,9 +236,27 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
               )} />
             </div>
 
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><FormLabel>Hire Contract Title</FormLabel><FormControl><Input placeholder="e.g. Phase 1 Excavation Equipment" {...field} /></FormControl></FormItem>
-            )} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <FormField control={form.control} name="description" render={({ field }) => (
+                  <FormItem><FormLabel>Hire Contract Title</FormLabel><FormControl><Input placeholder="e.g. Phase 1 Excavation Equipment" {...field} /></FormControl></FormItem>
+                )} />
+              </div>
+              <FormField
+                control={form.control}
+                name="cvrCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormLabel>CVR Code</FormLabel>
+                      <Badge variant="outline" className="text-[8px] h-3 px-1 uppercase font-bold text-muted-foreground">Internal Only</Badge>
+                    </div>
+                    <FormControl><Input placeholder="e.g. 104.02" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <Separator />
 

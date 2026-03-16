@@ -11,7 +11,8 @@ import {
   Loader2, 
   FileDown,
   ChevronDown,
-  CheckCircle2
+  CheckCircle2,
+  Tag
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useTransition } from 'react';
@@ -132,6 +133,18 @@ export function OrderCard({
                   isDraft && "border-orange-200 text-orange-600"
                 )}>{order.orderNumber}</Badge>
                 <CardTitle className="text-lg group-hover:text-primary transition-colors">{order.description}</CardTitle>
+                {order.cvrCode && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="secondary" className="text-[9px] h-4 gap-1 px-1.5 bg-primary/10 text-primary border-primary/20 font-bold uppercase tracking-tighter">
+                          <Tag className="h-2.5 w-2.5" /> {order.cvrCode}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Internal CVR Reference</p></TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
               <CardDescription className="flex items-center gap-3">
                 <span className="font-bold text-foreground uppercase tracking-tighter text-[10px] bg-muted px-1.5 rounded flex items-center gap-1">
