@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save } from 'lucide-react';
+import { Pencil, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, Check } from 'lucide-react';
 import type { Project, Photo, Area, CleanUpListItem, SubContractor, DistributionUser, CleanUpNotice } from '@/lib/types';
 import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, arrayUnion, collection } from 'firebase/firestore';
@@ -77,6 +77,11 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
   const [newItemText, setNewItemText] = useState('');
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   
+  // Item Editing State
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editItemText, setEditItemText] = useState('');
+  const [editItemSubId, setEditItemSubId] = useState<string | undefined>(undefined);
+
   // Camera State
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
@@ -141,6 +146,19 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
     updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItemsList });
   };
 
+  const handleStartEdit = (item: CleanUpListItem) => {
+    setEditingItemId(item.id);
+    setEditItemText(item.description);
+    setEditItemSubId(item.subContractorId || undefined);
+  };
+
+  const handleSaveEdit = (id: string) => {
+    const newItemsList = items.map(i => i.id === id ? { ...i, description: editItemText, subContractorId: editItemSubId || null } : i);
+    setItems(newItemsList);
+    setEditingItemId(null);
+    updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItemsList });
+  };
+
   const onCaptureGeneral = (photo: Photo) => {
     startTransition(async () => {
         const blob = await dataUriToBlob(photo.url);
@@ -150,7 +168,6 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
             photos: arrayUnion(updatedPhoto)
         });
         setPhotos(prev => [...prev, updatedPhoto]);
-        setIsCameraOpen(false);
     });
   };
 
@@ -174,11 +191,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
         <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
         <DialogContent 
           className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
-          onPointerDownOutside={(e) => {
-            if (isCameraOpen || itemPhotoTargetId !== null) {
-              e.preventDefault();
-            }
-          }}
+          onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="p-6 pb-0 border-b shrink-0 flex flex-row items-center justify-between">
             <div>
@@ -235,25 +248,49 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
                       <div className="space-y-3">
                           {items.map((listItem) => (
                               <div key={listItem.id} className="flex flex-col gap-3 p-3 border rounded-md bg-muted/10">
-                                  <div className="flex items-center justify-between">
-                                      <div className="flex flex-col">
-                                          <span className={cn("text-sm font-bold", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</span>
-                                          {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
+                                  {editingItemId === listItem.id ? (
+                                      <div className="flex flex-col gap-2 w-full animate-in fade-in slide-in-from-top-1">
+                                          <Input 
+                                              value={editItemText} 
+                                              onChange={e => setEditItemText(e.target.value)} 
+                                              className="h-8 text-sm"
+                                              autoFocus
+                                          />
+                                          <div className="flex items-center justify-between">
+                                              <Select value={editItemSubId || 'unassigned'} onValueChange={v => setEditItemSubId(v === 'unassigned' ? undefined : v)}>
+                                                  <SelectTrigger className="h-7 text-[10px] w-32"><SelectValue placeholder="Assign" /></SelectTrigger>
+                                                  <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                              </Select>
+                                              <div className="flex gap-1">
+                                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingItemId(null)}><X className="h-3 w-3" /></Button>
+                                                  <Button size="icon" variant="default" className="h-7 w-7" onClick={() => handleSaveEdit(listItem.id)}><Check className="h-3 w-3" /></Button>
+                                              </div>
+                                          </div>
                                       </div>
-                                      <div className="flex gap-1">
-                                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
-                                      </div>
-                                  </div>
+                                  ) : (
+                                      <>
+                                          <div className="flex items-center justify-between">
+                                              <div className="flex flex-col">
+                                                  <span className={cn("text-sm font-bold", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</span>
+                                                  {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
+                                              </div>
+                                              <div className="flex gap-1">
+                                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStartEdit(listItem)}><Pencil className="h-4 w-4" /></Button>
+                                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
+                                              </div>
+                                          </div>
 
-                                  {listItem.photos && listItem.photos.length > 0 && (
-                                    <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
-                                        {listItem.photos.map((p, pi) => (
-                                            <div key={pi} className="relative w-12 h-9 rounded border overflow-hidden">
-                                                <Image src={p.url} alt="Site" fill className="object-cover" />
+                                          {listItem.photos && listItem.photos.length > 0 && (
+                                            <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
+                                                {listItem.photos.map((p, pi) => (
+                                                    <div key={pi} className="relative w-12 h-9 rounded border overflow-hidden">
+                                                        <Image src={p.url} alt="Site" fill className="object-cover" />
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
+                                          )}
+                                      </>
                                   )}
                               </div>
                           ))}

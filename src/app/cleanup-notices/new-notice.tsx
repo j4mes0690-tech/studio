@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, Pencil, Check } from 'lucide-react';
 import type { Project, Photo, Area, CleanUpListItem, SubContractor, DistributionUser, CleanUpNotice } from '@/lib/types';
 import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -69,6 +69,11 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
   const [newItemText, setNewItemText] = useState('');
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
+  
+  // Item Editing State
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [editItemText, setEditItemText] = useState('');
+  const [editItemSubId, setEditItemSubId] = useState<string | undefined>(undefined);
   
   // Camera State
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
@@ -191,6 +196,24 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
     });
   };
 
+  const handleStartEdit = (idx: number) => {
+    const item = items[idx];
+    setEditingItemIdx(idx);
+    setEditItemText(item.description);
+    setEditItemSubId(item.subContractorId || undefined);
+  };
+
+  const handleSaveEdit = (idx: number) => {
+    const updatedItems = items.map((it, i) => 
+      i === idx ? { ...it, description: editItemText, subContractorId: editItemSubId || null } : it
+    );
+    setItems(updatedItems);
+    setEditingItemIdx(null);
+    if (activeNoticeId) {
+      updateDoc(doc(db, 'cleanup-notices', activeNoticeId), { items: updatedItems });
+    }
+  };
+
   const onCaptureGeneral = (photo: Photo) => {
     startTransition(async () => {
         if (activeNoticeId) {
@@ -204,16 +227,10 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
         } else {
             setPhotos(prev => [...prev, photo]);
         }
-        setIsCameraOpen(false);
     });
   };
 
-  const onCaptureNewItem = (photo: Photo) => {
-    setPendingItemPhotos(prev => [...prev, photo]);
-    setIsItemCameraOpen(false);
-  };
-
-  const onCaptureExistingItem = (photo: Photo) => {
+  const onCaptureItem = (photo: Photo) => {
     if (itemPhotoTargetIdx !== null) {
         const itemToUpdate = items[itemPhotoTargetIdx];
         startTransition(async () => {
@@ -229,6 +246,8 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
             }
         });
         setItemPhotoTargetIdx(null);
+    } else {
+        setPendingItemPhotos(prev => [...prev, photo]);
     }
   };
 
@@ -237,9 +256,7 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
       setPhotos([]);
       setItems([]);
       setActiveNoticeId(null);
-      setIsCameraOpen(false);
-      setIsItemCameraOpen(false);
-      setItemPhotoTargetIdx(null);
+      setEditingItemIdx(null);
       form.reset();
     }
   }, [open, form]);
@@ -250,11 +267,7 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
         <DialogTrigger asChild><Button className="font-bold"><PlusCircle className="mr-2 h-4 w-4" />Record Cleaning Issue</Button></DialogTrigger>
         <DialogContent 
           className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
-          onPointerDownOutside={(e) => {
-            if (isCameraOpen || isItemCameraOpen || itemPhotoTargetIdx !== null) {
-              e.preventDefault();
-            }
-          }}
+          onInteractOutside={(e) => e.preventDefault()}
         >
           <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
               <div className="flex items-center justify-between">
@@ -333,28 +346,52 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
 
                           <div className="space-y-3">
                               {items.map((item, idx) => (
-                                  <div key={item.id} className="bg-white p-4 rounded-xl border shadow-sm flex flex-col gap-3 group animate-in fade-in">
-                                      <div className="flex items-center justify-between">
-                                          <div className="flex flex-col gap-1 min-w-0 flex-1">
-                                              <span className="text-sm font-bold truncate">{item.description}</span>
-                                              <div className="mt-1 flex items-center gap-2">
-                                                  {item.subContractorId && <Badge variant="secondary" className="text-[10px]">{projectSubs.find(s => s.id === item.subContractorId)?.name}</Badge>}
-                                                  {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
+                                  <div key={item.id} className="bg-white p-4 rounded-xl border shadow-sm group animate-in fade-in">
+                                      {editingItemIdx === idx ? (
+                                          <div className="flex flex-col gap-2 w-full">
+                                              <Input 
+                                                  value={editItemText} 
+                                                  onChange={e => setEditItemText(e.target.value)} 
+                                                  className="h-8 text-sm"
+                                                  autoFocus
+                                              />
+                                              <div className="flex items-center justify-between">
+                                                  <Select value={editItemSubId || 'unassigned'} onValueChange={v => setEditItemSubId(v === 'unassigned' ? undefined : v)}>
+                                                      <SelectTrigger className="h-7 text-[10px] w-32"><SelectValue placeholder="Assign" /></SelectTrigger>
+                                                      <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                                  </Select>
+                                                  <div className="flex gap-1">
+                                                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingItemIdx(null)}><X className="h-3 w-3" /></Button>
+                                                      <Button size="icon" variant="default" className="h-7 w-7" onClick={() => handleSaveEdit(idx)}><Check className="h-3 w-3" /></Button>
+                                                  </div>
                                               </div>
                                           </div>
-                                          <div className="flex gap-1 shrink-0">
-                                              <Button type="button" variant="ghost" size="icon" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
-                                          </div>
-                                      </div>
+                                      ) : (
+                                          <div className="flex flex-col gap-3">
+                                              <div className="flex items-center justify-between">
+                                                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                                      <span className="text-sm font-bold truncate">{item.description}</span>
+                                                      <div className="mt-1 flex items-center gap-2">
+                                                          {item.subContractorId && <Badge variant="secondary" className="text-[10px]">{projectSubs.find(s => s.id === item.subContractorId)?.name}</Badge>}
+                                                          {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
+                                                      </div>
+                                                  </div>
+                                                  <div className="flex gap-1 shrink-0">
+                                                      <Button type="button" variant="ghost" size="icon" onClick={() => handleStartEdit(idx)}><Pencil className="h-4 w-4" /></Button>
+                                                      <Button type="button" variant="ghost" size="icon" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
+                                                  </div>
+                                              </div>
 
-                                      {item.photos && item.photos.length > 0 && (
-                                        <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
-                                            {item.photos.map((p, pi) => (
-                                                <div key={pi} className="relative w-12 h-9 rounded border overflow-hidden">
-                                                    <Image src={p.url} alt="Site" fill className="object-cover" />
+                                              {item.photos && item.photos.length > 0 && (
+                                                <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
+                                                    {item.photos.map((p, pi) => (
+                                                        <div key={pi} className="relative w-12 h-9 rounded border overflow-hidden">
+                                                            <Image src={p.url} alt="Site" fill className="object-cover" />
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            ))}
-                                        </div>
+                                              )}
+                                          </div>
                                       )}
                                   </div>
                               ))}
@@ -390,17 +427,10 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
       />
 
       <CameraOverlay 
-        isOpen={isItemCameraOpen} 
-        onClose={() => setIsItemCameraOpen(false)} 
-        onCapture={onCaptureNewItem}
+        isOpen={isItemCameraOpen || itemPhotoTargetIdx !== null} 
+        onClose={() => { setIsItemCameraOpen(false); setItemPhotoTargetIdx(null); }} 
+        onCapture={onCaptureItem}
         title="Requirement Photo"
-      />
-
-      <CameraOverlay 
-        isOpen={itemPhotoTargetIdx !== null} 
-        onClose={() => setItemPhotoTargetIdx(null)} 
-        onCapture={onCaptureExistingItem}
-        title="Item Evidence"
       />
     </>
   );
