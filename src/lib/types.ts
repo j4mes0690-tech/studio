@@ -193,6 +193,8 @@ export type DistributionUser = {
   receivePartnerEmails?: boolean;
   requirePasswordChange?: boolean;
   permissions?: UserPermissions;
+  holidayEntitlement?: number;
+  lineManagerEmail?: string;
 };
 
 export type Invitation = {

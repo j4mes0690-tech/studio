@@ -32,12 +32,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Loader2, Save, Send, MailPlus, ShieldCheck, Eye, Edit3, Building2, Mail } from 'lucide-react';
+import { Pencil, Loader2, Save, Send, MailPlus, ShieldCheck, Eye, Edit3, Building2, Mail, UserCheck } from 'lucide-react';
 import type { DistributionUser, Invitation, SubContractor } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useFirestore, useUser as useSession, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { sendInvitationEmailAction } from './actions';
@@ -53,6 +53,8 @@ const EditUserSchema = z.object({
   userType: z.enum(['internal', 'partner']).default('internal'),
   subContractorId: z.string().optional(),
   receivePartnerEmails: z.boolean().default(false),
+  holidayEntitlement: z.coerce.number().min(0).default(25),
+  lineManagerEmail: z.string().optional(),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -110,6 +112,9 @@ const EditUserSchema = z.object({
 
   accessProcurement: z.boolean().default(true),
   procurementReadOnly: z.boolean().default(false),
+  
+  accessHolidays: z.boolean().default(true),
+  canApproveHolidays: z.boolean().default(false),
 });
 
 type EditUserFormValues = z.infer<typeof EditUserSchema>;
@@ -128,6 +133,16 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
   }, [db]);
   const { data: subContractors } = useCollection<SubContractor>(subsQuery);
 
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'users'), orderBy('name', 'asc'));
+  }, [db]);
+  const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
+
+  const internalStaff = useMemo(() => {
+    return allUsers?.filter(u => u.userType === 'internal' && u.email !== user.email) || [];
+  }, [allUsers, user.email]);
+
   const form = useForm<EditUserFormValues>({
     resolver: zodResolver(EditUserSchema),
     defaultValues: {
@@ -138,6 +153,8 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
       userType: user.userType || 'internal',
       subContractorId: user.subContractorId || 'none',
       receivePartnerEmails: !!user.receivePartnerEmails,
+      holidayEntitlement: user.holidayEntitlement || 25,
+      lineManagerEmail: user.lineManagerEmail || 'none',
       canManageUsers: user.permissions?.canManageUsers || false,
       canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
       canManageProjects: user.permissions?.canManageProjects || false,
@@ -147,6 +164,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
       canManageIRS: user.permissions?.canManageIRS || false,
       canManageBranding: user.permissions?.canManageBranding || false,
       hasFullVisibility: user.permissions?.hasFullVisibility || false,
+      canApproveHolidays: user.permissions?.canApproveHolidays || false,
       
       accessMaterials: user.permissions?.accessMaterials !== false,
       materialsReadOnly: !!user.permissions?.materialsReadOnly,
@@ -195,6 +213,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
 
       accessProcurement: user.permissions?.accessProcurement !== false,
       procurementReadOnly: !!user.permissions?.procurementReadOnly,
+      accessHolidays: user.permissions?.accessHolidays !== false,
     },
   });
   
@@ -208,6 +227,8 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         userType: user.userType || 'internal',
         subContractorId: user.subContractorId || 'none',
         receivePartnerEmails: !!user.receivePartnerEmails,
+        holidayEntitlement: user.holidayEntitlement || 25,
+        lineManagerEmail: user.lineManagerEmail || 'none',
         canManageUsers: user.permissions?.canManageUsers || false,
         canManageSubcontractors: user.permissions?.canManageSubcontractors || false,
         canManageProjects: user.permissions?.canManageProjects || false,
@@ -217,6 +238,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         canManageIRS: user.permissions?.canManageIRS || false,
         canManageBranding: user.permissions?.canManageBranding || false,
         hasFullVisibility: user.permissions?.hasFullVisibility || false,
+        canApproveHolidays: user.permissions?.canApproveHolidays || false,
         
         accessMaterials: user.permissions?.accessMaterials !== false,
         materialsReadOnly: !!user.permissions?.materialsReadOnly,
@@ -265,6 +287,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
 
         accessProcurement: user.permissions?.accessProcurement !== false,
         procurementReadOnly: !!user.permissions?.procurementReadOnly,
+        accessHolidays: user.permissions?.accessHolidays !== false,
       });
     }
   }, [open, user, form]);
@@ -301,14 +324,18 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         email,
         name: user.name,
         inviteLink,
-        inviterName: sessionUser?.email || 'System Administrator',
+        inviterName: profile?.name || sessionUser?.email || 'A colleague',
         userType: user.userType || 'internal'
       });
 
       if (result.success) {
         toast({ title: 'Invite Sent', description: `Invitation emailed to ${email}.` });
       } else {
-        toast({ title: 'Invite Logged', description: 'Record created. Email service unavailable.' });
+        toast({ 
+          title: 'Invite Logged', 
+          description: 'Record created. Email service unavailable.',
+          variant: 'destructive' 
+        });
       }
     } catch (err) {
       toast({ title: 'Error', description: 'Failed to process invitation.', variant: 'destructive' });
@@ -321,12 +348,14 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
     startTransition(async () => {
       const docId = user.id || user.email;
       const docRef = doc(db, 'users', docId);
-      const updates = {
+      const updates: Partial<DistributionUser> = {
         name: values.name,
         password: values.password,
         userType: values.userType,
-        subContractorId: values.subContractorId !== 'none' ? values.subContractorId : null,
+        subContractorId: values.subContractorId !== 'none' ? values.subContractorId : undefined,
         receivePartnerEmails: values.receivePartnerEmails,
+        holidayEntitlement: values.userType === 'internal' ? values.holidayEntitlement : undefined,
+        lineManagerEmail: values.userType === 'internal' && values.lineManagerEmail !== 'none' ? values.lineManagerEmail : undefined,
         permissions: {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,
@@ -337,6 +366,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
           canManageIRS: values.canManageIRS,
           canManageBranding: values.canManageBranding,
           hasFullVisibility: values.hasFullVisibility,
+          canApproveHolidays: values.canApproveHolidays,
           
           accessMaterials: values.accessMaterials,
           materialsReadOnly: values.materialsReadOnly,
@@ -385,6 +415,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
 
           accessProcurement: values.accessProcurement,
           procurementReadOnly: values.procurementReadOnly,
+          accessHolidays: values.accessHolidays,
         }
       };
 
@@ -414,6 +445,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
     { access: 'accessPaymentNotices', ro: 'paymentNoticesReadOnly', label: 'Payment Notices' },
     { access: 'accessPermits', ro: 'permitsReadOnly', label: 'Permits' },
     { access: 'accessTraining', ro: 'trainingReadOnly', label: 'Training' },
+    { access: 'accessHolidays', label: 'Holidays' },
     { access: 'accessClientInstructions', ro: 'clientInstructionsReadOnly', label: 'Client Inst' },
     { access: 'accessSiteInstructions', ro: 'siteInstructionsReadOnly', label: 'Site Inst' },
     { access: 'accessCleanupNotices', ro: 'cleanupNoticesReadOnly', label: 'Cleanup Notices' },
@@ -431,6 +463,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
     { name: 'canManagePermitTemplates', label: 'Manage Permit Templates', desc: 'Permit form definitions.' },
     { name: 'canManageTraining', label: 'Manage Training Needs', desc: 'Identify staff training gaps.' },
     { name: 'canManageIRS', label: 'Manage Master IRS', desc: 'Global schedule tracking.' },
+    { name: 'canApproveHolidays', label: 'Approve Holidays', desc: 'Global approval authority.' },
   ];
 
   return (
@@ -501,6 +534,33 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
                         )} />
                     )}
 
+                    {selectedUserType === 'internal' && (
+                        <>
+                            <FormField control={form.control} name="holidayEntitlement" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Holiday Entitlement (Days)</FormLabel>
+                                    <FormControl><Input type="number" {...field} /></FormControl>
+                                    <FormDescription className="text-[10px]">Total leave allowed per calendar year.</FormDescription>
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="lineManagerEmail" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="flex items-center gap-2"><UserCheck className="h-4 w-4 text-primary" /> Line Manager</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="none">No Manager Assigned</SelectItem>
+                                            {internalStaff.map(u => (
+                                                <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormDescription className="text-[10px]">The designated authority for holiday approvals.</FormDescription>
+                                </FormItem>
+                            )} />
+                        </>
+                    )}
+
                     {(selectedUserType === 'partner' || (selectedSubId && selectedSubId !== 'none')) && (
                         <FormField control={form.control} name="receivePartnerEmails" render={({ field }) => (
                             <FormItem className="flex flex-row items-center justify-between rounded-lg border-2 border-accent/20 p-3 bg-accent/5 animate-in fade-in slide-in-from-top-2 mt-auto">
@@ -558,7 +618,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
                                             )}
                                         />
                                     </div>
-                                    {form.watch(mod.access as any) && (
+                                    {(mod.ro && form.watch(mod.access as any)) && (
                                         <div className={cn(
                                             "flex items-center justify-between border-t pt-2 transition-all",
                                             form.watch(mod.ro as any) ? "bg-muted/30 -mx-3 -mb-3 p-3 rounded-b-lg border-t-0" : ""

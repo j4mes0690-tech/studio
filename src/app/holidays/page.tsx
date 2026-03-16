@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -6,7 +5,7 @@ import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, Suspense, useEffect } from 'react';
 import type { HolidayRequest, DistributionUser, Project } from '@/lib/types';
-import { Loader2, Sun, ShieldCheck, Filter, LayoutGrid, List, Plane, User, Clock, CheckCircle2, History } from 'lucide-react';
+import { Loader2, Sun, ShieldCheck, Filter, LayoutGrid, List, Plane, User, Clock, CheckCircle2, History, Calculator, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useSearchParams } from 'next/navigation';
 import { HolidayRequestCard } from './request-card';
 import { NewHolidayRequest } from './new-request';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 
 function HolidayContent() {
@@ -48,36 +47,73 @@ function HolidayContent() {
   const requestsQuery = useMemoFirebase(() => (db ? query(collection(db, 'holiday-requests'), orderBy('startDate', 'desc')) : null), [db]);
   const { data: allRequests, isLoading: requestsLoading } = useCollection<HolidayRequest>(requestsQuery);
 
+  // Balance Calculations
+  const balance = useMemo(() => {
+    if (!profile || !allRequests) return { entitlement: 0, used: 0, pending: 0, remaining: 0, percentage: 0 };
+    
+    const email = profile.email.toLowerCase();
+    const currentYear = new Date().getFullYear();
+    
+    const myRequests = allRequests.filter(r => r.userEmail.toLowerCase() === email);
+    
+    // Sum only 'holiday' type for entitlement calculation in the current calendar year
+    const approvedHolidayDays = myRequests.filter(r => {
+        if (r.status !== 'approved' || r.type !== 'holiday') return false;
+        const start = new Date(r.startDate);
+        return start.getFullYear() === currentYear;
+    }).reduce((sum, r) => sum + r.totalDays, 0);
+
+    const pendingHolidayDays = myRequests.filter(r => {
+        if (r.status !== 'pending' || r.type !== 'holiday') return false;
+        const start = new Date(r.startDate);
+        return start.getFullYear() === currentYear;
+    }).reduce((sum, r) => sum + r.totalDays, 0);
+
+    const entitlement = profile.holidayEntitlement || 0;
+    const remaining = Math.max(0, entitlement - approvedHolidayDays);
+    const percentage = entitlement > 0 ? (approvedHolidayDays / entitlement) * 100 : 0;
+
+    return {
+        entitlement,
+        used: approvedHolidayDays,
+        pending: pendingHolidayDays,
+        remaining,
+        percentage
+    };
+  }, [allRequests, profile]);
+
   // Security Logic
-  const canApprove = !!profile?.permissions?.canApproveHolidays || !!profile?.permissions?.hasFullVisibility;
+  const canApproveHolidays = !!profile?.permissions?.canApproveHolidays || !!profile?.permissions?.hasFullVisibility;
 
   const filteredRequests = useMemo(() => {
     if (!allRequests || !profile) return [];
     
-    // Non-approvers only see their own requests
-    let base = allRequests;
-    if (!canApprove) {
-        base = allRequests.filter(r => r.userEmail.toLowerCase() === profile.email.toLowerCase());
-    }
+    const email = profile.email.toLowerCase().trim();
+    const isAdmin = !!profile.permissions?.hasFullVisibility;
+    const canGlobalApprove = !!profile.permissions?.canApproveHolidays;
 
-    // Apply Filters
+    // Filter by visibility first
+    let base = allRequests.filter(r => {
+        const isOwn = r.userEmail.toLowerCase().trim() === email;
+        if (isOwn) return true;
+        
+        // If admin or global approver, see others
+        if (isAdmin || canGlobalApprove) return true;
+
+        // If I am the assigned line manager for this user, I can see it
+        const targetUser = allUsers?.find(u => u.email.toLowerCase().trim() === r.userEmail.toLowerCase().trim());
+        if (targetUser?.lineManagerEmail?.toLowerCase().trim() === email) return true;
+
+        return false;
+    });
+
+    // Apply UI Filters
     return base.filter(r => {
         const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
         const matchesUser = userFilter === 'all' || r.userEmail === userFilter;
         return matchesStatus && matchesUser;
     });
-  }, [allRequests, profile, canApprove, statusFilter, userFilter]);
-
-  const stats = useMemo(() => {
-    if (!profile || !allRequests) return { pending: 0, approvedThisMonth: 0 };
-    const email = profile.email.toLowerCase();
-    const myRequests = allRequests.filter(r => r.userEmail.toLowerCase() === email);
-    
-    return {
-        pending: myRequests.filter(r => r.status === 'pending').length,
-        approvedThisMonth: myRequests.filter(r => r.status === 'approved' && new Date(r.startDate).getMonth() === new Date().getMonth()).length
-    };
-  }, [allRequests, profile]);
+  }, [allRequests, profile, allUsers, statusFilter, userFilter]);
 
   if (requestsLoading || !profile) {
     return (
@@ -96,7 +132,7 @@ function HolidayContent() {
             Holiday & Leave Booking
           </h2>
           <p className="text-sm text-muted-foreground">Manage time off requests and track site availability.</p>
-          {canApprove && (
+          {canApproveHolidays && (
             <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Administrative Approval Access
@@ -121,20 +157,47 @@ function HolidayContent() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="p-4 flex items-center gap-4">
-                  <div className="bg-primary/10 p-2 rounded-lg text-primary"><Clock className="h-5 w-5" /></div>
-                  <div>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Your Pending</p>
-                      <p className="text-xl font-bold">{stats.pending} Requests</p>
+              <CardHeader className="pb-2 p-4">
+                  <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Yearly Allowance</p>
+                      <Calculator className="h-3 w-3 text-primary opacity-40" />
+                  </div>
+                  <CardTitle className="text-2xl font-black">{balance.entitlement} Days</CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-4">
+                  <div className="space-y-2">
+                      <Progress value={balance.percentage} className="h-1.5" />
+                      <p className="text-[10px] text-muted-foreground font-bold">Current Calendar Year</p>
                   </div>
               </CardContent>
           </Card>
+
           <Card className="bg-green-50 border-green-200">
               <CardContent className="p-4 flex items-center gap-4">
                   <div className="bg-green-100 p-2 rounded-lg text-green-600"><CheckCircle2 className="h-5 w-5" /></div>
                   <div>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Approved this month</p>
-                      <p className="text-xl font-bold">{stats.approvedThisMonth} Occurrences</p>
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Used Holidays</p>
+                      <p className="text-xl font-bold text-green-700">{balance.used} Days Approved</p>
+                  </div>
+              </CardContent>
+          </Card>
+
+          <Card className="bg-amber-50 border-amber-200">
+              <CardContent className="p-4 flex items-center gap-4">
+                  <div className="bg-amber-100 p-2 rounded-lg text-amber-600"><Clock className="h-5 w-5" /></div>
+                  <div>
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pending Approval</p>
+                      <p className="text-xl font-bold text-amber-700">{balance.pending} Days Requested</p>
+                  </div>
+              </CardContent>
+          </Card>
+
+          <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-4 flex items-center gap-4">
+                  <div className="bg-primary/10 p-2 rounded-lg text-primary"><TrendingUp className="h-5 w-5" /></div>
+                  <div>
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Remaining Balance</p>
+                      <p className="text-xl font-bold text-primary">{balance.remaining} Days Left</p>
                   </div>
               </CardContent>
           </Card>
@@ -162,7 +225,7 @@ function HolidayContent() {
             </SelectContent>
           </Select>
 
-          {canApprove && (
+          {canApproveHolidays && (
             <Select value={userFilter} onValueChange={(v) => {
                 const p = new URLSearchParams(window.location.search);
                 if (v === 'all') p.delete('user'); else p.set('user', v);
@@ -183,14 +246,20 @@ function HolidayContent() {
       <div className="grid gap-4">
         {filteredRequests.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredRequests.map(request => (
-                  <HolidayRequestCard 
-                      key={request.id} 
-                      request={request} 
-                      currentUser={profile}
-                      canApprove={canApprove}
-                  />
-              ))}
+              {filteredRequests.map(request => {
+                  const targetUser = allUsers?.find(u => u.email.toLowerCase().trim() === request.userEmail.toLowerCase().trim());
+                  const isManager = targetUser?.lineManagerEmail?.toLowerCase().trim() === profile.email.toLowerCase().trim();
+                  const canIApprove = canApproveHolidays || isManager;
+
+                  return (
+                    <HolidayRequestCard 
+                        key={request.id} 
+                        request={request} 
+                        currentUser={profile}
+                        canApprove={canIApprove}
+                    />
+                  );
+              })}
           </div>
         ) : (
           <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/5 text-muted-foreground/40">

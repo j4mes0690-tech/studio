@@ -26,14 +26,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, setDoc, collection } from 'firebase/firestore';
+import { doc, setDoc, collection, query, orderBy } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Eye, Edit3, Loader2, Save, Building2, Mail } from 'lucide-react';
+import { Eye, Edit3, Loader2, Save, Building2, Mail, UserCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { SubContractor } from '@/lib/types';
+import type { SubContractor, DistributionUser } from '@/lib/types';
 
 const AddUserSchema = z.object({
   name: z.string().min(1, 'Name is required.'),
@@ -42,6 +42,8 @@ const AddUserSchema = z.object({
   userType: z.enum(['internal', 'partner']).default('internal'),
   subContractorId: z.string().optional(),
   receivePartnerEmails: z.boolean().default(false),
+  holidayEntitlement: z.coerce.number().min(0).default(25),
+  lineManagerEmail: z.string().optional(),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -99,6 +101,9 @@ const AddUserSchema = z.object({
 
   accessProcurement: z.boolean().default(true),
   procurementReadOnly: z.boolean().default(false),
+  
+  accessHolidays: z.boolean().default(true),
+  canApproveHolidays: z.boolean().default(false),
 });
 
 type AddUserFormValues = z.infer<typeof AddUserSchema>;
@@ -114,6 +119,16 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
   }, [db]);
   const { data: subContractors } = useCollection<SubContractor>(subsQuery);
 
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'users'), orderBy('name', 'asc'));
+  }, [db]);
+  const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
+
+  const internalStaff = useMemo(() => {
+    return allUsers?.filter(u => u.userType === 'internal') || [];
+  }, [allUsers]);
+
   const form = useForm<AddUserFormValues>({
     resolver: zodResolver(AddUserSchema),
     defaultValues: {
@@ -123,6 +138,8 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
       userType: 'internal',
       subContractorId: 'none',
       receivePartnerEmails: false,
+      holidayEntitlement: 25,
+      lineManagerEmail: 'none',
       canManageUsers: false,
       canManageSubcontractors: false,
       canManageProjects: false,
@@ -164,6 +181,8 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
       plannerReadOnly: false,
       accessProcurement: true,
       procurementReadOnly: false,
+      accessHolidays: true,
+      canApproveHolidays: false,
     },
   });
 
@@ -173,14 +192,16 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
   const onSubmit = (values: AddUserFormValues) => {
     startTransition(async () => {
       const email = values.email.toLowerCase().trim();
-      const profile = {
+      const profile: DistributionUser = {
         id: email,
         name: values.name,
         email: email,
         password: values.password,
         userType: values.userType,
-        subContractorId: values.subContractorId !== 'none' ? values.subContractorId : null,
+        subContractorId: values.subContractorId !== 'none' ? values.subContractorId : undefined,
         receivePartnerEmails: values.receivePartnerEmails,
+        holidayEntitlement: values.userType === 'internal' ? values.holidayEntitlement : undefined,
+        lineManagerEmail: values.userType === 'internal' && values.lineManagerEmail !== 'none' ? values.lineManagerEmail : undefined,
         permissions: {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,
@@ -191,6 +212,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
           canManageIRS: values.canManageIRS,
           canManageBranding: values.canManageBranding,
           hasFullVisibility: values.hasFullVisibility,
+          canApproveHolidays: values.canApproveHolidays,
           
           accessMaterials: values.accessMaterials,
           materialsReadOnly: values.materialsReadOnly,
@@ -239,6 +261,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
 
           accessProcurement: values.accessProcurement,
           procurementReadOnly: values.procurementReadOnly,
+          accessHolidays: values.accessHolidays,
         }
       };
 
@@ -271,6 +294,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
     { access: 'accessPaymentNotices', ro: 'paymentNoticesReadOnly', label: 'Payment Notices' },
     { access: 'accessPermits', ro: 'permitsReadOnly', label: 'Permits' },
     { access: 'accessTraining', ro: 'trainingReadOnly', label: 'Training' },
+    { access: 'accessHolidays', label: 'Holidays' },
     { access: 'accessClientInstructions', ro: 'clientInstructionsReadOnly', label: 'Client Inst' },
     { access: 'accessSiteInstructions', ro: 'siteInstructionsReadOnly', label: 'Site Inst' },
     { access: 'accessCleanupNotices', ro: 'cleanupNoticesReadOnly', label: 'Cleanup Notices' },
@@ -288,6 +312,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
     { name: 'canManagePermitTemplates', label: 'Manage Permit Templates', desc: 'High-risk permit form logic.' },
     { name: 'canManageTraining', label: 'Manage Training Needs', desc: 'Identify staff training gaps.' },
     { name: 'canManageIRS', label: 'Manage Master IRS', desc: 'Global schedule tracking.' },
+    { name: 'canApproveHolidays', label: 'Approve Holidays', desc: 'Approve leave requests globally.' },
   ];
 
   return (
@@ -339,6 +364,33 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
                                 <FormDescription className="text-[10px]">Users associated with a company automatically see records linked to that partner.</FormDescription>
                             </FormItem>
                         )} />
+                    )}
+
+                    {selectedUserType === 'internal' && (
+                        <>
+                            <FormField control={form.control} name="holidayEntitlement" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Holiday Entitlement (Days)</FormLabel>
+                                    <FormControl><Input type="number" {...field} /></FormControl>
+                                    <FormDescription className="text-[10px]">Total leave allowed per calendar year.</FormDescription>
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="lineManagerEmail" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="flex items-center gap-2"><UserCheck className="h-4 w-4 text-primary" /> Line Manager</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="none">No Manager Assigned</SelectItem>
+                                            {internalStaff.map(u => (
+                                                <SelectItem key={u.id} value={u.email}>{u.name} ({u.email})</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormDescription className="text-[10px]">The designated authority for holiday approvals.</FormDescription>
+                                </FormItem>
+                            )} />
+                        </>
                     )}
 
                     {(selectedUserType === 'partner' || (selectedSubId && selectedSubId !== 'none')) && (
@@ -399,7 +451,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
                                         )}
                                     />
                                 </div>
-                                {form.watch(mod.access as any) && (
+                                {(mod.ro && form.watch(mod.access as any)) && (
                                     <div className={cn(
                                         "flex items-center justify-between border-t pt-2 transition-all",
                                         form.watch(mod.ro as any) ? "bg-muted/30 -mx-3 -mb-3 p-3 rounded-b-lg border-t-0" : ""
