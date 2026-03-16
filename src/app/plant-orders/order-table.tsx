@@ -232,7 +232,7 @@ function OrderTableRow({
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => downloadPDF(order)} disabled={isGenerating}>
                   {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-                  <span className="sr-only">Download PDF</span>
+                  <span className="sr-only">Download PO as PDF</span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent><p>Download PO as PDF</p></TooltipContent>
@@ -251,7 +251,7 @@ function OrderTableRow({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </AlertDialogTrigger>

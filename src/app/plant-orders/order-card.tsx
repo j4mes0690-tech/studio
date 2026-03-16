@@ -219,16 +219,28 @@ export function OrderCard({
                       <TooltipContent><p>Activate Order</p></TooltipContent>
                     </Tooltip>
                   </>
+                ) : isClosed ? (
+                  <Badge variant="secondary" className="bg-slate-100 text-slate-600">CLOSED</Badge>
                 ) : (
-                  <Badge className={cn(
-                      "capitalize text-[10px] font-bold",
-                      (order.status === 'on-hire' || order.status === 'scheduled') ? 'bg-green-100 text-green-800' : 
-                      order.status === 'off-hired' ? 'bg-muted text-muted-foreground' : 'bg-indigo-600 text-white'
-                  )}>
-                    {(order.status === 'scheduled' || order.status === 'on-hire') ? 'Active' : order.status}
-                  </Badge>
+                  <>
+                    <Badge className={cn(
+                        "capitalize text-[10px] font-bold",
+                        (order.status === 'on-hire' || order.status === 'scheduled') ? 'bg-green-100 text-green-800' : 
+                        order.status === 'off-hired' ? 'bg-muted text-muted-foreground' : 'bg-indigo-600 text-white'
+                    )}>
+                      {(order.status === 'scheduled' || order.status === 'on-hire') ? 'Active' : order.status}
+                    </Badge>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600" onClick={handleClose} disabled={isPending}>
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent><p>Sign-off Work</p></TooltipContent>
+                    </Tooltip>
+                  </>
                 )}
-
+                
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => downloadPDF(order)} disabled={isGenerating}>
@@ -242,7 +254,7 @@ export function OrderCard({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
@@ -275,7 +287,7 @@ export function OrderCard({
                         ) : 'Not defined'}
                     </p>
                     {!isDraft && order.status !== 'off-hired' && (
-                      <p className="text-[9px] uppercase font-bold text-muted-foreground/60">{ragStatus.label}</p>
+                      <p className="p-0 text-[9px] uppercase font-bold text-muted-foreground/60">{ragStatus.label}</p>
                     )}
                 </div>
                 <div className="text-right">

@@ -167,8 +167,8 @@ export function OrderCard({
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button 
-                          variant="ghost" 
-                          size="icon" 
+                          variant="outline" 
+                          size="sm" 
                           className="h-8 w-8 text-orange-600 hover:bg-orange-50"
                           onClick={handleCommit}
                           disabled={isPending || isGenerating}
