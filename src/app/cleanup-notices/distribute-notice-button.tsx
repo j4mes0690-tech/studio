@@ -71,6 +71,7 @@ export function DistributeNoticeButton({
     }
 
     setIsDistributing(true);
+    let sentCount = 0;
 
     try {
       const area = project?.areas?.find(a => a.id === notice.areaId);
@@ -119,10 +120,19 @@ export function DistributeNoticeButton({
             fileName: `CleanUpNotice-${notice.reference}.pdf`
           });
         }
+        sentCount++;
       }
 
-      toast({ title: "Distribution Complete", description: `Notice emailed to selected trade partners.` });
-      setOpen(false);
+      if (sentCount === 0) {
+        toast({
+          title: "Nothing to Distribute",
+          description: "No relevant items found for selected partners. Enable 'Include Completed Items' if you wish to send a full audit.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Distribution Complete", description: `Notice emailed to ${sentCount} trade partners.` });
+        setOpen(false);
+      }
     } catch (err) {
       console.error('Notice Distribution Error:', err);
       toast({ title: "Process Failed", description: "Failed to generate or send the notice report.", variant: "destructive" });
@@ -192,7 +202,7 @@ export function DistributeNoticeButton({
                       <div key={sub.id} className="flex items-center space-x-3 group">
                         <Checkbox 
                           id={`sub-not-${sub.id}`} 
-                          checked={isChecked}
+                          checked={isChecked} 
                           onCheckedChange={() => toggleSubSelection(sub.id)}
                         />
                         <div className="flex-1 flex flex-col cursor-pointer" onClick={() => toggleSubSelection(sub.id)}>

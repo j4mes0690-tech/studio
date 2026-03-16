@@ -77,6 +77,7 @@ export function DistributeReportsButton({
     }
 
     setIsDistributing(true);
+    let sentCount = 0;
 
     try {
       const area = project?.areas?.find(a => a.id === item.areaId);
@@ -129,10 +130,19 @@ export function DistributeReportsButton({
               fileName
             });
         }
+        sentCount++;
       }
 
-      toast({ title: "Process Complete", description: "Reports generated and issued to partners." });
-      setOpen(false);
+      if (sentCount === 0) {
+        toast({
+          title: "Nothing to Distribute",
+          description: "No relevant items found for selected partners. Enable 'Include Completed Items' if you wish to send a full audit.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Process Complete", description: `Reports generated and issued to ${sentCount} partners.` });
+        setOpen(false);
+      }
     } catch (err) {
       console.error('Distribution Error:', err);
       toast({ title: "Process Failed", description: "Unexpected error during report generation.", variant: "destructive" });
