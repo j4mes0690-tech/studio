@@ -17,6 +17,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { sendCleanUpReportAction } from './actions';
@@ -40,6 +41,7 @@ export function ProjectReportButton({
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDistributing, setIsDistributing] = useState(false);
   const [reportType, setReportType] = useState<'global' | 'partner'>('global');
+  const [includeClosed, setIncludeClosed] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(initialProjectId || '');
   const [selectedSubId, setSelectedSubId] = useState<string>(''); 
   const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]); 
@@ -96,6 +98,10 @@ export function ProjectReportButton({
         const area = activeProject.areas?.find(a => a.id === notice.areaId);
         notice.items.forEach(item => {
           if (reportType === 'partner' && item.subContractorId !== selectedSubId) return;
+          
+          // Filter by status if not including closed
+          if (!includeClosed && item.status === 'closed') return;
+
           aggregatedEntries.push({
             listTitle: notice.title,
             areaName: area?.name || 'General Site',
@@ -110,7 +116,11 @@ export function ProjectReportButton({
       }
 
       // 2. Generate PDF
-      const scopeLabel = reportType === 'partner' ? subContractors.find(s => s.id === selectedSubId)?.name : 'All Trade Disciplines';
+      const subName = subContractors.find(s => s.id === selectedSubId)?.name;
+      const scopeLabel = reportType === 'partner' 
+        ? `${subName} ${includeClosed ? '(Audit)' : '(Outstanding)'}` 
+        : `All Trades ${includeClosed ? '(Audit)' : '(Outstanding)'}`;
+
       const pdf = await generateCleanUpPDF({
         title: 'Project Clean Up Audit',
         project: activeProject,
@@ -207,6 +217,17 @@ export function ProjectReportButton({
                     </div>
                   </div>
                 </RadioGroup>
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-xl border-2 border-primary/10 bg-primary/5">
+                <div className="space-y-0.5">
+                    <Label className="text-sm font-bold text-primary">Include Completed Items</Label>
+                    <p className="text-[10px] text-muted-foreground">Include items already marked as cleared in the report.</p>
+                </div>
+                <Switch 
+                    checked={includeClosed} 
+                    onCheckedChange={setIncludeClosed} 
+                />
               </div>
 
               {reportType === 'partner' && (

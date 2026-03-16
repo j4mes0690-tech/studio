@@ -24,6 +24,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { sendSubcontractorReportAction } from './actions';
 import { cn, getPartnerEmails } from '@/lib/utils';
@@ -46,6 +47,7 @@ export function DistributeReportsButton({
   const [open, setOpen] = useState(false);
   const [isDistributing, setIsDistributing] = useState(false);
   const [reportScope, setReportScope] = useState<'individual' | 'full'>('individual');
+  const [includeClosed, setIncludeClosed] = useState(false);
   const { toast } = useToast();
 
   // Find unique subcontractors involved in this list
@@ -87,10 +89,14 @@ export function DistributeReportsButton({
         const recipientEmails = getPartnerEmails(subId, subContractors, allUsers);
         if (recipientEmails.length === 0) continue;
 
-        // Determine items to include based on scope
-        const itemsToInclude = reportScope === 'individual' 
-          ? item.items.filter(i => i.subContractorId === subId)
-          : item.items;
+        // Determine items to include based on scope and status
+        const itemsToInclude = item.items.filter(snag => {
+            const isMyTrade = reportScope === 'individual' ? snag.subContractorId === subId : true;
+            const isRelevantStatus = includeClosed ? true : snag.status === 'open';
+            return isMyTrade && isRelevantStatus;
+        });
+
+        if (itemsToInclude.length === 0) continue;
 
         const fileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${item.title.replace(/\s+/g, '-')}.pdf`;
 
@@ -105,7 +111,9 @@ export function DistributeReportsButton({
             snag
           })),
           generalPhotos: item.photos || [],
-          scopeLabel: reportScope === 'individual' ? `Partner: ${sub.name}` : 'Comprehensive Area List'
+          scopeLabel: reportScope === 'individual' 
+            ? `Partner: ${sub.name} ${includeClosed ? '(Audit)' : '(Outstanding)'}` 
+            : `Full Area List ${includeClosed ? '(Audit)' : '(Outstanding)'}`
         });
 
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
@@ -123,7 +131,7 @@ export function DistributeReportsButton({
         }
       }
 
-      toast({ title: "Process Complete", description: "Reports generated with visual evidence and issued to partners." });
+      toast({ title: "Process Complete", description: "Reports generated and issued to partners." });
       setOpen(false);
     } catch (err) {
       console.error('Distribution Error:', err);
@@ -171,6 +179,17 @@ export function DistributeReportsButton({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          <div className="flex items-center justify-between p-3 rounded-lg border-2 border-primary/10 bg-primary/5">
+            <div className="space-y-0.5">
+                <Label className="text-sm font-bold text-primary">Include Completed Items</Label>
+                <p className="text-[10px] text-muted-foreground">Include items already marked as fixed in the report.</p>
+            </div>
+            <Switch 
+                checked={includeClosed} 
+                onCheckedChange={setIncludeClosed} 
+            />
+          </div>
+
           <div className="space-y-3">
             <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Select Trade Partners</Label>
             <ScrollArea className="h-48 rounded-lg border bg-muted/5 p-4">

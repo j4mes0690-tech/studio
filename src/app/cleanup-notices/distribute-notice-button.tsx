@@ -23,6 +23,8 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 import { sendCleanUpNoticeEmailAction } from './actions';
 import { getPartnerEmails } from '@/lib/utils';
 import { generateCleanUpPDF } from '@/lib/pdf-utils';
@@ -40,6 +42,7 @@ export function DistributeNoticeButton({
 }) {
   const [open, setOpen] = useState(false);
   const [isDistributing, setIsDistributing] = useState(false);
+  const [includeClosed, setIncludeClosed] = useState(false);
   const { toast } = useToast();
 
   // Find unique subcontractors involved in this specific notice
@@ -80,7 +83,14 @@ export function DistributeNoticeButton({
         const recipientEmails = getPartnerEmails(subId, subContractors, allUsers);
         if (recipientEmails.length === 0) continue;
 
-        const subItems = notice.items.filter(i => i.subContractorId === subId);
+        // Filter items based on user selection
+        const subItems = notice.items.filter(i => {
+            const isMyTrade = i.subContractorId === subId;
+            const isRelevantStatus = includeClosed ? true : i.status === 'open';
+            return isMyTrade && isRelevantStatus;
+        });
+
+        if (subItems.length === 0) continue;
         
         // Generate high-fidelity PDF specifically for this subcontractor using the shared engine
         const pdf = await generateCleanUpPDF({
@@ -93,7 +103,7 @@ export function DistributeNoticeButton({
             item
           })),
           generalPhotos: notice.photos || [],
-          scopeLabel: `Trade: ${sub.name}`
+          scopeLabel: `Trade: ${sub.name}${includeClosed ? ' (Full Audit)' : ' (Outstanding Items Only)'}`
         });
 
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
@@ -111,7 +121,7 @@ export function DistributeNoticeButton({
         }
       }
 
-      toast({ title: "Distribution Complete", description: `Notice emailed to selected trade partners with site evidence.` });
+      toast({ title: "Distribution Complete", description: `Notice emailed to selected trade partners.` });
       setOpen(false);
     } catch (err) {
       console.error('Notice Distribution Error:', err);
@@ -154,11 +164,22 @@ export function DistributeNoticeButton({
             <DialogTitle>Distribute Clean Up Notice</DialogTitle>
           </div>
           <DialogDescription>
-            Select trade partners to receive their specific cleaning requirements. Visual evidence will be included in the PDF.
+            Select trade partners to receive their specific cleaning requirements.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-6 py-4">
+          <div className="flex items-center justify-between p-3 rounded-lg border-2 border-primary/10 bg-primary/5">
+            <div className="space-y-0.5">
+                <Label className="text-sm font-bold text-primary">Include Completed Items</Label>
+                <p className="text-[10px] text-muted-foreground">Toggle to include cleared items in the report.</p>
+            </div>
+            <Switch 
+                checked={includeClosed} 
+                onCheckedChange={setIncludeClosed} 
+            />
+          </div>
+
           <div className="space-y-3">
             <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Select Recipients</Label>
             <ScrollArea className="h-48 rounded-lg border bg-muted/5 p-4">
