@@ -1,6 +1,6 @@
 'use client';
 
-import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
@@ -614,6 +614,132 @@ export async function generateSnaggingPDF(
       if (dataUri) {
         pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 100);
       }
+      currentY += 110;
+    }
+  }
+
+  return pdf;
+}
+
+/**
+ * generateCleanUpPDF - Specialized engine for Clean Up Notices.
+ */
+export async function generateCleanUpPDF(
+  params: {
+    title: string;
+    project?: Project;
+    subContractors: SubContractor[];
+    aggregatedEntries: { listTitle: string, areaName: string, item: CleanUpListItem }[];
+    generalPhotos: Photo[];
+    scopeLabel?: string;
+  }
+) {
+  const { title, project, subContractors, aggregatedEntries, generalPhotos, scopeLabel } = params;
+  const { jsPDF } = await import('jspdf');
+  const html2canvas = (await import('html2canvas')).default;
+  const branding = await getSystemBranding();
+
+  // 1. Header
+  const headerElement = document.createElement('div');
+  headerElement.style.position = 'absolute';
+  headerElement.style.left = '-9999px';
+  headerElement.style.padding = '40px';
+  headerElement.style.width = '800px';
+  headerElement.style.background = 'white';
+  headerElement.style.color = 'black';
+  headerElement.style.fontFamily = 'sans-serif';
+
+  headerElement.innerHTML = `
+    <div style="border-bottom: 3px solid #f97316; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <h1 style="margin: 0; color: #1e40af; font-size: 28px;">${title}</h1>
+        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Project: ${project?.name || 'Unknown'}</p>
+        ${scopeLabel ? `<p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px;">Scope: ${scopeLabel}</p>` : ''}
+      </div>
+      <div style="text-align: right; max-width: 300px;">
+        ${branding.logoUri ? `<img src="${branding.logoUri}" style="max-height: 60px; max-width: 200px; margin-bottom: 10px;" />` : ''}
+        ${branding.address ? `<p style="margin: 0; font-size: 10px; color: #475569; line-height: 1.4; white-space: pre-wrap;">${branding.address}</p>` : ''}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(headerElement);
+  const headerCanvas = await html2canvas(headerElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+  document.body.removeChild(headerElement);
+
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  const headerHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
+  
+  pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, headerHeightInPdf);
+
+  let currentY = headerHeightInPdf + 10;
+
+  // 2. Body
+  for (const entry of aggregatedEntries) {
+    const sub = subContractors.find(s => s.id === entry.item.subContractorId);
+    const photos = entry.item.photos || [];
+    
+    if (currentY + 25 > pdfHeight) { pdf.addPage(); currentY = 20; }
+
+    pdf.setFillColor(255, 247, 237);
+    pdf.rect(10, currentY, 190, 15, 'F');
+    pdf.setDrawColor(253, 186, 116);
+    pdf.rect(10, currentY, 190, 15, 'S');
+    
+    pdf.setFontSize(11);
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(entry.item.description, 15, currentY + 7);
+    
+    pdf.setFontSize(8);
+    pdf.setTextColor(100, 116, 139);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`Trade: ${sub?.name || 'Unassigned'} | Location: ${entry.areaName}`, 15, currentY + 12);
+    
+    const statusLabel = entry.item.status.toUpperCase();
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    if (entry.item.status === 'closed') pdf.setTextColor(22, 101, 52);
+    else pdf.setTextColor(153, 27, 27);
+    pdf.text(statusLabel, 195 - pdf.getTextWidth(statusLabel), currentY + 9);
+
+    currentY += 20;
+
+    if (photos.length > 0) {
+      const imgWidth = 60;
+      const imgHeight = 45;
+      let imgX = 15;
+
+      for (const p of photos) {
+        if (imgX + imgWidth > 195) { imgX = 15; currentY += imgHeight + 5; }
+        if (currentY + imgHeight > pdfHeight - 20) { pdf.addPage(); currentY = 20; imgX = 15; }
+
+        const dataUri = await safeLoadImage(p.url);
+        if (dataUri) pdf.addImage(dataUri, 'JPEG', imgX, currentY, imgWidth, imgHeight);
+        imgX += imgWidth + 5;
+      }
+      currentY += imgHeight + 10;
+    }
+    currentY += 5;
+  }
+
+  // 3. General Photos
+  if (generalPhotos.length > 0) {
+    if (currentY + 30 > pdfHeight) { pdf.addPage(); currentY = 20; }
+    else { currentY += 10; }
+
+    pdf.setFontSize(14);
+    pdf.setTextColor(30, 41, 59);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("General Site Evidence", 10, currentY);
+    currentY += 10;
+
+    for (const p of generalPhotos) {
+      if (currentY + 110 > pdfHeight) { pdf.addPage(); currentY = 20; }
+      const dataUri = await safeLoadImage(p.url);
+      if (dataUri) pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 100);
       currentY += 110;
     }
   }

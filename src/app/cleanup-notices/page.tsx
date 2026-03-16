@@ -6,10 +6,11 @@ import { NewNotice } from './new-notice';
 import { NoticeFilters } from './notice-filters';
 import { ExportButton } from './export-button';
 import { NoticeTable } from './notice-table';
+import { ProjectReportButton } from './project-report-button';
 import { useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { CleanUpNotice, Project, SubContractor, DistributionUser } from '@/lib/types';
-import { Loader2, LayoutGrid, List } from 'lucide-react';
+import { Loader2, LayoutGrid, List, ShieldCheck, Layers, LayoutList } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 
 function CleanUpContent() {
   const searchParams = useSearchParams();
@@ -27,12 +29,17 @@ function CleanUpContent() {
   const projectId = searchParams.get('project') || undefined;
 
   const [isCompact, setIsCompact] = useState(false);
+  const [isGroupedByProject, setIsGroupedByProject] = useState(false);
 
   // Load persistence
   useEffect(() => {
-    const saved = localStorage.getItem('sitecommand_view_cleanup_notices');
-    if (saved !== null) {
-      setIsCompact(saved === 'true');
+    const savedView = localStorage.getItem('sitecommand_view_cleanup_notices');
+    if (savedView !== null) {
+      setIsCompact(savedView === 'true');
+    }
+    const savedGrouping = localStorage.getItem('sitecommand_grouping_cleanup');
+    if (savedGrouping !== null) {
+      setIsGroupedByProject(savedGrouping === 'true');
     }
   }, []);
 
@@ -40,6 +47,12 @@ function CleanUpContent() {
     const newVal = !isCompact;
     setIsCompact(newVal);
     localStorage.setItem('sitecommand_view_cleanup_notices', String(newVal));
+  };
+
+  const toggleGrouping = () => {
+    const newVal = !isGroupedByProject;
+    setIsGroupedByProject(newVal);
+    localStorage.setItem('sitecommand_grouping_cleanup', String(newVal));
   };
 
   // Profile check
@@ -100,6 +113,37 @@ function CleanUpContent() {
     });
   }, [allNotices, allowedProjectIds, projectId]);
 
+  // GROUPING LOGIC: Aggregated by Project
+  const displayItems = useMemo(() => {
+    if (!isGroupedByProject) return filteredNotices;
+
+    const projectMap = new Map<string, any>();
+
+    filteredNotices.forEach(notice => {
+      if (!projectMap.has(notice.projectId)) {
+        const p = allProjects?.find(proj => proj.id === notice.projectId);
+        projectMap.set(notice.projectId, {
+          id: `aggregated-${notice.projectId}`,
+          projectId: notice.projectId,
+          title: p?.name || 'Project Overview',
+          createdAt: notice.createdAt,
+          items: [],
+          photos: [],
+          status: 'issued',
+          isProjectAggregation: true
+        });
+      }
+      const entry = projectMap.get(notice.projectId);
+      entry.items.push(...(notice.items || []));
+      if (notice.photos) entry.photos.push(...notice.photos);
+      if (new Date(notice.createdAt) > new Date(entry.createdAt)) {
+        entry.createdAt = notice.createdAt;
+      }
+    });
+
+    return Array.from(projectMap.values());
+  }, [filteredNotices, isGroupedByProject, allProjects]);
+
   const isLoading = (projectsLoading || subsLoading || noticesLoading || profileLoading) && !allNotices;
 
   if (isLoading) {
@@ -111,12 +155,69 @@ function CleanUpContent() {
   }
 
   return (
-    <main className="flex-1 p-4 md:p-6 lg:p-8 flex flex-col gap-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">
-            Notice Log
-          </h2>
-          <div className="flex items-center gap-2">
+    <main className="flex-1 p-3 md:p-6 lg:p-8 flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
+          <div className='flex flex-col gap-1'>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+                {isGroupedByProject ? 'Project Clean Up Status' : 'Notice Log'}
+            </h2>
+            {profile?.permissions?.hasFullVisibility && (
+                <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest">
+                    <ShieldCheck className="h-3 w-3" />
+                    <span>Administrative Visibility Active</span>
+                </div>
+            )}
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <NewNotice 
+              projects={allowedProjects} 
+              subContractors={subContractors || []} 
+              allNotices={allNotices || []}
+            />
+
+            {allowedProjects.length > 0 && (
+              <ProjectReportButton 
+                  projects={allowedProjects} 
+                  allNotices={allNotices || []}
+                  subContractors={subContractors || []}
+                  initialProjectId={projectId}
+              />
+            )}
+
+            <div className="flex items-center border rounded-md p-0.5 bg-muted/20">
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button 
+                                variant={isGroupedByProject ? "ghost" : "secondary"} 
+                                size="icon" 
+                                onClick={() => { if(isGroupedByProject) toggleGrouping(); }}
+                                className={cn("h-9 w-9", !isGroupedByProject && "bg-background shadow-sm")}
+                            >
+                                <LayoutList className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Individual Notice Lists</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button 
+                                variant={isGroupedByProject ? "secondary" : "ghost"} 
+                                size="icon" 
+                                onClick={() => { if(!isGroupedByProject) toggleGrouping(); }}
+                                className={cn("h-9 w-9", isGroupedByProject && "bg-background shadow-sm")}
+                            >
+                                <Layers className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Group by Project</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            </div>
+
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -124,7 +225,7 @@ function CleanUpContent() {
                     variant="outline" 
                     size="icon" 
                     onClick={toggleView}
-                    className="flex h-9 w-9"
+                    className="flex h-9 w-9 shrink-0"
                   >
                     {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                   </Button>
@@ -134,27 +235,22 @@ function CleanUpContent() {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-
-            <NewNotice 
-              projects={allowedProjects} 
-              subContractors={subContractors || []} 
-              allNotices={allNotices || []}
-            />
           </div>
         </div>
+
         <NoticeFilters projects={allowedProjects} />
         
-        {filteredNotices.length > 0 ? (
+        {displayItems.length > 0 ? (
           isCompact ? (
             <NoticeTable 
-              items={filteredNotices}
+              items={displayItems}
               projects={allowedProjects}
               subContractors={subContractors || []}
               allUsers={allUsers || []}
             />
           ) : (
             <div className="grid gap-4 md:gap-6">
-              {filteredNotices.map((notice) => (
+              {displayItems.map((notice) => (
                 <NoticeCard
                   key={notice.id}
                   notice={notice}

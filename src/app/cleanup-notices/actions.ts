@@ -1,4 +1,3 @@
-
 'use server';
 
 import { Resend } from 'resend';
@@ -71,6 +70,61 @@ export async function sendCleanUpNoticeEmailAction({
   } catch (err: any) {
     console.error('Server Side Email Error:', err);
     return { success: false, message: err.message || 'An unexpected server error occurred.' };
+  }
+}
+
+/**
+ * sendCleanUpReportAction - Sends an aggregated cleaning report.
+ */
+export async function sendCleanUpReportAction({
+  email,
+  name,
+  projectName,
+  pdfBase64,
+  fileName
+}: {
+  email: string;
+  name: string;
+  projectName: string;
+  pdfBase64: string;
+  fileName: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey || apiKey === '' || apiKey === 'your_resend_api_key_here') {
+    return { success: false, message: 'Email service not configured.' };
+  }
+
+  const resend = new Resend(apiKey);
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'notifications@site-command.com',
+      to: [email],
+      subject: `Aggregated Clean Up Report: ${projectName}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #334155;">
+          <h1 style="color: #1e40af; border-bottom: 2px solid #f97316; padding-bottom: 10px;">Clean Up Audit</h1>
+          <p>Hello <strong>${name}</strong>,</p>
+          <p>Please find attached the consolidated cleaning audit for <strong>${projectName}</strong>.</p>
+          <p>This report includes multiple outstanding items requiring your attention.</p>
+          <p style="font-size: 12px; color: #64748b; margin-top: 30px;">
+            Automated distribution via SiteCommand.
+          </p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: fileName,
+          content: pdfBase64,
+        },
+      ],
+    });
+
+    if (error) return { success: false, message: error.message };
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Server error.' };
   }
 }
 
