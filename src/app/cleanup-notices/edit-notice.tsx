@@ -45,7 +45,6 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { sendCleanUpNoticeEmailAction } from './actions';
-import { CameraOverlay } from '@/components/camera-overlay';
 
 const EditNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -200,95 +199,86 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
   };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Edit Clean Up Notice</DialogTitle></DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('recipients', []); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-              )} />
-              <FormField control={form.control} name="description" render={({ field }) => (
-                <FormItem><div className="flex items-center justify-between"><FormLabel>Description</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea className="min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>Edit Clean Up Notice</DialogTitle></DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField control={form.control} name="projectId" render={({ field }) => (
+              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('recipients', []); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="description" render={({ field }) => (
+              <FormItem><div className="flex items-center justify-between"><FormLabel>Description</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea className="min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
 
+            <div className="space-y-4">
+              <FormLabel>Documentation & Visual Context</FormLabel>
               <div className="space-y-4">
-                <FormLabel>Documentation & Visual Context</FormLabel>
-                <div className="space-y-4">
-                  {photos.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {photos.map((p, i) => (
-                        <div key={i} className="relative w-20 h-20 group">
-                          <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
-                          <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {isCameraOpen ? (
-                    <div className="space-y-2">
-                      <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
-                      <div className="flex gap-2">
-                        <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')} title="Switch Camera">
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                        <Button type="button" variant="secondary" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                {photos.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {photos.map((p, i) => (
+                      <div key={i} className="relative w-20 h-20 group">
+                        <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
+                        <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
                       </div>
+                    ))}
+                  </div>
+                )}
+
+                {isCameraOpen ? (
+                  <div className="space-y-2">
+                    <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
+                    <div className="flex gap-2">
+                      <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')} title="Switch Camera">
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" variant="secondary" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
                     </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                      
-                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                        const files = e.target.files; if (!files) return;
-                        Array.from(files).forEach(f => {
-                          const reader = new FileReader();
-                          reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                          reader.readAsDataURL(f);
-                        });
-                      }} />
-                    </div>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                    
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                      const files = e.target.files; if (!files) return;
+                      Array.from(files).forEach(f => {
+                        const reader = new FileReader();
+                        reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                        reader.readAsDataURL(f);
+                      });
+                    }} />
+                  </div>
+                )}
               </div>
+            </div>
 
-              <Separator />
-              <FormItem>
-                <FormLabel>Recipients</FormLabel>
-                <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
-                  {projectSubs.map((sub) => (
-                    <FormField key={sub.id} control={form.control} name="recipients" render={({ field }) => (
-                      <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                        <FormControl><Checkbox checked={field.value?.includes(sub.id)} onCheckedChange={(c) => { const curr = field.value || []; field.onChange(c ? [...curr, sub.id] : curr.filter(v => v !== sub.id)); }} /></FormControl>
-                        <FormLabel className="text-sm">{sub.name}</FormLabel>
-                      </FormItem>
-                    )} />
-                  ))}
-                </ScrollArea>
-                <FormMessage />
-              </FormItem>
+            <Separator />
+            <FormItem>
+              <FormLabel>Recipients</FormLabel>
+              <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
+                {projectSubs.map((sub) => (
+                  <FormField key={sub.id} control={form.control} name="recipients" render={({ field }) => (
+                    <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
+                      <FormControl><Checkbox checked={field.value?.includes(sub.id)} onCheckedChange={(c) => { const curr = field.value || []; field.onChange(c ? [...curr, sub.id] : curr.filter(v => v !== sub.id)); }} /></FormControl>
+                      <FormLabel className="text-sm">{sub.name}</FormLabel>
+                    </FormItem>
+                  )} />
+                ))}
+              </ScrollArea>
+              <FormMessage />
+            </FormItem>
 
-              <canvas ref={canvasRef} className="hidden" />
-              <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-                <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>Save Draft</Button>
-                <Button type="submit" className="w-full sm:flex-1 h-12 font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>Update & Issue</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      <CameraOverlay 
-        isOpen={isCameraOpen} 
-        onClose={() => setIsCameraOpen(false)} 
-        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
-        title="Update Clean Up Documentation"
-      />
-    </>
+            <canvas ref={canvasRef} className="hidden" />
+            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+              <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>Save Draft</Button>
+              <Button type="submit" className="w-full sm:flex-1 h-12 font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>Update & Issue</Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }
