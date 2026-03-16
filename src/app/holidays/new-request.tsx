@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -27,7 +26,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Loader2, Save, Sun, Calculator } from 'lucide-react';
-import type { HolidayRequest, DistributionUser, HolidayType } from '@/lib/types';
+import type { HolidayRequest, DistributionUser } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
