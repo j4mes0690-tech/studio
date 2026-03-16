@@ -24,7 +24,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   FileDown,
-  Tag
+  Tag,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -44,6 +47,9 @@ import { EditPlantOrderDialog } from './edit-order';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import { generatePlantOrderPDF } from '@/lib/pdf-utils';
 
+type SortKey = 'reference' | 'description' | 'supplier' | 'amount' | 'status' | 'offHireDate' | 'date';
+type SortOrder = 'asc' | 'desc';
+
 export function OrderTable({ 
   orders, 
   projects, 
@@ -55,23 +61,98 @@ export function OrderTable({
   subContractors: SubContractor[];
   currentUser: DistributionUser;
 }) {
+  const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortOrder('asc');
+    }
+  };
+
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      switch (sortKey) {
+        case 'reference':
+          valA = a.reference;
+          valB = b.reference;
+          break;
+        case 'description':
+          valA = a.description;
+          valB = b.description;
+          break;
+        case 'supplier':
+          valA = a.supplierName;
+          valB = b.supplierName;
+          break;
+        case 'amount':
+          valA = a.totalAmount;
+          valB = b.totalAmount;
+          break;
+        case 'status':
+          valA = a.status;
+          valB = b.status;
+          break;
+        case 'offHireDate':
+          const offA = a.items?.reduce((max, i) => i.anticipatedOffHireDate > max ? i.anticipatedOffHireDate : max, '') || '';
+          const offB = b.items?.reduce((max, i) => i.anticipatedOffHireDate > max ? i.anticipatedOffHireDate : max, '') || '';
+          valA = offA;
+          valB = offB;
+          break;
+        case 'date':
+          valA = new Date(a.createdAt).getTime();
+          valB = new Date(b.createdAt).getTime();
+          break;
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [orders, sortKey, sortOrder]);
+
+  const SortIcon = ({ column }: { column: SortKey }) => {
+    if (sortKey !== column) return <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground/50" />;
+    return sortOrder === 'asc' ? <ArrowUp className="ml-2 h-3 w-3" /> : <ArrowDown className="ml-2 h-3 w-3" />;
+  };
+
   return (
     <div className="rounded-md border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[100px]">Ref</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead className="w-[120px]">Supplier</TableHead>
-            <TableHead className="w-[100px] text-right">Cost</TableHead>
-            <TableHead className="w-[130px]">Status</TableHead>
-            <TableHead className="w-[130px]">Off-Hire Date</TableHead>
-            <TableHead className="w-[120px]">Order Placed</TableHead>
+            <TableHead className="w-[100px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('reference')}>
+              <div className="flex items-center">Ref <SortIcon column="reference" /></div>
+            </TableHead>
+            <TableHead className="cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('description')}>
+              <div className="flex items-center">Description <SortIcon column="description" /></div>
+            </TableHead>
+            <TableHead className="w-[120px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('supplier')}>
+              <div className="flex items-center">Supplier <SortIcon column="supplier" /></div>
+            </TableHead>
+            <TableHead className="w-[100px] text-right cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('amount')}>
+              <div className="flex items-center justify-end">Cost <SortIcon column="amount" /></div>
+            </TableHead>
+            <TableHead className="w-[130px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('status')}>
+              <div className="flex items-center">Status <SortIcon column="status" /></div>
+            </TableHead>
+            <TableHead className="w-[130px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('offHireDate')}>
+              <div className="flex items-center">Off-Hire <SortIcon column="offHireDate" /></div>
+            </TableHead>
+            <TableHead className="w-[120px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('date')}>
+              <div className="flex items-center">Placed <SortIcon column="date" /></div>
+            </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {orders.map((order) => (
+          {sortedOrders.map((order) => (
             <OrderTableRow 
               key={order.id} 
               order={order} 
@@ -238,13 +319,15 @@ function OrderTableRow({
               <TooltipContent><p>Download PO as PDF</p></TooltipContent>
             </Tooltip>
 
-            <EditPlantOrderDialog 
-              order={order} 
-              projects={projects} 
-              subContractors={subContractors} 
-              open={isEditDialogOpen}
-              onOpenChange={setIsEditDialogOpen}
-            />
+            <TableCell className="p-0 border-0 flex items-center justify-center">
+              <EditPlantOrderDialog 
+                order={order} 
+                projects={projects} 
+                subContractors={subContractors} 
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+              />
+            </TableCell>
 
             <AlertDialog>
               <TooltipProvider>

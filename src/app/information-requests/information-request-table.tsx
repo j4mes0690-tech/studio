@@ -9,7 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { InformationRequest, Project, DistributionUser, ChatMessage, SubContractor } from '@/lib/types';
+import type { InformationRequest, Project, SubContractor, DistributionUser, ChatMessage } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { RespondToRequest } from './respond-to-request';
 import { EditInformationRequest } from './edit-information-request';
@@ -32,10 +32,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare, CheckCircle2, Loader2, Send, EyeOff, Bell } from 'lucide-react';
+import { XCircle, RefreshCw, Trash2, CalendarClock, MessageSquare, CheckCircle2, Loader2, Send, EyeOff, Bell, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn, getPartnerEmails } from '@/lib/utils';
 import { sendInformationRequestEmailAction } from './actions';
 import { generateInformationRequestPDF } from '@/lib/pdf-utils';
+
+type SortKey = 'reference' | 'project' | 'description' | 'status' | 'date' | 'requiredBy';
+type SortOrder = 'asc' | 'desc';
 
 type TableProps = {
   items: InformationRequest[];
@@ -45,22 +48,87 @@ type TableProps = {
 };
 
 export function InformationRequestTable({ items, projects, distributionUsers, currentUser }: TableProps) {
+  const [sortKey, setSortKey] = useState<SortKey>('date');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortOrder('asc');
+    }
+  };
+
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      switch (sortKey) {
+        case 'reference':
+          valA = a.reference;
+          valB = b.reference;
+          break;
+        case 'project':
+          valA = projects.find(p => p.id === a.projectId)?.name || '';
+          valB = projects.find(p => p.id === b.projectId)?.name || '';
+          break;
+        case 'description':
+          valA = a.description;
+          valB = b.description;
+          break;
+        case 'status':
+          valA = a.status;
+          valB = b.status;
+          break;
+        case 'date':
+          valA = new Date(a.createdAt).getTime();
+          valB = new Date(b.createdAt).getTime();
+          break;
+        case 'requiredBy':
+          valA = a.requiredBy ? new Date(a.requiredBy).getTime() : 0;
+          valB = b.requiredBy ? new Date(b.requiredBy).getTime() : 0;
+          break;
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [items, sortKey, sortOrder, projects]);
+
+  const SortIcon = ({ column }: { column: SortKey }) => {
+    if (sortKey !== column) return <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground/50" />;
+    return sortOrder === 'asc' ? <ArrowUp className="ml-2 h-3 w-3" /> : <ArrowDown className="ml-2 h-3 w-3" />;
+  };
+
   return (
     <div className="rounded-md border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[120px]">Ref</TableHead>
-            <TableHead className="w-[150px]">Project</TableHead>
-            <TableHead>Description</TableHead>
-            <TableHead className="w-[100px]">Status</TableHead>
-            <TableHead className="w-[120px]">Due Date</TableHead>
+            <TableHead className="w-[120px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('reference')}>
+              <div className="flex items-center">Ref <SortIcon column="reference" /></div>
+            </TableHead>
+            <TableHead className="w-[150px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('project')}>
+              <div className="flex items-center">Project <SortIcon column="project" /></div>
+            </TableHead>
+            <TableHead className="cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('description')}>
+              <div className="flex items-center">Description <SortIcon column="description" /></div>
+            </TableHead>
+            <TableHead className="w-[100px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('status')}>
+              <div className="flex items-center">Status <SortIcon column="status" /></div>
+            </TableHead>
+            <TableHead className="w-[120px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('requiredBy')}>
+              <div className="flex items-center">Due Date <SortIcon column="requiredBy" /></div>
+            </TableHead>
             <TableHead className="w-[80px] text-center">Chat</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((item) => (
+          {sortedItems.map((item) => (
             <RequestTableRow 
               key={item.id} 
               item={item} 
@@ -351,25 +419,29 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
               </>
             )}
             
-            <EditInformationRequest 
-              item={item} 
-              projects={projects} 
-              distributionUsers={distributionUsers} 
-              open={isEditDialogOpen}
-              onOpenChange={setIsEditDialogOpen}
-            />
+            <div className="flex items-center">
+              <EditInformationRequest 
+                item={item} 
+                projects={projects} 
+                distributionUsers={distributionUsers} 
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+              />
+            </div>
             
             <AlertDialog>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </AlertDialogTrigger>
-                </TooltipTrigger>
-                <TooltipContent><p>Delete Request</p></TooltipContent>
-              </Tooltip>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </AlertDialogTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Delete Request</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>

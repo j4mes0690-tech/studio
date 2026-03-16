@@ -11,11 +11,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { SubContractOrder, Project, SubContractor } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc, deleteDoc, arrayUnion } from 'firebase/firestore';
-import { Trash2, Loader2, UserPlus, FileSignature, CheckCircle2, Clock, Send, Pencil } from 'lucide-react';
+import { Trash2, Loader2, UserPlus, FileSignature, CheckCircle2, Clock, Send, Pencil, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -32,6 +32,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { cn } from '@/lib/utils';
 import { EditSubContractOrderDialog } from './edit-order';
 
+type SortKey = 'reference' | 'subcontractor' | 'project' | 'status' | 'signedDate';
+type SortOrder = 'asc' | 'desc';
+
 export function OrderTable({ 
   orders, 
   projects, 
@@ -41,24 +44,82 @@ export function OrderTable({
   projects: Project[]; 
   subContractors: SubContractor[];
 }) {
+  const [sortKey, setSortKey] = useState<SortKey>('reference');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortKey(key);
+      setSortOrder('asc');
+    }
+  };
+
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort((a, b) => {
+      let valA: any = '';
+      let valB: any = '';
+
+      switch (sortKey) {
+        case 'reference':
+          valA = a.reference;
+          valB = b.reference;
+          break;
+        case 'subcontractor':
+          valA = a.subcontractorName;
+          valB = b.subcontractorName;
+          break;
+        case 'project':
+          valA = projects.find(p => p.id === a.projectId)?.name || '';
+          valB = projects.find(p => p.id === b.projectId)?.name || '';
+          break;
+        case 'status':
+          valA = a.status;
+          valB = b.status;
+          break;
+        case 'signedDate':
+          valA = a.signedDate ? new Date(a.signedDate).getTime() : 0;
+          valB = b.signedDate ? new Date(b.signedDate).getTime() : 0;
+          break;
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [orders, sortKey, sortOrder, projects]);
+
+  const SortIcon = ({ column }: { column: SortKey }) => {
+    if (sortKey !== column) return <ArrowUpDown className="ml-2 h-3 w-3 text-muted-foreground/50" />;
+    return sortOrder === 'asc' ? <ArrowUp className="ml-2 h-3 w-3" /> : <ArrowDown className="ml-2 h-3 w-3" />;
+  };
+
   return (
     <div className="rounded-md border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[100px]">Ref</TableHead>
-            <TableHead>Subcontractor</TableHead>
-            <TableHead className="w-[150px]">Project</TableHead>
-            <TableHead className="w-[120px]">Status</TableHead>
-            <TableHead className="w-[100px] text-center">Drafted</TableHead>
-            <TableHead className="w-[100px] text-center">Sent</TableHead>
-            <TableHead className="w-[100px] text-center">DocuSign</TableHead>
-            <TableHead className="w-[100px] text-center">Signed</TableHead>
+            <TableHead className="w-[100px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('reference')}>
+              <div className="flex items-center">Ref <SortIcon column="reference" /></div>
+            </TableHead>
+            <TableHead className="cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('subcontractor')}>
+              <div className="flex items-center">Subcontractor <SortIcon column="subcontractor" /></div>
+            </TableHead>
+            <TableHead className="w-[150px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('project')}>
+              <div className="flex items-center">Project <SortIcon column="project" /></div>
+            </TableHead>
+            <TableHead className="w-[120px] cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('status')}>
+              <div className="flex items-center">Status <SortIcon column="status" /></div>
+            </TableHead>
+            <TableHead className="w-[100px] text-center cursor-pointer hover:text-foreground transition-colors" onClick={() => handleSort('signedDate')}>
+              <div className="flex items-center justify-center">Signed <SortIcon column="signedDate" /></div>
+            </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {orders.map((order) => (
+          {sortedOrders.map((order) => (
             <OrderTableRow 
               key={order.id} 
               order={order} 
@@ -134,9 +195,6 @@ function OrderTableRow({
           {currentStatus.label}
         </Badge>
       </TableCell>
-      <TableCell className="text-center font-mono text-[10px]">{order.draftedDate ? new Date(order.draftedDate).toLocaleDateString() : '---'}</TableCell>
-      <TableCell className="text-center font-mono text-[10px]">{order.sentForApprovalDate ? new Date(order.sentForApprovalDate).toLocaleDateString() : '---'}</TableCell>
-      <TableCell className="text-center font-mono text-[10px]">{order.loadedOnDocuSignDate ? new Date(order.loadedOnDocuSignDate).toLocaleDateString() : '---'}</TableCell>
       <TableCell className="text-center font-mono text-[10px] font-bold">{order.signedDate ? new Date(order.signedDate).toLocaleDateString() : '---'}</TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
@@ -161,13 +219,15 @@ function OrderTableRow({
               </Tooltip>
             )}
 
-            <EditSubContractOrderDialog 
-              order={order} 
-              projects={projects} 
-              subContractors={subContractors} 
-              open={isEditDialogOpen}
-              onOpenChange={setIsEditDialogOpen}
-            />
+            <TableCell className="p-0 border-0 flex items-center justify-center">
+              <EditSubContractOrderDialog 
+                order={order} 
+                projects={projects} 
+                subContractors={subContractors} 
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+              />
+            </TableCell>
 
             <AlertDialog>
               <Tooltip>
