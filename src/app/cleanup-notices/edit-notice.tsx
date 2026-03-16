@@ -39,12 +39,12 @@ import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase } from '@/fi
 import { doc, updateDoc, arrayUnion, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { VoiceInput } from '@/components/voice-input';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { cn, scrollToFirstError } from '@/lib/utils';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { CameraOverlay } from '@/components/camera-overlay';
 
 const EditNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -80,9 +80,6 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
   // Camera State
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const form = useForm<EditNoticeFormValues>({
     resolver: zodResolver(EditNoticeSchema),
@@ -109,19 +106,6 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
       setItems(notice.items || []);
     }
   }, [open, notice, form]);
-
-  // Camera Management Effect
-  useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (err) {}
-    };
-    if (isCameraOpen || itemPhotoTargetId !== null) getCameraPermission();
-    return () => stream?.getTracks().forEach(t => t.stop());
-  }, [isCameraOpen, itemPhotoTargetId, facingMode]);
 
   const handleMetadataChange = () => {
     const values = form.getValues();
@@ -157,31 +141,21 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
     updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItemsList });
   };
 
-  const capturePhoto = async (target: 'general' | 'item') => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      if (!context) return;
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1200;
-      canvas.height = 1200 / aspectRatio;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const raw = canvas.toDataURL('image/jpeg', 0.85);
-      const optimized = await optimizeImage(raw);
-      const photo: Photo = { url: optimized, takenAt: new Date().toISOString() };
-
-      if (target === 'general') {
-        startTransition(async () => {
-            const blob = await dataUriToBlob(photo.url);
-            const url = await uploadFile(storage, `cleanup-notices/general/${notice.id}-${Date.now()}.jpg`, blob);
-            await updateDoc(doc(db, 'cleanup-notices', notice.id), {
-                photos: arrayUnion({ ...photo, url })
-            });
-            setPhotos(prev => [...prev, { ...photo, url }]);
-            setIsCameraOpen(false);
+  const onCaptureGeneral = (photo: Photo) => {
+    startTransition(async () => {
+        const blob = await dataUriToBlob(photo.url);
+        const url = await uploadFile(storage, `cleanup-notices/general/${notice.id}-${Date.now()}.jpg`, blob);
+        const updatedPhoto = { ...photo, url };
+        await updateDoc(doc(db, 'cleanup-notices', notice.id), {
+            photos: arrayUnion(updatedPhoto)
         });
-      } else if (target === 'item' && itemPhotoTargetId) {
+        setPhotos(prev => [...prev, updatedPhoto]);
+        setIsCameraOpen(false);
+    });
+  };
+
+  const onCaptureItem = (photo: Photo) => {
+    if (itemPhotoTargetId) {
         startTransition(async () => {
             const blob = await dataUriToBlob(photo.url);
             const url = await uploadFile(storage, `cleanup-notices/items/${itemPhotoTargetId}-${Date.now()}.jpg`, blob);
@@ -189,9 +163,8 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
             const newItems = items.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } : itm);
             setItems(newItems);
             await updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItems });
-            setItemPhotoTargetId(null);
         });
-      }
+        setItemPhotoTargetId(null);
     }
   };
 
@@ -199,7 +172,14 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent 
+          className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
+          onPointerDownOutside={(e) => {
+            if (isCameraOpen || itemPhotoTargetId !== null) {
+              e.preventDefault();
+            }
+          }}
+        >
           <DialogHeader className="p-6 pb-0 border-b shrink-0 flex flex-row items-center justify-between">
             <div>
                 <DialogTitle>Edit Clean Up Notice</DialogTitle>
@@ -266,17 +246,6 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
                                       </div>
                                   </div>
 
-                                  {itemPhotoTargetId === listItem.id && (
-                                    <div className="space-y-2 border-2 border-primary/20 rounded-xl p-2 bg-primary/5">
-                                        <video ref={videoRef} className="w-full aspect-video bg-black rounded-lg object-cover" autoPlay muted playsInline />
-                                        <div className="flex gap-2">
-                                            <Button type="button" size="sm" onClick={() => capturePhoto('item')}>Capture</Button>
-                                            <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => setItemPhotoTargetId(null)}>Cancel</Button>
-                                        </div>
-                                    </div>
-                                  )}
-
                                   {listItem.photos && listItem.photos.length > 0 && (
                                     <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
                                         {listItem.photos.map((p, pi) => (
@@ -299,17 +268,6 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
                           ))}
                           <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
                       </div>
-
-                      {isCameraOpen && (
-                        <div className="space-y-2 border-2 border-primary/20 rounded-xl p-2 bg-primary/5">
-                            <video ref={videoRef} className="w-full aspect-video bg-black rounded-lg object-cover" autoPlay muted playsInline />
-                            <div className="flex gap-2">
-                                <Button type="button" size="sm" onClick={() => capturePhoto('general')}>Capture</Button>
-                                <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')}><RefreshCw className="h-4 w-4" /></Button>
-                                <Button type="button" variant="ghost" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
-                            </div>
-                        </div>
-                      )}
                     </div>
                   </form>
               </Form>
@@ -321,7 +279,20 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <canvas ref={canvasRef} className="hidden" />
+
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={onCaptureGeneral}
+        title="Notice Documentation"
+      />
+
+      <CameraOverlay 
+        isOpen={itemPhotoTargetId !== null} 
+        onClose={() => setItemPhotoTargetId(null)} 
+        onCapture={onCaptureItem}
+        title="Requirement Evidence"
+      />
     </>
   );
 }
