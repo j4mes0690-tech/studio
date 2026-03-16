@@ -40,10 +40,10 @@ const AddUserSchema = z.object({
   email: z.string().email('Invalid email address.'),
   password: z.string().min(6, 'Password must be at least 6 characters.'),
   userType: z.enum(['internal', 'partner']).default('internal'),
-  subContractorId: z.string().optional(),
+  subContractorId: z.string().optional().nullable(),
   receivePartnerEmails: z.boolean().default(false),
   holidayEntitlement: z.coerce.number().min(0).default(25),
-  lineManagerEmail: z.string().optional(),
+  lineManagerEmail: z.string().optional().nullable(),
   canManageUsers: z.boolean().default(false),
   canManageSubcontractors: z.boolean().default(false),
   canManageProjects: z.boolean().default(false),
@@ -283,6 +283,18 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
     });
   };
 
+  const adminRights = [
+    { name: 'canManageBranding', label: 'Company Branding', desc: 'Manage company logo and address.' },
+    { name: 'canManageUsers', label: 'Manage Users', desc: 'Control user access and permissions.' },
+    { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Registry of external collaborators.' },
+    { name: 'canManageProjects', label: 'Manage Projects', desc: 'Project configuration and teams.' },
+    { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Global quality standard setup.' },
+    { name: 'canManagePermitTemplates', label: 'Manage Permit Templates', desc: 'High-risk permit form logic.' },
+    { name: 'canManageTraining', label: 'Manage Training Needs', desc: 'Identify staff training gaps.' },
+    { name: 'canManageIRS', label: 'Manage Master IRS', desc: 'Global schedule tracking.' },
+    { name: 'canApproveHolidays', label: 'Approve Holidays', desc: 'Approve leave requests globally.' },
+  ];
+
   const modules = [
     { access: 'accessPlanner', ro: 'plannerReadOnly', label: 'Planner' },
     { access: 'accessProcurement', ro: 'procurementReadOnly', label: 'Procurement' },
@@ -301,18 +313,6 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
     { access: 'accessSnagging', ro: 'snaggingReadOnly', label: 'Snagging' },
     { access: 'accessQualityControl', ro: 'qualityControlReadOnly', label: 'Quality Control' },
     { access: 'accessInfoRequests', ro: 'infoRequestsReadOnly', label: 'Info Requests' },
-  ];
-
-  const adminRights = [
-    { name: 'canManageBranding', label: 'Company Branding', desc: 'Manage company logo and address.' },
-    { name: 'canManageUsers', label: 'Manage Users', desc: 'Control user access and permissions.' },
-    { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Registry of external collaborators.' },
-    { name: 'canManageProjects', label: 'Manage Projects', desc: 'Project configuration and teams.' },
-    { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Global quality standard setup.' },
-    { name: 'canManagePermitTemplates', label: 'Manage Permit Templates', desc: 'High-risk permit form logic.' },
-    { name: 'canManageTraining', label: 'Manage Training Needs', desc: 'Identify staff training gaps.' },
-    { name: 'canManageIRS', label: 'Manage Master IRS', desc: 'Global schedule tracking.' },
-    { name: 'canApproveHolidays', label: 'Approve Holidays', desc: 'Approve leave requests globally.' },
   ];
 
   return (
@@ -352,7 +352,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
                         <FormField control={form.control} name="subContractorId" render={({ field }) => (
                             <FormItem className="animate-in fade-in slide-in-from-top-2">
                                 <FormLabel className="flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Company Association</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value || 'none'}>
                                     <FormControl><SelectTrigger><SelectValue placeholder="Select partner company" /></SelectTrigger></FormControl>
                                     <SelectContent>
                                         <SelectItem value="none">Independent / Freelance</SelectItem>
@@ -378,7 +378,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
                             <FormField control={form.control} name="lineManagerEmail" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel className="flex items-center gap-2"><UserCheck className="h-4 w-4 text-primary" /> Line Manager</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <Select onValueChange={field.onChange} value={field.value || 'none'}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Select manager" /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             <SelectItem value="none">No Manager Assigned</SelectItem>

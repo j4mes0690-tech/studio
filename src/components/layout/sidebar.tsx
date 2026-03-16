@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -34,7 +33,7 @@ import {
   CalendarRange,
   ClipboardList,
   BarChart3,
-  Sun
+  Sun,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
