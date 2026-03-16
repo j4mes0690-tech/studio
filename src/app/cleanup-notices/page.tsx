@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/tooltip';
 
 function CleanUpContent() {
-  const searchParams = searchParams || useSearchParams();
+  const searchParams = useSearchParams();
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
@@ -100,9 +100,9 @@ function CleanUpContent() {
     });
   }, [allNotices, allowedProjectIds, projectId]);
 
-  const isLoading = projectsLoading || subsLoading || noticesLoading || profileLoading;
+  const isLoading = (projectsLoading || subsLoading || noticesLoading || profileLoading) && !allNotices;
 
-  if (isLoading && !allNotices) {
+  if (isLoading) {
     return (
         <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -151,7 +151,6 @@ function CleanUpContent() {
               items={filteredNotices}
               projects={allowedProjects}
               subContractors={subContractors || []}
-              allUsers={allUsers || []}
             />
           ) : (
             <div className="grid gap-4 md:gap-6">
@@ -161,13 +160,12 @@ function CleanUpContent() {
                   notice={notice}
                   projects={allowedProjects}
                   subContractors={subContractors || []}
-                  allUsers={allUsers || []}
                 />
               ))}
             </div>
           )
         ) : (
-          <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+          <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg bg-muted/5">
             <p className="text-lg font-semibold">No records found</p>
             <p className="text-sm">You only see cleanup notices for projects you are assigned to.</p>
           </div>
