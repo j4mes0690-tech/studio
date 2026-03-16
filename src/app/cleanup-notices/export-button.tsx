@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -24,38 +23,59 @@ export function ExportButton({
 
   const escapeCsvCell = (cell: string) => {
     if (!cell) return '""';
-    if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
-      return `"${cell.replace(/"/g, '""')}"`;
+    const cellStr = String(cell);
+    if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+      return `"${cellStr.replace(/"/g, '""')}"`;
     }
-    return cell;
+    return cellStr;
   };
 
   const handleExport = () => {
     const headers = [
+      'Reference',
       'Project',
+      'Area',
+      'List Title',
       'Date',
-      'Description',
-      'Recipients',
-      'Photo URLs',
-      'Photo Timestamps',
+      'Item Description',
+      'Item Status',
+      'Assigned Subcontractor',
     ];
 
-    const rows = notices.map((notice) => {
-      const project = projectMap.get(notice.projectId);
-      const photoUrls = notice.photos?.map(p => p.url).join('; ') || '';
-      const photoTimestamps = notice.photos?.map(p => new Date(p.takenAt).toLocaleString()).join('; ') || '';
+    const rows: any[][] = [];
 
-      return [
-        project?.name || 'N/A',
-        new Date(notice.createdAt).toLocaleString(),
-        notice.description,
-        notice.recipients?.join('; ') || '',
-        photoUrls,
-        photoTimestamps,
-      ].map(escapeCsvCell);
+    notices.forEach((notice) => {
+      const project = projectMap.get(notice.projectId);
+      const area = project?.areas?.find(a => a.id === notice.areaId);
+
+      if (notice.items && notice.items.length > 0) {
+          notice.items.forEach(item => {
+            rows.push([
+                notice.reference,
+                project?.name || 'N/A',
+                area?.name || 'N/A',
+                notice.title,
+                new Date(notice.createdAt).toLocaleString(),
+                item.description,
+                item.status,
+                item.subContractorId || 'Unassigned'
+            ]);
+          });
+      } else {
+          rows.push([
+            notice.reference,
+            project?.name || 'N/A',
+            area?.name || 'N/A',
+            notice.title,
+            new Date(notice.createdAt).toLocaleString(),
+            'No items recorded',
+            'N/A',
+            'N/A'
+          ]);
+      }
     });
 
-    const csvContent = [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
+    const csvContent = [headers.join(','), ...rows.map((row) => row.map(escapeCsvCell).join(','))].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');

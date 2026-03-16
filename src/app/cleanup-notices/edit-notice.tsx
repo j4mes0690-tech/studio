@@ -31,39 +31,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, RefreshCw, Loader2, Send, Save } from 'lucide-react';
-import type { Project, SubContractor, Photo, CleanUpNotice } from '@/lib/types';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore, useStorage } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { Pencil, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save } from 'lucide-react';
+import type { Project, Photo, Area, CleanUpListItem, SubContractor, DistributionUser, CleanUpNotice } from '@/lib/types';
+import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase } from '@/firebase';
+import { doc, updateDoc, arrayUnion, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { cn, scrollToFirstError } from '@/lib/utils';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { sendCleanUpNoticeEmailAction } from './actions';
+import { CameraOverlay } from '@/components/camera-overlay';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const EditNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  description: z.string().optional().default(''),
-  recipients: z.array(z.string()).optional(),
-  status: z.enum(['draft', 'issued']).default('issued'),
+  areaId: z.string().optional(),
+  title: z.string().min(3, 'List title is required.'),
 });
 
 type EditNoticeFormValues = z.infer<typeof EditNoticeSchema>;
 
-type EditNoticeProps = {
-  notice: CleanUpNotice;
-  projects: Project[];
-  subContractors: SubContractor[];
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-};
-
-export function EditCleanUpNotice({ notice, projects, subContractors, open: externalOpen, onOpenChange: setExternalOpen }: EditNoticeProps) {
+export function EditCleanUpNotice({ notice, projects, subContractors, open: externalOpen, onOpenChange: setExternalOpen }: { 
+  notice: CleanUpNotice, 
+  projects: Project[], 
+  subContractors: SubContractor[], 
+  open?: boolean, 
+  onOpenChange?: (open: boolean) => void 
+}) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
   const setOpen = setExternalOpen !== undefined ? setExternalOpen : setInternalOpen;
@@ -71,214 +69,210 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  
   const [isPending, startTransition] = useTransition();
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
-
   const [photos, setPhotos] = useState<Photo[]>(notice.photos || []);
+  const [availableAreas, setAreas] = useState<Area[]>([]);
+  
+  const [items, setItems] = useState<CleanUpListItem[]>(notice.items || []);
+  const [newItemText, setNewItemText] = useState('');
+  const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
+  
+  const [isCameraOpen, setIsCameraOpen] = useState(false); 
+  const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
 
   const form = useForm<EditNoticeFormValues>({
     resolver: zodResolver(EditNoticeSchema),
-    defaultValues: {
-      projectId: notice.projectId,
-      description: notice.description || '',
-      recipients: [],
-      status: notice.status === 'issued' ? 'issued' : 'draft',
-    },
+    defaultValues: { projectId: notice.projectId, areaId: notice.areaId || '', title: notice.title || '' },
   });
-
-  useEffect(() => {
-    if (open && notice) {
-      const recipientIds = subContractors
-        .filter(sub => (notice.recipients || []).includes(sub.email))
-        .map(sub => sub.id);
-
-      form.reset({
-        projectId: notice.projectId,
-        description: notice.description || '',
-        recipients: recipientIds,
-        status: notice.status === 'issued' ? 'issued' : 'draft',
-      });
-      setPhotos(notice.photos || []);
-    }
-  }, [open, notice, form, subContractors]);
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
-
+  
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, selectedProject, subContractors]);
 
   useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
-        setHasCameraPermission(true);
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (error) {
-        setHasCameraPermission(false);
-      }
-    };
-    if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
-  }, [isCameraOpen, facingMode]);
+    if (selectedProjectId) setAreas(selectedProject?.areas || []);
+  }, [selectedProjectId, selectedProject]);
 
-  const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1200;
-      canvas.height = 1200 / aspectRatio;
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
-      setIsCameraOpen(false);
+  useEffect(() => {
+    if (open && notice) {
+      form.reset({ projectId: notice.projectId, areaId: notice.areaId || '', title: notice.title || '' });
+      setPhotos(notice.photos || []);
+      setItems(notice.items || []);
     }
-  };
+  }, [open, notice, form]);
 
-  const onSubmit = (values: EditNoticeFormValues) => {
-    if (values.status === 'issued') {
-      let hasError = false;
-      if (!values.description || values.description.trim().length < 10) {
-        form.setError('description', { message: 'Description must be at least 10 characters.' }, { shouldFocus: true });
-        hasError = true;
-      }
-      if (!values.recipients || values.recipients.length === 0) {
-        form.setError('recipients', { message: 'Assign a recipient.' }, { shouldFocus: true });
-        hasError = true;
-      }
-      if (hasError) return;
-    }
-
+  const handleMetadataChange = () => {
+    const values = form.getValues();
     startTransition(async () => {
-      try {
-        const uploadedPhotos = await Promise.all(
-          photos.map(async (p, i) => {
-            if (p.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(p.url);
-              const url = await uploadFile(storage, `cleanup-notices/${Date.now()}-${i}.jpg`, blob);
-              return { ...p, url };
-            }
-            return p;
-          })
-        );
+        await updateDoc(doc(db, 'cleanup-notices', notice.id), {
+            ...values,
+            areaId: values.areaId || null,
+        });
+    });
+  }
 
-        const recipientContacts = subContractors.filter(sub => values.recipients?.includes(sub.id));
-        const recipientEmails = recipientContacts.map(sub => sub.email);
-
-        const updates = {
-          projectId: values.projectId,
-          description: values.description || '',
-          recipients: recipientEmails,
-          photos: uploadedPhotos,
-          status: values.status,
+  const handleAddItem = () => {
+    if (!newItemText.trim()) return;
+    startTransition(async () => {
+        const newItem: CleanUpListItem = {
+            id: `item-${Date.now()}`,
+            description: newItemText.trim(),
+            status: 'open',
+            photos: [],
+            subContractorId: pendingSubId || null,
         };
-
-        await updateDoc(doc(db, 'cleanup-notices', notice.id), updates);
-
-        if (values.status === 'issued' && recipientContacts.length > 0) {
-          toast({ title: 'Success', description: 'Notice updated and issued.' });
-        } else {
-          toast({ title: 'Success', description: 'Draft updated.' });
-        }
-        setOpen(false);
-      } catch (err) {
-        toast({ title: 'Error', description: 'Failed to update.', variant: 'destructive' });
-      }
+        const newItemsList = [...items, newItem];
+        setItems(newItemsList);
+        await updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItemsList });
+        setNewItemText('');
+        setPendingSubId(undefined);
     });
   };
 
+  const handleRemoveItem = (id: string) => {
+    const newItemsList = items.filter(i => i.id !== id);
+    setItems(newItemsList);
+    updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItemsList });
+  };
+
+  const onCaptureGeneral = (photo: Photo) => {
+    startTransition(async () => {
+        const blob = await dataUriToBlob(photo.url);
+        const url = await uploadFile(storage, `cleanup-notices/general/${notice.id}-${Date.now()}.jpg`, blob);
+        const updatedPhoto = { ...photo, url };
+        await updateDoc(doc(db, 'cleanup-notices', notice.id), {
+            photos: arrayUnion(updatedPhoto)
+        });
+        setPhotos(prev => [...prev, updatedPhoto]);
+    });
+  };
+
+  const onCaptureItem = (photo: Photo) => {
+    if (itemPhotoTargetId) {
+      startTransition(async () => {
+        const blob = await dataUriToBlob(photo.url);
+        const url = await uploadFile(storage, `cleanup-notices/items/${itemPhotoTargetId}-${Date.now()}.jpg`, blob);
+        const updatedPhoto = { ...photo, url };
+        const newItems = items.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } : itm);
+        setItems(newItems);
+        await updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItems });
+      });
+      setItemPhotoTargetId(null);
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Edit Clean Up Notice</DialogTitle></DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="projectId" render={({ field }) => (
-              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('recipients', []); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><div className="flex items-center justify-between"><FormLabel>Description</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea className="min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-
-            <div className="space-y-4">
-              <FormLabel>Documentation & Visual Context</FormLabel>
-              <div className="space-y-4">
-                {photos.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {photos.map((p, i) => (
-                      <div key={i} className="relative w-20 h-20 group">
-                        <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
-                        <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {isCameraOpen ? (
-                  <div className="space-y-2">
-                    <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
-                    <div className="flex gap-2">
-                      <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')} title="Switch Camera">
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                    
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                      const files = e.target.files; if (!files) return;
-                      Array.from(files).forEach(f => {
-                        const reader = new FileReader();
-                        reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                        reader.readAsDataURL(f);
-                      });
-                    }} />
-                  </div>
-                )}
-              </div>
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+          <DialogHeader className="p-6 pb-0 border-b shrink-0 flex flex-row items-center justify-between">
+            <div>
+                <DialogTitle>Edit Clean Up Notice</DialogTitle>
+                <DialogDescription>Record and assign cleaning requirements.</DialogDescription>
             </div>
+            <div className="flex items-center gap-2">
+                {isPending && <Badge variant="secondary" className="animate-pulse">Saving...</Badge>}
+            </div>
+          </DialogHeader>
+          
+          <ScrollArea className="flex-1">
+            <div className="px-6 py-4">
+              <Form {...form}>
+                  <form className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="projectId" render={({ field }) => (
+                            <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                        )} />
+                        <FormField control={form.control} name="areaId" render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Area / Plot</FormLabel>
+                              <Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}>
+                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                  {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                  {availableAreas.length > 0 && <Separator className="my-1" />}
+                                  <SelectItem value="other">Other / Not Listed</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </FormItem>
+                        )} />
+                    </div>
+                    <FormField control={form.control} name="title" render={({ field }) => (
+                        <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} onBlur={handleMetadataChange} /></FormControl></FormItem>
+                    )} />
+                    
+                    <Separator />
 
-            <Separator />
-            <FormItem>
-              <FormLabel>Recipients</FormLabel>
-              <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
-                {projectSubs.map((sub) => (
-                  <FormField key={sub.id} control={form.control} name="recipients" render={({ field }) => (
-                    <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                      <FormControl><Checkbox checked={field.value?.includes(sub.id)} onCheckedChange={(c) => { const curr = field.value || []; field.onChange(c ? [...curr, sub.id] : curr.filter(v => v !== sub.id)); }} /></FormControl>
-                      <FormLabel className="text-sm">{sub.name}</FormLabel>
-                    </FormItem>
-                  )} />
-                ))}
-              </ScrollArea>
-              <FormMessage />
-            </FormItem>
+                    <div className="space-y-4">
+                      <FormLabel>Cleaning Requirements</FormLabel>
+                      
+                      <div className="flex gap-2 items-end bg-muted/20 p-3 rounded-lg border">
+                          <div className="flex-1">
+                              <Input placeholder="What needs cleaning?..." value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}} />
+                          </div>
+                          <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
+                              <SelectTrigger className="w-40"><SelectValue placeholder="Assign" /></SelectTrigger>
+                              <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                          </Select>
+                          <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim()}><Plus className="h-4 w-4" /></Button>
+                      </div>
 
-            <canvas ref={canvasRef} className="hidden" />
-            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-              <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>Save Draft</Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>Update & Issue</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+                      <div className="space-y-3">
+                          {items.map((listItem) => (
+                              <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 flex items-center justify-between">
+                                  <div className="flex flex-col">
+                                      <span className={cn("text-sm font-bold", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</span>
+                                      {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
+                                  </div>
+                                  <div className="flex gap-1">
+                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
+                      <FormLabel className="font-black text-xs uppercase text-muted-foreground">General Site Photos</FormLabel>
+                      <div className="flex flex-wrap gap-3">
+                          {photos.map((p, i) => (
+                              <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
+                          ))}
+                          <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
+                      </div>
+                    </div>
+                  </form>
+              </Form>
+            </div>
+          </ScrollArea>
+          
+          <DialogFooter className="p-6 border-t bg-white">
+            <Button type="button" className="w-full h-12 font-bold" onClick={() => setOpen(false)}>Close & Finish</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={onCaptureGeneral}
+        title="General Clean Up Evidence"
+      />
+
+      <CameraOverlay 
+        isOpen={itemPhotoTargetId !== null} 
+        onClose={() => setItemPhotoTargetId(null)} 
+        onCapture={onCaptureItem}
+        title="Specific Requirement Photo"
+      />
+    </>
   );
 }

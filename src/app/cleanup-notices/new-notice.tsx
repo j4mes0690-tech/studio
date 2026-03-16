@@ -31,328 +31,341 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, Loader2, Send, Save, FileIcon } from 'lucide-react';
-import type { Project, SubContractor, Photo, CleanUpNotice, DistributionUser } from '@/lib/types';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useFirestore, useStorage } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save } from 'lucide-react';
+import type { Project, Photo, Area, CleanUpListItem, SubContractor, DistributionUser, CleanUpNotice } from '@/lib/types';
+import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
-import { sendCleanUpNoticeEmailAction } from './actions';
+import { CameraOverlay } from '@/components/camera-overlay';
 
 const NewNoticeSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  description: z.string().optional().default(''),
-  recipients: z.array(z.string()).optional(),
-  status: z.enum(['draft', 'issued']).default('issued'),
-}).superRefine((data, ctx) => {
-  if (data.status === 'issued') {
-    if (!data.description || data.description.trim().length < 10) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Description must be at least 10 characters to formally issue.',
-        path: ['description'],
-      });
-    }
-    if (!data.recipients || data.recipients.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'At least one sub-contractor must be selected to issue this notice.',
-        path: ['recipients'],
-      });
-    }
-  }
+  areaId: z.string().optional(),
+  title: z.string().min(3, 'List title is required.'),
 });
 
 type NewNoticeFormValues = z.infer<typeof NewNoticeSchema>;
 
-type NewNoticeProps = {
-  projects: Project[];
-  subContractors: SubContractor[];
-  allNotices: CleanUpNotice[];
-  allUsers: DistributionUser[];
-};
-
-export function NewNotice({ projects, subContractors, allNotices, allUsers }: NewNoticeProps) {
+export function NewNotice({ projects, subContractors, allNotices }: { projects: Project[], subContractors: SubContractor[], allNotices: CleanUpNotice[] }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { user: sessionUser } = useUser();
+  
   const [isPending, startTransition] = useTransition();
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
-
+  const [activeNoticeId, setActiveNoticeId] = useState<string | null>(null);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [availableAreas, setAreas] = useState<Area[]>([]);
+  
+  const [items, setItems] = useState<CleanUpListItem[]>([]);
+  const [newItemText, setNewItemText] = useState('');
+  const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
+  const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
+  
+  const [isCameraOpen, setIsCameraOpen] = useState(false); 
+  const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); 
+  const [itemPhotoTargetIdx, setItemPhotoTargetIdx] = useState<number | null>(null);
 
   const form = useForm<NewNoticeFormValues>({
     resolver: zodResolver(NewNoticeSchema),
-    defaultValues: {
-      projectId: '',
-      description: '',
-      recipients: [],
-      status: 'issued',
-    },
+    defaultValues: { projectId: '', areaId: '', title: '' },
   });
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+  const selectedAreaId = form.watch('areaId');
 
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   useEffect(() => {
-    let stream: MediaStream | null = null;
-    const getCameraPermission = async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
-        setHasCameraPermission(true);
-        if (videoRef.current) videoRef.current.srcObject = stream;
-      } catch (error) {
-        setHasCameraPermission(false);
-      }
-    };
-    if (isCameraOpen) getCameraPermission();
-    return () => stream?.getTracks().forEach((track) => track.stop());
-  }, [isCameraOpen, facingMode]);
-
-  const takePhoto = () => {
-    if (videoRef.current && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const video = videoRef.current;
-      const context = canvas.getContext('2d');
-      const aspectRatio = video.videoWidth / video.videoHeight;
-      canvas.width = 1200;
-      canvas.height = 1200 / aspectRatio;
-      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-      setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
-      setIsCameraOpen(false);
+    if (selectedProjectId) {
+      setAreas(selectedProject?.areas || []);
+    } else {
+      setAreas([]);
     }
+  }, [selectedProjectId, selectedProject]);
+
+  useEffect(() => {
+    if (selectedAreaId && selectedAreaId !== 'none' && selectedAreaId !== '') {
+      if (selectedAreaId !== 'other') {
+        const area = availableAreas.find(a => a.id === selectedAreaId);
+        if (area) {
+          form.setValue('title', `Clean Up Requirement: ${area.name}`);
+        }
+      }
+    }
+  }, [selectedAreaId, availableAreas, form]);
+
+  const handleMetadataBlur = () => {
+    if (activeNoticeId) {
+        const values = form.getValues();
+        updateDoc(doc(db, 'cleanup-notices', activeNoticeId), {
+            title: values.title,
+            projectId: values.projectId,
+            areaId: values.areaId || null,
+        });
+    }
+  }
+
+  const ensureNoticeCreated = async (): Promise<string | null> => {
+    if (activeNoticeId) return activeNoticeId;
+    
+    const values = form.getValues();
+    if (!values.projectId || !values.title) {
+        toast({ title: 'Missing Info', description: 'Project and Title are required before adding items.', variant: 'destructive' });
+        return null;
+    }
+
+    const initials = getProjectInitials(selectedProject?.name || 'PRJ');
+    const existingRefs = allNotices.map(l => ({ reference: l.reference, projectId: l.projectId }));
+    const reference = getNextReference(existingRefs, values.projectId, 'CN', initials);
+
+    const noticeData = {
+      reference,
+      projectId: values.projectId,
+      areaId: values.areaId || null,
+      title: values.title,
+      createdAt: new Date().toISOString(),
+      photos: [], 
+      items: [],
+      status: 'draft'
+    };
+
+    const docRef = await addDoc(collection(db, 'cleanup-notices'), noticeData);
+    setActiveNoticeId(docRef.id);
+    return docRef.id;
   };
 
-  const onSubmit = (values: NewNoticeFormValues) => {
+  const handleAddItem = () => {
+    if (!newItemText.trim() && pendingItemPhotos.length === 0) return;
+
     startTransition(async () => {
+      const noticeId = await ensureNoticeCreated();
+      if (!noticeId) return;
+
       try {
-        const isIssuing = values.status === 'issued';
-        toast({ 
-          title: isIssuing ? 'Issuing Notice' : 'Saving Draft', 
-          description: isIssuing ? 'Generating report and distributing...' : 'Uploading evidence and saving...' 
-        });
+        const uploadedItemPhotos = await Promise.all(pendingItemPhotos.map(async (p, i) => {
+          const blob = await dataUriToBlob(p.url);
+          const url = await uploadFile(storage, `cleanup-notices/items/${noticeId}-${Date.now()}-${i}.jpg`, blob);
+          return { ...p, url };
+        }));
 
-        const uploadedPhotos = await Promise.all(
-          photos.map(async (p, i) => {
-            if (p.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(p.url);
-              const url = await uploadFile(storage, `cleanup-notices/${Date.now()}-${i}.jpg`, blob);
-              return { ...p, url };
-            }
-            return p;
-          })
-        );
-
-        const allRecipientEmails = new Set<string>();
-        values.recipients?.forEach(subId => {
-            const partnerEmails = getPartnerEmails(subId, subContractors, allUsers);
-            partnerEmails.forEach(e => allRecipientEmails.add(e));
-        });
-
-        const recipientEmailsList = Array.from(allRecipientEmails);
-        const initials = getProjectInitials(selectedProject?.name || 'PRJ');
-        const reference = getNextReference(allNotices, values.projectId, 'CN', initials);
-
-        const noticeData = {
-          reference,
-          projectId: values.projectId,
-          description: values.description || '',
-          recipients: recipientEmailsList,
-          photos: uploadedPhotos,
-          createdAt: new Date().toISOString(),
-          status: values.status,
+        const newItem: CleanUpListItem = {
+          id: `item-${Date.now()}`,
+          description: newItemText.trim() || 'Cleaning requirement',
+          status: 'open',
+          photos: uploadedItemPhotos,
+          subContractorId: pendingSubId || null,
         };
 
-        const colRef = collection(db, 'cleanup-notices');
-        await addDoc(colRef, noticeData);
+        const noticeRef = doc(db, 'cleanup-notices', noticeId);
+        await updateDoc(noticeRef, {
+          items: arrayUnion(newItem)
+        });
 
-        if (values.status === 'issued' && recipientEmailsList.length > 0) {
-          try {
-            const { jsPDF } = await import('jspdf');
-            const html2canvas = (await import('html2canvas')).default;
-
-            const reportElement = document.createElement('div');
-            reportElement.style.position = 'absolute';
-            reportElement.style.left = '-9999px';
-            reportElement.style.padding = '40px';
-            reportElement.style.width = '800px';
-            reportElement.style.background = 'white';
-            reportElement.style.color = 'black';
-            reportElement.style.fontFamily = 'sans-serif';
-
-            reportElement.innerHTML = `
-              <div style="border-bottom: 2px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
-                <h1 style="margin: 0; color: #1e40af; font-size: 28px;">Clean Up Notice</h1>
-                <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Reference: ${reference}</p>
-              </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
-                <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project</p><p style="margin: 2px 0 0 0; font-size: 16px;">${selectedProject?.name || 'Project'}</p></div>
-                <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Date Issued</p><p style="margin: 2px 0 0 0; font-size: 16px;">${new Date().toLocaleDateString()}</p></div>
-              </div>
-              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px;">
-                <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b;">Issue Description</h2>
-                <p style="margin: 0; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${values.description}</p>
-              </div>
-              ${uploadedPhotos.length > 0 ? `
-                <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">Site Documentation</h2>
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
-                  ${uploadedPhotos.map(p => `<div style="border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; padding: 10px;"><img src="${p.url}" style="width: 100%; height: 200px; object-fit: cover; border-radius: 4px;" /></div>`).join('')}
-                </div>
-              ` : ''}
-            `;
-
-            document.body.appendChild(reportElement);
-            const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-            document.body.removeChild(reportElement);
-
-            const pdfBase64 = pdf.output('datauristring').split(',')[1];
-
-            const subEntities = subContractors.filter(sub => values.recipients?.includes(sub.id));
-            for (const sub of subEntities) {
-              const partnerEmails = getPartnerEmails(sub.id, subContractors, allUsers);
-              for (const email of partnerEmails) {
-                  await sendCleanUpNoticeEmailAction({
-                    email,
-                    name: sub.name,
-                    projectName: selectedProject?.name || 'Project',
-                    reference,
-                    pdfBase64,
-                    fileName: `CleanUpNotice-${reference}.pdf`
-                  });
-              }
-            }
-            toast({ title: 'Success', description: 'Notice distributed.' });
-          } catch (err) {
-            toast({ title: 'Record Saved', description: 'Saved, but email failed.', variant: 'destructive' });
-          }
-        } else {
-          toast({ title: 'Success', description: values.status === 'draft' ? 'Notice saved as draft.' : 'Notice recorded.' });
-        }
-
-        setOpen(false);
+        setItems(prev => [...prev, newItem]);
+        setNewItemText('');
+        setPendingItemPhotos([]);
+        setPendingSubId(undefined);
+        
+        toast({ title: 'Item Added', description: 'Auto-saved to list.' });
       } catch (err) {
-        toast({ title: 'Error', description: 'Failed to process notice.', variant: 'destructive' });
+        toast({ title: 'Save Error', description: 'Failed to add cleaning item.', variant: 'destructive' });
       }
     });
   };
 
-  useEffect(() => { if (!open) { setPhotos([]); form.reset(); } }, [open, form]);
+  const onCaptureGeneral = (photo: Photo) => {
+    startTransition(async () => {
+        if (activeNoticeId) {
+            const blob = await dataUriToBlob(photo.url);
+            const url = await uploadFile(storage, `cleanup-notices/general/${activeNoticeId}-${Date.now()}.jpg`, blob);
+            const updatedPhoto = { ...photo, url };
+            await updateDoc(doc(db, 'cleanup-notices', activeNoticeId), {
+                photos: arrayUnion(updatedPhoto)
+            });
+            setPhotos(prev => [...prev, updatedPhoto]);
+        } else {
+            setPhotos(prev => [...prev, photo]);
+        }
+    });
+  };
 
-  const submissionStatus = form.watch('status');
+  const onCaptureItem = (photo: Photo) => {
+    if (itemPhotoTargetIdx !== null) {
+        const itemToUpdate = items[itemPhotoTargetIdx];
+        startTransition(async () => {
+            if (activeNoticeId) {
+                const blob = await dataUriToBlob(photo.url);
+                const url = await uploadFile(storage, `cleanup-notices/items/${itemToUpdate.id}-${Date.now()}.jpg`, blob);
+                const updatedPhoto = { ...photo, url };
+                const newItems = items.map((itm, i) => i === itemPhotoTargetIdx ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } : itm);
+                await updateDoc(doc(db, 'cleanup-notices', activeNoticeId), { items: newItems });
+                setItems(newItems);
+            } else {
+                setItems(prev => prev.map((itm, i) => i === itemPhotoTargetIdx ? { ...itm, photos: [...(itm.photos || []), photo] } : itm));
+            }
+        });
+        setItemPhotoTargetIdx(null);
+    } else {
+        setPendingItemPhotos(prev => [...prev, photo]);
+    }
+  };
+
+  useEffect(() => {
+    if (!open) {
+      setPhotos([]);
+      setItems([]);
+      setActiveNoticeId(null);
+      form.reset();
+    }
+  }, [open, form]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />New Notice</Button></DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Record New Clean Up Notice</DialogTitle>
-          <DialogDescription>Capture an issue that requires cleaning. Formal issuing triggers a PDF distribution.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-4">
-            <FormField control={form.control} name="projectId" render={({ field }) => (
-              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('recipients', []); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-            )} />
-            <FormField control={form.control} name="description" render={({ field }) => (
-              <FormItem><div className="flex items-center justify-between"><FormLabel>Description of Issue</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="e.g., Debris from drywall installation..." className="min-h-[120px]" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
-
-            <div className="space-y-4">
-              <FormLabel>Documentation & Visual Context</FormLabel>
-              <div className="space-y-4">
-                {photos.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2">
-                    {photos.map((p, i) => (
-                      <div key={i} className="relative group">
-                        <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                        <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-3 w-3" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {isCameraOpen ? (
-                  <div className="space-y-2">
-                    <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
-                    <div className="flex gap-2">
-                      <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')} title="Switch Camera">
-                        <RefreshCw className="h-4 w-4" />
-                      </Button>
-                      <Button type="button" variant="secondary" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                    
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                      const files = e.target.files; if (!files) return;
-                      Array.from(files).forEach(f => {
-                        const reader = new FileReader();
-                        reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                        reader.readAsDataURL(f);
-                      });
-                    }} />
-                  </div>
-                )}
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild><Button className="font-bold"><PlusCircle className="mr-2 h-4 w-4" />Record Cleaning Issue</Button></DialogTrigger>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+          <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
+              <div className="flex items-center justify-between">
+                  <DialogTitle>New Clean Up Notice</DialogTitle>
+                  {activeNoticeId && <Badge variant="secondary" className="font-mono animate-in fade-in">Auto-saving Active</Badge>}
               </div>
-            </div>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+              <Form {...form}>
+                  <form className="space-y-8">
+                      <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <FormField control={form.control} name="projectId" render={({ field }) => (
+                                  <FormItem>
+                                      <FormLabel>Project</FormLabel>
+                                      <Select onValueChange={(val) => { field.onChange(val); handleMetadataBlur(); }} value={field.value}>
+                                          <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                                          <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                  </FormItem>
+                              )} />
+                              <FormField control={form.control} name="areaId" render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Area / Plot</FormLabel>
+                                    <Select onValueChange={(val) => { field.onChange(val); handleMetadataBlur(); }} value={field.value} disabled={!selectedProjectId}>
+                                      <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {availableAreas.map(a => (
+                                          <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                                        ))}
+                                        {availableAreas.length > 0 && <Separator className="my-1" />}
+                                        <SelectItem value="other">Other / Not Listed</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                              )} />
+                          </div>
+                          <FormField control={form.control} name="title" render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>List Title</FormLabel>
+                                  <FormControl><Input {...field} onBlur={handleMetadataBlur} /></FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )} />
+                      </div>
 
-            <Separator />
-            
-            <FormItem>
-              <FormLabel>Recipients (Project Partners)</FormLabel>
-              <ScrollArea className="h-40 rounded-md border p-4 bg-muted/5">
-                {projectSubs.map((sub) => (
-                  <FormField key={sub.id} control={form.control} name="recipients" render={({ field }) => (
-                    <FormItem className="flex items-center space-x-3 space-y-0 mb-2">
-                      <FormControl><Checkbox checked={field.value?.includes(sub.id)} onCheckedChange={(c) => { const curr = field.value || []; field.onChange(c ? [...curr, sub.id] : curr.filter(v => v !== sub.id)); }} /></FormControl>
-                      <div className="flex flex-col"><FormLabel className="font-normal text-sm">{sub.name}</FormLabel><span className="text-[10px] text-muted-foreground">{sub.email}</span></div>
-                    </FormItem>
-                  )} />
-                ))}
-              </ScrollArea>
-              <FormMessage />
-            </FormItem>
+                      <div className="space-y-4">
+                          <div className="flex justify-between items-center"><FormLabel className="font-black text-xs uppercase text-muted-foreground">Add Specific Requirements</FormLabel><VoiceInput onResult={setNewItemText} /></div>
+                          <div className="flex gap-2 items-end bg-background p-4 rounded-xl border shadow-sm">
+                              <div className="flex-1"><Input placeholder="Describe cleaning required..." value={newItemText} onChange={e => setNewItemText(e.target.value)} className="h-11 border-none shadow-none focus-visible:ring-0 px-0" /></div>
+                              <div className="flex gap-1">
+                                  <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
+                                      <SelectTrigger className={cn("px-2 border-none h-11 transition-all", pendingSubId ? "w-auto" : "w-10 justify-center")}>
+                                          {pendingSubId ? <Badge variant="secondary" className="h-6 text-[9px] uppercase tracking-tighter">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge> : <UserPlus className="h-4 w-4 text-primary" />}
+                                      </SelectTrigger>
+                                      <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                  </Select>
+                                  <Button type="button" variant="ghost" className="h-11" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
+                                  <Button type="button" size="icon" className="h-11 rounded-lg" onClick={handleAddItem} disabled={isPending}>
+                                      {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
+                                  </Button>
+                              </div>
+                          </div>
 
-            <canvas ref={canvasRef} className="hidden" />
-            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-              <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>{isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Save as Draft</Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>{isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Save & Distribute</Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+                          {pendingItemPhotos.length > 0 && (
+                            <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed">
+                              {pendingItemPhotos.map((p, idx) => (
+                                <div key={idx} className="relative w-16 h-12"><Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" /><button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-2 w-2" /></button></div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="space-y-3">
+                              {items.map((item, idx) => (
+                                  <div key={item.id} className="bg-white p-4 rounded-xl border shadow-sm flex items-center justify-between group animate-in fade-in">
+                                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                          <span className="text-sm font-bold truncate">{item.description}</span>
+                                          <div className="mt-1 flex items-center gap-2">
+                                              {item.subContractorId && <Badge variant="secondary" className="text-[10px]">{projectSubs.find(s => s.id === item.subContractorId)?.name}</Badge>}
+                                              {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
+                                          </div>
+                                      </div>
+                                      <div className="flex gap-1 shrink-0">
+                                          <Button type="button" variant="ghost" size="icon" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                      <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
+                          <FormLabel className="font-black text-xs uppercase text-muted-foreground">General Documentation</FormLabel>
+                          <div className="flex flex-wrap gap-3">
+                              {photos.map((p, i) => (
+                                  <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
+                              ))}
+                              <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
+                          </div>
+                      </div>
+                  </form>
+              </Form>
+          </div>
+
+          <DialogFooter className="p-6 bg-white border-t shrink-0">
+              <Button type="button" className="w-full h-12 font-bold" onClick={() => setOpen(false)}>
+                  Done & Close
+              </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={onCaptureGeneral}
+        title="General Clean Up Evidence"
+      />
+
+      <CameraOverlay 
+        isOpen={isItemCameraOpen || itemPhotoTargetIdx !== null} 
+        onClose={() => { setIsItemCameraOpen(false); setItemPhotoTargetIdx(null); }} 
+        onCapture={onCaptureItem}
+        title="Requirement Specific Photo"
+      />
+    </>
   );
 }

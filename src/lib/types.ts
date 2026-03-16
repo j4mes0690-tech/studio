@@ -60,15 +60,25 @@ export type ClientInstruction = {
   dismissedBy?: string[];
 };
 
+export type CleanUpListItem = {
+  id: string;
+  description: string;
+  status: 'open' | 'closed';
+  photos?: Photo[];
+  subContractorId?: string | null;
+};
+
 export type CleanUpNotice = {
   id: string;
   reference: string;
   projectId: string;
-  description: string;
+  areaId?: string | null;
+  title: string;
+  description?: string;
   createdAt: string;
   photos?: Photo[];
-  recipients?: string[];
-  status?: 'draft' | 'issued';
+  items: CleanUpListItem[];
+  status: 'draft' | 'issued';
 };
 
 export type SnaggingListItemStatus = 'open' | 'provisionally-complete' | 'closed';
