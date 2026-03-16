@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,7 +22,6 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
 } from '@/components/ui/form';
 import {
   Select,
@@ -33,17 +32,14 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, Check } from 'lucide-react';
-import type { Project, Photo, Area, CleanUpListItem, SubContractor, DistributionUser, CleanUpNotice } from '@/lib/types';
-import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, arrayUnion, collection } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { Pencil, Camera, X, Trash2, Plus, Loader2, Check } from 'lucide-react';
+import type { Project, Photo, Area, CleanUpListItem, SubContractor, CleanUpNotice } from '@/lib/types';
+import { useFirestore, useStorage } from '@/firebase';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { cn, scrollToFirstError } from '@/lib/utils';
-import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+import { dataUriToBlob, uploadFile } from '@/lib/storage-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 
 const EditNoticeSchema = z.object({
@@ -193,8 +189,8 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
           className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader className="p-6 pb-0 border-b shrink-0 flex flex-row items-center justify-between">
-            <div>
+          <DialogHeader className="p-6 pb-4 border-b shrink-0 flex flex-row items-center justify-between">
+            <div className="space-y-1">
                 <DialogTitle>Edit Clean Up Notice</DialogTitle>
                 <DialogDescription>Record and assign cleaning requirements.</DialogDescription>
             </div>
@@ -203,38 +199,37 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
             </div>
           </DialogHeader>
           
-          <ScrollArea className="flex-1">
-            <div className="px-6 py-4">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
               <Form {...form}>
-                  <form className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="projectId" render={({ field }) => (
-                            <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                        )} />
-                        <FormField control={form.control} name="areaId" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Area / Plot</FormLabel>
-                              <Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}>
-                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                  {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                                  {availableAreas.length > 0 && <Separator className="my-1" />}
-                                  <SelectItem value="other">Other / Not Listed</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </FormItem>
+                  <form className="space-y-8">
+                    <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="projectId" render={({ field }) => (
+                                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                            )} />
+                            <FormField control={form.control} name="areaId" render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Area / Plot</FormLabel>
+                                  <Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                      {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                      {availableAreas.length > 0 && <Separator className="my-1" />}
+                                      <SelectItem value="other">Other / Not Listed</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </FormItem>
+                            )} />
+                        </div>
+                        <FormField control={form.control} name="title" render={({ field }) => (
+                            <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} onBlur={handleMetadataChange} /></FormControl></FormItem>
                         )} />
                     </div>
-                    <FormField control={form.control} name="title" render={({ field }) => (
-                        <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} onBlur={handleMetadataChange} /></FormControl></FormItem>
-                    )} />
                     
-                    <Separator />
-
                     <div className="space-y-4">
-                      <FormLabel>Cleaning Requirements</FormLabel>
+                      <FormLabel className="font-black text-xs uppercase text-muted-foreground">Cleaning Requirements</FormLabel>
                       
-                      <div className="flex gap-2 items-end bg-muted/20 p-3 rounded-lg border">
+                      <div className="flex gap-2 items-end bg-muted/20 p-4 rounded-xl border border-dashed">
                           <div className="flex-1">
                               <Input placeholder="What needs cleaning?..." value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}} />
                           </div>
@@ -247,23 +242,23 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
 
                       <div className="space-y-3">
                           {items.map((listItem) => (
-                              <div key={listItem.id} className="flex flex-col gap-3 p-3 border rounded-md bg-muted/10">
+                              <div key={listItem.id} className="flex flex-col gap-3 p-4 border rounded-xl bg-background shadow-sm">
                                   {editingItemId === listItem.id ? (
                                       <div className="flex flex-col gap-2 w-full animate-in fade-in slide-in-from-top-1">
                                           <Input 
                                               value={editItemText} 
                                               onChange={e => setEditItemText(e.target.value)} 
-                                              className="h-8 text-sm"
+                                              className="h-9 text-sm"
                                               autoFocus
                                           />
                                           <div className="flex items-center justify-between">
                                               <Select value={editItemSubId || 'unassigned'} onValueChange={v => setEditItemSubId(v === 'unassigned' ? undefined : v)}>
-                                                  <SelectTrigger className="h-7 text-[10px] w-32"><SelectValue placeholder="Assign" /></SelectTrigger>
+                                                  <SelectTrigger className="h-8 text-[10px] w-40"><SelectValue placeholder="Assign" /></SelectTrigger>
                                                   <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                               </Select>
                                               <div className="flex gap-1">
-                                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingItemId(null)}><X className="h-3 w-3" /></Button>
-                                                  <Button size="icon" variant="default" className="h-7 w-7" onClick={() => handleSaveEdit(listItem.id)}><Check className="h-3 w-3" /></Button>
+                                                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditingItemId(null)}><X className="h-4 w-4" /></Button>
+                                                  <Button size="icon" variant="default" className="h-8 w-8" onClick={() => handleSaveEdit(listItem.id)}><Check className="h-4 w-4" /></Button>
                                               </div>
                                           </div>
                                       </div>
@@ -308,11 +303,10 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
                     </div>
                   </form>
               </Form>
-            </div>
-          </ScrollArea>
+          </div>
           
-          <DialogFooter className="p-6 border-t bg-white">
-            <Button type="button" className="w-full h-12 font-bold" onClick={() => setOpen(false)}>Close & Finish</Button>
+          <DialogFooter className="p-6 border-t bg-white shrink-0">
+            <Button type="button" className="w-full h-12 font-bold" onClick={() => setOpen(false)}>Done & Finish</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
