@@ -73,8 +73,12 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
   const db = useFirestore();
   const storage = useStorage();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPending, startTransition] = useTransition();
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
 
   const [photos, setPhotos] = useState<Photo[]>(notice.photos || []);
 
@@ -112,6 +116,36 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
     const assignedIds = selectedProject.assignedSubContractors || [];
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const getCameraPermission = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
+        setHasCameraPermission(true);
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (error) {
+        setHasCameraPermission(false);
+      }
+    };
+    if (isCameraOpen) getCameraPermission();
+    return () => stream?.getTracks().forEach((track) => track.stop());
+  }, [isCameraOpen, facingMode]);
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      const aspectRatio = video.videoWidth / video.videoHeight;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
+      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
+      setIsCameraOpen(false);
+    }
+  };
 
   const onSubmit = (values: EditNoticeFormValues) => {
     if (values.status === 'issued') {
@@ -154,7 +188,6 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
         await updateDoc(doc(db, 'cleanup-notices', notice.id), updates);
 
         if (values.status === 'issued' && recipientContacts.length > 0) {
-          // PDF Logic Omitted for brevity, assuming standard send call
           toast({ title: 'Success', description: 'Notice updated and issued.' });
         } else {
           toast({ title: 'Success', description: 'Draft updated.' });
@@ -182,25 +215,46 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
               )} />
 
               <div className="space-y-4">
-                <FormLabel>Photos</FormLabel>
-                <div className="flex flex-wrap gap-2">
-                  {photos.map((p, i) => (
-                    <div key={i} className="relative w-20 h-20 group">
-                      <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
-                      <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                <FormLabel>Documentation & Visual Context</FormLabel>
+                <div className="space-y-4">
+                  {photos.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {photos.map((p, i) => (
+                        <div key={i} className="relative w-20 h-20 group">
+                          <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
+                          <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-5 w-5" /><span className="text-[8px] uppercase font-bold">Photo</span></Button>
-                  <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => fileInputRef.current?.click()}><Upload className="h-5 w-5" /><span className="text-[8px] uppercase font-bold">Upload</span></Button>
+                  )}
+
+                  {isCameraOpen ? (
+                    <div className="space-y-2">
+                      <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')} title="Switch Camera">
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                      
+                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                        const files = e.target.files; if (!files) return;
+                        Array.from(files).forEach(f => {
+                          const reader = new FileReader();
+                          reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                          reader.readAsDataURL(f);
+                        });
+                      }} />
+                    </div>
+                  )}
                 </div>
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                  const files = e.target.files; if (!files) return;
-                  Array.from(files).forEach(f => {
-                    const reader = new FileReader();
-                    reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                    reader.readAsDataURL(f);
-                  });
-                }} />
               </div>
 
               <Separator />
@@ -219,6 +273,7 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
                 <FormMessage />
               </FormItem>
 
+              <canvas ref={canvasRef} className="hidden" />
               <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                 <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>Save Draft</Button>
                 <Button type="submit" className="w-full sm:flex-1 h-12 font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>Update & Issue</Button>

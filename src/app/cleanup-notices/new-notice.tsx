@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, Loader2, Send, Save } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, Loader2, Send, Save, FileIcon } from 'lucide-react';
 import type { Project, SubContractor, Photo, CleanUpNotice, DistributionUser } from '@/lib/types';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
@@ -87,8 +87,12 @@ export function NewNotice({ projects, subContractors, allNotices, allUsers }: Ne
   const db = useFirestore();
   const storage = useStorage();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isPending, startTransition] = useTransition();
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | undefined>();
 
   const [photos, setPhotos] = useState<Photo[]>([]);
 
@@ -110,6 +114,36 @@ export function NewNotice({ projects, subContractors, allNotices, allUsers }: Ne
     const assignedIds = selectedProject.assignedSubContractors || [];
     return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
+
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    const getCameraPermission = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
+        setHasCameraPermission(true);
+        if (videoRef.current) videoRef.current.srcObject = stream;
+      } catch (error) {
+        setHasCameraPermission(false);
+      }
+    };
+    if (isCameraOpen) getCameraPermission();
+    return () => stream?.getTracks().forEach((track) => track.stop());
+  }, [isCameraOpen, facingMode]);
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const video = videoRef.current;
+      const context = canvas.getContext('2d');
+      const aspectRatio = video.videoWidth / video.videoHeight;
+      canvas.width = 1200;
+      canvas.height = 1200 / aspectRatio;
+      context?.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setPhotos(prev => [...prev, { url: dataUrl, takenAt: new Date().toISOString() }]);
+      setIsCameraOpen(false);
+    }
+  };
 
   const onSubmit = (values: NewNoticeFormValues) => {
     startTransition(async () => {
@@ -252,25 +286,48 @@ export function NewNotice({ projects, subContractors, allNotices, allUsers }: Ne
               )} />
 
               <div className="space-y-4">
-                <FormLabel>Photos</FormLabel>
-                <div className="flex flex-wrap gap-2">
-                  {photos.map((p, i) => (
-                    <div key={i} className="relative w-20 h-20 group">
-                      <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
-                      <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                <FormLabel>Documentation & Visual Context</FormLabel>
+                <div className="space-y-4">
+                  {photos.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2">
+                      {photos.map((p, i) => (
+                        <div key={i} className="relative group">
+                          <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
+                          <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-3 w-3" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-5 w-5" /><span className="text-[8px] uppercase font-bold">Photo</span></Button>
-                  <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed" onClick={() => fileInputRef.current?.click()}><Upload className="h-5 w-5" /><span className="text-[8px] uppercase font-bold">Upload</span></Button>
+                  )}
+
+                  {isCameraOpen ? (
+                    <div className="space-y-2">
+                      <video ref={videoRef} className="w-full aspect-video bg-muted rounded-md object-cover" autoPlay muted playsInline />
+                      <div className="flex gap-2">
+                        <Button type="button" size="sm" onClick={takePhoto}>Capture</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => setFacingMode(p => p === 'user' ? 'environment' : 'user')} title="Switch Camera">
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setIsCameraOpen(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                      
+                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                        const files = e.target.files; if (!files) return;
+                        Array.from(files).forEach(f => {
+                          const reader = new FileReader();
+                          reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                          reader.readAsDataURL(f);
+                        });
+                      }} />
+                    </div>
+                  )}
                 </div>
-                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                  const files = e.target.files; if (!files) return;
-                  Array.from(files).forEach(f => {
-                    const reader = new FileReader();
-                    reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                    reader.readAsDataURL(f);
-                  });
-                }} />
               </div>
 
               <Separator />
@@ -290,6 +347,7 @@ export function NewNotice({ projects, subContractors, allNotices, allUsers }: Ne
                 <FormMessage />
               </FormItem>
 
+              <canvas ref={canvasRef} className="hidden" />
               <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
                 <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>{isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Save as Draft</Button>
                 <Button type="submit" className="w-full sm:flex-1 h-12 font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>{isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Save & Distribute</Button>
