@@ -152,9 +152,15 @@ export function NewTaskDialog({
         );
 
         const taskData: Omit<PlannerTask, 'id'> = {
-          ...values,
+          projectId: values.projectId,
           plannerId: values.plannerId,
-          areaId: values.plannerId, 
+          areaId: values.plannerId,
+          title: values.title,
+          subcontractorId: values.subcontractorId,
+          customSubcontractorName: values.customSubcontractorName || null,
+          startDate: values.startDate,
+          durationDays: values.durationDays,
+          predecessorIds: values.predecessorIds || [],
           originalStartDate: values.startDate,
           originalDurationDays: values.durationDays,
           actualCompletionDate: null,

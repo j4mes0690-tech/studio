@@ -112,7 +112,6 @@ const EditUserSchema = z.object({
 
   accessProcurement: z.boolean().default(true),
   procurementReadOnly: z.boolean().default(false),
-  
   accessHolidays: z.boolean().default(true),
   canApproveHolidays: z.boolean().default(false),
 });
@@ -285,10 +284,10 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         accessPlanner: user.permissions?.accessPlanner !== false,
         plannerReadOnly: !!user.permissions?.plannerReadOnly,
 
-        accessProcurement: user.permissions?.accessProcurement !== false,
+        accessProcurement: values => user.permissions?.accessProcurement !== false,
         procurementReadOnly: !!user.permissions?.procurementReadOnly,
         accessHolidays: user.permissions?.accessHolidays !== false,
-      });
+      } as any);
     }
   }, [open, user, form]);
 
@@ -352,10 +351,10 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         name: values.name,
         password: values.password,
         userType: values.userType,
-        subContractorId: values.subContractorId !== 'none' ? values.subContractorId : undefined,
+        subContractorId: (values.subContractorId && values.subContractorId !== 'none') ? values.subContractorId : null,
         receivePartnerEmails: values.receivePartnerEmails,
-        holidayEntitlement: values.userType === 'internal' ? values.holidayEntitlement : undefined,
-        lineManagerEmail: values.userType === 'internal' && values.lineManagerEmail !== 'none' ? values.lineManagerEmail : undefined,
+        holidayEntitlement: values.userType === 'internal' ? values.holidayEntitlement : null,
+        lineManagerEmail: (values.userType === 'internal' && values.lineManagerEmail !== 'none') ? values.lineManagerEmail : null,
         permissions: {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,

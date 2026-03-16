@@ -222,8 +222,15 @@ export function EditTaskDialog({
         const batch = writeBatch(db);
         const taskRef = doc(db, 'planner-tasks', task.id);
         
-        const updates = {
-          ...values,
+        const updates: any = {
+          title: values.title,
+          subcontractorId: values.subcontractorId,
+          customSubcontractorName: values.customSubcontractorName || null,
+          startDate: values.startDate,
+          durationDays: values.durationDays,
+          status: values.status,
+          actualCompletionDate: values.actualCompletionDate || null,
+          predecessorIds: values.predecessorIds || [],
           photos: uploadedPhotos,
         };
 

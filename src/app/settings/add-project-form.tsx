@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -48,7 +47,15 @@ export function AddProjectForm() {
 
   const onSubmit = (values: AddProjectFormValues) => {
     startTransition(async () => {
-      const data = { ...values, areas: [], assignedUsers: [], assignedSubContractors: [] };
+      const data = { 
+        name: values.name,
+        address: values.address || null,
+        siteManager: values.siteManager || null,
+        siteManagerPhone: values.siteManagerPhone || null,
+        areas: [], 
+        assignedUsers: [], 
+        assignedSubContractors: [] 
+      };
       const colRef = collection(db, 'projects');
       addDoc(colRef, data)
         .then(() => {

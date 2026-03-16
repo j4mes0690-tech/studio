@@ -198,10 +198,10 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
         email: email,
         password: values.password,
         userType: values.userType,
-        subContractorId: values.subContractorId !== 'none' ? values.subContractorId : undefined,
+        subContractorId: (values.subContractorId && values.subContractorId !== 'none') ? values.subContractorId : null,
         receivePartnerEmails: values.receivePartnerEmails,
-        holidayEntitlement: values.userType === 'internal' ? values.holidayEntitlement : undefined,
-        lineManagerEmail: values.userType === 'internal' && values.lineManagerEmail !== 'none' ? values.lineManagerEmail : undefined,
+        holidayEntitlement: values.userType === 'internal' ? values.holidayEntitlement : null,
+        lineManagerEmail: (values.userType === 'internal' && values.lineManagerEmail !== 'none') ? values.lineManagerEmail : null,
         permissions: {
           canManageUsers: values.canManageUsers,
           canManageSubcontractors: values.canManageSubcontractors,

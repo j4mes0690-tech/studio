@@ -7,9 +7,9 @@ export type Planner = {
 export type Project = {
   id: string;
   name: string;
-  address?: string;
-  siteManager?: string;
-  siteManagerPhone?: string;
+  address?: string | null;
+  siteManager?: string | null;
+  siteManagerPhone?: string | null;
   planners?: Planner[];
   areas?: Planner[]; // Keep for backward compatibility with existing data
   assignedUsers?: string[];
@@ -79,7 +79,7 @@ export type SnaggingListItem = {
   status: SnaggingListItemStatus;
   photos?: Photo[];
   completionPhotos?: Photo[];
-  subContractorId?: string;
+  subContractorId?: string | null;
   subContractorComment?: string;
   provisionallyCompletedAt?: string;
   closedAt?: string;
@@ -189,12 +189,12 @@ export type DistributionUser = {
   email: string;
   password?: string;
   userType?: 'internal' | 'partner';
-  subContractorId?: string;
+  subContractorId?: string | null;
   receivePartnerEmails?: boolean;
   requirePasswordChange?: boolean;
   permissions?: UserPermissions;
-  holidayEntitlement?: number;
-  lineManagerEmail?: string;
+  holidayEntitlement?: number | null;
+  lineManagerEmail?: string | null;
 };
 
 export type Invitation = {
@@ -214,8 +214,8 @@ export type SubContractor = {
   id: string;
   name: string;
   email: string;
-  phone?: string;
-  address?: string;
+  phone?: string | null;
+  address?: string | null;
   isSubContractor?: boolean;
   isDesigner?: boolean;
   isSupplier?: boolean;
@@ -330,8 +330,8 @@ export type Supplier = {
   name: string;
   contactPerson: string;
   email: string;
-  phone?: string;
-  address?: string;
+  phone?: string | null;
+  address?: string | null;
 };
 
 export type Material = {
@@ -367,7 +367,7 @@ export type PurchaseOrder = {
   notes?: string;
   createdAt: string;
   createdByEmail: string;
-  cvrCode?: string;
+  cvrCode?: string | null;
 };
 
 // --- PERMITS MODULE TYPES ---
@@ -381,7 +381,7 @@ export type TemplateField = {
   id: string;
   label: string;
   type: TemplateFieldType;
-  value?: string | boolean;
+  value?: string | boolean | null;
 };
 
 export type TemplateSection = {
@@ -402,8 +402,8 @@ export type Permit = {
   // AI-generated dynamic content
   sections: TemplateSection[];
   // Standard hazard/precaution fallbacks for non-templated permits
-  hazards?: string;
-  precautions?: string;
+  hazards?: string | null;
+  precautions?: string | null;
   validFrom: string;
   validTo: string;
   status: PermitStatus;
@@ -454,8 +454,8 @@ export type PlantOrder = {
   status: PlantStatus; // Summary status (e.g. 'on-hire' if any item is on hire)
   createdAt: string;
   createdByEmail: string;
-  notes?: string;
-  cvrCode?: string;
+  notes?: string | null;
+  cvrCode?: string | null;
 };
 
 // --- VARIATIONS MODULE TYPES ---
@@ -479,7 +479,7 @@ export type Variation = {
   reference: string;
   projectId: string;
   title: string;
-  description: string;
+  description: string | null;
   clientInstructionIds?: string[] | null;
   siteInstructionIds?: string[] | null;
   items: VariationItem[];
@@ -488,7 +488,7 @@ export type Variation = {
   status: VariationStatus;
   createdAt: string;
   createdByEmail: string;
-  notes?: string;
+  notes?: string | null;
 };
 
 // --- TRAINING MODULE TYPES ---
@@ -501,7 +501,7 @@ export type TrainingRecord = {
   userName: string;
   userEmail: string;
   courseName: string;
-  certificateNumber?: string;
+  certificateNumber?: string | null;
   issueDate: string;
   expiryDate: string;
   photos?: Photo[];
@@ -518,7 +518,7 @@ export type TrainingNeed = {
   courseName: string;
   priority: 'low' | 'medium' | 'high';
   status: TrainingNeedStatus;
-  notes?: string;
+  notes?: string | null;
   requestedDate: string;
   bookedDate?: string | null;
 };
@@ -583,7 +583,7 @@ export type HolidayRequest = {
   endDate: string;
   totalDays: number;
   type: HolidayType;
-  notes?: string;
+  notes?: string | null;
   status: HolidayRequestStatus;
   approvedByEmail?: string | null;
   approvedByName?: string | null;
