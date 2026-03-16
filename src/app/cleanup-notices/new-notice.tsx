@@ -160,7 +160,7 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
     };
 
     const docRef = await addDoc(collection(db, 'cleanup-notices'), noticeData);
-    setActiveListId(docRef.id);
+    setActiveNoticeId(docRef.id);
     return docRef.id;
   };
 
