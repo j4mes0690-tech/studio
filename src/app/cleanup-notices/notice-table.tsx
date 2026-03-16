@@ -10,7 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { CleanUpNotice, Project, SubContractor, Photo } from '@/lib/types';
+import type { CleanUpNotice, Project, SubContractor, Photo, DistributionUser } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
@@ -30,11 +30,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, CheckCircle2, Loader2, Camera, Users, ArrowUpDown, ArrowUp, ArrowDown, MapPin, ListChecks } from 'lucide-react';
+import { Trash2, CheckCircle2, Loader2, Camera, Users, ArrowUpDown, ArrowUp, ArrowDown, MapPin, ListChecks, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EditCleanUpNotice } from './edit-notice';
 import { sendCleanUpNoticeEmailAction } from './actions';
 import { Progress } from '@/components/ui/progress';
+import { DistributeNoticeButton } from './distribute-notice-button';
 
 type SortKey = 'reference' | 'project' | 'title' | 'date' | 'status';
 type SortOrder = 'asc' | 'desc';
@@ -43,9 +44,10 @@ type TableProps = {
   items: CleanUpNotice[];
   projects: Project[];
   subContractors: SubContractor[];
+  allUsers: DistributionUser[];
 };
 
-export function NoticeTable({ items, projects, subContractors }: TableProps) {
+export function NoticeTable({ items, projects, subContractors, allUsers }: TableProps) {
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
 
@@ -128,6 +130,7 @@ export function NoticeTable({ items, projects, subContractors }: TableProps) {
               item={item} 
               projects={projects} 
               subContractors={subContractors}
+              allUsers={allUsers}
             />
           ))}
         </TableBody>
@@ -136,7 +139,7 @@ export function NoticeTable({ items, projects, subContractors }: TableProps) {
   );
 }
 
-function NoticeRow({ item, projects, subContractors }: { item: CleanUpNotice, projects: Project[], subContractors: SubContractor[] }) {
+function NoticeRow({ item, projects, subContractors, allUsers }: { item: CleanUpNotice, projects: Project[], subContractors: SubContractor[], allUsers: DistributionUser[] }) {
   const project = projects.find((p) => p.id === item.projectId);
   const area = project?.areas?.find(a => a.id === item.areaId);
   const { toast } = useToast();
@@ -153,6 +156,18 @@ function NoticeRow({ item, projects, subContractors }: { item: CleanUpNotice, pr
     startTransition(async () => {
       await deleteDoc(doc(db, 'cleanup-notices', item.id));
       toast({ title: 'Deleted', description: 'Notice removed.' });
+    });
+  };
+
+  const handleIssue = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (totalItems === 0) {
+      toast({ title: "Error", description: "Notice is empty.", variant: "destructive" });
+      return;
+    }
+    startTransition(async () => {
+      await updateDoc(doc(db, 'cleanup-notices', item.id), { status: 'issued' });
+      toast({ title: 'Issued', description: 'Notice updated.' });
     });
   };
 
@@ -189,6 +204,26 @@ function NoticeRow({ item, projects, subContractors }: { item: CleanUpNotice, pr
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+          {item.status === 'draft' ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-600" onClick={handleIssue} disabled={isPending}>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Issue Notice</p></TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <DistributeNoticeButton 
+              notice={item} 
+              project={project} 
+              subContractors={subContractors} 
+              allUsers={allUsers} 
+            />
+          )}
+
           <EditCleanUpNotice notice={item} projects={projects} subContractors={subContractors} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} />
           <AlertDialog>
             <AlertDialogTrigger asChild>

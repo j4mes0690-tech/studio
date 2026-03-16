@@ -139,7 +139,6 @@ function CleanUpContent() {
               projects={allowedProjects} 
               subContractors={subContractors || []} 
               allNotices={allNotices || []}
-              allUsers={allUsers || []}
             />
           </div>
         </div>
@@ -151,6 +150,7 @@ function CleanUpContent() {
               items={filteredNotices}
               projects={allowedProjects}
               subContractors={subContractors || []}
+              allUsers={allUsers || []}
             />
           ) : (
             <div className="grid gap-4 md:gap-6">
@@ -160,6 +160,7 @@ function CleanUpContent() {
                   notice={notice}
                   projects={allowedProjects}
                   subContractors={subContractors || []}
+                  allUsers={allUsers || []}
                 />
               ))}
             </div>

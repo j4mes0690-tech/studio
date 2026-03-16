@@ -49,17 +49,20 @@ import { cn, getPartnerEmails } from '@/lib/utils';
 import { sendCleanUpNoticeEmailAction } from './actions';
 import { EditCleanUpNotice } from './edit-notice';
 import { Progress } from '@/components/ui/progress';
+import { DistributeNoticeButton } from './distribute-notice-button';
 
 type NoticeCardProps = {
   notice: CleanUpNotice;
   projects: Project[];
   subContractors: SubContractor[];
+  allUsers: DistributionUser[];
 };
 
 export function NoticeCard({
   notice,
   projects,
   subContractors,
+  allUsers,
 }: NoticeCardProps) {
   const project = projects.find((p) => p.id === notice.projectId);
   const area = project?.areas?.find(a => a.id === notice.areaId);
@@ -97,69 +100,8 @@ export function NoticeCard({
 
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Generating reports and distributing...' });
-
-        const { jsPDF } = await import('jspdf');
-        const html2canvas = (await import('html2canvas')).default;
-
-        // Group items by Subcontractor for targeted distribution
-        const subIds = new Set(notice.items.map(i => i.subContractorId).filter(id => !!id)) as Set<string>;
-        
-        for (const subId of subIds) {
-            const sub = subContractors.find(s => s.id === subId);
-            if (!sub) continue;
-
-            const subItems = notice.items.filter(i => i.subContractorId === subId);
-            
-            const reportElement = document.createElement('div');
-            reportElement.style.position = 'absolute';
-            reportElement.style.left = '-9999px';
-            reportElement.style.padding = '40px';
-            reportElement.style.width = '800px';
-            reportElement.style.background = 'white';
-            reportElement.style.color = 'black';
-            reportElement.style.fontFamily = 'sans-serif';
-
-            reportElement.innerHTML = `
-              <div style="border-bottom: 2px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
-                <h1 style="margin: 0; color: #1e40af; font-size: 28px;">Clean Up Notice</h1>
-                <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Reference: ${notice.reference}</p>
-              </div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
-                <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project</p><p style="margin: 2px 0 0 0; font-size: 16px;">${project?.name || 'Project'}</p></div>
-                <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Area</p><p style="margin: 2px 0 0 0; font-size: 16px;">${area?.name || 'General Site'}</p></div>
-              </div>
-              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px;">
-                <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b;">Requirements for ${sub.name}</h2>
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    ${subItems.map(item => `<div style="padding: 10px; border-bottom: 1px solid #e2e8f0;"><p style="margin: 0; font-size: 14px;">• ${item.description}</p></div>`).join('')}
-                </div>
-              </div>
-            `;
-
-            document.body.appendChild(reportElement);
-            const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
-            const imgData = canvas.toDataURL('image/jpeg', 0.95);
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-            document.body.removeChild(reportElement);
-
-            const pdfBase64 = pdf.output('datauristring').split(',')[1];
-
-            await sendCleanUpNoticeEmailAction({
-              email: sub.email,
-              name: sub.name,
-              projectName: project?.name || 'Project',
-              reference: notice.reference,
-              pdfBase64,
-              fileName: `CleanUpNotice-${notice.reference}.pdf`
-            });
-        }
-
         await updateDoc(doc(db, 'cleanup-notices', notice.id), { status: 'issued' });
-        toast({ title: 'Success', description: 'Clean up notice issued and distributed.' });
+        toast({ title: 'Notice Issued', description: 'Status updated to issued. Use the distribute button to email partners.' });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to issue notice.', variant: 'destructive' });
       }
@@ -202,7 +144,15 @@ export function NoticeCard({
                   </Button>
                 </>
               ) : (
-                <Badge variant="destructive" className="uppercase font-black text-[9px] tracking-widest h-5">ISSUED</Badge>
+                <>
+                  <Badge variant="destructive" className="uppercase font-black text-[9px] tracking-widest h-5">ISSUED</Badge>
+                  <DistributeNoticeButton 
+                    notice={notice} 
+                    project={project} 
+                    subContractors={subContractors} 
+                    allUsers={allUsers} 
+                  />
+                </>
               )}
               
               <EditCleanUpNotice 
@@ -284,7 +234,7 @@ export function NoticeCard({
               <AccordionItem value="photo">
                 <AccordionTrigger className="text-sm font-semibold hover:no-underline py-2">
                   <div className="flex items-center gap-2">
-                    <Camera className="h-4 w-4 text-primary" />
+                    <Camera className="h-4 w-4" />
                     <span>General Photos ({notice.photos.length})</span>
                   </div>
                 </AccordionTrigger>
