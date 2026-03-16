@@ -37,6 +37,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
 import { addWeeks } from 'date-fns';
 import { generatePurchaseOrderPDF } from '@/lib/pdf-utils';
+import { Badge } from '@/components/ui/badge';
 
 const NewOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -336,7 +337,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
                 {orderItems.map((item, idx) => (
                   <div key={idx} className="flex flex-col p-3 rounded border bg-background group gap-2 shadow-sm">
                     <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 pr-4">
                         <p className="text-sm font-bold text-primary truncate">{item.description}</p>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
                           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
