@@ -24,7 +24,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { sendCleanUpNoticeEmailAction } from './actions';
-import { cn, getPartnerEmails } from '@/lib/utils';
+import { getPartnerEmails } from '@/lib/utils';
+import { generateCleanUpPDF } from '@/lib/pdf-utils';
 
 export function DistributeNoticeButton({
   notice,
@@ -69,9 +70,6 @@ export function DistributeNoticeButton({
     setIsDistributing(true);
 
     try {
-      const { jsPDF } = await import('jspdf');
-      const html2canvas = (await import('html2canvas')).default;
-
       const area = project?.areas?.find(a => a.id === notice.areaId);
 
       for (const subId of selectedSubIds) {
@@ -84,41 +82,19 @@ export function DistributeNoticeButton({
 
         const subItems = notice.items.filter(i => i.subContractorId === subId);
         
-        // Generate PDF specifically for this subcontractor
-        const reportElement = document.createElement('div');
-        reportElement.style.position = 'absolute';
-        reportElement.style.left = '-9999px';
-        reportElement.style.padding = '40px';
-        reportElement.style.width = '800px';
-        reportElement.style.background = 'white';
-        reportElement.style.color = 'black';
-        reportElement.style.fontFamily = 'sans-serif';
-
-        reportElement.innerHTML = `
-          <div style="border-bottom: 2px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
-            <h1 style="margin: 0; color: #1e40af; font-size: 28px;">Clean Up Notice</h1>
-            <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Reference: ${notice.reference}</p>
-          </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
-            <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project</p><p style="margin: 2px 0 0 0; font-size: 16px;">${project?.name || 'Project'}</p></div>
-            <div><p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Area</p><p style="margin: 2px 0 0 0; font-size: 16px;">${area?.name || 'General Site'}</p></div>
-          </div>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 25px; margin-bottom: 40px;">
-            <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #1e293b;">Requirements for ${sub.name}</h2>
-            <div style="display: flex; flex-direction: column; gap: 10px;">
-                ${subItems.map(item => `<div style="padding: 10px; border-bottom: 1px solid #e2e8f0;"><p style="margin: 0; font-size: 14px;">• ${item.description}</p></div>`).join('')}
-            </div>
-          </div>
-        `;
-
-        document.body.appendChild(reportElement);
-        const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-        document.body.removeChild(reportElement);
+        // Generate high-fidelity PDF specifically for this subcontractor using the shared engine
+        const pdf = await generateCleanUpPDF({
+          title: 'Clean Up Notice',
+          project,
+          subContractors,
+          aggregatedEntries: subItems.map(item => ({
+            listTitle: notice.title,
+            areaName: area?.name || 'General Site',
+            item
+          })),
+          generalPhotos: notice.photos || [],
+          scopeLabel: `Trade: ${sub.name}`
+        });
 
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
@@ -135,7 +111,7 @@ export function DistributeNoticeButton({
         }
       }
 
-      toast({ title: "Distribution Complete", description: `Notice emailed to selected trade partners.` });
+      toast({ title: "Distribution Complete", description: `Notice emailed to selected trade partners with site evidence.` });
       setOpen(false);
     } catch (err) {
       console.error('Notice Distribution Error:', err);
@@ -178,7 +154,7 @@ export function DistributeNoticeButton({
             <DialogTitle>Distribute Clean Up Notice</DialogTitle>
           </div>
           <DialogDescription>
-            Select trade partners to receive their specific cleaning requirements.
+            Select trade partners to receive their specific cleaning requirements. Visual evidence will be included in the PDF.
           </DialogDescription>
         </DialogHeader>
 

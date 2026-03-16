@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2, Users, FileText, CheckCircle2, List, AlertTriangle } from 'lucide-react';
+import { Send, Loader2, Users, CheckCircle2, List, AlertTriangle } from 'lucide-react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -27,11 +27,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { sendSubcontractorReportAction } from './actions';
 import { cn, getPartnerEmails } from '@/lib/utils';
+import { generateSnaggingPDF } from '@/lib/pdf-utils';
 
 /**
- * DistributeReportsButton - Provides a prompt to choose recipients and report scope
- * before generating and emailing snagging PDFs via Resend.
- * Now distributes to all associated partner users who have the email flag set.
+ * DistributeReportsButton - Choose recipients and report scope before generating and emailing snagging PDFs.
  */
 export function DistributeReportsButton({
   item,
@@ -78,14 +77,13 @@ export function DistributeReportsButton({
     setIsDistributing(true);
 
     try {
-      const { jsPDF } = await import('jspdf');
-      const html2canvas = (await import('html2canvas')).default;
+      const area = project?.areas?.find(a => a.id === item.areaId);
 
       for (const subId of selectedSubIds) {
         const sub = subContractors.find(s => s.id === subId);
         if (!sub) continue;
 
-        // Calculate distribution emails (Primary Sub Email + Assigned Users)
+        // Calculate distribution emails
         const recipientEmails = getPartnerEmails(subId, subContractors, allUsers);
         if (recipientEmails.length === 0) continue;
 
@@ -94,94 +92,21 @@ export function DistributeReportsButton({
           ? item.items.filter(i => i.subContractorId === subId)
           : item.items;
 
-        const area = project?.areas?.find(a => a.id === item.areaId);
-        const formattedDate = new Date(item.createdAt).toLocaleDateString();
         const fileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${item.title.replace(/\s+/g, '-')}.pdf`;
 
-        const reportElement = document.createElement('div');
-        reportElement.style.position = 'absolute';
-        reportElement.style.left = '-9999px';
-        reportElement.style.padding = '40px';
-        reportElement.style.width = '800px';
-        reportElement.style.background = 'white';
-        reportElement.style.color = 'black';
-        reportElement.style.fontFamily = 'sans-serif';
-
-        reportElement.innerHTML = `
-          <div style="border-bottom: 2px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
-            <h1 style="margin: 0; color: #1e40af; font-size: 28px;">Snagging Report</h1>
-            <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">Partner: ${sub.name}</p>
-            <p style="margin: 2px 0 0 0; color: #64748b; font-size: 10px; font-weight: bold; text-transform: uppercase;">
-              ${reportScope === 'individual' ? 'Scope: Individual Trade Items Only' : 'Scope: Full Area Completion List'}
-            </p>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px;">
-            <div>
-              <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Project</p>
-              <p style="margin: 2px 0 0 0; font-size: 16px;">${project?.name || 'Unknown Project'}</p>
-            </div>
-            <div>
-              <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Area</p>
-              <p style="margin: 2px 0 0 0; font-size: 16px;">${area?.name || 'General Site'}</p>
-            </div>
-          </div>
-
-          <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 20px;">
-            ${reportScope === 'individual' ? 'Assigned Trade Items' : 'Comprehensive List'}
-          </h2>
-          
-          <div style="margin-bottom: 40px;">
-            ${itemsToInclude.map(listItem => {
-              const itemSub = subContractors.find(s => s.id === listItem.subContractorId);
-              const isAssignedToThisRecipient = listItem.subContractorId === subId;
-              const hasIssuePhotos = listItem.photos && listItem.photos.length > 0;
-              const hasCompletionPhotos = listItem.completionPhotos && listItem.completionPhotos.length > 0;
-              
-              return `
-                <div style="border: 1px solid ${isAssignedToThisRecipient ? '#1e40af' : '#e2e8f0'}; border-radius: 8px; margin-bottom: 20px; overflow: hidden; page-break-inside: avoid; background: ${isAssignedToThisRecipient ? '#f0f7ff' : 'transparent'};">
-                  <div style="background: ${isAssignedToThisRecipient ? '#e0f2fe' : '#f8fafc'}; padding: 12px; border-bottom: 1px solid ${isAssignedToThisRecipient ? '#1e40af' : '#e2e8f0'}; display: flex; justify-content: space-between; align-items: center;">
-                    <div style="flex: 1;">
-                      <p style="margin: 0; font-size: 14px; font-weight: bold; color: #1e293b;">${listItem.description}</p>
-                      ${reportScope === 'full' ? `<p style="margin: 4px 0 0 0; font-size: 10px; color: #64748b; font-weight: bold;">Trade: ${itemSub?.name || 'Unassigned'}</p>` : ''}
-                    </div>
-                    <div style="background: ${listItem.status === 'closed' ? '#dcfce7' : '#fef3c7'}; color: ${listItem.status === 'closed' ? '#166534' : '#92400e'}; padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase;">
-                      ${listItem.status}
-                    </div>
-                  </div>
-                  
-                  <div style="padding: 12px;">
-                    ${hasIssuePhotos ? `
-                      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px;">
-                        ${listItem.photos!.map(p => `<img src="${p.url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px;" />`).join('')}
-                      </div>
-                    ` : ''}
-
-                    ${hasCompletionPhotos ? `
-                      <p style="margin: 0 0 5px 0; font-size: 8px; color: #16a34a; font-weight: bold; text-transform: uppercase;">Verification Evidence</p>
-                      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
-                        ${listItem.completionPhotos!.map(p => `<img src="${p.url}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 4px; border: 1px solid #dcfce7;" />`).join('')}
-                      </div>
-                    ` : ''}
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-
-          <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center;">
-            <p style="font-size: 12px; color: #64748b;">Report generated on ${formattedDate} via SiteCommand.</p>
-          </div>
-        `;
-
-        document.body.appendChild(reportElement);
-        const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-        document.body.removeChild(reportElement);
+        // Use the high-fidelity PDF engine
+        const pdf = await generateSnaggingPDF({
+          title: 'Snagging Audit Report',
+          project,
+          subContractors,
+          aggregatedEntries: itemsToInclude.map(snag => ({
+            listTitle: item.title,
+            areaName: area?.name || 'General Site',
+            snag
+          })),
+          generalPhotos: item.photos || [],
+          scopeLabel: reportScope === 'individual' ? `Partner: ${sub.name}` : 'Comprehensive Area List'
+        });
 
         const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
@@ -198,7 +123,7 @@ export function DistributeReportsButton({
         }
       }
 
-      toast({ title: "Process Complete", description: "All selected trade reports have been issued to the full distribution list." });
+      toast({ title: "Process Complete", description: "Reports generated with visual evidence and issued to partners." });
       setOpen(false);
     } catch (err) {
       console.error('Distribution Error:', err);
@@ -227,7 +152,7 @@ export function DistributeReportsButton({
             </DialogTrigger>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Distribute reports to trade partners</p>
+            <p>Email reports to trade partners</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -241,7 +166,7 @@ export function DistributeReportsButton({
             <DialogTitle>Distribute Snagging Reports</DialogTitle>
           </div>
           <DialogDescription>
-            Choose which partners to notify. Reports are sent to primary contacts and all assigned staff with email preferences enabled.
+            Choose which partners to notify. Reports include site evidence and are sent to primary contacts and all assigned staff.
           </DialogDescription>
         </DialogHeader>
 
@@ -294,7 +219,7 @@ export function DistributeReportsButton({
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="r-ind" className="text-sm font-bold flex items-center gap-2 cursor-pointer"><List className="h-3.5 w-3.5" /> Individual Trade Items</Label>
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    Partners only see the defects explicitly assigned to their company. Minimalist and focused.
+                    Partners only see the defects explicitly assigned to their company.
                   </p>
                 </div>
               </div>
@@ -310,7 +235,7 @@ export function DistributeReportsButton({
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="r-full" className="text-sm font-bold flex items-center gap-2 cursor-pointer"><FileText className="h-3.5 w-3.5" /> Full Area Completion List</Label>
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    Partners see the entire list for this area. Their items are highlighted for clarity. Best for site-wide context.
+                    Partners see the entire list for this area. Their items are highlighted for clarity.
                   </p>
                 </div>
               </div>
