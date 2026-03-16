@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2, Users, CheckCircle2, List, AlertTriangle } from 'lucide-react';
+import { Send, Loader2, Users, CheckCircle2, List, AlertTriangle, FileText } from 'lucide-react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -99,7 +99,8 @@ export function DistributeReportsButton({
 
         if (itemsToInclude.length === 0) continue;
 
-        const fileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${item.title.replace(/\s+/g, '-')}.pdf`;
+        const fileName = 1; // Placeholder for logic clarity, actual implementation uses below:
+        const reportFileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${item.title.replace(/\s+/g, '-')}.pdf`;
 
         // Use the high-fidelity PDF engine
         const pdf = await generateSnaggingPDF({
@@ -127,7 +128,7 @@ export function DistributeReportsButton({
               projectName: project?.name || 'Project',
               areaName: area?.name || 'General Area',
               pdfBase64,
-              fileName
+              fileName: reportFileName
             });
         }
         sentCount++;
