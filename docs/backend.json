@@ -23,6 +23,7 @@
             "canManagePermitTemplates": { "type": "boolean" },
             "canManageTraining": { "type": "boolean" },
             "canManageIRS": { "type": "boolean" },
+            "canApproveHolidays": { "type": "boolean" },
             "hasFullVisibility": { "type": "boolean" },
             "accessMaterials": { "type": "boolean" },
             "accessPlant": { "type": "boolean" },
@@ -39,11 +40,32 @@
             "accessSubContractOrders": { "type": "boolean" },
             "accessIRS": { "type": "boolean" },
             "accessPlanner": { "type": "boolean" },
-            "accessProcurement": { "type": "boolean" }
+            "accessProcurement": { "type": "boolean" },
+            "accessHolidays": { "type": "boolean" }
           }
         }
       },
       "required": ["id", "name", "email"]
+    },
+    "HolidayRequest": {
+      "title": "Holiday Request",
+      "description": "A staff leave or holiday request.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "totalDays": { "type": "number" },
+        "type": { "type": "string", "enum": ["holiday", "sick", "other"] },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "approvedByEmail": { "type": "string" },
+        "approvedByName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     },
     "SystemSettings": {
       "title": "System Settings",
@@ -166,6 +188,7 @@
     "/irs-items/{id}": { "schema": { "$ref": "#/backend/entities/IRSItem" }, "description": "Information Required Schedule tracking items." },
     "/planner-tasks/{id}": { "schema": { "$ref": "#/backend/entities/PlannerTask" }, "description": "Short term construction planning tasks." },
     "/procurement-items/{id}": { "schema": { "$ref": "#/backend/entities/ProcurementItem" }, "description": "Trade procurement scheduling and tracking." },
-    "/system-settings/{id}": { "schema": { "$ref": "#/backend/entities/SystemSettings" }, "description": "Global app configurations." }
+    "/system-settings/{id}": { "schema": { "$ref": "#/backend/entities/SystemSettings" }, "description": "Global app configurations." },
+    "/holiday-requests/{id}": { "schema": { "$ref": "#/backend/entities/HolidayRequest" }, "description": "Staff leave and holiday requests." }
   }
 }

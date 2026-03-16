@@ -144,6 +144,7 @@ export type UserPermissions = {
   canManageTraining: boolean;
   canManageIRS: boolean;
   canManageBranding: boolean;
+  canApproveHolidays?: boolean;
   hasFullVisibility: boolean;
   // Module Access
   accessMaterials: boolean;
@@ -162,6 +163,7 @@ export type UserPermissions = {
   accessIRS: boolean;
   accessPlanner: boolean;
   accessProcurement: boolean;
+  accessHolidays?: boolean;
   // Read Only Flags
   materialsReadOnly?: boolean;
   plantReadOnly?: boolean;
@@ -562,5 +564,26 @@ export type SubContractOrder = {
   loadedOnDocuSignDate: string | null;
   signedDate: string | null;
   status: SubContractOrderStatus;
+  createdAt: string;
+};
+
+// --- HOLIDAYS MODULE TYPES ---
+
+export type HolidayRequestStatus = 'pending' | 'approved' | 'rejected';
+export type HolidayType = 'holiday' | 'sick' | 'other';
+
+export type HolidayRequest = {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  type: HolidayType;
+  notes?: string;
+  status: HolidayRequestStatus;
+  approvedByEmail?: string | null;
+  approvedByName?: string | null;
   createdAt: string;
 };

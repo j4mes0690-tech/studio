@@ -33,7 +33,8 @@ import {
   CalendarClock,
   CalendarRange,
   ClipboardList,
-  BarChart3
+  BarChart3,
+  Sun
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -54,6 +55,7 @@ const links = [
   { href: '/payment-notices', label: 'Payment Notices', icon: Banknote, permission: 'accessPaymentNotices' },
   { href: '/permits', label: 'Permits to Work', icon: FileCheck, permission: 'accessPermits' },
   { href: '/training', label: 'Training & Compliance', icon: GraduationCap, permission: 'accessTraining' },
+  { href: '/holidays', label: 'Holiday Booking', icon: Sun, permission: 'accessHolidays' },
   { href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle, permission: 'accessClientInstructions' },
   { href: '/instructions', label: 'Site Instructions', icon: MessageSquare, permission: 'accessSiteInstructions' },
   { href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles, permission: 'accessCleanupNotices' },
