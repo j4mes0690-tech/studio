@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, Pencil, Check } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, Pencil, Check, Circle, CheckCircle2 } from 'lucide-react';
 import type { Project, Photo, Area, CleanUpListItem, SubContractor, DistributionUser, CleanUpNotice } from '@/lib/types';
 import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -105,11 +105,11 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
 
   useEffect(() => {
     if (selectedAreaId === 'other') {
-      form.setValue('title', 'Clean Up Requirement: ');
+      form.setValue('title', '');
     } else if (selectedAreaId && selectedAreaId !== 'none' && selectedAreaId !== '') {
       const area = availableAreas.find(a => a.id === selectedAreaId);
       if (area) {
-        form.setValue('title', `Clean Up Requirement: ${area.name}`);
+        form.setValue('title', `${area.name} Clean Up Requirement`);
       }
     } else {
       form.setValue('title', '');
@@ -196,6 +196,16 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
         toast({ title: 'Save Error', description: 'Failed to add cleaning item.', variant: 'destructive' });
       }
     });
+  };
+
+  const handleToggleStatus = (idx: number) => {
+    const updatedItems = items.map((it, i) => 
+      i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as 'open' | 'closed' } : it
+    );
+    setItems(updatedItems);
+    if (activeNoticeId) {
+      updateDoc(doc(db, 'cleanup-notices', activeNoticeId), { items: updatedItems });
+    }
   };
 
   const handleStartEdit = (idx: number) => {
@@ -369,30 +379,39 @@ export function NewNotice({ projects, subContractors, allNotices }: { projects: 
                                               </div>
                                           </div>
                                       ) : (
-                                          <div className="flex flex-col gap-3">
-                                              <div className="flex items-center justify-between">
-                                                  <div className="flex flex-col gap-1 min-w-0 flex-1">
-                                                      <span className="text-sm font-bold truncate">{item.description}</span>
-                                                      <div className="mt-1 flex items-center gap-2">
-                                                          {item.subContractorId && <Badge variant="secondary" className="text-[10px]">{projectSubs.find(s => s.id === item.subContractorId)?.name}</Badge>}
-                                                          {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
+                                          <div className="flex items-start gap-3">
+                                              <button 
+                                                  type="button"
+                                                  onClick={() => handleToggleStatus(idx)}
+                                                  className="mt-1 flex-shrink-0 hover:scale-110 transition-transform"
+                                              >
+                                                  {item.status === 'closed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+                                              </button>
+                                              <div className="flex flex-col gap-3 flex-1 min-w-0">
+                                                  <div className="flex items-center justify-between">
+                                                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                                          <span className={cn("text-sm font-bold truncate", item.status === 'closed' && "line-through opacity-50")}>{item.description}</span>
+                                                          <div className="mt-1 flex items-center gap-2">
+                                                              {item.subContractorId && <Badge variant="secondary" className="text-[10px]">{projectSubs.find(s => s.id === item.subContractorId)?.name}</Badge>}
+                                                              {item.photos && item.photos.length > 0 && <Badge variant="outline" className="text-[9px] h-4"><Camera className="h-2.5 w-2.5 mr-1" /> {item.photos.length} Photos</Badge>}
+                                                          </div>
+                                                      </div>
+                                                      <div className="flex gap-1 shrink-0">
+                                                          <Button type="button" variant="ghost" size="icon" onClick={() => handleStartEdit(idx)}><Pencil className="h-4 w-4" /></Button>
+                                                          <Button type="button" variant="ghost" size="icon" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
                                                       </div>
                                                   </div>
-                                                  <div className="flex gap-1 shrink-0">
-                                                      <Button type="button" variant="ghost" size="icon" onClick={() => handleStartEdit(idx)}><Pencil className="h-4 w-4" /></Button>
-                                                      <Button type="button" variant="ghost" size="icon" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
-                                                  </div>
-                                              </div>
 
-                                              {item.photos && item.photos.length > 0 && (
-                                                <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
-                                                    {item.photos.map((p, pi) => (
-                                                        <div key={pi} className="relative w-12 h-9 rounded border overflow-hidden">
-                                                            <Image src={p.url} alt="Site" fill className="object-cover" />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                              )}
+                                                  {item.photos && item.photos.length > 0 && (
+                                                    <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
+                                                        {item.photos.map((p, pi) => (
+                                                            <div key={pi} className="relative w-12 h-9 rounded border overflow-hidden">
+                                                                <Image src={p.url} alt="Site" fill className="object-cover" />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                  )}
+                                              </div>
                                           </div>
                                       )}
                                   </div>

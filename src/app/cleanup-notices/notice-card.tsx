@@ -108,6 +108,19 @@ export function NoticeCard({
     });
   };
 
+  const handleToggleItemStatus = (itemId: string) => {
+    startTransition(async () => {
+      try {
+        const newItems = (notice.items || []).map(item => 
+          item.id === itemId ? { ...item, status: (item.status === 'open' ? 'closed' : 'open') as 'open' | 'closed' } : item
+        );
+        await updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItems });
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to update item status.', variant: 'destructive' });
+      }
+    });
+  };
+
   return (
     <>
       <Card className={cn(notice.status === 'draft' && "border-orange-200 bg-orange-50/5")}>
@@ -206,9 +219,13 @@ export function NoticeCard({
                       const sub = subContractors.find(s => s.id === subItem.subContractorId);
                       return (
                           <div key={subItem.id} className="p-2.5 rounded-lg bg-background border shadow-sm flex items-start gap-3">
-                              <div className="mt-0.5">
+                              <button 
+                                  className="mt-0.5 flex-shrink-0 hover:scale-110 transition-transform"
+                                  onClick={() => handleToggleItemStatus(subItem.id)}
+                                  disabled={isPending}
+                              >
                                   {subItem.status === 'closed' ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
-                              </div>
+                              </button>
                               <div className="flex-1 min-w-0">
                                   <p className={cn("text-xs font-bold leading-relaxed", subItem.status === 'closed' && "line-through text-muted-foreground")}>{subItem.description}</p>
                                   {sub && <Badge variant="secondary" className="mt-1 text-[8px] h-4 bg-primary/5 text-primary border-primary/10">{sub.name}</Badge>}

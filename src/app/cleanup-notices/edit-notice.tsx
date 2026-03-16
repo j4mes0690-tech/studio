@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, X, Trash2, Plus, Loader2, Check } from 'lucide-react';
+import { Pencil, Camera, X, Trash2, Plus, Loader2, Check, Circle, CheckCircle2 } from 'lucide-react';
 import type { Project, Photo, Area, CleanUpListItem, SubContractor, CleanUpNotice } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -134,6 +134,12 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
         setNewItemText('');
         setPendingSubId(undefined);
     });
+  };
+
+  const handleToggleStatus = (id: string) => {
+    const newItemsList = items.map(i => i.id === id ? { ...i, status: (i.status === 'open' ? 'closed' : 'open') as 'open' | 'closed' } : i);
+    setItems(newItemsList);
+    updateDoc(doc(db, 'cleanup-notices', notice.id), { items: newItemsList });
   };
 
   const handleRemoveItem = (id: string) => {
@@ -263,29 +269,38 @@ export function EditCleanUpNotice({ notice, projects, subContractors, open: exte
                                           </div>
                                       </div>
                                   ) : (
-                                      <>
-                                          <div className="flex items-center justify-between">
-                                              <div className="flex flex-col">
-                                                  <span className={cn("text-sm font-bold", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</span>
-                                                  {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
+                                      <div className="flex items-start gap-3">
+                                          <button 
+                                              type="button"
+                                              onClick={() => handleToggleStatus(listItem.id)}
+                                              className="mt-1 flex-shrink-0 hover:scale-110 transition-transform"
+                                          >
+                                              {listItem.status === 'closed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+                                          </button>
+                                          <div className="flex flex-col gap-3 flex-1 min-w-0">
+                                              <div className="flex items-center justify-between">
+                                                  <div className="flex flex-col min-w-0">
+                                                      <span className={cn("text-sm font-bold truncate", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</span>
+                                                      {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
+                                                  </div>
+                                                  <div className="flex gap-1 shrink-0">
+                                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStartEdit(listItem)}><Pencil className="h-4 w-4" /></Button>
+                                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
+                                                  </div>
                                               </div>
-                                              <div className="flex gap-1">
-                                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleStartEdit(listItem)}><Pencil className="h-4 w-4" /></Button>
-                                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
-                                              </div>
-                                          </div>
 
-                                          {listItem.photos && listItem.photos.length > 0 && (
-                                            <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
-                                                {listItem.photos.map((p, pi) => (
-                                                    <div key={pi} className="relative w-12 h-9 rounded border overflow-hidden">
-                                                        <Image src={p.url} alt="Site" fill className="object-cover" />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                          )}
-                                      </>
+                                              {listItem.photos && listItem.photos.length > 0 && (
+                                                <div className="flex gap-2 flex-wrap pt-2 border-t border-dashed">
+                                                    {listItem.photos.map((p, pi) => (
+                                                        <div key={pi} className="relative w-12 h-9 rounded border overflow-hidden">
+                                                            <Image src={p.url} alt="Site" fill className="object-cover" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                              )}
+                                          </div>
+                                      </div>
                                   )}
                               </div>
                           ))}
