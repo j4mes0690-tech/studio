@@ -2,8 +2,8 @@ import { cn } from '@/lib/utils';
 
 /**
  * Logo - The primary branding component for SiteCommand.
- * Features a modern, stylized hard hat icon representing site safety, 
- * professional execution, and authority in construction management.
+ * Updated to match the new high-performance design: 
+ * A stylized hard hat integrated with an eagle/bolt motif.
  */
 export function Logo({ 
   className, 
@@ -23,45 +23,46 @@ export function Logo({
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          {/* Industrial Slate Background Container */}
-          <rect width="100" height="100" rx="20" fill="#1e293b" />
-          
           {/* Hard Hat Dome - High-Vis Orange */}
           <path 
-            d="M22 62 C22 25 78 25 78 62" 
-            fill="#f97316" 
+            d="M38 42 C38 30 62 30 62 42" 
+            stroke="#f97316" 
+            strokeWidth="7" 
+            strokeLinecap="round" 
           />
           
-          {/* Reinforced Brim - High-Vis Orange */}
+          {/* Hard Hat Brim - High-Vis Orange */}
           <path 
-            d="M15 62 H85 C88 62 90 64 90 67 V70 C90 73 88 75 85 75 H15 C12 75 10 73 10 70 V67 C10 64 12 62 15 62 Z" 
-            fill="#f97316" 
+            d="M32 46 H68" 
+            stroke="#f97316" 
+            strokeWidth="5" 
+            strokeLinecap="round" 
+          />
+
+          {/* Left Graphic Element (Lightning Bolt / Wing) - Black */}
+          <path
+            d="M24 64 L44 56 L32 70 L52 80"
+            stroke="black"
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {/* Right Graphic Element (Eagle Head) - Black */}
+          <path
+            d="M54 66 C62 60 74 62 80 72 C74 72 70 80 62 76"
+            stroke="black"
+            strokeWidth="5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
           />
           
-          {/* Central Structural Ridge - White with low opacity */}
-          <path 
-            d="M44 30 C44 30 50 27 56 30 V62 H44 V30 Z" 
-            fill="white" 
-            fillOpacity="0.25" 
-          />
-          
-          {/* High-Vis Reflective Strip detail */}
-          <rect 
-            x="30" 
-            y="66" 
-            width="40" 
-            height="3" 
-            rx="1.5" 
-            fill="white" 
-            fillOpacity="0.4" 
-          />
-          
-          {/* Depth Detail: Brim Shadow */}
-          <path 
-            d="M22 62 H78" 
-            stroke="black" 
-            strokeOpacity="0.1" 
-            strokeWidth="3" 
+          {/* Eagle Eye / Detail Detail - Black */}
+          <path
+            d="M60 66 C64 62 70 64 74 67"
+            stroke="black"
+            strokeWidth="3"
+            strokeLinecap="round"
           />
         </svg>
       </div>
