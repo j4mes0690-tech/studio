@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -22,6 +21,16 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -43,7 +52,8 @@ import {
   Camera,
   X,
   Pencil,
-  Check
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 import type { Project, DistributionUser, SubContractor, SiteDiaryEntry, SubcontractorLog, Photo } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
@@ -96,6 +106,10 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+
+  // Warning State
+  const [showLabourWarning, setShowLabourWarning] = useState(false);
+  const [pendingValues, setPendingValues] = useState<NewDiaryFormValues | null>(null);
 
   const form = useForm<NewDiaryFormValues>({
     resolver: zodResolver(NewDiarySchema),
@@ -164,6 +178,16 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
   };
 
   const onSubmit = (values: NewDiaryFormValues) => {
+    // Warn if saving without any labour resources
+    if (logs.length === 0) {
+      setPendingValues(values);
+      setShowLabourWarning(true);
+    } else {
+      executeSave(values);
+    }
+  };
+
+  const executeSave = (values: NewDiaryFormValues) => {
     startTransition(async () => {
       try {
         toast({ title: 'Recording', description: 'Persisting daily log and evidence...' });
@@ -210,6 +234,8 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
       setLogs([]);
       setPhotos([]);
       setEditingLogIdx(null);
+      setShowLabourWarning(false);
+      setPendingValues(null);
       form.reset();
     }
   }, [open, form]);
@@ -407,6 +433,34 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showLabourWarning} onOpenChange={setShowLabourWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2 text-destructive">
+                <AlertTriangle className="h-6 w-6" />
+                <AlertDialogTitle>Missing Labour Data</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-foreground">
+              You haven't added any trade partners or operatives to this daily log.
+              <br /><br />
+              Site diaries without workforce data provide a less accurate record for commercial audits. Are you sure you want to save?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowLabourWarning(false)}>Go Back</AlertDialogCancel>
+            <AlertDialogAction 
+                className="bg-destructive hover:bg-destructive/90"
+                onClick={() => {
+                    if (pendingValues) executeSave(pendingValues);
+                    setShowLabourWarning(false);
+                }}
+            >
+                Confirm Save Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CameraOverlay 
         isOpen={isCameraOpen} 
