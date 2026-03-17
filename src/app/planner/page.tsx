@@ -22,7 +22,6 @@ import {
     Circle,
     CheckCircle2,
     FileDown,
-    Send,
     Archive,
     Trash2,
     ArchiveRestore,
@@ -236,7 +235,6 @@ function PlannerContent() {
             const projData = projSnap.data();
             const updates: any = {};
             
-            // Clean up both possible array keys for broad compatibility
             if (projData.planners) {
                 updates.planners = projData.planners.filter((p: any) => p.id !== plannerId);
             }
@@ -244,19 +242,16 @@ function PlannerContent() {
                 updates.areas = projData.areas.filter((a: any) => a.id !== plannerId);
             }
 
-            // 1. Update the Project Document
             await updateDoc(projRef, updates);
 
-            // 2. Cleanup all associated tasks in a batch
-            const tasksQuery = query(collection(db, 'planner-tasks'), where('plannerId', '==', plannerId));
-            const tasksSnap = await getDocs(tasksQuery);
+            const tasksCollQuery = query(collection(db, 'planner-tasks'), where('plannerId', '==', plannerId));
+            const tasksSnap = await getDocs(tasksCollQuery);
             
             const batch = writeBatch(db);
             tasksSnap.forEach((tDoc) => {
                 batch.delete(tDoc.ref);
             });
             
-            // Also cleanup legacy 'areaId' scoped tasks
             const legacyTasksQuery = query(collection(db, 'planner-tasks'), where('areaId', '==', plannerId));
             const legacyTasksSnap = await getDocs(legacyTasksQuery);
             legacyTasksSnap.forEach((tDoc) => {
@@ -265,12 +260,11 @@ function PlannerContent() {
 
             await batch.commit();
 
-            // 3. Navigate back if the user was currently viewing the deleted planner
             if (plannerFilter === plannerId) {
                 clearPlanner();
             }
             
-            toast({ title: 'Planner Deleted', description: 'Schedule and all associated tasks have been permanently removed.' });
+            toast({ title: 'Planner Deleted', description: 'Schedule and all associated tasks removed.' });
         } catch (err) {
             console.error("Delete planner error:", err);
             toast({ title: 'Error', description: 'Failed to delete planner.', variant: 'destructive' });
@@ -304,13 +298,13 @@ function PlannerContent() {
 
   if (!projectFilter) {
     return (
-        <div className="space-y-6 p-4 md:p-8">
+        <main className="flex-1 space-y-6 p-4 md:p-8">
             <div className="space-y-1">
                 <h2 className="text-3xl font-bold tracking-tight">Work Planner</h2>
                 <p className="text-sm text-muted-foreground">Select a project to view its active schedules.</p>
             </div>
             
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pb-20">
                 {allowedProjects.length > 0 ? allowedProjects.map(project => {
                     const stats = projectStats.get(project.id) || { total: 0, completed: 0 };
                     const progress = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
@@ -343,7 +337,7 @@ function PlannerContent() {
                     </div>
                 )}
             </div>
-        </div>
+        </main>
     );
   }
 
@@ -352,7 +346,7 @@ function PlannerContent() {
     const visiblePlanners = planners.filter(p => !!p.archived === showArchived);
 
     return (
-        <div className="space-y-6 p-4 md:p-8">
+        <main className="flex-1 space-y-6 p-4 md:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="space-y-1">
                     <Button variant="ghost" size="sm" onClick={clearProject} className="mb-2 -ml-2 text-muted-foreground h-8 gap-1.5">
@@ -411,7 +405,7 @@ function PlannerContent() {
                 </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pb-20">
                 {visiblePlanners.length > 0 ? visiblePlanners.map(planner => {
                     const stats = plannerStats.get(planner.id) || { total: 0, completed: 0 };
                     const progress = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
@@ -505,139 +499,137 @@ function PlannerContent() {
                     </div>
                 )}
             </div>
-        </div>
+        </main>
     );
   }
 
   return (
-    <>
-        <div className="flex flex-col w-full gap-6 p-4 md:p-8">
-            <div className="flex flex-col gap-4">
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Button variant="ghost" size="sm" onClick={clearPlanner} className="text-muted-foreground h-8 p-0 hover:bg-transparent hover:text-primary">
-                            {currentProject?.name}
-                        </Button>
-                        <span className="text-muted-foreground text-xs">&rsaquo;</span>
-                        <Badge variant="secondary" className="bg-primary/10 text-primary uppercase text-[10px] font-black h-6">{currentPlanner?.name}</Badge>
-                        {currentPlanner?.archived && <Badge variant="outline" className="text-[10px] uppercase font-bold h-6 border-amber-200 text-amber-700 bg-amber-50">Archived</Badge>}
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                            <Layout className="h-7 w-7 text-primary" />
-                            Construction Schedule
-                        </h2>
-                        <div className="flex items-center gap-2">
-                            <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                      <Button variant="outline" size="icon" onClick={handleDownloadPDF} disabled={isExporting} className="h-10 w-10">
-                                        {isExporting ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileDown className="h-5 w-5" />}
-                                      </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent><p>Export Schedule PDF</p></TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-
-                            <DistributePlannerButton 
-                              tasks={filteredTasks}
-                              project={currentProject}
-                              planner={currentPlanner}
-                              subContractors={allSubContractors || []}
-                            />
-
-                            <TooltipProvider>
-                                <Tooltip>
+    <main className="flex-1 flex flex-col w-full gap-6 p-4 md:p-8">
+        <div className="flex flex-col gap-4">
+            <div className="space-y-1">
+                <div className="flex items-center gap-2 mb-2">
+                    <Button variant="ghost" size="sm" onClick={clearPlanner} className="text-muted-foreground h-8 p-0 hover:bg-transparent hover:text-primary">
+                        {currentProject?.name}
+                    </Button>
+                    <span className="text-muted-foreground text-xs">&rsaquo;</span>
+                    <Badge variant="secondary" className="bg-primary/10 text-primary uppercase text-[10px] font-black h-6">{currentPlanner?.name}</Badge>
+                    {currentPlanner?.archived && <Badge variant="outline" className="text-[10px] uppercase font-bold h-6 border-amber-200 text-amber-700 bg-amber-50">Archived</Badge>}
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+                        <Layout className="h-7 w-7 text-primary" />
+                        Construction Schedule
+                    </h2>
+                    <div className="flex items-center gap-2">
+                        <TooltipProvider>
+                            <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button variant="outline" size="icon" onClick={toggleView} className="h-10 w-10">
-                                    {isGanttView ? <List className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
+                                    <Button variant="outline" size="icon" onClick={handleDownloadPDF} disabled={isExporting} className="h-10 w-10">
+                                    {isExporting ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileDown className="h-5 w-5" />}
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent><p>Switch to {isGanttView ? 'List' : 'Gantt'} View</p></TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
+                                <TooltipContent><p>Export Schedule PDF</p></TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
 
-                            <NewTaskDialog 
-                                projects={allowedProjects} 
-                                subContractors={allSubContractors || []}
-                                allTasks={allTasks || []}
-                                initialProjectId={projectFilter}
-                                initialPlannerId={plannerFilter!}
-                            />
-                        </div>
+                        <DistributePlannerButton 
+                            tasks={filteredTasks}
+                            project={currentProject}
+                            planner={currentPlanner}
+                            subContractors={allSubContractors || []}
+                        />
+
+                        <TooltipProvider>
+                            <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" onClick={toggleView} className="h-10 w-10">
+                                {isGanttView ? <List className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Switch to {isGanttView ? 'List' : 'Gantt'} View</p></TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
+                        <NewTaskDialog 
+                            projects={allowedProjects} 
+                            subContractors={allSubContractors || []}
+                            allTasks={allTasks || []}
+                            initialProjectId={projectFilter}
+                            initialPlannerId={plannerFilter!}
+                        />
                     </div>
                 </div>
             </div>
+        </div>
 
-            {isGanttView ? (
-                <div className="overflow-x-auto pb-8">
-                    <GanttChart 
-                      tasks={filteredTasks} 
-                      subContractors={allSubContractors || []} 
-                      projects={allowedProjects} 
-                      onTaskClick={(task) => setEditingTaskId(task.id)}
-                    />
-                </div>
-            ) : (
-                <div className="grid gap-4">
-                {filteredTasks.length > 0 ? (
-                    filteredTasks.map(task => {
-                        const sub = allSubContractors?.find(s => s.id === task.subcontractorId);
-                        const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned Partner');
-                        
-                        return (
-                            <Card key={task.id} className="hover:border-primary transition-all overflow-hidden cursor-pointer" onClick={() => setEditingTaskId(task.id)}>
-                                <CardContent className="p-0 flex flex-col sm:flex-row items-stretch">
-                                    <div className="p-4 flex flex-1 items-start gap-3 min-w-0">
-                                        <div className="mt-1">
-                                            {task.status === 'completed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : task.status === 'in-progress' ? <Loader2 className="h-5 w-5 text-primary animate-spin" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
-                                        </div>
-                                        <div className="space-y-2 min-w-0 flex-1">
-                                            <div className="space-y-1">
-                                                <p className={cn("font-bold truncate text-base", task.status === 'completed' && "line-through text-muted-foreground")}>{task.title}</p>
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <Badge variant="secondary" className="text-[9px] uppercase font-black bg-primary/5 text-primary border-primary/10 tracking-tight">{tradeName}</Badge>
-                                                </div>
+        {isGanttView ? (
+            <div className="overflow-x-auto pb-20">
+                <GanttChart 
+                    tasks={filteredTasks} 
+                    subContractors={allSubContractors || []} 
+                    projects={allowedProjects} 
+                    onTaskClick={(task) => setEditingTaskId(task.id)}
+                />
+            </div>
+        ) : (
+            <div className="grid gap-4 pb-20">
+            {filteredTasks.length > 0 ? (
+                filteredTasks.map(task => {
+                    const sub = allSubContractors?.find(s => s.id === task.subcontractorId);
+                    const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned Partner');
+                    
+                    return (
+                        <Card key={task.id} className="hover:border-primary transition-all overflow-hidden cursor-pointer" onClick={() => setEditingTaskId(task.id)}>
+                            <CardContent className="p-0 flex flex-col sm:flex-row items-stretch">
+                                <div className="p-4 flex flex-1 items-start gap-3 min-w-0">
+                                    <div className="mt-1">
+                                        {task.status === 'completed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : task.status === 'in-progress' ? <Loader2 className="h-5 w-5 text-primary animate-spin" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+                                    </div>
+                                    <div className="space-y-2 min-w-0 flex-1">
+                                        <div className="space-y-1">
+                                            <p className={cn("font-bold truncate text-base", task.status === 'completed' && "line-through text-muted-foreground")}>{task.title}</p>
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Badge variant="secondary" className="text-[9px] uppercase font-black bg-primary/5 text-primary border-primary/10 tracking-tight">{tradeName}</Badge>
                                             </div>
-                                            
-                                            {task.photos && task.photos.length > 0 && (
-                                                <div className="flex gap-2 flex-wrap pt-1">
-                                                    {task.photos.map((p, idx) => (
-                                                        <div key={idx} className="relative w-12 h-12 rounded-md border bg-muted overflow-hidden group cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
-                                                            <Image src={p.url} alt="Task Context" fill className="object-cover" />
-                                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 flex items-center justify-center transition-opacity">
-                                                                <Maximize2 className="h-3 w-3 text-white" />
-                                                            </div>
+                                        </div>
+                                        
+                                        {task.photos && task.photos.length > 0 && (
+                                            <div className="flex gap-2 flex-wrap pt-1">
+                                                {task.photos.map((p, idx) => (
+                                                    <div key={idx} className="relative w-12 h-12 rounded-md border bg-muted overflow-hidden group cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
+                                                        <Image src={p.url} alt="Task Context" fill className="object-cover" />
+                                                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 flex items-center justify-center transition-opacity">
+                                                            <Maximize2 className="h-3 w-3 text-white" />
                                                         </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="p-4 bg-muted/10 border-t sm:border-t-0 sm:border-l flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-4 shrink-0">
-                                        <div className="text-right">
-                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Forecast Start</p>
-                                            <p className="text-xs font-bold">{new Date(task.startDate).toLocaleDateString()}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Planned Days</p>
-                                            <p className="text-xs font-bold">{task.durationDays}</p>
-                                        </div>
+                                </div>
+                                <div className="p-4 bg-muted/10 border-t sm:border-t-0 sm:border-l flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-4 shrink-0">
+                                    <div className="text-right">
+                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Forecast Start</p>
+                                        <p className="text-xs font-bold">{new Date(task.startDate).toLocaleDateString()}</p>
                                     </div>
-                                </CardContent>
-                            </Card>
-                        )
-                    })
-                ) : (
-                    <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/5 text-muted-foreground/40">
-                        <CalendarRange className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                        <p className="text-lg font-semibold">No activities scheduled for this planner</p>
-                        <p className="text-sm">Click "Add Task" to begin building your project schedule.</p>
-                    </div>
-                )}
+                                    <div className="text-right">
+                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Planned Days</p>
+                                        <p className="text-xs font-bold">{task.durationDays}</p>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )
+                })
+            ) : (
+                <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/5 text-muted-foreground/40">
+                    <CalendarRange className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                    <p className="text-lg font-semibold">No activities scheduled for this planner</p>
+                    <p className="text-sm">Click "Add Task" to begin building your project schedule.</p>
                 </div>
             )}
-        </div>
+            </div>
+        )}
 
         {editingTask && (
             <EditTaskDialog 
@@ -651,13 +643,13 @@ function PlannerContent() {
         )}
 
         <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
-    </>
+    </main>
   );
 }
 
 export default function PlannerPage() {
   return (
-    <div className="flex flex-col w-full min-h-screen bg-background">
+    <div className="flex flex-col w-full min-h-svh bg-background">
       <Header title="Project Schedules" />
       <Suspense fallback={
         <div className="flex h-screen w-full items-center justify-center">

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -79,7 +80,7 @@ function SiteDiaryContent() {
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
 
   return (
-    <div className="flex flex-col w-full gap-6 p-4 md:p-8">
+    <main className="flex-1 flex flex-col w-full gap-6 p-4 md:p-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -136,7 +137,7 @@ function SiteDiaryContent() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4">
+      <div className="flex-1">
         {filteredEntries.length > 0 ? (
           isCompact ? (
             <DiaryTable 
@@ -144,7 +145,7 @@ function SiteDiaryContent() {
               projects={allowedProjects}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
                 {filteredEntries.map(entry => (
                     <DiaryCard 
                         key={entry.id} 
@@ -162,13 +163,13 @@ function SiteDiaryContent() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 
 export default function SiteDiaryPage() {
   return (
-    <div className="flex flex-col w-full min-h-screen">
+    <div className="flex flex-col w-full min-h-svh">
       <Header title="Site Diary" />
       <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
         <SiteDiaryContent />

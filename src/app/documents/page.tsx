@@ -6,11 +6,9 @@ import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { DrawingDocument, Project, DistributionUser } from '@/lib/types';
-import { Loader2, FileText, Filter, LayoutGrid, List, ShieldCheck, Cloud, RefreshCw, FolderSearch } from 'lucide-react';
+import { Loader2, FileText, Filter, ShieldCheck, FolderSearch } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSearchParams } from 'next/navigation';
 import { NewDrawingDialog } from './new-drawing';
 import { DrawingCard } from './drawing-card';
@@ -47,10 +45,10 @@ function DocumentsContent() {
   const filteredDrawings = useMemo(() => {
     if (!allDrawings) return [];
     return allDrawings.filter(doc => {
-      const isAuthorized = allowedProjectIds.includes(doc.projectId);
+      const isAuthorised = allowedProjectIds.includes(doc.projectId);
       const matchesProject = projectFilter === 'all' || doc.projectId === projectFilter;
       const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
-      return isAuthorized && matchesProject && matchesStatus;
+      return isAuthorised && matchesProject && matchesStatus;
     });
   }, [allDrawings, allowedProjectIds, projectFilter, statusFilter]);
 
@@ -65,14 +63,14 @@ function DocumentsContent() {
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
 
   return (
-    <div className="flex flex-col w-full gap-6 p-4 md:p-8">
+    <main className="flex-1 flex flex-col w-full gap-6 p-4 md:p-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <FileText className="h-6 w-6 text-primary" />
             Drawing Register
           </h2>
-          <p className="text-sm text-muted-foreground">Manage project documentation and automated SharePoint backups.</p>
+          <p className="text-sm text-muted-foreground">Manage project documentation and authorised SharePoint backups.</p>
           {hasFullVisibility && (
             <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
@@ -103,7 +101,7 @@ function DocumentsContent() {
               <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Authorized Projects</SelectItem>
+              <SelectItem value="all">All Authorised Projects</SelectItem>
               {allowedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -124,9 +122,9 @@ function DocumentsContent() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4">
+      <div className="flex-1">
         {filteredDrawings.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20">
               {filteredDrawings.map(drawing => (
                   <DrawingCard 
                     key={drawing.id} 
@@ -144,13 +142,13 @@ function DocumentsContent() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 
 export default function DocumentsPage() {
   return (
-    <div className="flex flex-col w-full min-h-screen">
+    <div className="flex flex-col w-full min-h-svh">
       <Header title="Document Management" />
       <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
         <DocumentsContent />
