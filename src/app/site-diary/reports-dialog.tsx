@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -31,6 +30,7 @@ import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays } fro
 import { AttendanceGantt } from './attendance-gantt';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 export function SiteDiaryReports({ 
   entries, 
