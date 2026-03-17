@@ -114,7 +114,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedIds.includes(sub.id));
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const handleAddLabour = () => {
