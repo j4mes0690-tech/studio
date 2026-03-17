@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -140,6 +139,7 @@ export default function Dashboard() {
     if (!db || !user?.email) return null;
     return doc(db, 'users', user.email.toLowerCase().trim());
   }, [db, user?.email]);
+
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   const pendingCounts = useMemo(() => {
@@ -219,19 +219,21 @@ export default function Dashboard() {
         )}
 
         <div className="flex flex-col items-center text-center gap-3 mt-2 md:mt-4 relative w-full max-w-6xl">
-            <div className={cn("p-3 bg-primary/10 rounded-full transition-all md:p-4", isCompact && "p-2")}>
+            <div className={cn("p-3 bg-primary/10 rounded-full transition-all md:p-4 shadow-[0_0_20px_rgba(249,115,22,0.15)]", isCompact && "p-2")}>
                 <HardHat className={cn("text-primary transition-all", isCompact ? "h-6 w-6" : "h-10 w-10 md:h-16 md:w-16")} />
             </div>
             <div className="px-4">
-                <h1 className={cn("font-bold tracking-tight transition-all", isCompact ? "text-lg md:text-xl" : "text-xl md:text-3xl")}>Welcome to SiteCommand</h1>
-                {!isCompact && <p className="text-muted-foreground text-xs md:text-sm mt-1 max-w-sm md:max-w-none">Select an action to get started. Long-press or use grip to reorder.</p>}
+                <h1 className={cn("font-black tracking-tight transition-all", isCompact ? "text-lg md:text-xl" : "text-xl md:text-4xl")}>
+                  Welcome to Site<span className="text-primary">Command</span>
+                </h1>
+                {!isCompact && <p className="text-muted-foreground text-xs md:text-sm mt-1 max-w-sm md:max-w-none">The intelligence hub for modern construction management.</p>}
             </div>
             <div className="absolute top-0 right-0 hidden md:flex items-center gap-2">
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <Button variant="outline" size="icon" onClick={toggleView} className="h-9 w-9">
-                                {isCompact ? <LayoutGrid className="h-4 w-4" /> : <Grid2X2 className="h-4 w-4" />}
+                            <Button variant="outline" size="icon" onClick={toggleView} className="h-9 w-9 border-primary/20 hover:bg-primary/5">
+                                {isCompact ? <LayoutGrid className="h-4 w-4 text-primary" /> : <Grid2X2 className="h-4 w-4 text-primary" />}
                             </Button>
                         </TooltipTrigger>
                         <TooltipContent><p>Switch to {isCompact ? 'Standard' : 'Compact'} View</p></TooltipContent>
@@ -250,12 +252,16 @@ export default function Dashboard() {
                 <div key={card.id} draggable={canDragId === card.id} onDragStart={(e) => handleDragStart(e, card.id)} onDragOver={handleDragOver} onDrop={(e) => handleDrop(e, card.id)} onDragEnd={handleDragEnd} className={cn("relative transition-opacity group", draggedId === card.id ? "opacity-40" : "opacity-100")}>
                     <div className="absolute top-2 left-2 z-30 p-1.5 opacity-0 md:group-hover:opacity-40 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-background/90 rounded border border-border shadow-sm hidden md:block" onMouseEnter={() => setCanDragId(card.id)} onMouseLeave={() => setCanDragId(null)}><GripVertical className="h-3.5 w-3.5 text-primary" /></div>
                     <Link href={card.href} className="block h-full" onClick={() => { if (!draggedId) setLoadingModule(card.id); }}>
-                        <Card className={cn("flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary/50 hover:shadow-md h-full relative overflow-hidden", isCompact ? "p-3 md:p-4 text-center" : "p-5 md:p-8 text-center", loadingModule === card.id && "ring-2 ring-primary ring-offset-2")}>
+                        <Card className={cn(
+                          "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary hover:shadow-[0_4px_20px_rgba(249,115,22,0.1)] h-full relative overflow-hidden", 
+                          isCompact ? "p-3 md:p-4 text-center" : "p-5 md:p-8 text-center", 
+                          loadingModule === card.id && "ring-2 ring-primary ring-offset-2"
+                        )}>
                             {loadingModule === card.id && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>)}
                             <CardHeader className="p-0 relative">
                                 <card.icon className={cn("mb-2 transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary", isCompact ? "h-6 w-6" : "h-8 w-8 mb-2 md:h-12 md:w-12 md:mb-4", loadingModule === card.id && "opacity-20")} />
                                 <FlashingBadge count={pendingCount} />
-                                <CardTitle className={cn("transition-all", isCompact ? "text-xs md:text-sm" : "text-sm md:text-xl")}>{card.label}</CardTitle>
+                                <CardTitle className={cn("transition-all font-bold", isCompact ? "text-xs md:text-sm" : "text-sm md:text-xl")}>{card.label}</CardTitle>
                             </CardHeader>
                             {!isCompact && <CardContent className="p-0 mt-2 hidden sm:block"><p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">{card.desc}</p></CardContent>}
                         </Card>

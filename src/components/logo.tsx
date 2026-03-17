@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * Logo - The primary branding component for SiteCommand.
- * Recreates the orange hard hat and shield motif with stylized 'SC' initials.
+ * Features an industrial hexagonal shield with a hard hat crown and stylized 'SC' initials.
  */
 export function Logo({ 
   className, 
@@ -18,38 +18,40 @@ export function Logo({
       <div className={cn('relative shrink-0 w-10 h-10', iconClassName)}>
         <svg
           viewBox="0 0 100 100"
-          className="w-full h-full drop-shadow-sm"
+          className="w-full h-full drop-shadow-md"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
-          {/* Bottom Dark Slate Shield / Base */}
+          {/* Main Industrial Hexagonal Shield - Dark Slate Base */}
           <path
-            d="M20 62 L50 85 L80 62 V52 H20 V62 Z"
-            fill="#334155" // slate-700
+            d="M50 5 L90 25 V75 L50 95 L10 75 V25 L50 5Z"
+            fill="#1e293b" // slate-800
           />
           
-          {/* Main Orange Hard Hat Shell */}
+          {/* Hard Hat Crown / Top Accent - High-Vis Orange */}
           <path
-            d="M15 52 C15 20 35 12 50 12 C65 12 85 20 85 52 H15 Z"
+            d="M50 5 L90 25 H10 L50 5Z"
             fill="#f97316" // orange-500
           />
           
-          {/* Hard Hat Brim */}
+          {/* Stylized Interlocking 'S' and 'C' - High Contrast White */}
+          {/* 'S' Part */}
           <path
-            d="M8 52 H92 V58 C92 61 90 63 87 63 H13 C10 63 8 61 8 58 V52 Z"
-            fill="#ea580c" // orange-600
-          />
-
-          {/* Stylized 'S' Path - Bold White */}
-          <path
-            d="M30 35 C30 31 33 29 38 29 H45 V34 H38 C36 34 35 35 35 36 C35 37 36 38 38 38 H45 C50 38 53 41 53 46 C53 51 50 54 45 54 H33 V49 H45 C47 49 48 48 48 47 C48 46 47 45 45 45 H38 C33 45 30 42 30 37 V35 Z"
+            d="M32 42 C32 38 35 36 40 36 H48 V42 H40 C38 42 37 43 37 44 C37 45 38 46 40 46 H48 C53 46 56 49 56 54 C56 59 53 62 48 62 H35 V56 H48 C50 56 51 55 51 54 C51 53 50 52 48 52 H40 C35 52 32 49 32 44 V42 Z"
             fill="white"
           />
           
-          {/* Stylized 'C' Path - Bold White */}
+          {/* 'C' Part */}
           <path
-            d="M72 34 V29 H57 V54 H72 V49 H63 V34 H72 Z"
+            d="M68 41 V36 H52 V62 H68 V57 H58 V41 H68 Z"
             fill="white"
+          />
+
+          {/* Optional: Subtle Bottom Reflection / Accent */}
+          <path
+            d="M50 95 L10 75 L15 72 L50 90 L85 72 L90 75 L50 95 Z"
+            fill="white"
+            fillOpacity="0.05"
           />
         </svg>
       </div>
