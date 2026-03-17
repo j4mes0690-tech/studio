@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "User": {
@@ -42,7 +41,8 @@
             "accessIRS": { "type": "boolean" },
             "accessPlanner": { "type": "boolean" },
             "accessProcurement": { "type": "boolean" },
-            "accessHolidays": { "type": "boolean" }
+            "accessHolidays": { "type": "boolean" },
+            "accessSiteDiary": { "type": "boolean" }
           }
         }
       },
@@ -178,6 +178,43 @@
         "assignedSubContractors": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["id", "name"]
+    },
+    "SiteDiaryEntry": {
+      "title": "Site Diary Entry",
+      "description": "Daily record of site activities, weather, and labor resources.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "weather": {
+          "type": "object",
+          "properties": {
+            "condition": { "type": "string" },
+            "temp": { "type": "number" },
+            "notes": { "type": "string" }
+          }
+        },
+        "subcontractorLogs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "subcontractorId": { "type": "string" },
+              "subcontractorName": { "type": "string" },
+              "employeeCount": { "type": "number" },
+              "areaId": { "type": "string" },
+              "areaName": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "generalComments": { "type": "string" },
+        "photos": { "type": "array", "items": { "$ref": "#/backend/entities/Photo" } },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdByEmail": { "type": "string" }
+      },
+      "required": ["id", "projectId", "date"]
     }
   },
   "auth": {
@@ -190,6 +227,7 @@
     "/planner-tasks/{id}": { "schema": { "$ref": "#/backend/entities/PlannerTask" }, "description": "Short term construction planning tasks." },
     "/procurement-items/{id}": { "schema": { "$ref": "#/backend/entities/ProcurementItem" }, "description": "Trade procurement scheduling and tracking." },
     "/system-settings/{id}": { "schema": { "$ref": "#/backend/entities/SystemSettings" }, "description": "Global app configurations." },
-    "/holiday-requests/{id}": { "schema": { "$ref": "#/backend/entities/HolidayRequest" }, "description": "Staff leave and holiday requests." }
+    "/holiday-requests/{id}": { "schema": { "$ref": "#/backend/entities/HolidayRequest" }, "description": "Staff leave and holiday requests." },
+    "/site-diary/{id}": { "schema": { "$ref": "#/backend/entities/SiteDiaryEntry" }, "description": "Daily site logs and labor records." }
   }
 }

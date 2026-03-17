@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -33,7 +34,8 @@ import {
   CalendarRange,
   ClipboardList,
   BarChart3,
-  Sun
+  Sun,
+  BookOpen
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
@@ -54,6 +56,7 @@ import { Logo } from '@/components/logo';
 
 const DASHBOARD_CARDS = [
   { id: 'insights', href: '/insights', label: 'Project Insights', icon: BarChart3, desc: 'Project performance, procurement tracking, and RFI analytics.', permission: 'hasFullVisibility' },
+  { id: 'site-diary', href: '/site-diary', label: 'Site Diary', icon: BookOpen, desc: 'Daily records of weather, labor resources, and site activities.', permission: 'accessSiteDiary' },
   { id: 'planner', href: '/planner', label: 'Work Planner', icon: CalendarRange, desc: 'Walkthrough properties and identify activities.', permission: 'accessPlanner' },
   { id: 'procurement', href: '/procurement', label: 'Procurement Schedule', icon: ShoppingCart, desc: 'Track the tendering lifecycle and milestone appointments.', permission: 'accessProcurement' },
   { id: 'irs', href: '/irs', label: 'IRS Schedule', icon: CalendarClock, desc: 'Information Required Schedule for design deliverables.', permission: 'accessIRS' },

@@ -1,3 +1,4 @@
+
 export type Planner = {
   id: string;
   name: string;
@@ -174,6 +175,7 @@ export type UserPermissions = {
   accessPlanner: boolean;
   accessProcurement: boolean;
   accessHolidays?: boolean;
+  accessSiteDiary: boolean;
   // Read Only Flags
   materialsReadOnly?: boolean;
   plantReadOnly?: boolean;
@@ -598,4 +600,31 @@ export type HolidayRequest = {
   approvedByEmail?: string | null;
   approvedByName?: string | null;
   createdAt: string;
+};
+
+// --- SITE DIARY MODULE TYPES ---
+
+export type SubcontractorLog = {
+  subcontractorId: string;
+  subcontractorName: string;
+  employeeCount: number;
+  areaId: string | null;
+  areaName: string | null;
+  notes: string;
+};
+
+export type SiteDiaryEntry = {
+  id: string;
+  projectId: string;
+  date: string; // ISO Date YYYY-MM-DD
+  weather: {
+    condition: string;
+    temp?: number;
+    notes?: string;
+  };
+  subcontractorLogs: SubcontractorLog[];
+  generalComments: string;
+  photos: Photo[];
+  createdAt: string;
+  createdByEmail: string;
 };
