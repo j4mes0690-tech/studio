@@ -2,8 +2,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * Logo - The primary branding component for SiteCommand.
- * Now supports an optional 'src' prop to display a custom uploaded logo
- * from the system settings.
+ * Re-designed to match the eagle-head and hard-hat motif provided.
  */
 export function Logo({ 
   className, 
@@ -32,32 +31,46 @@ export function Logo({
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* Minimalist Professional Logo Concept */}
+            {/* Hard Hat Section */}
             <path 
-              d="M50 5L15 20V50C15 72 50 95 50 95C50 95 85 72 85 50V20L50 5Z" 
-              fill="#f97316" 
-              fillOpacity="0.1" 
-              stroke="#f97316" 
-              strokeWidth="2"
-            />
-            {/* Hard Hat Motif */}
-            <path 
-              d="M30 45 C30 35 40 30 50 30 C60 30 70 35 70 45" 
-              stroke="#f97316" 
-              strokeWidth="8" 
-              strokeLinecap="round" 
-            />
-            <path 
-              d="M25 48 H75" 
+              d="M28 42 C28 30 40 25 50 25 C60 25 72 30 72 42" 
               stroke="#f97316" 
               strokeWidth="6" 
               strokeLinecap="round" 
             />
-            {/* Bolt Detail */}
             <path 
-              d="M42 58 L58 58 L42 75 L58 75" 
-              stroke="black" 
-              strokeWidth="6" 
+              d="M22 45 H78" 
+              stroke="#f97316" 
+              strokeWidth="5" 
+              strokeLinecap="round" 
+            />
+            <path 
+              d="M38 32 C42 29 58 29 62 32" 
+              stroke="white" 
+              strokeWidth="1.5" 
+              strokeLinecap="round" 
+              opacity="0.4"
+            />
+            
+            {/* Stylized Eagle Head (Lightning/Bolt Style) */}
+            <path 
+              d="M25 55 L42 50 L35 65 L55 60 L45 78 L65 70" 
+              stroke="#111827" 
+              strokeWidth="4.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+            />
+            <path 
+              d="M55 50 C65 45 82 45 85 58 C85 65 78 72 65 72 L50 85" 
+              stroke="#111827" 
+              strokeWidth="4.5" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+            />
+            <path 
+              d="M55 65 L62 72 L50 85" 
+              stroke="#111827" 
+              strokeWidth="4.5" 
               strokeLinecap="round" 
               strokeLinejoin="round" 
             />
