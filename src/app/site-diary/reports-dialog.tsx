@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition } from 'react';
 import { 
   Dialog, 
   DialogContent, 
@@ -20,7 +20,7 @@ import {
     BarChart3, 
     CalendarRange, 
     Loader2, 
-    FileSpreadsheet, 
+    FileText, 
     TrendingUp
 } from 'lucide-react';
 import type { SiteDiaryEntry, Project, SubContractor } from '@/lib/types';
@@ -28,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
 import { AttendanceGantt } from './attendance-gantt';
 import { cn } from '@/lib/utils';
+import { generateSiteDiaryAuditPDF } from '@/lib/pdf-utils';
 
 export function SiteDiaryReports({ 
   entries, 
@@ -42,6 +43,7 @@ export function SiteDiaryReports({
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [reportMode, setReportScope] = useState<'audit' | 'attendance'>('audit');
   
   const [startDate, setStartDate] = useState(format(subDays(new Date(), 30), 'yyyy-MM-dd'));
@@ -59,58 +61,33 @@ export function SiteDiaryReports({
     }).sort((a, b) => a.date.localeCompare(b.date));
   }, [entries, startDate, endDate, projectId]);
 
-  const handleExportCSV = () => {
+  const handleExportPDF = async () => {
     if (filteredEntries.length === 0) {
       toast({ title: "No Data", description: "No diary records found for the selected criteria.", variant: "destructive" });
       return;
     }
 
-    const headers = ['Date', 'Project', 'Weather', 'Temp', 'Sub-contractor', 'Operatives', 'Location', 'Notes', 'General Comments'];
-    const rows: string[][] = [];
-
-    filteredEntries.forEach(entry => {
-      const project = projects.find(p => p.id === entry.projectId);
+    setIsGenerating(true);
+    try {
+      const project = projects.find(p => p.id === (projectId === 'all' ? filteredEntries[0].projectId : projectId));
       
-      if (entry.subcontractorLogs.length > 0) {
-        entry.subcontractorLogs.forEach(log => {
-          rows.push([
-            entry.date,
-            project?.name || 'Unknown',
-            entry.weather.condition,
-            entry.weather.temp?.toString() || '',
-            log.subcontractorName,
-            log.operativeCount.toString(),
-            log.areaName || 'Site Wide',
-            `"${(log.notes || '').replace(/"/g, '""')}"`,
-            `"${(entry.generalComments || '').replace(/"/g, '""')}"`
-          ]);
-        });
-      } else {
-        rows.push([
-          entry.date,
-          project?.name || 'Unknown',
-          entry.weather.condition,
-          entry.weather.temp?.toString() || '',
-          'No Labour Recorded',
-          '0',
-          '',
-          '',
-          `"${(entry.generalComments || '').replace(/"/g, '""')}"`
-        ]);
-      }
-    });
+      const pdf = await generateSiteDiaryAuditPDF(
+        filteredEntries,
+        project,
+        subContractors
+      );
 
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `SiteDiaryAudit-${startDate}-to-${endDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast({ title: "Export Complete", description: "Audit CSV has been downloaded." });
+      const fileName = `SiteDiaryAudit-${startDate}-to-${endDate}.pdf`;
+      pdf.save(fileName);
+      
+      toast({ title: "Audit Complete", description: "The multi-page PDF report has been downloaded." });
+      setOpen(false);
+    } catch (err) {
+      console.error('Audit PDF error:', err);
+      toast({ title: "Export Failed", description: "Could not generate the audit PDF.", variant: "destructive" });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -121,7 +98,7 @@ export function SiteDiaryReports({
           Reports & Analytics
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col p-0">
+      <DialogContent className="sm:max-w-5xl max-h-[90vh] flex flex-col p-0 shadow-2xl">
         <DialogHeader className="p-6 pb-4 bg-muted/10 border-b shrink-0">
           <div className="flex items-center gap-3">
             <div className="bg-primary/10 p-2.5 rounded-xl text-primary">
@@ -184,14 +161,18 @@ export function SiteDiaryReports({
             {reportMode === 'audit' ? (
                 <div className="space-y-6 py-4 animate-in fade-in slide-in-from-top-2">
                     <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
-                        <FileSpreadsheet className="h-16 w-16 text-muted-foreground/20" />
+                        <FileText className="h-16 w-16 text-muted-foreground/20" />
                         <div className="space-y-1">
-                            <h4 className="font-bold">Daily Log Data Export</h4>
-                            <p className="text-sm text-muted-foreground max-w-sm">Generates a detailed spreadsheet of all labour resources, weather conditions and site highlights.</p>
+                            <h4 className="font-bold">Commercial Audit Report (PDF)</h4>
+                            <p className="text-sm text-muted-foreground max-w-sm">Generates a high-fidelity multi-page document. Includes one page per diary entry with full weather data, labour logs, and high-resolution site documentation.</p>
                         </div>
-                        <Button className="h-12 px-8 gap-2 font-bold shadow-lg shadow-primary/20" onClick={handleExportCSV}>
-                            <Download className="h-4 w-4" />
-                            Download Audit CSV
+                        <Button 
+                            className="h-12 px-8 gap-2 font-bold shadow-lg shadow-primary/20" 
+                            onClick={handleExportPDF}
+                            disabled={isGenerating}
+                        >
+                            {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                            Download Audit PDF
                         </Button>
                     </div>
                 </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
@@ -34,6 +34,155 @@ async function getSystemBranding(): Promise<{ logoUri: string | null, address: s
     console.error("Failed to fetch branding for PDF:", e);
   }
   return { logoUri: null, address: null };
+}
+
+/**
+ * generateSiteDiaryAuditPDF - Generates a multi-page commercial audit report.
+ * Each diary entry is rendered on its own page with weather, labour logs, and photos.
+ */
+export async function generateSiteDiaryAuditPDF(
+  entries: SiteDiaryEntry[],
+  project?: Project,
+  subContractors: SubContractor[] = []
+) {
+  const { jsPDF } = await import('jspdf');
+  const html2canvas = (await import('html2canvas')).default;
+  const branding = await getSystemBranding();
+
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+
+  for (let i = 0; i < entries.length; i++) {
+    if (i > 0) pdf.addPage();
+    
+    const entry = entries[i];
+    const reportElement = document.createElement('div');
+    reportElement.style.position = 'absolute';
+    reportElement.style.left = '-9999px';
+    reportElement.style.padding = '40px';
+    reportElement.style.width = '800px';
+    reportElement.style.background = 'white';
+    reportElement.style.color = 'black';
+    reportElement.style.fontFamily = 'sans-serif';
+
+    const totalLabour = entry.subcontractorLogs.reduce((sum, l) => sum + (l.operativeCount || (l as any).employeeCount || 0), 0);
+
+    reportElement.innerHTML = `
+      <div style="border-bottom: 3px solid #1e40af; padding-bottom: 15px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+          <h1 style="margin: 0; color: #1e40af; font-size: 24px; letter-spacing: -0.5px;">SITE DIARY AUDIT</h1>
+          <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold;">${new Date(entry.date).toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        </div>
+        <div style="text-align: right; max-width: 300px;">
+          ${branding.logoUri ? `<img src="${branding.logoUri}" style="max-height: 50px; max-width: 180px; margin-bottom: 5px;" />` : ''}
+          <p style="margin: 0; font-size: 12px; font-weight: bold; color: #1e40af;">${project?.name || 'Project Overview'}</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+        <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+          <p style="margin: 0 0 5px 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;">Environmental Conditions</p>
+          <p style="margin: 0; font-size: 14px;"><strong>Weather:</strong> ${entry.weather.condition}</p>
+          ${entry.weather.temp ? `<p style="margin: 3px 0 0 0; font-size: 14px;"><strong>Temperature:</strong> ${entry.weather.temp}°C</p>` : ''}
+        </div>
+        <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+          <p style="margin: 0 0 5px 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 9px; letter-spacing: 0.5px;">Workforce Summary</p>
+          <p style="margin: 0; font-size: 14px;"><strong>Total Labour:</strong> ${totalLabour} Operatives</p>
+          <p style="margin: 3px 0 0 0; font-size: 14px;"><strong>Trade Groups:</strong> ${entry.subcontractorLogs.length}</p>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 25px;">
+        <h2 style="font-size: 12px; color: #1e40af; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 10px; text-transform: uppercase; font-weight: bold;">SITE HIGHLIGHTS & ACTIVITIES</h2>
+        <p style="font-size: 12px; line-height: 1.6; white-space: pre-wrap; color: #334155;">${entry.generalComments || 'No general activities recorded for this date.'}</p>
+      </div>
+
+      <div style="margin-bottom: 25px;">
+        <h2 style="font-size: 12px; color: #1e40af; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 10px; text-transform: uppercase; font-weight: bold;">LABOUR RESOURCE LOG</h2>
+        <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+          <thead>
+            <tr style="background: #f1f5f9; text-align: left;">
+              <th style="padding: 8px; border: 1px solid #e2e8f0;">Sub-contractor</th>
+              <th style="padding: 8px; border: 1px solid #e2e8f0; text-align: center; width: 60px;">Qty</th>
+              <th style="padding: 8px; border: 1px solid #e2e8f0; width: 120px;">Location</th>
+              <th style="padding: 8px; border: 1px solid #e2e8f0;">Notes / Task</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${entry.subcontractorLogs.length > 0 ? entry.subcontractorLogs.map(log => `
+              <tr>
+                <td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">${log.subcontractorName}</td>
+                <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${log.operativeCount || (log as any).employeeCount || 0}</td>
+                <td style="padding: 8px; border: 1px solid #e2e8f0;">${log.areaName || 'Site Wide'}</td>
+                <td style="padding: 8px; border: 1px solid #e2e8f0;">${log.notes || '---'}</td>
+              </tr>
+            `).join('') : '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #64748b; font-style: italic;">No labour resources recorded for this date.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    document.body.appendChild(reportElement);
+    const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+    document.body.removeChild(reportElement);
+
+    const canvasWidthInPdf = pdfWidth - 20;
+    const canvasHeightInPdf = (canvas.height * canvasWidthInPdf) / canvas.width;
+    
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 10, 10, canvasWidthInPdf, canvasHeightInPdf);
+
+    // Add day-specific photos on the same page if they fit, or start new sections
+    const dayPhotos = entry.photos || [];
+    if (dayPhotos.length > 0) {
+      let currentY = canvasHeightInPdf + 20;
+      
+      // If we have very little space left for photos, add a new page or just push down
+      if (currentY + 40 > pdfHeight) {
+        pdf.addPage();
+        currentY = 20;
+      }
+
+      pdf.setFontSize(12);
+      pdf.setTextColor(30, 64, 175);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("Site Documentation", 10, currentY);
+      currentY += 8;
+
+      const imgWidth = 85;
+      const imgHeight = 60;
+      let imgX = 10;
+
+      for (const p of dayPhotos) {
+        if (currentY + imgHeight + 10 > pdfHeight) {
+          pdf.addPage();
+          currentY = 20;
+          imgX = 10;
+        }
+
+        const dataUri = await safeLoadImage(p.url);
+        if (dataUri) {
+          pdf.addImage(dataUri, 'JPEG', imgX, currentY, imgWidth, imgHeight);
+        } else {
+          pdf.setFillColor(245, 245, 245);
+          pdf.rect(imgX, currentY, imgWidth, imgHeight, 'F');
+          pdf.setFontSize(8);
+          pdf.setTextColor(150);
+          pdf.text("Image loading error", imgX + 5, currentY + 10);
+        }
+
+        // Horizontal tiling for photos
+        if (imgX + imgWidth + 10 > pdfWidth - 10) {
+          imgX = 10;
+          currentY += imgHeight + 10;
+        } else {
+          imgX += imgWidth + 10;
+        }
+      }
+    }
+  }
+
+  return pdf;
 }
 
 /**
@@ -739,7 +888,9 @@ export async function generateCleanUpPDF(
     for (const p of generalPhotos) {
       if (currentY + 110 > pdfHeight) { pdf.addPage(); currentY = 20; }
       const dataUri = await safeLoadImage(p.url);
-      if (dataUri) pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 100);
+      if (dataUri) {
+        pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 100);
+      }
       currentY += 110;
     }
   }
