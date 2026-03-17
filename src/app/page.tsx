@@ -50,6 +50,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { Logo } from '@/components/logo';
 
 const DASHBOARD_CARDS = [
   { id: 'insights', href: '/insights', label: 'Project Insights', icon: BarChart3, desc: 'Project performance, procurement tracking, and RFI analytics.', permission: 'hasFullVisibility' },
@@ -64,12 +65,12 @@ const DASHBOARD_CARDS = [
   { id: 'permits', href: '/permits', label: 'Permits to Work', icon: FileCheck, desc: 'Issue and track high-risk activity permits electronically.', permission: 'accessPermits' },
   { id: 'training', href: '/training', label: 'Training & Compliance', icon: GraduationCap, desc: 'Store employee certificates and monitor expiry dates.', permission: 'accessTraining' },
   { id: 'holidays', href: '/holidays', label: 'Holiday Booking', icon: Sun, desc: 'Request leave and track team availability.', permission: 'accessHolidays' },
-  { id: 'client-instructions', href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle, desc: 'Directives received from the client for implementation.', permission: 'accessClientInstructions' },
-  { id: 'site-instructions', href: '/instructions', label: 'Site Instructions', icon: MessageSquare, desc: 'Record and distribute instructions to trade partners.', permission: 'accessSiteInstructions' },
-  { id: 'cleanup-notices', href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles, desc: 'Create and send clean up notices with site photos.', permission: 'accessCleanupNotices' },
-  { id: 'snagging', href: '/snagging', label: 'Snagging Lists', icon: ListChecks, desc: 'Record and track defects with completion documentation.', permission: 'accessSnagging' },
-  { id: 'quality-control', href: '/quality-control', label: 'Quality Control', icon: ClipboardCheck, desc: 'Project area inspections and quality sign-off.', permission: 'accessQualityControl' },
-  { id: 'information-requests', href: '/information-requests', label: 'Info Requests', icon: HelpCircle, desc: 'Technical queries and clarifications.', permission: 'accessInfoRequests' },
+  { id: 'client-instructions', href: '/client-instructions', label: 'Client Instructions', icon: MessageCircle, permission: 'accessClientInstructions' },
+  { id: 'site-instructions', href: '/instructions', label: 'Site Instructions', icon: MessageSquare, permission: 'accessSiteInstructions' },
+  { id: 'cleanup-notices', href: '/cleanup-notices', label: 'Clean Up Notices', icon: Sparkles, permission: 'accessCleanupNotices' },
+  { id: 'snagging', href: '/snagging', label: 'Snagging Lists', icon: ListChecks, permission: 'accessSnagging' },
+  { id: 'quality-control', href: '/quality-control', label: 'Quality Control', icon: ClipboardCheck, permission: 'accessQualityControl' },
+  { id: 'information-requests', href: '/information-requests', label: 'Info Requests', icon: HelpCircle, permission: 'accessInfoRequests' },
 ];
 
 function FlashingBadge({ count }: { count: number }) {
@@ -218,15 +219,15 @@ export default function Dashboard() {
             </Alert>
         )}
 
-        <div className="flex flex-col items-center text-center gap-3 mt-2 md:mt-4 relative w-full max-w-6xl">
-            <div className={cn("p-3 bg-primary/10 rounded-full transition-all md:p-4 shadow-[0_0_20px_rgba(249,115,22,0.15)]", isCompact && "p-2")}>
-                <HardHat className={cn("text-primary transition-all", isCompact ? "h-6 w-6" : "h-10 w-10 md:h-16 md:w-16")} />
+        <div className="flex flex-col items-center text-center gap-3 mt-4 md:mt-8 relative w-full max-w-6xl">
+            <div className={cn("p-4 bg-primary/10 rounded-2xl transition-all shadow-[0_0_30px_rgba(249,115,22,0.15)]", isCompact && "p-2")}>
+                <Logo hideText iconClassName={cn("transition-all", isCompact ? "h-10 w-10" : "h-16 w-16 md:h-24 md:w-24")} />
             </div>
-            <div className="px-4">
-                <h1 className={cn("font-black tracking-tight transition-all", isCompact ? "text-lg md:text-xl" : "text-xl md:text-4xl")}>
-                  Welcome to Site<span className="text-primary">Command</span>
+            <div className="px-4 mt-2">
+                <h1 className={cn("font-black tracking-tighter transition-all uppercase", isCompact ? "text-xl md:text-2xl" : "text-3xl md:text-6xl")}>
+                  Site<span className="text-primary">Command</span>
                 </h1>
-                {!isCompact && <p className="text-muted-foreground text-xs md:text-sm mt-1 max-w-sm md:max-w-none">The intelligence hub for modern construction management.</p>}
+                {!isCompact && <p className="text-muted-foreground text-xs md:text-sm mt-2 font-bold uppercase tracking-widest opacity-60">Intelligence Hub for Modern Construction</p>}
             </div>
             <div className="absolute top-0 right-0 hidden md:flex items-center gap-2">
                 <TooltipProvider>
@@ -243,7 +244,7 @@ export default function Dashboard() {
         </div>
 
         <div className={cn(
-            "grid w-full pb-12 transition-all",
+            "grid w-full pb-12 transition-all mt-8",
             isCompact ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 max-w-6xl"
         )}>
           {allowedCards.map((card) => {
