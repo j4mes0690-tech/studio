@@ -27,7 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Cloud, Sun, CloudRain, Wind, Thermometer, UserPlus, Users, Trash2, MapPin } from 'lucide-react';
+import { PlusCircle, Loader2, Save, Cloud, Sun, CloudRain, Wind, Thermometer, UserPlus, Users, Trash2, MapPin, Camera } from 'lucide-react';
 import type { Project, DistributionUser, SubContractor, SiteDiaryEntry, SubcontractorLog, Photo } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
