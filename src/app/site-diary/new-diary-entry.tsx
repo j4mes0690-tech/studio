@@ -20,14 +20,28 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Cloud, Sun, CloudRain, Wind, Thermometer, UserPlus, Users, Trash2, MapPin, Camera } from 'lucide-react';
+import { 
+  PlusCircle, 
+  Loader2, 
+  Save, 
+  Cloud, 
+  Sun, 
+  CloudRain, 
+  Wind, 
+  Thermometer, 
+  UserPlus, 
+  Users, 
+  Trash2, 
+  MapPin, 
+  Camera,
+  X
+} from 'lucide-react';
 import type { Project, DistributionUser, SubContractor, SiteDiaryEntry, SubcontractorLog, Photo } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -35,7 +49,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { CameraOverlay } from '@/components/camera-overlay';
+import { VoiceInput } from '@/components/voice-input';
 import { dataUriToBlob, uploadFile } from '@/lib/storage-utils';
+import Image from 'next/image';
 
 const NewDiarySchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
