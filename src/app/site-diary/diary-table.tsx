@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -10,12 +9,12 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { SiteDiaryEntry, Project } from '@/lib/types';
+import type { SiteDiaryEntry, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { useState, useTransition, useMemo } from 'react';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
-import { Trash2, Loader2, Cloud, Users, ArrowUpDown, ArrowUp, ArrowDown, MapPin } from 'lucide-react';
+import { Trash2, Loader2, Cloud, Users, ArrowUpDown, ArrowUp, ArrowDown, MapPin, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -29,16 +28,21 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { EditDiaryEntry } from './edit-diary-entry';
 
 type SortKey = 'date' | 'project' | 'resources' | 'weather';
 type SortOrder = 'asc' | 'desc';
 
 export function DiaryTable({ 
   entries, 
-  projects 
+  projects,
+  subContractors,
+  currentUser
 }: { 
   entries: SiteDiaryEntry[]; 
-  projects: Project[]; 
+  projects: Project[];
+  subContractors: SubContractor[];
+  currentUser: DistributionUser;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -113,7 +117,10 @@ export function DiaryTable({
             <DiaryRow 
               key={entry.id} 
               entry={entry} 
-              project={projects.find(p => p.id === entry.projectId)} 
+              project={projects.find(p => p.id === entry.projectId)}
+              projects={projects}
+              subContractors={subContractors}
+              currentUser={currentUser}
             />
           ))}
         </TableBody>
@@ -122,7 +129,19 @@ export function DiaryTable({
   );
 }
 
-function DiaryRow({ entry, project }: { entry: SiteDiaryEntry, project?: Project }) {
+function DiaryRow({ 
+  entry, 
+  project,
+  projects,
+  subContractors,
+  currentUser
+}: { 
+  entry: SiteDiaryEntry; 
+  project?: Project;
+  projects: Project[];
+  subContractors: SubContractor[];
+  currentUser: DistributionUser;
+}) {
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
@@ -156,20 +175,29 @@ function DiaryRow({ entry, project }: { entry: SiteDiaryEntry, project?: Project
         {entry.generalComments || 'No activity log recorded.'}
       </TableCell>
       <TableCell className="text-right">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader><AlertDialogTitle>Delete Log?</AlertDialogTitle><AlertDialogDescription>Permanently remove the diary entry for this date.</AlertDialogDescription></AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <div className="flex items-center justify-end gap-1">
+          <EditDiaryEntry 
+            entry={entry} 
+            projects={projects} 
+            subContractors={subContractors} 
+            currentUser={currentUser} 
+          />
+          
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader><AlertDialogTitle>Delete Log?</AlertDialogTitle><AlertDialogDescription>Permanently remove the diary entry for this date.</AlertDialogDescription></AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </TableCell>
     </TableRow>
   );
