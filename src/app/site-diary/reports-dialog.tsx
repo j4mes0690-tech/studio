@@ -14,23 +14,20 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { 
     Download, 
     BarChart3, 
     CalendarRange, 
     Loader2, 
     FileSpreadsheet, 
-    LayoutList,
-    TrendingUp,
-    ShieldCheck
+    TrendingUp
 } from 'lucide-react';
 import type { SiteDiaryEntry, Project, SubContractor } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
 import { AttendanceGantt } from './attendance-gantt';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
 
 export function SiteDiaryReports({ 
   entries, 
@@ -84,8 +81,8 @@ export function SiteDiaryReports({
             log.subcontractorName,
             log.operativeCount.toString(),
             log.areaName || 'Site Wide',
-            `"${log.notes.replace(/"/g, '""')}"`,
-            `"${entry.generalComments.replace(/"/g, '""')}"`
+            `"${(log.notes || '').replace(/"/g, '""')}"`,
+            `"${(entry.generalComments || '').replace(/"/g, '""')}"`
           ]);
         });
       } else {
@@ -98,7 +95,7 @@ export function SiteDiaryReports({
           '0',
           '',
           '',
-          `"${entry.generalComments.replace(/"/g, '""')}"`
+          `"${(entry.generalComments || '').replace(/"/g, '""')}"`
         ]);
       }
     });
@@ -208,14 +205,12 @@ export function SiteDiaryReports({
                             </div>
                             <AttendanceGantt 
                                 entries={filteredEntries} 
-                                startDate={startDate} 
-                                endDate={endDate} 
                                 subContractors={subContractors}
                             />
                         </div>
                     ) : (
                         <div className="py-20 text-center border-2 border-dashed rounded-xl opacity-40">
-                            <p className="text-sm font-medium">Adjust date range to see attendance data.</p>
+                            <p className="text-sm font-medium">No diary records found for the selected parameters.</p>
                         </div>
                     )}
                 </div>

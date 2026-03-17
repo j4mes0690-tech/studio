@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -14,9 +13,9 @@ import {
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-import { User, MapPin, Sun, Cloud, CloudRain, Wind, Thermometer } from 'lucide-react';
+import { User, MapPin, Sun, Cloud, CloudRain, Wind } from 'lucide-react';
 
-const DAY_WIDTH = 48; // Increased slightly for clarity with numbers
+const DAY_WIDTH = 48;
 
 const WEATHER_ICONS: Record<string, any> = {
   'Sunny': Sun,
@@ -28,25 +27,26 @@ const WEATHER_ICONS: Record<string, any> = {
 
 export function AttendanceGantt({ 
   entries, 
-  startDate, 
-  endDate,
   subContractors 
 }: { 
   entries: SiteDiaryEntry[]; 
-  startDate: string; 
-  endDate: string;
   subContractors: SubContractor[];
 }) {
+  // Trim the timeline to strictly match the data range to avoid white space
   const timelineDays = useMemo(() => {
+    if (entries.length === 0) return [];
+    
     try {
-        const start = parseISO(startDate);
-        const end = parseISO(endDate);
-        if (!isValid(start) || !isValid(end)) return [];
-        return eachDayOfInterval({ start, end });
+        const dates = entries.map(e => parseISO(e.date));
+        const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+        
+        if (!isValid(minDate) || !isValid(maxDate)) return [];
+        return eachDayOfInterval({ start: minDate, end: maxDate });
     } catch (e) {
         return [];
     }
-  }, [startDate, endDate]);
+  }, [entries]);
 
   const activeSubIds = useMemo(() => {
     const ids = new Set<string>();
@@ -56,12 +56,18 @@ export function AttendanceGantt({
     return Array.from(ids);
   }, [entries]);
 
-  if (timelineDays.length === 0) return null;
+  if (timelineDays.length === 0) {
+    return (
+        <div className="py-20 text-center border-2 border-dashed rounded-xl opacity-40">
+            <p className="text-sm font-medium italic text-muted-foreground">No data recorded for the selected range.</p>
+        </div>
+    );
+  }
 
   return (
     <div className="bg-background border rounded-xl overflow-x-auto shadow-sm">
       <div className="flex flex-col min-w-max">
-        {/* Header: Days + Weather */}
+        {/* Header: Days + Weather Conditions */}
         <div className="flex border-b bg-muted/30">
           <div className="w-48 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end">
             Sub-contractor
@@ -77,7 +83,7 @@ export function AttendanceGantt({
                 <div 
                   key={i} 
                   className={cn(
-                    "flex flex-col items-center justify-between border-r shrink-0 py-2 min-h-[70px]",
+                    "flex flex-col items-center justify-between border-r shrink-0 py-2 min-h-[75px]",
                     isToday && "bg-primary/10 text-primary",
                     isSatSun && "bg-muted/50"
                   )}
@@ -89,10 +95,10 @@ export function AttendanceGantt({
                   </div>
                   
                   {dayEntry && (
-                    <div className="flex flex-col items-center gap-0.5 mt-1">
-                        {WeatherIcon && <WeatherIcon className="h-3 w-3 text-muted-foreground" />}
+                    <div className="flex flex-col items-center gap-0.5 mt-1 animate-in fade-in zoom-in duration-300">
+                        {WeatherIcon && <WeatherIcon className="h-3.5 w-3.5 text-primary" />}
                         {dayEntry.weather.temp !== undefined && (
-                            <span className="text-[8px] font-bold text-muted-foreground leading-none">{dayEntry.weather.temp}°</span>
+                            <span className="text-[9px] font-black text-foreground leading-none">{dayEntry.weather.temp}°</span>
                         )}
                     </div>
                   )}
@@ -102,14 +108,14 @@ export function AttendanceGantt({
           </div>
         </div>
 
-        {/* Rows: Subs */}
+        {/* Rows: Trade Partners & Labour Counts */}
         <div className="flex flex-col">
           {activeSubIds.map(subId => {
             const sub = subContractors.find(s => s.id === subId);
             return (
               <div key={subId} className="flex border-b group hover:bg-muted/5 transition-colors">
                 <div className="w-48 border-r px-4 py-3 flex items-center min-w-0 bg-background sticky left-0 z-10">
-                  <span className="text-xs font-bold truncate">{sub?.name || 'Unknown'}</span>
+                  <span className="text-xs font-bold truncate">{sub?.name || 'Unknown Partner'}</span>
                 </div>
                 <div className="flex">
                   {timelineDays.map((day, i) => {
@@ -129,27 +135,27 @@ export function AttendanceGantt({
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="absolute inset-1 rounded bg-primary shadow-sm flex items-center justify-center text-[11px] font-black text-white cursor-help hover:scale-110 transition-transform">
+                                <div className="absolute inset-1.5 rounded bg-primary shadow-sm flex items-center justify-center text-[13px] font-black text-white cursor-help hover:scale-110 transition-transform ring-1 ring-primary/20">
                                   {log.operativeCount}
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent className="p-3 w-48">
+                              <TooltipContent className="p-3 w-56 shadow-xl">
                                 <div className="space-y-2">
                                   <div className="flex justify-between items-center border-b pb-1">
-                                    <span className="font-bold text-xs">{sub?.name}</span>
-                                    <Badge variant="outline" className="text-[9px]">{format(day, 'PP')}</Badge>
+                                    <span className="font-bold text-xs truncate max-w-[120px]">{sub?.name}</span>
+                                    <Badge variant="secondary" className="text-[9px] bg-primary/10 text-primary">{format(day, 'PP')}</Badge>
                                   </div>
                                   <div className="space-y-1.5">
                                     <div className="flex items-center gap-2 text-[10px]">
-                                      <User className="h-3 w-3 text-primary" />
-                                      <span><strong>{log.operativeCount}</strong> Operatives</span>
+                                      <div className="p-1 bg-primary/10 rounded"><User className="h-3 w-3 text-primary" /></div>
+                                      <span><strong>{log.operativeCount}</strong> Operatives on-site</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-[10px]">
-                                      <MapPin className="h-3 w-3 text-primary" />
-                                      <span>{log.areaName || 'Site Wide'}</span>
+                                      <div className="p-1 bg-primary/10 rounded"><MapPin className="h-3 w-3 text-primary" /></div>
+                                      <span>{log.areaName || 'Project Wide'}</span>
                                     </div>
                                     {log.notes && (
-                                      <div className="text-[9px] text-muted-foreground italic border-t pt-1 mt-1">
+                                      <div className="text-[9px] text-muted-foreground italic bg-muted/30 p-2 rounded border border-dashed mt-1 leading-relaxed">
                                         "{log.notes}"
                                       </div>
                                     )}
