@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -159,6 +158,9 @@ function SiteDiaryContent() {
                         key={entry.id} 
                         entry={entry} 
                         project={allProjects?.find(p => p.id === entry.projectId)}
+                        projects={allowedProjects}
+                        subContractors={allSubContractors || []}
+                        currentUser={profile}
                     />
                 ))}
             </div>

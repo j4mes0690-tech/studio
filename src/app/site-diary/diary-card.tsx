@@ -1,8 +1,7 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { SiteDiaryEntry, Project, Photo } from '@/lib/types';
+import type { SiteDiaryEntry, Project, Photo, SubContractor, DistributionUser } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -10,14 +9,13 @@ import {
   Sun, 
   CloudRain, 
   Wind, 
-  Thermometer, 
   Users, 
   MapPin, 
   Trash2, 
   Maximize2,
-  Calendar,
   MessageSquare,
-  Building2
+  Building2,
+  Pencil
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useTransition } from 'react';
@@ -39,6 +37,7 @@ import { ImageLightbox } from '@/components/image-lightbox';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { EditDiaryEntry } from './edit-diary-entry';
 
 const WEATHER_ICONS: Record<string, any> = {
   'Sunny': Sun,
@@ -50,10 +49,16 @@ const WEATHER_ICONS: Record<string, any> = {
 
 export function DiaryCard({ 
   entry, 
-  project 
+  project,
+  projects,
+  subContractors,
+  currentUser
 }: { 
   entry: SiteDiaryEntry; 
   project?: Project;
+  projects: Project[];
+  subContractors: SubContractor[];
+  currentUser: DistributionUser;
 }) {
   const db = useFirestore();
   const { toast } = useToast();
@@ -94,23 +99,31 @@ export function DiaryCard({
                 <Building2 className="h-3 w-3 text-muted-foreground" /> {project?.name || 'Unknown Project'}
               </CardDescription>
             </div>
-            <AlertDialog>
-                <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Diary Entry?</AlertDialogTitle>
-                        <AlertDialogDescription>This will permanently remove the log for this date. Action cannot be undone.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <div className="flex items-center gap-1">
+                <EditDiaryEntry 
+                    entry={entry} 
+                    projects={projects} 
+                    subContractors={subContractors} 
+                    currentUser={currentUser} 
+                />
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Diary Entry?</AlertDialogTitle>
+                            <AlertDialogDescription>This will permanently remove the log for this date. Action cannot be undone.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6 pt-4">
