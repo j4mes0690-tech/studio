@@ -9,20 +9,27 @@ import { UserMenu } from './user-menu';
 import { NotificationsMenu } from './notifications-menu';
 import { usePathname } from 'next/navigation';
 import { doc } from 'firebase/firestore';
-import type { DistributionUser } from '@/lib/types';
+import type { DistributionUser, SystemSettings } from '@/lib/types';
 
 export function Header({ title }: { title: string }) {
   const { user: sessionUser, isLoading: sessionLoading } = useUser();
   const db = useFirestore();
   const pathname = usePathname();
 
-  // Fetch the full user profile from Firestore using the session email
+  // Fetch the full user profile
   const profileRef = useMemoFirebase(() => {
     if (!db || !sessionUser?.email) return null;
     return doc(db, 'users', sessionUser.email.toLowerCase().trim());
   }, [db, sessionUser?.email]);
 
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
+
+  // Fetch branding for the logo
+  const brandingRef = useMemoFirebase(() => {
+    if (!db) return null;
+    return doc(db, 'system-settings', 'branding');
+  }, [db]);
+  const { data: branding } = useDoc<SystemSettings>(brandingRef);
 
   const isLoading = sessionLoading || profileLoading;
 

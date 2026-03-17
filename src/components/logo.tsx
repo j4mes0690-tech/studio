@@ -2,69 +2,67 @@ import { cn } from '@/lib/utils';
 
 /**
  * Logo - The primary branding component for SiteCommand.
- * Updated to match the new high-performance design: 
- * A stylized hard hat integrated with an eagle/bolt motif.
+ * Now supports an optional 'src' prop to display a custom uploaded logo
+ * from the system settings.
  */
 export function Logo({ 
   className, 
   iconClassName, 
-  hideText = false 
+  hideText = false,
+  src
 }: { 
   className?: string; 
   iconClassName?: string; 
   hideText?: boolean;
+  src?: string | null;
 }) {
   return (
     <div className={cn('flex items-center gap-3', className)}>
       <div className={cn('relative shrink-0 w-10 h-10', iconClassName)}>
-        <svg
-          viewBox="0 0 100 100"
-          className="w-full h-full"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          {/* Hard Hat Dome - High-Vis Orange */}
-          <path 
-            d="M38 42 C38 30 62 30 62 42" 
-            stroke="#f97316" 
-            strokeWidth="7" 
-            strokeLinecap="round" 
+        {src ? (
+          <img 
+            src={src} 
+            alt="Company Logo" 
+            className="w-full h-full object-contain"
           />
-          
-          {/* Hard Hat Brim - High-Vis Orange */}
-          <path 
-            d="M32 46 H68" 
-            stroke="#f97316" 
-            strokeWidth="5" 
-            strokeLinecap="round" 
-          />
-
-          {/* Left Graphic Element (Lightning Bolt / Wing) - Black */}
-          <path
-            d="M24 64 L44 56 L32 70 L52 80"
-            stroke="black"
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* Right Graphic Element (Eagle Head) - Black */}
-          <path
-            d="M54 66 C62 60 74 62 80 72 C74 72 70 80 62 76"
-            stroke="black"
-            strokeWidth="5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-          
-          {/* Eagle Eye / Detail Detail - Black */}
-          <path
-            d="M60 66 C64 62 70 64 74 67"
-            stroke="black"
-            strokeWidth="3"
-            strokeLinecap="round"
-          />
-        </svg>
+        ) : (
+          <svg
+            viewBox="0 0 100 100"
+            className="w-full h-full"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* Minimalist Professional Logo Concept */}
+            <path 
+              d="M50 5L15 20V50C15 72 50 95 50 95C50 95 85 72 85 50V20L50 5Z" 
+              fill="#f97316" 
+              fillOpacity="0.1" 
+              stroke="#f97316" 
+              strokeWidth="2"
+            />
+            {/* Hard Hat Motif */}
+            <path 
+              d="M30 45 C30 35 40 30 50 30 C60 30 70 35 70 45" 
+              stroke="#f97316" 
+              strokeWidth="8" 
+              strokeLinecap="round" 
+            />
+            <path 
+              d="M25 48 H75" 
+              stroke="#f97316" 
+              strokeWidth="6" 
+              strokeLinecap="round" 
+            />
+            {/* Bolt Detail */}
+            <path 
+              d="M42 58 L58 58 L42 75 L58 75" 
+              stroke="black" 
+              strokeWidth="6" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+            />
+          </svg>
+        )}
       </div>
       {!hideText && (
         <span className="text-2xl font-black tracking-tighter uppercase text-slate-800">

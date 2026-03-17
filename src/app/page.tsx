@@ -40,7 +40,7 @@ import {
 import Link from 'next/link';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where } from 'firebase/firestore';
-import type { DistributionUser, InformationRequest, ClientInstruction, HolidayRequest } from '@/lib/types';
+import type { DistributionUser, InformationRequest, ClientInstruction, HolidayRequest, SystemSettings } from '@/lib/types';
 import { useMemo, useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -116,6 +116,13 @@ export default function Dashboard() {
     return query(collection(db, 'holiday-requests'), where('status', '==', 'pending'));
   }, [db, user?.email]);
   const { data: rawHolidays } = useCollection<HolidayRequest>(holidayQuery);
+
+  // Fetch branding
+  const brandingRef = useMemoFirebase(() => {
+    if (!db) return null;
+    return doc(db, 'system-settings', 'branding');
+  }, [db]);
+  const { data: branding } = useDoc<SystemSettings>(brandingRef);
 
   useEffect(() => {
     setLoadingModule(null);
@@ -225,7 +232,11 @@ export default function Dashboard() {
 
         <div className="flex flex-col items-center text-center gap-3 mt-4 md:mt-8 relative w-full max-w-6xl">
             <div className={cn("p-4 bg-primary/10 rounded-2xl transition-all shadow-[0_0_30px_rgba(249,115,22,0.15)]", isCompact && "p-2")}>
-                <Logo hideText iconClassName={cn("transition-all", isCompact ? "h-10 w-10" : "h-16 w-16 md:h-24 md:w-24")} />
+                <Logo 
+                  src={branding?.logoUrl}
+                  hideText 
+                  iconClassName={cn("transition-all", isCompact ? "h-10 w-10" : "h-16 w-16 md:h-24 md:w-24")} 
+                />
             </div>
             <div className="px-4 mt-2">
                 <h1 className={cn("font-black tracking-tighter transition-all uppercase", isCompact ? "text-xl md:text-2xl" : "text-3xl md:text-6xl")}>
