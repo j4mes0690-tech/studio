@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -36,7 +35,7 @@ import { Separator } from '@/components/ui/separator';
 
 const NewSubContractOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  subcontractorId: z.string().min(1, 'Subcontractor is required.'),
+  subcontractorId: z.string().min(1, 'Sub-contractor is required.'),
   description: z.string().min(3, 'Description is required.'),
   draftedDate: z.string().optional().nullable(),
   sentForApprovalDate: z.string().optional().nullable(),
@@ -111,7 +110,7 @@ export function NewSubContractOrderDialog({ projects, subContractors, allOrders,
           throw error;
         });
 
-        toast({ title: 'Success', description: 'Sub contract order tracked.' });
+        toast({ title: 'Success', description: 'Sub-contract order tracked.' });
         setOpen(false);
       } catch (err) {
         console.error(err);
@@ -129,12 +128,12 @@ export function NewSubContractOrderDialog({ projects, subContractors, allOrders,
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2"><PlusCircle className="h-4 w-4" />Add Subcontract Order</Button>
+        <Button className="gap-2"><PlusCircle className="h-4 w-4" />Add Sub-contract Order</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Subcontract Order</DialogTitle>
-          <DialogDescription>Initiate tracking for a new subcontractor agreement.</DialogDescription>
+          <DialogTitle>Add Sub-contract Order</DialogTitle>
+          <DialogDescription>Initiate tracking for a new sub-contractor agreement.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -144,7 +143,7 @@ export function NewSubContractOrderDialog({ projects, subContractors, allOrders,
                 <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
               )} />
               <FormField control={form.control} name="subcontractorId" render={({ field }) => (
-                <FormItem><FormLabel>Subcontractor</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select partner" /></SelectTrigger></FormControl><SelectContent>{subContractors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                <FormItem><FormLabel>Sub-contractor</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select partner" /></SelectTrigger></FormControl><SelectContent>{subContractors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
               )} />
             </div>
 

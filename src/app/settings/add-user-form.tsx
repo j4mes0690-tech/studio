@@ -286,7 +286,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
   const adminRights = [
     { name: 'canManageBranding', label: 'Company Branding', desc: 'Manage company logo and address.' },
     { name: 'canManageUsers', label: 'Manage Users', desc: 'Control user access and permissions.' },
-    { name: 'canManageSubcontractors', label: 'Manage Partners', desc: 'Registry of external collaborators.' },
+    { name: 'canManageSubcontractors', label: 'Manage Sub-contractors', desc: 'Registry of external collaborators.' },
     { name: 'canManageProjects', label: 'Manage Projects', desc: 'Project configuration and teams.' },
     { name: 'canManageChecklists', label: 'Manage QC Templates', desc: 'Global quality standard setup.' },
     { name: 'canManagePermitTemplates', label: 'Manage Permit Templates', desc: 'High-risk permit form logic.' },
@@ -296,12 +296,12 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
   ];
 
   const modules = [
-    { access: 'accessPlanner', ro: 'plannerReadOnly', label: 'Planner' },
+    { access: 'accessPlanner', ro: 'plannerReadOnly', label: 'Work Planner' },
     { access: 'accessProcurement', ro: 'procurementReadOnly', label: 'Procurement' },
     { access: 'accessIRS', ro: 'irsReadOnly', label: 'IRS Schedule' },
     { access: 'accessMaterials', ro: 'materialsReadOnly', label: 'Materials' },
     { access: 'accessPlant', ro: 'plantReadOnly', label: 'Plant Hire' },
-    { access: 'accessSubContractOrders', ro: 'subContractOrdersReadOnly', label: 'Sub Contract Orders' },
+    { access: 'accessSubContractOrders', ro: 'subContractOrdersReadOnly', label: 'Sub-contract Orders' },
     { access: 'accessVariations', ro: 'variationsReadOnly', label: 'Variations' },
     { access: 'accessPaymentNotices', ro: 'paymentNoticesReadOnly', label: 'Payment Notices' },
     { access: 'accessPermits', ro: 'permitsReadOnly', label: 'Permits' },

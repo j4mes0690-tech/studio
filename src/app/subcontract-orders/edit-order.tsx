@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useTransition, useEffect } from 'react';
@@ -34,7 +33,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 const EditSubContractOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  subcontractorId: z.string().min(1, 'Subcontractor is required.'),
+  subcontractorId: z.string().min(1, 'Sub-contractor is required.'),
   description: z.string().min(3, 'Description is required.'),
   draftedDate: z.string().optional().nullable(),
   sentForApprovalDate: z.string().optional().nullable(),
@@ -135,7 +134,7 @@ export function EditSubContractOrderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Sub Contract: {order.reference}</DialogTitle>
+          <DialogTitle>Edit Sub-contract: {order.reference}</DialogTitle>
           <DialogDescription>Update the agreement status and milestones.</DialogDescription>
         </DialogHeader>
 
@@ -146,7 +145,7 @@ export function EditSubContractOrderDialog({
                 <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
               )} />
               <FormField control={form.control} name="subcontractorId" render={({ field }) => (
-                <FormItem><FormLabel>Subcontractor</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{subContractors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                <FormItem><FormLabel>Sub-contractor</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{subContractors.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
               )} />
             </div>
 
