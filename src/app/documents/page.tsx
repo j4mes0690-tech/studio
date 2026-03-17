@@ -1,40 +1,28 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense } from 'react';
-import type { SiteDiaryEntry, Project, DistributionUser, SubContractor } from '@/lib/types';
-import { Loader2, BookOpen, LayoutGrid, List, ShieldCheck, Filter, Calendar } from 'lucide-react';
+import type { DrawingDocument, Project, DistributionUser } from '@/lib/types';
+import { Loader2, FileText, Filter, LayoutGrid, List, ShieldCheck, Cloud, RefreshCw, FolderSearch } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSearchParams } from 'next/navigation';
-import { NewDiaryEntry } from './new-diary-entry';
-import { DiaryCard } from './diary-card';
-import { DiaryTable } from './diary-table';
+import { NewDrawingDialog } from './new-drawing';
+import { DrawingCard } from './drawing-card';
 
-function SiteDiaryContent() {
+function DocumentsContent() {
   const db = useFirestore();
   const searchParams = useSearchParams();
   const { user: sessionUser } = useUser();
-  const [isCompact, setIsCompact] = useState(false);
 
   // Filters
   const projectFilter = searchParams.get('project') || 'all';
-
-  // Load persistence
-  useEffect(() => {
-    const saved = localStorage.getItem('sitecommand_view_site_diary');
-    if (saved !== null) setIsCompact(saved === 'true');
-  }, []);
-
-  const toggleView = () => {
-    const newVal = !isCompact;
-    setIsCompact(newVal);
-    localStorage.setItem('sitecommand_view_site_diary', String(newVal));
-  };
+  const statusFilter = searchParams.get('status') || 'active';
 
   // Load Data
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
@@ -43,11 +31,8 @@ function SiteDiaryContent() {
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
   const { data: allProjects } = useCollection<Project>(projectsQuery);
 
-  const entriesQuery = useMemoFirebase(() => (db ? query(collection(db, 'site-diary'), orderBy('date', 'desc')) : null), [db]);
-  const { data: allEntries, isLoading: entriesLoading } = useCollection<SiteDiaryEntry>(entriesQuery);
-
-  const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
-  const { data: allSubContractors } = useCollection<SubContractor>(subsQuery);
+  const drawingsQuery = useMemoFirebase(() => (db ? query(collection(db, 'drawings'), orderBy('createdAt', 'desc')) : null), [db]);
+  const { data: allDrawings, isLoading: drawingsLoading } = useCollection<DrawingDocument>(drawingsQuery);
 
   // Security & Visibility
   const allowedProjects = useMemo(() => {
@@ -59,16 +44,17 @@ function SiteDiaryContent() {
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
 
-  const filteredEntries = useMemo(() => {
-    if (!allEntries) return [];
-    return allEntries.filter(entry => {
-      const isAuthorised = allowedProjectIds.includes(entry.projectId);
-      const matchesProject = projectFilter === 'all' || entry.projectId === projectFilter;
-      return isAuthorised && matchesProject;
+  const filteredDrawings = useMemo(() => {
+    if (!allDrawings) return [];
+    return allDrawings.filter(doc => {
+      const isAuthorized = allowedProjectIds.includes(doc.projectId);
+      const matchesProject = projectFilter === 'all' || doc.projectId === projectFilter;
+      const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
+      return isAuthorized && matchesProject && matchesStatus;
     });
-  }, [allEntries, allowedProjectIds, projectFilter]);
+  }, [allDrawings, allowedProjectIds, projectFilter, statusFilter]);
 
-  if (entriesLoading || !profile) {
+  if (drawingsLoading || !profile) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -83,32 +69,20 @@ function SiteDiaryContent() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <BookOpen className="h-6 w-6 text-primary" />
-            Site Diary
+            <FileText className="h-6 w-6 text-primary" />
+            Drawing Register
           </h2>
-          <p className="text-sm text-muted-foreground">Daily logs of site activities, labour resources, and weather conditions.</p>
+          <p className="text-sm text-muted-foreground">Manage project documentation and automated SharePoint backups.</p>
           {hasFullVisibility && (
             <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
-                Administrative Oversight Active
+                Administrative Control Active
             </div>
           )}
         </div>
         <div className="flex items-center gap-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={toggleView}>
-                  {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Switch to {isCompact ? 'Card' : 'Table'} View</p></TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <NewDiaryEntry 
+          <NewDrawingDialog 
             projects={allowedProjects} 
-            subContractors={allSubContractors || []}
             currentUser={profile}
           />
         </div>
@@ -118,7 +92,7 @@ function SiteDiaryContent() {
         <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
           <div className="flex items-center gap-2 text-sm font-medium shrink-0">
             <Filter className="h-4 w-4 text-muted-foreground" />
-            Filter Log:
+            Filter Register:
           </div>
           <Select value={projectFilter} onValueChange={(v) => {
               const p = new URLSearchParams(window.location.search);
@@ -129,36 +103,44 @@ function SiteDiaryContent() {
               <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Projects</SelectItem>
+              <SelectItem value="all">All Authorized Projects</SelectItem>
               {allowedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={(v) => {
+              const p = new URLSearchParams(window.location.search);
+              if (v === 'all') p.delete('status'); else p.set('status', v);
+              window.history.pushState(null, '', `?${p.toString()}`);
+          }}>
+            <SelectTrigger className="w-full sm:w-[200px] bg-background">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All (Inc. Superseded)</SelectItem>
+              <SelectItem value="active">Active Only</SelectItem>
+              <SelectItem value="draft">Drafts</SelectItem>
             </SelectContent>
           </Select>
         </CardContent>
       </Card>
 
       <div className="grid gap-4">
-        {filteredEntries.length > 0 ? (
-          isCompact ? (
-            <DiaryTable 
-              entries={filteredEntries} 
-              projects={allowedProjects}
-            />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredEntries.map(entry => (
-                    <DiaryCard 
-                        key={entry.id} 
-                        entry={entry} 
-                        project={allProjects?.find(p => p.id === entry.projectId)}
-                    />
-                ))}
-            </div>
-          )
+        {filteredDrawings.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredDrawings.map(drawing => (
+                  <DrawingCard 
+                    key={drawing.id} 
+                    drawing={drawing} 
+                    project={allProjects?.find(p => p.id === drawing.projectId)}
+                    currentUser={profile}
+                  />
+              ))}
+          </div>
         ) : (
           <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/5 text-muted-foreground/40">
-            <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
-            <p className="text-lg font-semibold">No diary entries found</p>
-            <p className="text-sm">Record daily activities to build a comprehensive site audit trail.</p>
+            <FolderSearch className="h-12 w-12 mx-auto mb-4 opacity-20" />
+            <p className="text-lg font-semibold">No documents matched your criteria</p>
+            <p className="text-sm">Register your first drawing to start the SharePoint backup process.</p>
           </div>
         )}
       </div>
@@ -166,12 +148,12 @@ function SiteDiaryContent() {
   );
 }
 
-export default function SiteDiaryPage() {
+export default function DocumentsPage() {
   return (
     <div className="flex flex-col w-full min-h-screen">
-      <Header title="Site Diary" />
+      <Header title="Document Management" />
       <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
-        <SiteDiaryContent />
+        <DocumentsContent />
       </Suspense>
     </div>
   );

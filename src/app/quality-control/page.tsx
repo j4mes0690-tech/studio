@@ -5,7 +5,7 @@ import { ChecklistCard } from './checklist-card';
 import { AddChecklistToProject } from './add-checklist-to-project';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { QualityChecklist, Project, SubContractor, DistributionUser, Area } from '@/lib/types';
-import { Loader2, ChevronRight, LayoutGrid, ClipboardCheck, Building2, MapPin, ArrowLeft, CheckCircle2, List, FileCheck } from 'lucide-react';
+import { Loader2, ChevronRight, LayoutGrid, ClipboardCheck, Building2, MapPin, ArrowLeft, CheckCircle2, List, FileCheck, ShieldCheck } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -128,11 +128,6 @@ function QualityControlContent() {
   const checklistTemplates = useMemo(() => {
     if (!allChecklists) return [];
     return allChecklists.filter(c => !!c.isTemplate);
-  }, [allChecklists]);
-
-  const checklistInstances = useMemo(() => {
-    if (!allChecklists) return [];
-    return allChecklists.filter(c => !c.isTemplate);
   }, [allChecklists]);
 
   const filteredChecklists = useMemo(() => {
@@ -423,10 +418,18 @@ function QualityControlContent() {
   return (
     <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <LayoutGrid className="h-6 w-6 text-primary" />
-            Quality Control Directory
-          </h2>
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                <LayoutGrid className="h-6 w-6 text-primary" />
+                Quality Control Directory
+            </h2>
+            {profile?.permissions?.hasFullVisibility && (
+                <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    Administrative Oversight Active
+                </div>
+            )}
+          </div>
            <AddChecklistToProject 
             projects={allowedProjects} 
             checklistTemplates={checklistTemplates} 

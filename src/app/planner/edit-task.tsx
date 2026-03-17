@@ -160,7 +160,7 @@ export function EditTaskDialog({
     }
   }, [selectedPredecessorIds, allTasks, form]);
 
-  const optimizeGlobalSchedule = (allPlannerTasks: PlannerTask[], batch: any) => {
+  const optimiseGlobalSchedule = (allPlannerTasks: PlannerTask[], batch: any) => {
     let changed = true;
     let iterations = 0;
     const maxIterations = allPlannerTasks.length * 2; 
@@ -240,10 +240,10 @@ export function EditTaskDialog({
         const allPlannerTasks = allTasks.filter(t => t.plannerId === task.plannerId || t.areaId === task.plannerId);
         const startingTasks = allPlannerTasks.map(t => t.id === task.id ? updatedTask : t);
         
-        optimizeGlobalSchedule(startingTasks, batch);
+        optimiseGlobalSchedule(startingTasks, batch);
 
         await batch.commit();
-        toast({ title: 'Schedule Optimized', description: 'All activities revised to follow the most efficient timeline.' });
+        toast({ title: 'Schedule Optimised', description: 'All activities revised to follow the most efficient timeline.' });
         onOpenChange(false);
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to update schedule.', variant: 'destructive' });
@@ -286,8 +286,8 @@ export function EditTaskDialog({
       canvas.height = 1200 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const raw = canvas.toDataURL('image/jpeg', 0.85);
-      const optimized = await optimizeImage(raw);
-      setPhotos([...photos, { url: optimized, takenAt: new Date().toISOString() }]);
+      const optimised = await optimizeImage(raw);
+      setPhotos([...photos, { url: optimised, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
   };

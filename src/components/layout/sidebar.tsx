@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -35,7 +34,8 @@ import {
   ClipboardList,
   BarChart3,
   Sun,
-  BookOpen
+  BookOpen,
+  FolderOpen
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -46,13 +46,14 @@ import { useMemo } from 'react';
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
   { href: '/insights', label: 'Project Insights', icon: BarChart3, permission: 'hasFullVisibility' },
+  { href: '/documents', label: 'Drawing Register', icon: FolderOpen, permission: 'accessDocuments' },
   { href: '/site-diary', label: 'Site Diary', icon: BookOpen, permission: 'accessSiteDiary' },
-  { href: '/planner', label: 'Planner', icon: CalendarRange, permission: 'accessPlanner' },
+  { href: '/planner', label: 'Work Planner', icon: CalendarRange, permission: 'accessPlanner' },
   { href: '/procurement', label: 'Procurement', icon: ShoppingCart, permission: 'accessProcurement' },
   { href: '/irs', label: 'IRS Schedule', icon: CalendarClock, permission: 'accessIRS' },
   { href: '/materials-orders', label: 'Materials Orders', icon: ClipboardList, permission: 'accessMaterials' },
   { href: '/plant-orders', label: 'Plant Orders', icon: Truck, permission: 'accessPlant' },
-  { href: '/subcontract-orders', label: 'Sub Contract Orders', icon: FileSignature, permission: 'accessSubContractOrders' },
+  { href: '/subcontract-orders', label: 'Sub-contract Orders', icon: FileSignature, permission: 'accessSubContractOrders' },
   { href: '/variations', label: 'Variations', icon: Calculator, permission: 'accessVariations' },
   { href: '/payment-notices', label: 'Payment Notices', icon: Banknote, permission: 'accessPaymentNotices' },
   { href: '/permits', label: 'Permits to Work', icon: FileCheck, permission: 'accessPermits' },

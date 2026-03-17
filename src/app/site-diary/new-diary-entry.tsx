@@ -40,9 +40,11 @@ import {
   Trash2, 
   MapPin, 
   Camera,
-  X
+  X,
+  Pencil,
+  Check
 } from 'lucide-react';
-import type { Project, DistributionUser, SubContractor, SiteDiaryEntry, SubcontractorLog, Photo } from '@/lib/types';
+import type { Project, DistributionUser, SubContractor, SiteDiaryEntry, SubcontractorLog, Photo, Area } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -52,6 +54,7 @@ import { CameraOverlay } from '@/components/camera-overlay';
 import { VoiceInput } from '@/components/voice-input';
 import { dataUriToBlob, uploadFile } from '@/lib/storage-utils';
 import Image from 'next/image';
+import { cn, scrollToFirstError } from '@/lib/utils';
 
 const NewDiarySchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -82,8 +85,9 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
   const storage = useStorage();
   const [isPending, startTransition] = useTransition();
 
-  // Local Labor Logs State
+  // Local Labour Logs State
   const [logs, setLogs] = useState<Omit<SubcontractorLog, 'id'>[]>([]);
+  const [editingLogIdx, setEditingLogIdx] = useState<number | null>(null);
   const [pendingSubId, setPendingSubId] = useState<string>('');
   const [pendingQty, setPendingQty] = useState<number>(1);
   const [pendingAreaId, setPendingAreaId] = useState<string>('none');
@@ -113,26 +117,50 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
     return subContractors.filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, selectedProject, subContractors]);
 
-  const handleAddLabor = () => {
+  const handleAddLabour = () => {
     if (!pendingSubId) return;
     const sub = subContractors.find(s => s.id === pendingSubId);
     const area = availableAreas.find(a => a.id === pendingAreaId);
 
-    setLogs([...logs, {
+    const newLog = {
       subcontractorId: pendingSubId,
       subcontractorName: sub?.name || 'Unknown',
       employeeCount: pendingQty,
       areaId: pendingAreaId === 'none' ? null : pendingAreaId,
       areaName: pendingAreaId === 'none' ? 'Site Wide' : (area?.name || null),
       notes: pendingNotes,
-    }]);
+    };
+
+    if (editingLogIdx !== null) {
+      const updatedLogs = [...logs];
+      updatedLogs[editingLogIdx] = newLog;
+      setLogs(updatedLogs);
+      setEditingLogIdx(null);
+      toast({ title: 'Labour Updated', description: 'Resource entry adjusted.' });
+    } else {
+      setLogs([...logs, newLog]);
+      toast({ title: 'Resource Added', description: 'Entry added to daily log.' });
+    }
 
     setPendingSubId('');
     setPendingNotes('');
     setPendingQty(1);
+    setPendingAreaId('none');
   };
 
-  const removeLabor = (idx: number) => setLogs(logs.filter((_, i) => i !== idx));
+  const handleEditLabour = (idx: number) => {
+    const log = logs[idx];
+    setPendingSubId(log.subcontractorId);
+    setPendingQty(log.employeeCount);
+    setPendingAreaId(log.areaId || 'none');
+    setPendingNotes(log.notes);
+    setEditingLogIdx(idx);
+  };
+
+  const removeLabour = (idx: number) => {
+    setLogs(logs.filter((_, i) => i !== idx));
+    if (editingLogIdx === idx) setEditingLogIdx(null);
+  };
 
   const onSubmit = (values: NewDiaryFormValues) => {
     startTransition(async () => {
@@ -171,10 +199,16 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
     });
   };
 
+  const onCapture = (photo: Photo) => {
+    setPhotos(prev => [...prev, photo]);
+    setIsCameraOpen(false);
+  };
+
   useEffect(() => {
     if (!open) {
       setLogs([]);
       setPhotos([]);
+      setEditingLogIdx(null);
       form.reset();
     }
   }, [open, form]);
@@ -188,7 +222,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
             Record Daily Log
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
           <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
             <DialogTitle>Site Diary Record</DialogTitle>
             <DialogDescription>Daily summary of weather, trade resources, and activities.</DialogDescription>
@@ -251,15 +285,18 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
                 <div className="space-y-4">
                   <FormLabel className="text-primary font-bold flex items-center gap-2">
                     <Users className="h-4 w-4" />
-                    Labor & Trade Resources
+                    Labour & Trade Resources
                   </FormLabel>
-                  <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
+                  <div className={cn(
+                    "bg-muted/30 p-4 rounded-lg border space-y-4 transition-colors",
+                    editingLogIdx !== null && "border-primary bg-primary/5"
+                  )}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label className="text-xs">Trade Partner</Label>
                         <Select value={pendingSubId} onValueChange={setPendingSubId} disabled={!selectedProjectId}>
                           <SelectTrigger className="bg-background">
-                            <SelectValue placeholder="Select subcontractor" />
+                            <SelectValue placeholder="Select sub-contractor" />
                           </SelectTrigger>
                           <SelectContent>
                             {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
@@ -268,11 +305,11 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-2">
-                          <Label className="text-xs">Count</Label>
+                          <Label className="text-xs">Operative Count</Label>
                           <Input type="number" min="1" value={pendingQty} onChange={e => setPendingQty(parseInt(e.target.value) || 1)} className="bg-background" />
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-xs">Area</Label>
+                          <Label className="text-xs">Location</Label>
                           <Select value={pendingAreaId} onValueChange={setPendingAreaId} disabled={!selectedProjectId}>
                             <SelectTrigger className="bg-background">
                               <SelectValue />
@@ -286,17 +323,31 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs">Specific Activities / Notes</Label>
+                      <Label className="text-xs">Activity Description / Notes</Label>
                       <Input placeholder="What are they working on?" value={pendingNotes} onChange={e => setPendingNotes(e.target.value)} className="bg-background" />
                     </div>
-                    <Button type="button" variant="secondary" className="w-full font-bold" onClick={handleAddLabor} disabled={!pendingSubId}>
-                      <UserPlus className="h-4 w-4 mr-2" /> Add Trade Resource
-                    </Button>
+                    <div className="flex gap-2">
+                        {editingLogIdx !== null && (
+                            <Button type="button" variant="ghost" onClick={() => {
+                                setEditingLogIdx(null);
+                                setPendingSubId('');
+                                setPendingNotes('');
+                                setPendingQty(1);
+                                setPendingAreaId('none');
+                            }}>Cancel</Button>
+                        )}
+                        <Button type="button" variant={editingLogIdx !== null ? "default" : "secondary"} className="flex-1 font-bold" onClick={handleAddLabour} disabled={!pendingSubId}>
+                            {editingLogIdx !== null ? <><Check className="h-4 w-4 mr-2" /> Update Labour Line</> : <><UserPlus className="h-4 w-4 mr-2" /> Add Trade Resource</>}
+                        </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
                     {logs.map((log, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 rounded border bg-background shadow-sm animate-in fade-in">
+                      <div key={idx} className={cn(
+                        "flex items-center justify-between p-3 rounded border bg-background shadow-sm animate-in fade-in transition-all",
+                        editingLogIdx === idx && "ring-2 ring-primary border-transparent"
+                      )}>
                         <div className="flex-1 min-w-0 pr-4">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-bold text-primary truncate">{log.subcontractorName}</p>
@@ -307,7 +358,10 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
                             {log.notes && <span className="truncate italic">• {log.notes}</span>}
                           </div>
                         </div>
-                        <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeLabor(idx)}><Trash2 className="h-4 w-4" /></Button>
+                        <div className="flex items-center gap-1">
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleEditLabour(idx)}><Pencil className="h-4 w-4" /></Button>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeLabour(idx)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -345,7 +399,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
           </div>
 
           <DialogFooter className="p-6 bg-white border-t shrink-0">
-            <Button className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20" onClick={form.handleSubmit(onSubmit)} disabled={isPending}>
+            <Button className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20" onClick={form.handleSubmit(onSubmit, () => scrollToFirstError())} disabled={isPending}>
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               Save Site Diary Entry
             </Button>
@@ -356,7 +410,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
       <CameraOverlay 
         isOpen={isCameraOpen} 
         onClose={() => setIsCameraOpen(false)} 
-        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
+        onCapture={onCapture} 
         title="Site Progress Documentation"
       />
     </>

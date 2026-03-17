@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -35,7 +34,8 @@ import {
   ClipboardList,
   BarChart3,
   Sun,
-  BookOpen
+  BookOpen,
+  FolderOpen
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
@@ -56,15 +56,16 @@ import { Logo } from '@/components/logo';
 
 const DASHBOARD_CARDS = [
   { id: 'insights', href: '/insights', label: 'Project Insights', icon: BarChart3, desc: 'Project performance, procurement tracking, and RFI analytics.', permission: 'hasFullVisibility' },
-  { id: 'site-diary', href: '/site-diary', label: 'Site Diary', icon: BookOpen, desc: 'Daily records of weather, labor resources, and site activities.', permission: 'accessSiteDiary' },
+  { id: 'documents', href: '/documents', label: 'Drawing Register', icon: FolderOpen, desc: 'Manage project drawings with authorised SharePoint backups.', permission: 'accessDocuments' },
+  { id: 'site-diary', href: '/site-diary', label: 'Site Diary', icon: BookOpen, desc: 'Daily records of weather, labour resources, and site activities.', permission: 'accessSiteDiary' },
   { id: 'planner', href: '/planner', label: 'Work Planner', icon: CalendarRange, desc: 'Walkthrough properties and identify activities.', permission: 'accessPlanner' },
   { id: 'procurement', href: '/procurement', label: 'Procurement Schedule', icon: ShoppingCart, desc: 'Track the tendering lifecycle and milestone appointments.', permission: 'accessProcurement' },
   { id: 'irs', href: '/irs', label: 'IRS Schedule', icon: CalendarClock, desc: 'Information Required Schedule for design deliverables.', permission: 'accessIRS' },
   { id: 'materials', href: '/materials-orders', label: 'Materials Orders', icon: ClipboardList, desc: 'Create and manage purchase orders for project materials.', permission: 'accessMaterials' },
   { id: 'plant', href: '/plant-orders', label: 'Plant Orders', icon: Truck, desc: 'Track equipment hire, off-hire dates, and commercial rates.', permission: 'accessPlant' },
-  { id: 'subcontract-orders', href: '/subcontract-orders', label: 'Sub Contract Orders', icon: FileSignature, desc: 'Track the drafting and DocuSign signing status of partners.', permission: 'accessSubContractOrders' },
+  { id: 'subcontract-orders', href: '/subcontract-orders', label: 'Sub-contract Orders', icon: FileSignature, desc: 'Track the drafting and DocuSign signing status of partners.', permission: 'accessSubContractOrders' },
   { id: 'variations', href: '/variations', label: 'Variations', icon: Calculator, desc: 'Manage additions and omissions linked to instructions.', permission: 'accessVariations' },
-  { id: 'payment-notices', label: 'Payment Notices', href: '/payment-notices', icon: Banknote, desc: 'Track subcontractor applications, certificates, and invoices.', permission: 'accessPaymentNotices' },
+  { id: 'payment-notices', label: 'Payment Notices', href: '/payment-notices', icon: Banknote, desc: 'Track sub-contractor applications, certificates, and invoices.', permission: 'accessPaymentNotices' },
   { id: 'permits', href: '/permits', label: 'Permits to Work', icon: FileCheck, desc: 'Issue and track high-risk activity permits electronically.', permission: 'accessPermits' },
   { id: 'training', href: '/training', label: 'Training & Compliance', icon: GraduationCap, desc: 'Store employee certificates and monitor expiry dates.', permission: 'accessTraining' },
   { id: 'holidays', href: '/holidays', label: 'Holiday Booking', icon: Sun, desc: 'Request leave and track team availability.', permission: 'accessHolidays' },
@@ -267,7 +268,7 @@ export default function Dashboard() {
                                 <FlashingBadge count={pendingCount} />
                                 <CardTitle className={cn("transition-all font-bold", isCompact ? "text-xs md:text-sm" : "text-sm md:text-xl")}>{card.label}</CardTitle>
                             </CardHeader>
-                            {!isCompact && <CardContent className="p-0 mt-2 hidden sm:block"><p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">{card.desc}</p></CardContent>}
+                            {!isCompact && card.desc && <CardContent className="p-0 mt-2 hidden sm:block"><p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">{card.desc}</p></CardContent>}
                         </Card>
                     </Link>
                 </div>

@@ -29,6 +29,22 @@ export type FileAttachment = {
   size: number;
 };
 
+export type DrawingDocumentStatus = 'active' | 'superseded' | 'draft';
+
+export type DrawingDocument = {
+  id: string;
+  projectId: string;
+  title: string;
+  reference: string;
+  revision: string;
+  status: DrawingDocumentStatus;
+  file: FileAttachment;
+  sharepointUrl?: string | null;
+  lastSyncedAt?: string | null;
+  createdAt: string;
+  createdByEmail: string;
+};
+
 export type Instruction = {
   id: string;
   reference: string;
@@ -176,6 +192,7 @@ export type UserPermissions = {
   accessProcurement: boolean;
   accessHolidays?: boolean;
   accessSiteDiary: boolean;
+  accessDocuments: boolean;
   // Read Only Flags
   materialsReadOnly?: boolean;
   plantReadOnly?: boolean;
@@ -193,6 +210,7 @@ export type UserPermissions = {
   irsReadOnly?: boolean;
   plannerReadOnly?: boolean;
   procurementReadOnly?: boolean;
+  documentsReadOnly?: boolean;
 };
 
 export type DistributionUser = {

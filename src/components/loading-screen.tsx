@@ -64,7 +64,7 @@ export function LoadingScreen() {
         </div>
       </div>
 
-      {/* Decorative localized footer */}
+      {/* Decorative localised footer */}
       <div className="absolute bottom-12 flex flex-col items-center gap-4">
         <div className="flex gap-1.5">
             <div className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce [animation-delay:-0.3s]" />
@@ -72,7 +72,7 @@ export function LoadingScreen() {
             <div className="h-1.5 w-1.5 rounded-full bg-primary/40 animate-bounce" />
         </div>
         <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.3em]">
-          Terminal Initialized
+          Terminal Initialised
         </span>
       </div>
     </div>

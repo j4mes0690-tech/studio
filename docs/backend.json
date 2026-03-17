@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -42,11 +43,40 @@
             "accessPlanner": { "type": "boolean" },
             "accessProcurement": { "type": "boolean" },
             "accessHolidays": { "type": "boolean" },
-            "accessSiteDiary": { "type": "boolean" }
+            "accessSiteDiary": { "type": "boolean" },
+            "accessDocuments": { "type": "boolean" }
           }
         }
       },
       "required": ["id", "name", "email"]
+    },
+    "DrawingDocument": {
+      "title": "Drawing Document",
+      "description": "A technical drawing or project document managed in the register.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "title": { "type": "string" },
+        "reference": { "type": "string" },
+        "revision": { "type": "string" },
+        "status": { "type": "string", "enum": ["active", "superseded", "draft"] },
+        "file": { "$ref": "#/backend/entities/FileAttachment" },
+        "sharepointUrl": { "type": "string", "format": "uri" },
+        "lastSyncedAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdByEmail": { "type": "string" }
+      }
+    },
+    "FileAttachment": {
+      "title": "File Attachment",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "url": { "type": "string", "format": "uri" },
+        "type": { "type": "string" },
+        "size": { "type": "number" }
+      }
     },
     "HolidayRequest": {
       "title": "Holiday Request",
@@ -228,6 +258,7 @@
     "/procurement-items/{id}": { "schema": { "$ref": "#/backend/entities/ProcurementItem" }, "description": "Trade procurement scheduling and tracking." },
     "/system-settings/{id}": { "schema": { "$ref": "#/backend/entities/SystemSettings" }, "description": "Global app configurations." },
     "/holiday-requests/{id}": { "schema": { "$ref": "#/backend/entities/HolidayRequest" }, "description": "Staff leave and holiday requests." },
-    "/site-diary/{id}": { "schema": { "$ref": "#/backend/entities/SiteDiaryEntry" }, "description": "Daily site logs and labor records." }
+    "/site-diary/{id}": { "schema": { "$ref": "#/backend/entities/SiteDiaryEntry" }, "description": "Daily site logs and labor records." },
+    "/drawings/{id}": { "schema": { "$ref": "#/backend/entities/DrawingDocument" }, "description": "Project drawings and technical document register." }
   }
 }

@@ -34,7 +34,7 @@ export async function dataUriToBlob(dataUri: string): Promise<Blob> {
 }
 
 /**
- * optimizeImage - Resizes a Data URI image to a manageable size for site documentation.
+ * optimiseImage - Resizes a Data URI image to a manageable size for site documentation.
  * This ensures PDF generation is fast and reliable.
  */
 export async function optimizeImage(dataUri: string, maxWidth = 1200): Promise<string> {
@@ -60,7 +60,7 @@ export async function optimizeImage(dataUri: string, maxWidth = 1200): Promise<s
 
       ctx.drawImage(img, 0, 0, width, height);
       
-      // Draw timestamp onto optimized image
+      // Draw timestamp onto optimised image
       const now = new Date();
       const ts = `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
       ctx.font = 'bold 16px sans-serif';
