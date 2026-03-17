@@ -6,7 +6,7 @@ import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { SiteDiaryEntry, Project, DistributionUser, SubContractor } from '@/lib/types';
-import { Loader2, BookOpen, LayoutGrid, List, ShieldCheck, Filter, Calendar } from 'lucide-react';
+import { Loader2, BookOpen, LayoutGrid, List, ShieldCheck, Filter, Calendar, BarChart3 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,6 +15,7 @@ import { useSearchParams } from 'next/navigation';
 import { NewDiaryEntry } from './new-diary-entry';
 import { DiaryCard } from './diary-card';
 import { DiaryTable } from './diary-table';
+import { SiteDiaryReports } from './reports-dialog';
 
 function SiteDiaryContent() {
   const db = useFirestore();
@@ -96,6 +97,13 @@ function SiteDiaryContent() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          <SiteDiaryReports 
+            entries={allEntries || []} 
+            projects={allProjects || []} 
+            subContractors={allSubContractors || []}
+            initialProjectId={projectFilter === 'all' ? null : projectFilter}
+          />
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

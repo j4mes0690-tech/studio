@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -62,7 +63,7 @@ export function DiaryCard({
   const WeatherIcon = WEATHER_ICONS[entry.weather.condition] || Cloud;
 
   const totalPersonnel = useMemo(() => {
-    return entry.subcontractorLogs.reduce((sum, log) => sum + log.employeeCount, 0);
+    return entry.subcontractorLogs.reduce((sum, log) => sum + log.operativeCount, 0);
   }, [entry.subcontractorLogs]);
 
   const handleDelete = () => {
@@ -137,7 +138,7 @@ export function DiaryCard({
                                   <MapPin className="h-2 w-2" /> {log.areaName || 'Site Wide'}
                               </p>
                           </div>
-                          <span className="text-xs font-black text-primary">{log.employeeCount}</span>
+                          <span className="text-xs font-black text-primary">{log.operativeCount}</span>
                       </div>
                   ))}
               </div>

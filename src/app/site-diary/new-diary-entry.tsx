@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -44,7 +45,7 @@ import {
   Pencil,
   Check
 } from 'lucide-react';
-import type { Project, DistributionUser, SubContractor, SiteDiaryEntry, SubcontractorLog, Photo, Area } from '@/lib/types';
+import type { Project, DistributionUser, SubContractor, SiteDiaryEntry, SubcontractorLog, Photo } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -125,7 +126,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
     const newLog = {
       subcontractorId: pendingSubId,
       subcontractorName: sub?.name || 'Unknown',
-      employeeCount: pendingQty,
+      operativeCount: pendingQty,
       areaId: pendingAreaId === 'none' ? null : pendingAreaId,
       areaName: pendingAreaId === 'none' ? 'Site Wide' : (area?.name || null),
       notes: pendingNotes,
@@ -151,7 +152,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
   const handleEditLabour = (idx: number) => {
     const log = logs[idx];
     setPendingSubId(log.subcontractorId);
-    setPendingQty(log.employeeCount);
+    setPendingQty(log.operativeCount);
     setPendingAreaId(log.areaId || 'none');
     setPendingNotes(log.notes);
     setEditingLogIdx(idx);
@@ -351,7 +352,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
                         <div className="flex-1 min-w-0 pr-4">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-bold text-primary truncate">{log.subcontractorName}</p>
-                            <Badge variant="secondary" className="h-4 px-1 text-[9px] font-black">{log.employeeCount} PERS</Badge>
+                            <Badge variant="secondary" className="h-4 px-1 text-[9px] font-black">{log.operativeCount} PERS</Badge>
                           </div>
                           <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground font-medium">
                             <span className="flex items-center gap-1"><MapPin className="h-2.5 w-2.5" /> {log.areaName}</span>

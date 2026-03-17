@@ -629,7 +629,7 @@ export type HolidayRequest = {
 export type SubcontractorLog = {
   subcontractorId: string;
   subcontractorName: string;
-  employeeCount: number;
+  operativeCount: number;
   areaId: string | null;
   areaName: string | null;
   notes: string;
