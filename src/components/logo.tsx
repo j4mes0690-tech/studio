@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 
 /**
  * Logo - The primary branding component for SiteCommand.
- * Re-designed to match the eagle-head and hard-hat motif provided.
+ * Redesigned to exactly match the provided eagle-head and hard-hat motif.
  */
 export function Logo({ 
   className, 
@@ -31,48 +31,57 @@ export function Logo({
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
           >
-            {/* Hard Hat Section */}
+            {/* Eagle Head - Stylized Bolt Strokes (Black) */}
             <path 
-              d="M28 42 C28 30 40 25 50 25 C60 25 72 30 72 42" 
+              d="M20 75 L45 68 L35 85 L60 78 L50 95 L75 88" 
+              stroke="#111827" 
+              strokeWidth="6" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+            />
+            <path 
+              d="M55 60 C65 55 85 55 90 70 C90 80 82 88 65 88 L50 95" 
+              stroke="#111827" 
+              strokeWidth="6" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+            />
+            <path 
+              d="M55 75 L65 82 L50 95" 
+              stroke="#111827" 
+              strokeWidth="6" 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+            />
+            
+            {/* Hard Hat Section (Orange) */}
+            <path 
+              d="M28 55 C28 35 45 30 50 30 C55 30 72 35 72 55" 
+              stroke="#f97316" 
+              strokeWidth="8" 
+              strokeLinecap="round" 
+            />
+            <path 
+              d="M22 58 H78" 
               stroke="#f97316" 
               strokeWidth="6" 
               strokeLinecap="round" 
             />
+            
+            {/* Hard Hat Detail/Highlights */}
             <path 
-              d="M22 45 H78" 
-              stroke="#f97316" 
-              strokeWidth="5" 
+              d="M38 42 C42 38 58 38 62 42" 
+              stroke="white" 
+              strokeWidth="2" 
               strokeLinecap="round" 
+              opacity="0.3"
             />
             <path 
-              d="M38 32 C42 29 58 29 62 32" 
+              d="M32 55 L45 55" 
               stroke="white" 
               strokeWidth="1.5" 
               strokeLinecap="round" 
-              opacity="0.4"
-            />
-            
-            {/* Stylized Eagle Head (Lightning/Bolt Style) */}
-            <path 
-              d="M25 55 L42 50 L35 65 L55 60 L45 78 L65 70" 
-              stroke="#111827" 
-              strokeWidth="4.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-            />
-            <path 
-              d="M55 50 C65 45 82 45 85 58 C85 65 78 72 65 72 L50 85" 
-              stroke="#111827" 
-              strokeWidth="4.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
-            />
-            <path 
-              d="M55 65 L62 72 L50 85" 
-              stroke="#111827" 
-              strokeWidth="4.5" 
-              strokeLinecap="round" 
-              strokeLinejoin="round" 
+              opacity="0.2"
             />
           </svg>
         )}
