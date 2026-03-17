@@ -15,6 +15,7 @@ export type Project = {
   areas?: Planner[]; // Keep for backward compatibility with existing data
   assignedUsers?: string[];
   assignedSubContractors?: string[];
+  drawingApprovers?: string[]; // List of emails authorised to sign off drawings
 };
 
 export type Photo = {
@@ -30,6 +31,7 @@ export type FileAttachment = {
 };
 
 export type DrawingDocumentStatus = 'active' | 'superseded' | 'draft';
+export type DrawingApprovalStatus = 'awaiting' | 'status-a' | 'status-b' | 'status-c';
 
 export type DrawingDocument = {
   id: string;
@@ -38,6 +40,8 @@ export type DrawingDocument = {
   reference: string;
   revision: string;
   status: DrawingDocumentStatus;
+  approvalStatus: DrawingApprovalStatus;
+  messages: ChatMessage[];
   file: FileAttachment;
   sharepointUrl?: string | null;
   lastSyncedAt?: string | null;

@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import type { DrawingDocument, Project, DistributionUser } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +15,10 @@ import {
   Loader2, 
   CheckCircle2, 
   Clock,
-  HardHat
+  HardHat,
+  MessageSquare,
+  AlertCircle,
+  ShieldCheck
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -34,6 +37,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { syncDrawingToSharePointAction } from './actions';
+import { RespondToDrawing } from './respond-to-drawing';
 
 export function DrawingCard({ 
   drawing, 
@@ -50,6 +54,15 @@ export function DrawingCard({
   const [isSyncing, setIsSyncing] = useState(false);
 
   const isSynced = !!drawing.sharepointUrl;
+
+  const approvalConfig = {
+    'awaiting': { label: 'Awaiting Approval', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock },
+    'status-a': { label: 'Status A: Approved', color: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle2 },
+    'status-b': { label: 'Status B: Approved with Comments', color: 'bg-blue-100 text-blue-800 border-blue-200', icon: MessageSquare },
+    'status-c': { label: 'Status C: Declined', color: 'bg-red-100 text-red-800 border-red-200', icon: AlertCircle },
+  };
+
+  const currentApproval = approvalConfig[drawing.approvalStatus || 'awaiting'];
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -138,13 +151,25 @@ export function DrawingCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Approval Status Section */}
+        <div className={cn(
+            "p-2.5 rounded-lg border-2 flex items-center justify-between transition-all",
+            currentApproval.color
+        )}>
+            <div className="flex items-center gap-2">
+                <currentApproval.icon className="h-4 w-4 shrink-0" />
+                <span className="text-[11px] font-black uppercase tracking-tight">{currentApproval.label}</span>
+            </div>
+            <RespondToDrawing drawing={drawing} project={project} currentUser={currentUser} />
+        </div>
+
         <div className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-dashed text-[11px]">
             <div className="flex items-center gap-3">
                 <div className="bg-background p-2 rounded border shadow-sm">
                     <FileText className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                    <p className="font-bold truncate max-w-[150px]">{drawing.file.name}</p>
+                    <p className="font-bold truncate max-w-[120px]">{drawing.file.name}</p>
                     <p className="text-[9px] text-muted-foreground uppercase tracking-widest">
                         {(drawing.file.size / 1024 / 1024).toFixed(2)} MB • {drawing.file.type.split('/')[1]}
                     </p>
@@ -167,7 +192,7 @@ export function DrawingCard({
                     "p-1.5 rounded-full",
                     isSynced ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"
                 )}>
-                    {isSynced ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                    {isSynced ? <ShieldCheck className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
                 </div>
                 <div>
                     <p className={cn("text-[9px] font-black uppercase tracking-widest", isSynced ? "text-green-700" : "text-amber-700")}>

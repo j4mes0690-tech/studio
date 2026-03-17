@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -25,7 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Loader2, Save, FileText, Upload, X, ShieldCheck } from 'lucide-react';
+import { PlusCircle, Loader2, Save, FileText, Upload, X, ShieldCheck, Clock } from 'lucide-react';
 import type { Project, DistributionUser, DrawingDocument, FileAttachment } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -101,6 +102,8 @@ export function NewDrawingDialog({ projects, currentUser }: { projects: Project[
           reference: values.reference,
           revision: values.revision,
           status: values.status,
+          approvalStatus: 'awaiting',
+          messages: [],
           file: {
             ...selectedFile,
             url
@@ -112,7 +115,7 @@ export function NewDrawingDialog({ projects, currentUser }: { projects: Project[
         };
 
         await addDoc(collection(db, 'drawings'), drawingData);
-        toast({ title: 'Success', description: 'Drawing added to register.' });
+        toast({ title: 'Success', description: 'Drawing added to register. Status set to Awaiting Approval.' });
         setOpen(false);
       } catch (err) {
         console.error(err);
@@ -198,17 +201,17 @@ export function NewDrawingDialog({ projects, currentUser }: { projects: Project[
                 </div>
             </div>
 
-            <div className="bg-primary/5 p-4 rounded-lg border-2 border-primary/10 flex items-center gap-3">
-                <ShieldCheck className="h-5 w-5 text-primary" />
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                    Once recorded, this document will be automatically queued for backup to the corporate <strong>SharePoint</strong> environment.
+            <div className="bg-amber-50 p-4 rounded-lg border-2 border-amber-100 flex items-center gap-3">
+                <Clock className="h-5 w-5 text-amber-600" />
+                <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                    New drawings are recorded as <strong>Awaiting Approval</strong>. Authorised project staff will be notified to review and apply a formal Status.
                 </p>
             </div>
 
             <DialogFooter>
               <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isPending}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Add to Register
+                Register Document
               </Button>
             </DialogFooter>
           </form>

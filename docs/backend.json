@@ -61,11 +61,34 @@
         "reference": { "type": "string" },
         "revision": { "type": "string" },
         "status": { "type": "string", "enum": ["active", "superseded", "draft"] },
+        "approvalStatus": { "type": "string", "enum": ["awaiting", "status-a", "status-b", "status-c"] },
+        "messages": { "type": "array", "items": { "$ref": "#/backend/entities/ChatMessage" } },
         "file": { "$ref": "#/backend/entities/FileAttachment" },
         "sharepointUrl": { "type": "string", "format": "uri" },
         "lastSyncedAt": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" },
         "createdByEmail": { "type": "string" }
+      }
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sender": { "type": "string" },
+        "senderEmail": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "photos": { "type": "array", "items": { "$ref": "#/backend/entities/Photo" } },
+        "files": { "type": "array", "items": { "$ref": "#/backend/entities/FileAttachment" } }
+      }
+    },
+    "Photo": {
+      "title": "Photo",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "format": "uri" },
+        "takenAt": { "type": "string", "format": "date-time" }
       }
     },
     "FileAttachment": {
@@ -205,13 +228,14 @@
           }
         },
         "assignedUsers": { "type": "array", "items": { "type": "string" } },
-        "assignedSubContractors": { "type": "array", "items": { "type": "string" } }
+        "assignedSubContractors": { "type": "array", "items": { "type": "string" } },
+        "drawingApprovers": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["id", "name"]
     },
     "SiteDiaryEntry": {
       "title": "Site Diary Entry",
-      "description": "Daily record of site activities, weather, and labor resources.",
+      "description": "Daily record of site activities, weather, and labour resources.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -258,7 +282,7 @@
     "/procurement-items/{id}": { "schema": { "$ref": "#/backend/entities/ProcurementItem" }, "description": "Trade procurement scheduling and tracking." },
     "/system-settings/{id}": { "schema": { "$ref": "#/backend/entities/SystemSettings" }, "description": "Global app configurations." },
     "/holiday-requests/{id}": { "schema": { "$ref": "#/backend/entities/HolidayRequest" }, "description": "Staff leave and holiday requests." },
-    "/site-diary/{id}": { "schema": { "$ref": "#/backend/entities/SiteDiaryEntry" }, "description": "Daily site logs and labor records." },
+    "/site-diary/{id}": { "schema": { "$ref": "#/backend/entities/SiteDiaryEntry" }, "description": "Daily site logs and labour records." },
     "/drawings/{id}": { "schema": { "$ref": "#/backend/entities/DrawingDocument" }, "description": "Project drawings and technical document register." }
   }
 }

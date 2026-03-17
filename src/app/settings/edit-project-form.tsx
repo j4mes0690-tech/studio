@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -26,7 +27,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, X, Loader2, Save, Users2, MapPin, Plus, Trash2, CheckCircle2, Link as LinkIcon } from 'lucide-react';
+import { Pencil, X, Loader2, Save, Users2, MapPin, Plus, Trash2, CheckCircle2, Link as LinkIcon, ShieldCheck } from 'lucide-react';
 import type { Project, Area, DistributionUser, SubContractor, QualityChecklist } from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection, query, where, addDoc, deleteDoc } from 'firebase/firestore';
@@ -56,6 +57,7 @@ const EditProjectSchema = z.object({
   areas: z.string().optional(),
   assignedUsers: z.array(z.string()).optional(),
   assignedSubContractors: z.array(z.string()).optional(),
+  drawingApprovers: z.array(z.string()).optional(),
 });
 
 type EditProjectFormValues = z.infer<typeof EditProjectSchema>;
@@ -108,6 +110,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
       areas: JSON.stringify(project.areas || []),
       assignedUsers: project.assignedUsers || [],
       assignedSubContractors: project.assignedSubContractors || [],
+      drawingApprovers: project.drawingApprovers || [],
     },
   });
   
@@ -123,6 +126,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
         areas: JSON.stringify(initialAreas),
         assignedUsers: project.assignedUsers || [],
         assignedSubContractors: project.assignedSubContractors || [],
+        drawingApprovers: project.drawingApprovers || [],
       });
       setAreas(initialAreas);
       setCurrentArea('');
@@ -216,6 +220,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
         areas: JSON.parse(values.areas || '[]'),
         assignedUsers: values.assignedUsers || [],
         assignedSubContractors: values.assignedSubContractors || [],
+        drawingApprovers: values.drawingApprovers || [],
       };
 
       updateDoc(docRef, updates)
@@ -224,11 +229,12 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
           setOpen(false);
         })
         .catch((error) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
+          const permissionError = new FirestorePermissionError({
             path: docRef.path,
             operation: 'update',
             requestResourceData: updates,
-          }));
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
     });
   };
@@ -255,10 +261,11 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                 )} />
 
                 <Tabs defaultValue="details" className="w-full">
-                    <TabsList className="grid w-full grid-cols-5 h-auto p-1 bg-muted/50 rounded-lg">
+                    <TabsList className="grid w-full grid-cols-6 h-auto p-1 bg-muted/50 rounded-lg">
                         <TabsTrigger value="details" className="text-[10px] uppercase font-bold py-2">Details</TabsTrigger>
                         <TabsTrigger value="areas" className="text-[10px] uppercase font-bold py-2">Areas</TabsTrigger>
                         <TabsTrigger value="access" className="text-[10px] uppercase font-bold py-2">Staff</TabsTrigger>
+                        <TabsTrigger value="approvers" className="text-[10px] uppercase font-bold py-2">Approvers</TabsTrigger>
                         <TabsTrigger value="subs" className="text-[10px] uppercase font-bold py-2">Partners</TabsTrigger>
                         <TabsTrigger value="checklists" className="text-[10px] uppercase font-bold py-2">Checklists</TabsTrigger>
                     </TabsList>
@@ -296,6 +303,26 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                         <div className="space-y-2">
                             {users.map((user) => (
                                 <FormField key={user.id} control={form.control} name="assignedUsers" render={({ field }) => (
+                                    <FormItem className="flex items-center space-x-3 space-y-0 p-2 border rounded-md bg-background">
+                                        <FormControl><Checkbox checked={field.value?.includes(user.email)} onCheckedChange={(c) => c ? field.onChange([...(field.value || []), user.email]) : field.onChange((field.value || []).filter((v) => v !== user.email))} /></FormControl>
+                                        <div className="flex-1 min-w-0"><FormLabel className="text-sm font-semibold truncate block">{user.name}</FormLabel><span className="text-[10px] text-muted-foreground block">{user.email}</span></div>
+                                    </FormItem>
+                                )} />
+                            ))}
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="approvers" className="space-y-4 py-4">
+                        <div className="bg-primary/5 p-4 rounded-lg border-2 border-primary/10 mb-4">
+                            <p className="text-xs text-primary font-bold flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4" />
+                                Drawing Approval Hierarchy
+                            </p>
+                            <p className="text-[10px] text-muted-foreground mt-1">Users selected below are authorised to apply formal Status A/B/C sign-offs to project drawings.</p>
+                        </div>
+                        <div className="space-y-2">
+                            {users.filter(u => u.userType === 'internal').map((user) => (
+                                <FormField key={`appr-${user.id}`} control={form.control} name="drawingApprovers" render={({ field }) => (
                                     <FormItem className="flex items-center space-x-3 space-y-0 p-2 border rounded-md bg-background">
                                         <FormControl><Checkbox checked={field.value?.includes(user.email)} onCheckedChange={(c) => c ? field.onChange([...(field.value || []), user.email]) : field.onChange((field.value || []).filter((v) => v !== user.email))} /></FormControl>
                                         <div className="flex-1 min-w-0"><FormLabel className="text-sm font-semibold truncate block">{user.name}</FormLabel><span className="text-[10px] text-muted-foreground block">{user.email}</span></div>
