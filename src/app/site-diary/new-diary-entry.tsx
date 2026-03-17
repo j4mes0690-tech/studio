@@ -249,7 +249,10 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
             Record Daily Log
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent 
+          className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
             <DialogTitle>Site Diary Record</DialogTitle>
             <DialogDescription>Daily summary of weather, trade resources, and activities.</DialogDescription>

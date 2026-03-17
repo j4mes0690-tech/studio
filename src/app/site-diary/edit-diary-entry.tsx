@@ -103,7 +103,7 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
   const [pendingAreaId, setPendingAreaId] = useState<string>('none');
   const [pendingNotes, setPendingNotes] = useState<string>('');
 
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>(entry.photos || []);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   // Warning State
@@ -249,7 +249,10 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
             <span className="sr-only">Edit Log</span>
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent 
+          className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
             <DialogTitle>Edit Daily Log</DialogTitle>
             <DialogDescription>Update weather, trade resources, or activities for this record.</DialogDescription>
