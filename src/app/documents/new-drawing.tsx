@@ -139,7 +139,7 @@ export function NewDrawingDialog({ projects, currentUser }: { projects: Project[
           Add Drawing
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
             <div className="bg-primary/10 p-2 rounded-lg text-primary">
