@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -76,7 +77,8 @@ export function AttendanceGantt({
             {timelineDays.map((day, i) => {
               const isToday = isSameDay(day, new Date());
               const isSatSun = isWeekend(day);
-              const dayEntry = entries.find(e => isSameDay(parseISO(e.date), day));
+              const dayStr = format(day, 'yyyy-MM-dd');
+              const dayEntry = entries.find(e => e.date === dayStr);
               const WeatherIcon = dayEntry ? (WEATHER_ICONS[dayEntry.weather.condition] || Cloud) : null;
 
               return (
@@ -119,9 +121,13 @@ export function AttendanceGantt({
                 </div>
                 <div className="flex">
                   {timelineDays.map((day, i) => {
-                    const entry = entries.find(e => isSameDay(parseISO(e.date), day));
+                    const dayStr = format(day, 'yyyy-MM-dd');
+                    const entry = entries.find(e => e.date === dayStr);
                     const log = entry?.subcontractorLogs.find(l => l.subcontractorId === subId);
                     
+                    // Support both key names for backward compatibility
+                    const count = log ? (log.operativeCount || (log as any).employeeCount || 0) : 0;
+
                     return (
                       <div 
                         key={i} 
@@ -135,11 +141,11 @@ export function AttendanceGantt({
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <div className="absolute inset-1.5 rounded bg-primary shadow-sm flex items-center justify-center text-[13px] font-black text-white cursor-help hover:scale-110 transition-transform ring-1 ring-primary/20">
-                                  {log.operativeCount}
+                                <div className="absolute inset-1.5 rounded bg-primary shadow-sm flex items-center justify-center text-[13px] font-black text-white cursor-help hover:scale-110 transition-transform ring-1 ring-primary/20 z-30">
+                                  {count}
                                 </div>
                               </TooltipTrigger>
-                              <TooltipContent className="p-3 w-56 shadow-xl">
+                              <TooltipContent className="p-3 w-56 shadow-xl z-50">
                                 <div className="space-y-2">
                                   <div className="flex justify-between items-center border-b pb-1">
                                     <span className="font-bold text-xs truncate max-w-[120px]">{sub?.name}</span>
@@ -148,7 +154,7 @@ export function AttendanceGantt({
                                   <div className="space-y-1.5">
                                     <div className="flex items-center gap-2 text-[10px]">
                                       <div className="p-1 bg-primary/10 rounded"><User className="h-3 w-3 text-primary" /></div>
-                                      <span><strong>{log.operativeCount}</strong> Operatives on-site</span>
+                                      <span><strong>{count}</strong> Operatives on-site</span>
                                     </div>
                                     <div className="flex items-center gap-2 text-[10px]">
                                       <div className="p-1 bg-primary/10 rounded"><MapPin className="h-3 w-3 text-primary" /></div>

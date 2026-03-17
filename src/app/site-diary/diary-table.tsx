@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -57,8 +58,8 @@ export function DiaryTable({
           valB = projects.find(p => p.id === b.projectId)?.name || '';
           break;
         case 'resources':
-          valA = a.subcontractorLogs.reduce((sum, l) => sum + l.employeeCount, 0);
-          valB = b.subcontractorLogs.reduce((sum, l) => sum + l.employeeCount, 0);
+          valA = a.subcontractorLogs.reduce((sum, l) => sum + (l.operativeCount || (l as any).employeeCount || 0), 0);
+          valB = b.subcontractorLogs.reduce((sum, l) => sum + (l.operativeCount || (l as any).employeeCount || 0), 0);
           break;
         case 'weather':
           valA = a.weather.condition;
@@ -101,7 +102,7 @@ export function DiaryTable({
               <div className="flex items-center">Weather <SortIcon column="weather" /></div>
             </TableHead>
             <TableHead className="w-[150px] cursor-pointer text-center" onClick={() => handleSort('resources')}>
-              <div className="flex items-center justify-center">Total Workforce <SortIcon column="resources" /></div>
+              <div className="flex items-center justify-center">Workforce <SortIcon column="resources" /></div>
             </TableHead>
             <TableHead>Activity Highlight</TableHead>
             <TableHead className="text-right">Actions</TableHead>
@@ -125,7 +126,7 @@ function DiaryRow({ entry, project }: { entry: SiteDiaryEntry, project?: Project
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
 
-  const totalPersonnel = entry.subcontractorLogs.reduce((sum, log) => sum + log.employeeCount, 0);
+  const totalPersonnel = entry.subcontractorLogs.reduce((sum, log) => sum + (log.operativeCount || (log as any).employeeCount || 0), 0);
 
   const handleDelete = () => {
     startTransition(async () => {
@@ -152,7 +153,7 @@ function DiaryRow({ entry, project }: { entry: SiteDiaryEntry, project?: Project
         </div>
       </TableCell>
       <TableCell className="text-xs text-muted-foreground truncate max-w-[250px]">
-        {entry.generalComments || 'No general comments recorded.'}
+        {entry.generalComments || 'No activity log recorded.'}
       </TableCell>
       <TableCell className="text-right">
         <AlertDialog>

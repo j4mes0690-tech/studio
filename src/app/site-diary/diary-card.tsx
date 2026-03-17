@@ -63,7 +63,7 @@ export function DiaryCard({
   const WeatherIcon = WEATHER_ICONS[entry.weather.condition] || Cloud;
 
   const totalPersonnel = useMemo(() => {
-    return entry.subcontractorLogs.reduce((sum, log) => sum + log.operativeCount, 0);
+    return entry.subcontractorLogs.reduce((sum, log) => sum + (log.operativeCount || (log as any).employeeCount || 0), 0);
   }, [entry.subcontractorLogs]);
 
   const handleDelete = () => {
@@ -120,7 +120,7 @@ export function DiaryCard({
                       <Users className="h-5 w-5" />
                   </div>
                   <div>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1">On-Site Workforce</p>
+                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest leading-none mb-1">On-Site Labour</p>
                       <p className="text-lg font-black text-primary leading-none">{totalPersonnel} Operatives</p>
                   </div>
               </div>
@@ -138,7 +138,7 @@ export function DiaryCard({
                                   <MapPin className="h-2 w-2" /> {log.areaName || 'Site Wide'}
                               </p>
                           </div>
-                          <span className="text-xs font-black text-primary">{log.operativeCount}</span>
+                          <span className="text-xs font-black text-primary">{log.operativeCount || (log as any).employeeCount || 0}</span>
                       </div>
                   ))}
               </div>
