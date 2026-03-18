@@ -117,13 +117,6 @@ export default function Dashboard() {
   }, [db, user?.email]);
   const { data: rawHolidays } = useCollection<HolidayRequest>(holidayQuery);
 
-  // Fetch branding
-  const brandingRef = useMemoFirebase(() => {
-    if (!db) return null;
-    return doc(db, 'system-settings', 'branding');
-  }, [db]);
-  const { data: branding } = useDoc<SystemSettings>(brandingRef);
-
   useEffect(() => {
     setLoadingModule(null);
     const savedDensity = localStorage.getItem('sitecommand_dashboard_compact');
@@ -231,9 +224,8 @@ export default function Dashboard() {
         )}
 
         <div className="flex flex-col items-center text-center gap-3 mt-4 md:mt-8 relative w-full max-w-6xl">
-            <div className={cn("p-4 bg-primary/10 rounded-2xl transition-all shadow-[0_0_30px_rgba(249,115,22,0.15)]", isCompact && "p-2")}>
+            <div className={cn("p-4 bg-primary/10 rounded-2xl transition-all shadow-[0_0_30px_rgba(242,101,34,0.15)]", isCompact && "p-2")}>
                 <Logo 
-                  src={branding?.logoUrl}
                   hideText 
                   iconClassName={cn("transition-all", isCompact ? "h-10 w-10" : "h-16 w-16 md:h-24 md:w-24")} 
                 />
@@ -269,7 +261,7 @@ export default function Dashboard() {
                     <div className="absolute top-2 left-2 z-30 p-1.5 opacity-0 md:group-hover:opacity-40 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-background/90 rounded border border-border shadow-sm hidden md:block" onMouseEnter={() => setCanDragId(card.id)} onMouseLeave={() => setCanDragId(null)}><GripVertical className="h-3.5 w-3.5 text-primary" /></div>
                     <Link href={card.href} className="block h-full" onClick={() => { if (!draggedId) setLoadingModule(card.id); }}>
                         <Card className={cn(
-                          "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary hover:shadow-[0_4px_20px_rgba(249,115,22,0.1)] h-full relative overflow-hidden", 
+                          "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary hover:shadow-[0_4px_20px_rgba(242,101,34,0.1)] h-full relative overflow-hidden", 
                           isCompact ? "p-3 md:p-4 text-center" : "p-5 md:p-8 text-center", 
                           loadingModule === card.id && "ring-2 ring-primary ring-offset-2"
                         )}>
