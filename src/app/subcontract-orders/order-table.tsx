@@ -191,7 +191,7 @@ function OrderTableRow({
       <TableCell className="font-bold text-sm truncate max-w-[180px]">{order.subcontractorName}</TableCell>
       <TableCell className="truncate max-w-[150px] text-xs font-semibold">{project?.name || 'Unknown'}</TableCell>
       <TableCell>
-        <Badge className={cn("capitalize text-[10px] font-bold h-5", currentStatus.color)}>
+        <Badge className={cn("capitalize text-[10px] font-bold h-5", currentStatus.label)}>
           {currentStatus.label}
         </Badge>
       </TableCell>
@@ -219,15 +219,13 @@ function OrderTableRow({
               </Tooltip>
             )}
 
-            <TableCell className="p-0 border-0 flex items-center justify-center">
-              <EditSubContractOrderDialog 
-                order={order} 
-                projects={projects} 
-                subContractors={subContractors} 
-                open={isEditDialogOpen}
-                onOpenChange={setIsEditDialogOpen}
-              />
-            </TableCell>
+            <EditSubContractOrderDialog 
+              order={order} 
+              projects={projects} 
+              subContractors={subContractors} 
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
 
             <AlertDialog>
               <Tooltip>

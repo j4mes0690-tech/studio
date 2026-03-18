@@ -262,17 +262,15 @@ function PermitTableRow({
               </Tooltip>
             )}
             
-            <TableCell className="p-0 border-0 flex items-center justify-center">
-              <EditPermitDialog 
-                permit={permit} 
-                projects={projects} 
-                subContractors={subContractors} 
-                allPermits={allPermits}
-                currentUser={currentUser}
-                open={isEditDialogOpen}
-                onOpenChange={setIsEditDialogOpen}
-              />
-            </TableCell>
+            <EditPermitDialog 
+              permit={permit} 
+              projects={projects} 
+              subContractors={subContractors} 
+              allPermits={allPermits}
+              currentUser={currentUser}
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
 
             <AlertDialog>
               <TooltipProvider>

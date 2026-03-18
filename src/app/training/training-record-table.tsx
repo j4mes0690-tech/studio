@@ -217,96 +217,92 @@ function TrainingRow({
               <TooltipContent><p>Edit Record</p></TooltipContent>
             </Tooltip>
 
-            <TableCell className="p-0 border-0 flex items-center justify-center">
-              <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-                <DialogContent className="sm:max-w-2xl">
-                  <DialogHeader>
-                    <div className="flex items-center gap-3">
-                      <div className="bg-primary/10 p-2 rounded-lg text-primary">
-                        <GraduationCap className="h-6 w-6" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <DialogTitle className="truncate">{record.courseName}</DialogTitle>
-                        <DialogDescription>Verification for {record.userName}</DialogDescription>
-                      </div>
-                      <Button variant="outline" size="sm" className="gap-2 font-bold h-8" onClick={() => setIsEditOpen(true)}>
-                        <Pencil className="h-3.5 w-3.5" /> Edit Record
-                      </Button>
+            <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
+              <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary/10 p-2 rounded-lg text-primary">
+                      <GraduationCap className="h-6 w-6" />
                     </div>
-                  </DialogHeader>
-
-                  <div className="py-6 space-y-6">
-                    <div className="grid grid-cols-2 gap-6 p-4 rounded-xl border bg-muted/10">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Issue Date</Label>
-                        <p className="text-sm font-semibold flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-primary" />
-                          <ClientDate date={record.issueDate} format="date" />
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Expiry Date</Label>
-                        <p className={cn("text-sm font-bold flex items-center gap-2", status.label !== 'Active' ? "text-destructive" : "text-green-600")}>
-                          <Clock className="h-4 w-4" />
-                          <ClientDate date={record.expiryDate} format="date" />
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Cert Identification</Label>
-                        <p className="text-sm font-mono">{record.certificateNumber || 'No record'}</p>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">System Audit</Label>
-                        <div className="pt-1">
-                          <Badge variant="outline" className={cn("text-[9px] font-black h-5 uppercase border-transparent", status.color)}>{status.label}</Badge>
-                        </div>
-                      </div>
+                    <div className="flex-1 min-w-0">
+                      <DialogTitle className="truncate">{record.courseName}</DialogTitle>
+                      <DialogDescription>Verification for {record.userName}</DialogDescription>
                     </div>
+                    <Button variant="outline" size="sm" className="gap-2 font-bold h-8" onClick={() => setIsEditOpen(true)}>
+                      <Pencil className="h-3.5 w-3.5" /> Edit Record
+                    </Button>
+                  </div>
+                </DialogHeader>
 
-                    <div className="space-y-4">
-                      <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Digital Evidence</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {record.photos?.map((photo, idx) => (
-                          <div key={idx} className="relative aspect-[1.4/1] rounded-xl border-2 border-muted overflow-hidden group shadow-sm bg-muted/5">
-                            <Image src={photo.url} alt="Evidence" fill className="object-cover" />
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                              <Button variant="secondary" size="sm" className="h-8 gap-2 font-bold" onClick={() => setViewingPhoto(photo)}>
-                                <Eye className="h-3.5 w-3.5" /> View
-                              </Button>
-                              <Button variant="secondary" size="sm" asChild className="h-8 gap-2 font-bold">
-                                <a href={photo.url} download={`Cert-${record.userName.replace(/\s+/g, '-')}-${idx + 1}.jpg`}>
-                                  <Download className="h-3.5 w-3.5" /> Download
-                                </a>
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                        {(!record.photos || record.photos.length === 0) && (
-                          <div className="col-span-full py-12 text-center border-2 border-dashed rounded-xl bg-muted/5">
-                            <FileText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                            <p className="text-xs text-muted-foreground">No certificate documentation attached.</p>
-                          </div>
-                        )}
+                <div className="py-6 space-y-6">
+                  <div className="grid grid-cols-2 gap-6 p-4 rounded-xl border bg-muted/10">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Issue Date</Label>
+                      <p className="text-sm font-semibold flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-primary" />
+                        <ClientDate date={record.issueDate} format="date" />
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Expiry Date</Label>
+                      <p className={cn("text-sm font-bold flex items-center gap-2", status.label !== 'Active' ? "text-destructive" : "text-green-600")}>
+                        <Clock className="h-4 w-4" />
+                        <ClientDate date={record.expiryDate} format="date" />
+                      </p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">Cert Identification</Label>
+                      <p className="text-sm font-mono">{record.certificateNumber || 'No record'}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground">System Audit</Label>
+                      <div className="pt-1">
+                        <Badge variant="outline" className={cn("text-[9px] font-black h-5 uppercase border-transparent", status.color)}>{status.label}</Badge>
                       </div>
                     </div>
                   </div>
 
-                  <DialogFooter>
-                    <Button variant="ghost" className="font-bold" onClick={() => setIsDetailOpen(false)}>Close Record</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </TableCell>
+                  <div className="space-y-4">
+                    <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Digital Evidence</Label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {record.photos?.map((photo, idx) => (
+                        <div key={idx} className="relative aspect-[1.4/1] rounded-xl border-2 border-muted overflow-hidden group shadow-sm bg-muted/5">
+                          <Image src={photo.url} alt="Evidence" fill className="object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                            <Button variant="secondary" size="sm" className="h-8 gap-2 font-bold" onClick={() => setViewingPhoto(photo)}>
+                              <Eye className="h-3.5 w-3.5" /> View
+                            </Button>
+                            <Button variant="secondary" size="sm" asChild className="h-8 gap-2 font-bold">
+                              <a href={photo.url} download={`Cert-${record.userName.replace(/\s+/g, '-')}-${idx + 1}.jpg`}>
+                                <Download className="h-3.5 w-3.5" /> Download
+                              </a>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {(!record.photos || record.photos.length === 0) && (
+                        <div className="col-span-full py-12 text-center border-2 border-dashed rounded-xl bg-muted/5">
+                          <FileText className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                          <p className="text-xs text-muted-foreground">No certificate documentation attached.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
-            <TableCell className="p-0 border-0 flex items-center justify-center">
-              <EditTrainingRecord 
-                record={record} 
-                users={users} 
-                canManageAll={canManageAll}
-                open={isEditOpen}
-                onOpenChange={setIsEditOpen}
-              />
-            </TableCell>
+                <DialogFooter>
+                  <Button variant="ghost" className="font-bold" onClick={() => setIsDetailOpen(false)}>Close Record</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
+            <EditTrainingRecord 
+              record={record} 
+              users={users} 
+              canManageAll={canManageAll}
+              open={isEditOpen}
+              onOpenChange={setIsEditOpen}
+            />
 
             <AlertDialog>
               <Tooltip>

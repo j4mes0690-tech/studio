@@ -319,15 +319,13 @@ function OrderTableRow({
               <TooltipContent><p>Download PO as PDF</p></TooltipContent>
             </Tooltip>
 
-            <TableCell className="p-0 border-0 flex items-center justify-center">
-              <EditPlantOrderDialog 
-                order={order} 
-                projects={projects} 
-                subContractors={subContractors} 
-                open={isEditDialogOpen}
-                onOpenChange={setIsEditDialogOpen}
-              />
-            </TableCell>
+            <EditPlantOrderDialog 
+              order={order} 
+              projects={projects} 
+              subContractors={subContractors} 
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
 
             <AlertDialog>
               <TooltipProvider>
