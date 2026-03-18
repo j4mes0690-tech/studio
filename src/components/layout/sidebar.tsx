@@ -40,7 +40,7 @@ import {
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import type { DistributionUser, SystemSettings } from '@/lib/types';
+import type { DistributionUser } from '@/lib/types';
 import { useMemo } from 'react';
 
 const links = [
@@ -84,12 +84,6 @@ export function AppSidebar() {
 
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
-  const brandingRef = useMemoFirebase(() => {
-    if (!db) return null;
-    return doc(db, 'system-settings', 'branding');
-  }, [db]);
-  const { data: branding } = useDoc<SystemSettings>(brandingRef);
-
   const filteredLinks = useMemo(() => {
     if (!profile) return links.filter((l) => !l.permission);
     return links.filter((link) => {
@@ -103,7 +97,6 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" className="group-data-[variant=floating]:bg-card/95 group-data-[variant=floating]:backdrop-blur-sm">
       <SidebarHeader>
         <Logo 
-          src={branding?.logoUrl}
           className="text-sidebar-foreground transition-all duration-200 group-data-[collapsible=icon]:-ml-14" 
         />
       </SidebarHeader>
