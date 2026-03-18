@@ -26,12 +26,12 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, StopCircle, Plus, Trash2, Calculator, Pencil, PoundSterling, ShoppingCart, Tag } from 'lucide-react';
+import { Loader2, Save, StopCircle, Plus, Trash2, Calculator, Pencil, PoundSterling, ShoppingCart } from 'lucide-react';
 import type { Project, SubContractor, PlantOrder, PlantOrderItem, PlantRateUnit } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { addWeeks, differenceInDays, parseISO } from 'date-fns';
@@ -42,7 +42,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { generatePlantOrderPDF } from '@/lib/pdf-utils';
 
 const EditPlantOrderSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -190,7 +189,6 @@ export function EditPlantOrderDialog({
   }, [orderItems]);
 
   const onSubmit = (values: EditPlantOrderFormValues) => {
-    // Synchronize: If user has a pending item filled out, add it automatically
     let finalItems = [...orderItems];
     const pRate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
     if (pendingDescription && !isNaN(pRate) && pRate > 0) {
@@ -215,7 +213,6 @@ export function EditPlantOrderDialog({
     startTransition(async () => {
       try {
         const supplier = plantSuppliers.find(s => s.id === values.supplierId);
-        const project = projects.find(p => p.id === values.projectId);
         const docRef = doc(db, 'plant-orders', order.id);
         
         let overallStatus = values.status;
@@ -242,19 +239,11 @@ export function EditPlantOrderDialog({
             path: docRef.path,
             operation: 'update',
             requestResourceData: updates,
-          }));
+          } satisfies SecurityRuleContext));
           throw error;
         });
 
-        if (overallStatus === 'scheduled' || overallStatus === 'on-hire') {
-          toast({ title: 'Order Committed', description: 'Downloading hire record PDF...' });
-          const fullOrderData = { ...order, ...updates };
-          const pdf = await generatePlantOrderPDF(fullOrderData as PlantOrder, project, supplier);
-          pdf.save(`PLANT-${order.reference}.pdf`);
-        } else {
-          toast({ title: 'Success', description: 'Hire record updated.' });
-        }
-
+        toast({ title: 'Success', description: 'Hire record updated.' });
         onOpenChange(false);
       } catch (err) {
         console.error(err);
@@ -275,7 +264,7 @@ export function EditPlantOrderDialog({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
               )} />
               <FormField control={form.control} name="supplierId" render={({ field }) => (
                 <FormItem><FormLabel>Supplier</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{plantSuppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
@@ -416,7 +405,7 @@ export function EditPlantOrderDialog({
               <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
                 <Save className="mr-2 h-4 w-4" /> Save Draft
               </Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 font-bold" disabled={isPending} onClick={() => {
+              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => {
                   const currentStatus = form.getValues('status');
                   if (currentStatus === 'draft') form.setValue('status', 'scheduled');
               }}>
