@@ -5,7 +5,7 @@ import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { SiteDiaryEntry, Project, DistributionUser, SubContractor } from '@/lib/types';
-import { Loader2, BookOpen, LayoutGrid, List, ShieldCheck, Filter, Calendar, BarChart3, X } from 'lucide-react';
+import { Loader2, BookOpen, LayoutGrid, List, ShieldCheck, Filter, Calendar, BarChart3, X, Building2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
