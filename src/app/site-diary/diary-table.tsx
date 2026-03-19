@@ -45,7 +45,7 @@ export function DiaryTable({
   currentUser: DistributionUser;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>('date');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
 
   const sortedEntries = useMemo(() => {
     return [...entries].sort((a, b) => {

@@ -49,7 +49,7 @@ function SiteDiaryContent() {
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
   const { data: allProjects } = useCollection<Project>(projectsQuery);
 
-  const entriesQuery = useMemoFirebase(() => (db ? query(collection(db, 'site-diary'), orderBy('date', 'desc')) : null), [db]);
+  const entriesQuery = useMemoFirebase(() => (db ? query(collection(db, 'site-diary'), orderBy('date', 'asc')) : null), [db]);
   const { data: allEntries, isLoading: entriesLoading } = useCollection<SiteDiaryEntry>(entriesQuery);
 
   const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
@@ -82,14 +82,8 @@ function SiteDiaryContent() {
       return isAuthorised && matchesProject && matchesDate;
     });
 
-    // If date filters are set, sort chronologically (Ascending) for easier sequential review
-    // Otherwise, keep the default "newest first" (Descending) order
-    if (fromFilter || toFilter) {
-        return results.sort((a, b) => a.date.localeCompare(b.date));
-    }
-    
-    // Explicitly sort descending if no date filters are present
-    return results.sort((a, b) => b.date.localeCompare(a.date));
+    // Default sort: Chronological (earliest date first)
+    return results.sort((a, b) => a.date.localeCompare(b.date));
   }, [allEntries, allowedProjectIds, projectFilter, fromFilter, toFilter]);
 
   const updateFilters = (updates: Record<string, string | null>) => {
@@ -150,7 +144,7 @@ function SiteDiaryContent() {
                   {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent><p>Switch to {isCompact ? 'Card' : 'Table'} View</p></TooltipContent>
+              <TooltipContent><p>Switch to {isCompact ? 'Card' : 'Compact'} View</p></TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
