@@ -72,7 +72,7 @@ export function TrainingRecordCard({
     const daysUntil = differenceInDays(expiry, today);
 
     if (daysUntil < 0) return { label: 'Expired', color: 'bg-red-100 text-red-800 border-red-200', icon: AlertTriangle };
-    if (daysUntil <= 90) return { label: 'Expiring Soon', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock };
+    if (daysUntil <= 90) return { label: 'Expiring', color: 'bg-amber-100 text-amber-800 border-amber-200', icon: Clock };
     return { label: 'Active', color: 'bg-green-100 text-green-800 border-green-200', icon: ShieldCheck };
   }, [record.expiryDate]);
 
@@ -90,17 +90,19 @@ export function TrainingRecordCard({
         className={cn(
           "group transition-all hover:border-primary cursor-pointer h-full flex flex-col",
           status.label === 'Expired' && "border-red-200 bg-red-50/5",
-          status.label === 'Expiring Soon' && "border-amber-200 bg-amber-50/5"
+          status.label === 'Expiring' && "border-amber-200 bg-amber-50/5"
         )}
         onClick={() => setIsDetailOpen(true)}
       >
         <CardHeader className="pb-3">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
-              <Badge variant="outline" className={cn("text-[10px] font-bold h-5", status.color)}>
-                <status.icon className="h-2.5 w-2.5 mr-1" />
-                {status.label}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn("text-[10px] font-bold h-5", status.color)}>
+                  <status.icon className="h-2.5 w-2.5 mr-1" />
+                  {status.label}
+                </Badge>
+              </div>
               <CardTitle className="text-lg leading-tight pt-1 group-hover:text-primary transition-colors">{record.courseName}</CardTitle>
               <CardDescription className="font-bold text-foreground text-xs uppercase tracking-tight">
                 {record.userName}
