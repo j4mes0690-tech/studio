@@ -51,7 +51,7 @@ export async function generateProcurementPDF(
   reportElement.style.position = 'absolute';
   reportElement.style.left = '-9999px';
   reportElement.style.padding = '40px';
-  reportElement.style.width = '1000px'; // Wider for landscape-style data
+  reportElement.style.width = '1200px'; // Increased width for comments
   reportElement.style.background = 'white';
   reportElement.style.color = 'black';
   reportElement.style.fontFamily = 'sans-serif';
@@ -71,13 +71,14 @@ export async function generateProcurementPDF(
     <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
       <thead>
         <tr style="background: #f1f5f9; border-bottom: 2px solid #1e40af;">
-          <th style="padding: 10px; text-align: left;">Ref</th>
-          <th style="padding: 10px; text-align: left;">Trade Discipline</th>
-          <th style="padding: 10px; text-align: left;">Partner</th>
-          <th style="padding: 10px; text-align: center;">Due Enquiry</th>
-          <th style="padding: 10px; text-align: center;">Due Order</th>
-          <th style="padding: 10px; text-align: center;">Site Start</th>
-          <th style="padding: 10px; text-align: center;">Status</th>
+          <th style="padding: 10px; text-align: left; width: 80px;">Ref</th>
+          <th style="padding: 10px; text-align: left; width: 150px;">Trade Discipline</th>
+          <th style="padding: 10px; text-align: left; width: 150px;">Partner</th>
+          <th style="padding: 10px; text-align: center; width: 90px;">Due Enquiry</th>
+          <th style="padding: 10px; text-align: center; width: 90px;">Due Order</th>
+          <th style="padding: 10px; text-align: center; width: 90px;">Site Start</th>
+          <th style="padding: 10px; text-align: center; width: 80px;">Status</th>
+          <th style="padding: 10px; text-align: left;">Management Comments</th>
         </tr>
       </thead>
       <tbody>
@@ -93,6 +94,9 @@ export async function generateProcurementPDF(
               <span style="display: inline-block; padding: 2px 8px; border-radius: 4px; background: ${item.orderPlacedDate ? '#dcfce7' : '#f1f5f9'}; color: ${item.orderPlacedDate ? '#166534' : '#475569'}; font-size: 9px; font-weight: bold; text-transform: uppercase;">
                 ${item.orderPlacedDate ? 'Ordered' : 'Planned'}
               </span>
+            </td>
+            <td style="padding: 10px; color: #475569; font-style: italic; font-size: 10px;">
+              ${item.comments || '---'}
             </td>
           </tr>
         `).join('')}
@@ -519,7 +523,7 @@ export async function generatePlantOrderPDF(
   const reportElement = document.createElement('div');
   reportElement.style.position = 'absolute';
   reportElement.style.left = '-9999px';
-  reportElement.style.padding = '50px';
+  reportElement.style.padding = '40px';
   reportElement.style.width = '800px';
   reportElement.style.background = 'white';
   reportElement.style.color = 'black';
