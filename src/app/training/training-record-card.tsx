@@ -110,14 +110,14 @@ export function TrainingRecordCard({
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity" 
+                className="h-8 w-8 text-primary transition-opacity" 
                 onClick={() => setIsEditOpen(true)}
               >
                 <Pencil className="h-4 w-4" />
               </Button>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive transition-opacity">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </AlertDialogTrigger>
@@ -139,7 +139,7 @@ export function TrainingRecordCard({
           <div className="grid grid-cols-2 gap-4 bg-muted/20 p-3 rounded-lg border border-dashed text-[11px]">
             <div className="space-y-1">
               <p className="font-bold text-muted-foreground uppercase tracking-widest">Issued</p>
-              <p className="font-medium flex items-center gap-1"><Calendar className="h-3 w-3" /> <ClientDate date={record.issueDate} format="date" /></p>
+              <p className="font-medium flex items-center gap-1"><Calendar className="h-3 w-3 text-primary" /> <ClientDate date={record.issueDate} format="date" /></p>
             </div>
             <div className="space-y-1 text-right">
               <p className="font-bold text-muted-foreground uppercase tracking-widest">Expiry</p>

@@ -36,6 +36,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
@@ -182,7 +188,7 @@ function TrainingRow({
     e.stopPropagation();
     startTransition(async () => {
       await deleteDoc(doc(db, 'training-records', record.id));
-      toast({ title: 'Success', description: 'Record removed.' });
+      toast({ title: 'Success', description: 'Certificate record removed.' });
     });
   };
 
@@ -210,7 +216,7 @@ function TrainingRow({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => setIsEditOpen(true)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary transition-opacity" onClick={() => setIsEditOpen(true)}>
                   <Pencil className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -308,7 +314,7 @@ function TrainingRow({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive transition-opacity">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </AlertDialogTrigger>
