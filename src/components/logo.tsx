@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 /**
  * Logo - The primary branding component for SiteCommand.
  * Features a stylized orange hard hat over a sharp eagle-head motif.
+ * Supports an optional 'src' prop for company branding (white-labelling).
  */
 export function Logo({ 
   className, 
@@ -35,7 +36,7 @@ export function Logo({
             role="img"
             aria-label="SiteCommand Logo"
           >
-            {/* Hard hat */}
+            {/* Hard hat - Brand Orange #f26522 */}
             <path 
               fill="none" 
               stroke="#f26522" 
@@ -61,7 +62,7 @@ export function Logo({
               d="M333 392 L705 392 C733 392 755 403 770 418 L318 418 Z" 
             />
 
-            {/* Eagle */}
+            {/* Eagle - Pure Black #000000 */}
             <path 
               fill="none" 
               stroke="#000000" 
