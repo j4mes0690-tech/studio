@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -46,7 +45,7 @@ const EditOrderSchema = z.object({
   description: z.string().min(3, 'Order description is required.'),
   cvrCode: z.string().optional(),
   notes: z.string().optional(),
-  status: z.enum(['draft', 'issued']).default('issued'),
+  status: z.enum(['draft', 'issued', 'received', 'cancelled']).default('issued'),
 });
 
 type EditOrderFormValues = z.infer<typeof EditOrderSchema>;
@@ -98,7 +97,7 @@ export function EditOrderDialog({
       description: order.description || '',
       cvrCode: order.cvrCode || '',
       notes: order.notes || '', 
-      status: order.status === 'issued' ? 'issued' : 'draft' 
+      status: order.status
     },
   });
 
@@ -110,7 +109,7 @@ export function EditOrderDialog({
         description: order.description || '',
         cvrCode: order.cvrCode || '',
         notes: order.notes || '',
-        status: order.status === 'issued' ? 'issued' : 'draft',
+        status: order.status,
       });
       setOrderItems(order.items || []);
     }
@@ -202,131 +201,131 @@ export function EditOrderDialog({
     });
   };
 
-  const submissionStatus = form.watch('status');
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-4 border-b shrink-0">
           <DialogTitle>Edit Purchase Order: {order.orderNumber}</DialogTitle>
           <DialogDescription>Modify order details or delivery requirements.</DialogDescription>
         </DialogHeader>
 
-        <Form {...form}>
-          <form className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
-              )} />
-              <FormField control={form.control} name="supplierId" render={({ field }) => (
-                <FormItem><FormLabel>Supplier</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
-              )} />
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <FormField control={form.control} name="description" render={({ field }) => (
-                  <FormItem><FormLabel>Order Description</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+        <div className="flex-1 overflow-y-auto p-6">
+          <Form {...form}>
+            <form className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="projectId" render={({ field }) => (
+                  <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                )} />
+                <FormField control={form.control} name="supplierId" render={({ field }) => (
+                  <FormItem><FormLabel>Supplier</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
                 )} />
               </div>
-              <FormField
-                control={form.control}
-                name="cvrCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center gap-2">
-                      <FormLabel>CVR Code</FormLabel>
-                      <Badge variant="outline" className="text-[8px] h-3 px-1 uppercase font-bold text-muted-foreground">Internal Only</Badge>
-                    </div>
-                    <FormControl><Input placeholder="e.g. 104.02" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <Separator />
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <FormLabel className="text-base font-bold text-primary">Line Items</FormLabel>
-                <div className="flex items-center gap-2 text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full"><Calculator className="h-4 w-4" /> £{orderTotal.toFixed(2)}</div>
-              </div>
-
-              <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2"><Label className="text-xs">Description</Label><Input value={pendingDescription} onChange={e => setPendingDescription(e.target.value)} className="bg-background" /></div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Required Date</Label>
-                    <div className="flex gap-1 mb-1">
-                      <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setPendingDeliveryDate(null)}>ASAP</Button>
-                      <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setPendingDeliveryDate(addWeeks(new Date(), 1).toISOString())}>+1w</Button>
-                      <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setPendingDeliveryDate(addWeeks(new Date(), 2).toISOString())}>+2w</Button>
-                    </div>
-                    <Input type={(pendingDeliveryDate || isDateInputFocused) ? "date" : "text"} value={(pendingDeliveryDate || isDateInputFocused) ? (pendingDeliveryDate ? new Date(pendingDeliveryDate).toISOString().split('T')[0] : '') : 'ASAP'} onChange={e => setPendingDeliveryDate(e.target.value && e.target.value !== 'ASAP' ? new Date(e.target.value).toISOString() : null)} onFocus={() => setIsDateInputFocused(true)} onBlur={() => setIsDateInputFocused(false)} className="bg-background" />
-                  </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-2">
+                  <FormField control={form.control} name="description" render={({ field }) => (
+                    <FormItem><FormLabel>Order Description</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
+                  )} />
                 </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <Input type="number" placeholder="Qty" value={pendingQty} onChange={e => setPendingQuantity(e.target.value)} onFocus={() => setPendingQuantity('')} className="bg-background" />
-                  <Select value={pendingUnit} onValueChange={setPendingUnit}>
-                    <SelectTrigger className="bg-background"><SelectValue placeholder="Unit" /></SelectTrigger>
-                    <SelectContent>{UNIT_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <Input type="number" step="0.01" placeholder="Rate £" value={pendingRate} onChange={e => setPendingRate(e.target.value)} onFocus={() => setPendingRate('')} className="bg-background" />
+                <FormField
+                  control={form.control}
+                  name="cvrCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center gap-2">
+                        <FormLabel>CVR Code</FormLabel>
+                        <Badge variant="outline" className="text-[8px] h-3 px-1 uppercase font-bold text-muted-foreground">Internal Only</Badge>
+                      </div>
+                      <FormControl><Input placeholder="e.g. 104.02" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <FormLabel className="text-base font-bold text-primary">Line Items</FormLabel>
+                  <div className="flex items-center gap-2 text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full"><Calculator className="h-4 w-4" /> £{orderTotal.toFixed(2)}</div>
                 </div>
-                <Button type="button" onClick={handleAddItem} disabled={!pendingDescription} className="w-full"><Plus className="h-4 w-4 mr-2" /> Add Item</Button>
-              </div>
 
-              <div className="space-y-2">
-                {orderItems.map((item, idx) => (
-                  <div key={idx} className="flex flex-col p-3 rounded border bg-background shadow-sm gap-2">
-                    <div className="flex justify-between items-start">
-                      <div className="min-w-0 flex-1"><p className="text-sm font-bold text-primary truncate">{item.description}</p><p className="text-[10px] text-muted-foreground">{item.quantity} {item.unit} @ £{item.rate.toFixed(2)} | Due: {item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString() : 'ASAP'}</p></div>
-                      <div className="flex gap-1"><Button type="button" variant="ghost" size="icon" onClick={() => handleEditItem(idx)}><Pencil className="h-4 w-4" /></Button><Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button></div>
+                <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2"><Label className="text-xs">Description</Label><Input value={pendingDescription} onChange={e => setPendingDescription(e.target.value)} className="bg-background" /></div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Required Date</Label>
+                      <div className="flex gap-1 mb-1">
+                        <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setPendingDeliveryDate(null)}>ASAP</Button>
+                        <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setPendingDeliveryDate(addWeeks(new Date(), 1).toISOString())}>+1w</Button>
+                        <Button type="button" variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] font-bold text-primary" onClick={() => setPendingDeliveryDate(addWeeks(new Date(), 2).toISOString())}>+2w</Button>
+                      </div>
+                      <Input type={(pendingDeliveryDate || isDateInputFocused) ? "date" : "text"} value={(pendingDeliveryDate || isDateInputFocused) ? (pendingDeliveryDate ? new Date(pendingDeliveryDate).toISOString().split('T')[0] : '') : 'ASAP'} onChange={e => setPendingDeliveryDate(e.target.value && e.target.value !== 'ASAP' ? new Date(e.target.value).toISOString() : null)} onFocus={() => setIsDateInputFocused(true)} onBlur={() => setIsDateInputFocused(false)} className="bg-background" />
                     </div>
-                    <div className="flex justify-end font-bold text-sm">£{item.total.toFixed(2)}</div>
                   </div>
-                ))}
+                  <div className="grid grid-cols-3 gap-4">
+                    <Input type="number" placeholder="Qty" value={pendingQty} onChange={e => setPendingQuantity(e.target.value)} onFocus={() => setPendingQuantity('')} className="bg-background" />
+                    <Select value={pendingUnit} onValueChange={setPendingUnit}>
+                      <SelectTrigger className="bg-background"><SelectValue placeholder="Unit" /></SelectTrigger>
+                      <SelectContent>{UNIT_OPTIONS.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Input type="number" step="0.01" placeholder="Rate £" value={pendingRate} onChange={e => setPendingRate(e.target.value)} onFocus={() => setPendingRate('')} className="bg-background" />
+                  </div>
+                  <Button type="button" onClick={handleAddItem} disabled={!pendingDescription} className="w-full"><Plus className="h-4 w-4 mr-2" /> Add Item</Button>
+                </div>
+
+                <div className="space-y-2">
+                  {orderItems.map((item, idx) => (
+                    <div key={idx} className="flex flex-col p-3 rounded border bg-background shadow-sm gap-2">
+                      <div className="flex justify-between items-start">
+                        <div className="min-w-0 flex-1"><p className="text-sm font-bold text-primary truncate">{item.description}</p><p className="text-[10px] text-muted-foreground">{item.quantity} {item.unit} @ £{item.rate.toFixed(2)} | Due: {item.deliveryDate ? new Date(item.deliveryDate).toLocaleDateString() : 'ASAP'}</p></div>
+                        <div className="flex gap-1"><Button type="button" variant="ghost" size="icon" onClick={() => handleEditItem(idx)}><Pencil className="h-4 w-4" /></Button><Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button></div>
+                      </div>
+                      <div className="flex justify-end font-bold text-sm">£{item.total.toFixed(2)}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            <FormField control={form.control} name="notes" render={({ field }) => (
-              <FormItem><FormLabel>Delivery Instructions</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
-            )} />
+              <FormField control={form.control} name="notes" render={({ field }) => (
+                <FormItem><FormLabel>Delivery Instructions</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
+              )} />
+            </form>
+          </Form>
+        </div>
 
-            <DialogFooter className="pt-4 border-t gap-3">
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full sm:w-auto h-12" 
-                disabled={isPending} 
-                onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}, false))}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save as Draft
-              </Button>
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full sm:flex-1 h-12 font-bold" 
-                disabled={isPending} 
-                onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, false))}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                Save
-              </Button>
-              <Button 
-                type="button" 
-                className="w-full sm:flex-1 h-12 text-lg font-bold" 
-                disabled={isPending} 
-                onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, true))}
-              >
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
-                Save and Print
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+        <DialogFooter className="flex flex-col sm:flex-row gap-3 p-6 border-t bg-muted/10 shrink-0">
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="w-full sm:w-auto h-12" 
+            disabled={isPending} 
+            onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}, false))}
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save as Draft
+          </Button>
+          <Button 
+            type="button" 
+            variant="outline" 
+            className="w-full sm:flex-1 h-12 font-bold" 
+            disabled={isPending} 
+            onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, false))}
+          >
+            <Save className="mr-2 h-4 w-4" />
+            Save
+          </Button>
+          <Button 
+            type="button" 
+            className="w-full sm:flex-1 h-12 text-lg font-bold" 
+            disabled={isPending} 
+            onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, true))}
+          >
+            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
+            Save and Print
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
