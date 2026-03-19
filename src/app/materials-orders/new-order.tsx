@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -26,7 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar, Pencil, Save, Tag } from 'lucide-react';
+import { Trash2, ShoppingCart, Loader2, PlusCircle, Calculator, Plus, Calendar, Pencil, Save, Tag, FileDown, FileText } from 'lucide-react';
 import type { Project, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -34,7 +35,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
+import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
 import { addWeeks } from 'date-fns';
 import { generatePurchaseOrderPDF } from '@/lib/pdf-utils';
 import { Badge } from '@/components/ui/badge';
@@ -141,7 +142,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
 
   const removeItem = (idx: number) => setOrderItems(orderItems.filter((_, i) => i !== idx));
 
-  const onSubmit = (values: NewOrderFormValues) => {
+  const onSubmit = (values: NewOrderFormValues, shouldPrint = false) => {
     if (orderItems.length === 0) {
       toast({ title: 'Order is empty', description: 'Add at least one material item to the order.', variant: 'destructive' });
       return;
@@ -173,19 +174,19 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
         const colRef = collection(db, 'purchase-orders');
         const docRef = await addDoc(colRef, orderData).catch((error) => {
           errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: colRef.path,
+            path: 'purchase-orders',
             operation: 'create',
             requestResourceData: orderData,
           }));
           throw error;
         });
 
-        if (values.status === 'issued') {
-          toast({ title: 'Order Committed', description: 'Downloading purchase order PDF...' });
+        if (shouldPrint) {
+          toast({ title: 'Order Recorded', description: 'Downloading purchase order PDF...' });
           const pdf = await generatePurchaseOrderPDF({ ...orderData, id: docRef.id } as PurchaseOrder, selectedProject, supplier);
           pdf.save(`PO-${orderNumber}-${orderData.supplierName.replace(/\s+/g, '-')}.pdf`);
         } else {
-          toast({ title: 'Success', description: 'Order saved as draft.' });
+          toast({ title: 'Success', description: values.status === 'draft' ? 'Order saved as draft.' : 'Order recorded successfully.' });
         }
         
         setOpen(false);
@@ -217,9 +218,7 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <input type="hidden" {...form.register('status')} />
-            
+          <form className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -372,13 +371,34 @@ export function NewOrderDialog({ projects, suppliers, allOrders, currentUser }: 
             />
 
             <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-              <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full sm:w-auto h-12" 
+                disabled={isPending} 
+                onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}, false))}
+              >
+                <Save className="mr-2 h-4 w-4" />
                 Save as Draft
               </Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>
-                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-5 w-5" />}
-                Commit Order
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full sm:flex-1 h-12 font-bold" 
+                disabled={isPending} 
+                onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, false))}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save
+              </Button>
+              <Button 
+                type="button" 
+                className="w-full sm:flex-1 h-12 text-lg font-bold" 
+                disabled={isPending} 
+                onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, true))}
+              >
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
+                Save and Print
               </Button>
             </DialogFooter>
           </form>

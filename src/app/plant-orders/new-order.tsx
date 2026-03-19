@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -26,9 +27,9 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Calculator, Pencil, ShoppingCart, Tag } from 'lucide-react';
+import { PlusCircle, Loader2, Save, Truck, Calendar, PoundSterling, Plus, Trash2, Calculator, Pencil, ShoppingCart, Tag, FileText } from 'lucide-react';
 import type { Project, SubContractor, DistributionUser, PlantOrder, PlantOrderItem, PlantRateUnit } from '@/lib/types';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
@@ -135,7 +136,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
     return orderItems.reduce((sum, item) => sum + item.estimatedCost, 0);
   }, [orderItems]);
 
-  const onSubmit = (values: NewPlantOrderFormValues) => {
+  const onSubmit = (values: NewPlantOrderFormValues, shouldPrint = false) => {
     // Synchronize: If user has a pending item filled out, add it automatically
     let finalItems = [...orderItems];
     const pRate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
@@ -189,12 +190,12 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
           throw error;
         });
 
-        if (values.status === 'scheduled' || values.status === 'on-hire') {
-          toast({ title: 'Order Activated', description: 'Downloading hire contract PDF...' });
+        if (shouldPrint) {
+          toast({ title: 'Hire Scheduled', description: 'Downloading hire contract PDF...' });
           const pdf = await generatePlantOrderPDF({ ...orderData, id: docRef.id } as PlantOrder, selectedProject, supplier);
           pdf.save(`PLANT-${reference}.pdf`);
         } else {
-          toast({ title: 'Success', description: values.status === 'draft' ? 'Order saved as draft.' : 'Order recorded.' });
+          toast({ title: 'Success', description: values.status === 'draft' ? 'Order saved as draft.' : 'Plant hire scheduled.' });
         }
 
         setOpen(false);
@@ -226,7 +227,7 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
                 <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
@@ -339,12 +340,34 @@ export function NewPlantOrderDialog({ projects, subContractors, allOrders, curre
             )} />
 
             <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-              <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
-                <Save className="mr-2 h-4 w-4" /> Save as Draft
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full sm:w-auto h-12" 
+                disabled={isPending} 
+                onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}, false))}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save as Draft
               </Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'scheduled')}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-5 w-5" />}
-                Issue Hire Order
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full sm:flex-1 h-12 font-bold" 
+                disabled={isPending} 
+                onClick={form.handleSubmit(v => onSubmit({...v, status: 'scheduled'}, false))}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save
+              </Button>
+              <Button 
+                type="button" 
+                className="w-full sm:flex-1 h-12 text-lg font-bold" 
+                disabled={isPending} 
+                onClick={form.handleSubmit(v => onSubmit({...v, status: 'scheduled'}, true))}
+              >
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
+                Save and Print
               </Button>
             </DialogFooter>
           </form>

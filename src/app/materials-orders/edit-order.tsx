@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
@@ -19,13 +20,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, ShoppingCart, Loader2, Calculator, Plus, Calendar, Pencil, Save, Tag } from 'lucide-react';
+import { Trash2, ShoppingCart, Loader2, Calculator, Plus, Calendar, Pencil, Save, Tag, FileText } from 'lucide-react';
 import type { Project, DistributionUser, PurchaseOrder, PurchaseOrderItem, SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -150,7 +152,7 @@ export function EditOrderDialog({
 
   const removeItem = (idx: number) => setOrderItems(orderItems.filter((_, i) => i !== idx));
 
-  const onSubmit = (values: EditOrderFormValues) => {
+  const onSubmit = (values: EditOrderFormValues, shouldPrint = false) => {
     if (orderItems.length === 0) return;
     startTransition(async () => {
       try {
@@ -183,8 +185,8 @@ export function EditOrderDialog({
           throw error;
         });
 
-        if (values.status === 'issued') {
-          toast({ title: 'Order Committed', description: 'Downloading purchase order PDF...' });
+        if (shouldPrint) {
+          toast({ title: 'Changes Saved', description: 'Downloading purchase order PDF...' });
           const fullOrderData = { ...order, ...updates };
           const pdf = await generatePurchaseOrderPDF(fullOrderData as PurchaseOrder, project, supplier);
           pdf.save(`PO-${order.orderNumber}-${fullOrderData.supplierName.replace(/\s+/g, '-')}.pdf`);
@@ -211,8 +213,7 @@ export function EditOrderDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <input type="hidden" {...form.register('status')} />
+          <form className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField control={form.control} name="projectId" render={({ field }) => (
                 <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
@@ -294,13 +295,34 @@ export function EditOrderDialog({
             )} />
 
             <DialogFooter className="pt-4 border-t gap-3">
-              <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                Save Draft
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full sm:w-auto h-12" 
+                disabled={isPending} 
+                onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}, false))}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save as Draft
               </Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>
-                {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShoppingCart className="mr-2 h-4 w-4" />}
-                Commit Order
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full sm:flex-1 h-12 font-bold" 
+                disabled={isPending} 
+                onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, false))}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save
+              </Button>
+              <Button 
+                type="button" 
+                className="w-full sm:flex-1 h-12 text-lg font-bold" 
+                disabled={isPending} 
+                onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, true))}
+              >
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
+                Save and Print
               </Button>
             </DialogFooter>
           </form>
