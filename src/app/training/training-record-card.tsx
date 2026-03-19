@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
@@ -17,11 +18,13 @@ import {
   Eye,
   ExternalLink,
   Pencil,
-  GraduationCap
+  GraduationCap,
+  Archive,
+  ArchiveRestore
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -43,6 +46,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
@@ -66,6 +75,8 @@ export function TrainingRecordCard({
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
 
+  const isArchived = !!record.archived;
+
   const status = useMemo(() => {
     const today = startOfDay(new Date());
     const expiry = startOfDay(parseISO(record.expiryDate));
@@ -84,13 +95,31 @@ export function TrainingRecordCard({
     });
   };
 
+  const handleToggleArchive = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    startTransition(async () => {
+        try {
+            await updateDoc(doc(db, 'training-records', record.id), {
+                archived: !isArchived
+            });
+            toast({ 
+                title: isArchived ? 'Record Restored' : 'Record Archived', 
+                description: isArchived ? 'Certification moved back to active registry.' : 'Certification moved to historical archives.' 
+            });
+        } catch (err) {
+            toast({ title: 'Error', description: 'Failed to update archive status.', variant: 'destructive' });
+        }
+    });
+  };
+
   return (
     <>
       <Card 
         className={cn(
           "group transition-all hover:border-primary cursor-pointer h-full flex flex-col",
-          status.label === 'Expired' && "border-red-200 bg-red-50/5",
-          status.label === 'Expiring' && "border-amber-200 bg-amber-50/5"
+          status.label === 'Expired' && !isArchived && "border-red-200 bg-red-50/5",
+          status.label === 'Expiring' && !isArchived && "border-amber-200 bg-amber-50/5",
+          isArchived && "opacity-75 grayscale border-muted bg-muted/5"
         )}
         onClick={() => setIsDetailOpen(true)}
       >
@@ -98,10 +127,16 @@ export function TrainingRecordCard({
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className={cn("text-[10px] font-bold h-5", status.color)}>
-                  <status.icon className="h-2.5 w-2.5 mr-1" />
-                  {status.label}
-                </Badge>
+                {isArchived ? (
+                    <Badge variant="secondary" className="text-[10px] font-black uppercase tracking-tighter h-5 bg-slate-200 text-slate-700">
+                        <Archive className="h-2.5 w-2.5 mr-1" /> Archived
+                    </Badge>
+                ) : (
+                    <Badge variant="outline" className={cn("text-[10px] font-bold h-5", status.color)}>
+                        <status.icon className="h-2.5 w-2.5 mr-1" />
+                        {status.label}
+                    </Badge>
+                )}
               </div>
               <CardTitle className="text-lg leading-tight pt-1 group-hover:text-primary transition-colors">{record.courseName}</CardTitle>
               <CardDescription className="font-bold text-foreground text-xs uppercase tracking-tight">
@@ -109,31 +144,59 @@ export function TrainingRecordCard({
               </CardDescription>
             </div>
             <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-primary transition-opacity" 
-                onClick={() => setIsEditOpen(true)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive transition-opacity">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Training Record?</AlertDialogTitle>
-                    <AlertDialogDescription>This will permanently remove the certification data for {record.userName}.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-primary" 
+                            onClick={handleToggleArchive}
+                            disabled={isPending}
+                        >
+                            {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{isArchived ? 'Restore to Registry' : 'Archive Record'}</p></TooltipContent>
+                </Tooltip>
+
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-primary" 
+                            onClick={() => setIsEditOpen(true)}
+                        >
+                            <Pencil className="h-4 w-4" />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Edit Details</p></TooltipContent>
+                </Tooltip>
+
+                <AlertDialog>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Delete Permanently</p></TooltipContent>
+                    </Tooltip>
+                    <AlertDialogContent onClick={e => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Training Record?</AlertDialogTitle>
+                        <AlertDialogDescription>This will permanently remove the certification data for {record.userName}.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+              </TooltipProvider>
             </div>
           </div>
         </CardHeader>
@@ -145,7 +208,7 @@ export function TrainingRecordCard({
             </div>
             <div className="space-y-1 text-right">
               <p className="font-bold text-muted-foreground uppercase tracking-widest">Expiry</p>
-              <p className={cn("font-bold flex items-center justify-end gap-1", status.label !== 'Active' && "text-destructive")}>
+              <p className={cn("font-bold flex items-center justify-end gap-1", status.label !== 'Active' && !isArchived && "text-destructive")}>
                 <Clock className="h-3 w-3" /> <ClientDate date={record.expiryDate} format="date" />
               </p>
             </div>

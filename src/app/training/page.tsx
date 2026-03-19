@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -5,7 +6,7 @@ import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { TrainingRecord, TrainingNeed, DistributionUser } from '@/lib/types';
-import { Loader2, GraduationCap, ClipboardList, ShieldCheck, Filter, LayoutGrid, List } from 'lucide-react';
+import { Loader2, GraduationCap, ClipboardList, ShieldCheck, Filter, LayoutGrid, List, Archive, ArchiveRestore, Eye, EyeOff } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NewTrainingRecord } from './new-training-record';
@@ -15,23 +16,33 @@ import { TrainingNeeds } from './training-needs';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 function TrainingContent() {
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   const [viewType, setViewType] = useState<'card' | 'table'>('card');
   const [userFilter, setUserFilter] = useState<string>('all');
+  const [showArchived, setShowArchived] = useState(false);
 
   // Load persistence
   useEffect(() => {
     const saved = localStorage.getItem('sitecommand_view_training');
     if (saved !== null) setViewType(saved as any);
+    const savedArchived = localStorage.getItem('sitecommand_show_archived_training');
+    if (savedArchived !== null) setShowArchived(savedArchived === 'true');
   }, []);
 
   const toggleView = () => {
     const newVal = viewType === 'card' ? 'table' : 'card';
     setViewType(newVal);
     localStorage.setItem('sitecommand_view_training', newVal);
+  };
+
+  const toggleArchived = () => {
+    const newVal = !showArchived;
+    setShowArchived(newVal);
+    localStorage.setItem('sitecommand_show_archived_training', String(newVal));
   };
 
   // Load Data
@@ -53,19 +64,20 @@ function TrainingContent() {
   const filteredRecords = useMemo(() => {
     if (!allRecords || !profile) return [];
     
-    // Non-admins only see their own records
+    // 1. Filter by user visibility
     let base = allRecords;
     if (!canManageTraining) {
         base = allRecords.filter(r => r.userEmail.toLowerCase() === profile.email.toLowerCase());
     }
 
-    // Apply User Filter
+    // 2. Filter by User Dropdown
     if (userFilter !== 'all') {
         base = base.filter(r => r.userEmail.toLowerCase() === userFilter.toLowerCase());
     }
 
-    return base;
-  }, [allRecords, profile, canManageTraining, userFilter]);
+    // 3. Filter by Archive Status
+    return base.filter(r => !!r.archived === showArchived);
+  }, [allRecords, profile, canManageTraining, userFilter, showArchived]);
 
   if (recordsLoading || needsLoading || !profile) {
     return (
@@ -93,14 +105,32 @@ function TrainingContent() {
         </div>
         <div className="flex items-center gap-2">
           <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={toggleView}>
-                  {viewType === 'table' ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Switch to {viewType === 'table' ? 'Card' : 'Table'} View</p></TooltipContent>
-            </Tooltip>
+            <div className="flex items-center border rounded-md p-0.5 bg-muted/20">
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={toggleArchived} 
+                            className={cn("h-9 w-9", showArchived && "bg-background shadow-sm text-primary")}
+                        >
+                            {showArchived ? <Eye className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>{showArchived ? 'Hide Archives' : 'Show Archives'}</p></TooltipContent>
+                </Tooltip>
+                
+                <Separator orientation="vertical" className="h-4 mx-1" />
+
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={toggleView} className="h-9 w-9">
+                            {viewType === 'table' ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Switch to {viewType === 'table' ? 'Card' : 'Table'} View</p></TooltipContent>
+                </Tooltip>
+            </div>
           </TooltipProvider>
 
           <NewTrainingRecord 
@@ -142,6 +172,12 @@ function TrainingContent() {
                             ))}
                         </SelectContent>
                     </Select>
+                    {showArchived && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1.5 ml-auto">
+                            <Archive className="h-3 w-3" />
+                            Viewing Archived Records Only
+                        </Badge>
+                    )}
                 </CardContent>
             </Card>
           )}
@@ -169,7 +205,9 @@ function TrainingContent() {
             ) : (
               <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/10">
                 <GraduationCap className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-                <p className="text-lg font-semibold text-muted-foreground">No certificates found</p>
+                <p className="text-lg font-semibold text-muted-foreground">
+                    {showArchived ? 'No archived certificates found.' : 'No active certificates found.'}
+                </p>
                 <p className="text-sm text-muted-foreground">Add certificates to start tracking compliance.</p>
               </div>
             )}

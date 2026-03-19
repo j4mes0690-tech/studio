@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -13,9 +14,9 @@ import type { TrainingRecord, Photo, DistributionUser } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { useMemo, useTransition, useState } from 'react';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { Trash2, ShieldCheck, Clock, AlertTriangle, FileText, GraduationCap, Calendar, Download, Eye, Pencil, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Trash2, ShieldCheck, Clock, AlertTriangle, FileText, GraduationCap, Calendar, Download, Eye, Pencil, ArrowUpDown, ArrowUp, ArrowDown, Archive, ArchiveRestore } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -174,6 +175,8 @@ function TrainingRow({
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
+  const isArchived = !!record.archived;
+
   const status = useMemo(() => {
     const today = startOfDay(new Date());
     const expiry = startOfDay(parseISO(record.expiryDate));
@@ -192,28 +195,52 @@ function TrainingRow({
     });
   };
 
+  const handleToggleArchive = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    startTransition(async () => {
+        try {
+            await updateDoc(doc(db, 'training-records', record.id), {
+                archived: !isArchived
+            });
+            toast({ 
+                title: isArchived ? 'Record Restored' : 'Record Archived', 
+                description: isArchived ? 'Moved to registry.' : 'Moved to archives.' 
+            });
+        } catch (err) {}
+    });
+  };
+
   return (
     <TableRow 
-      className={cn("group cursor-pointer", status.label === 'Expired' && "bg-red-50/10")}
+      className={cn("group cursor-pointer", status.label === 'Expired' && !isArchived && "bg-red-50/10", isArchived && "opacity-60 grayscale")}
       onClick={() => setIsDetailOpen(true)}
     >
       <TableCell className="font-bold">{record.userName}</TableCell>
       <TableCell className="font-medium">{record.courseName}</TableCell>
       <TableCell className="font-mono text-[10px] text-muted-foreground">{record.certificateNumber || 'N/A'}</TableCell>
       <TableCell>
-        <div className={cn("flex items-center gap-1.5 text-xs font-bold", status.label !== 'Active' && "text-destructive")}>
+        <div className={cn("flex items-center gap-1.5 text-xs font-bold", (status.label !== 'Active' && !isArchived) && "text-destructive")}>
           <Clock className="h-3 w-3" />
           <ClientDate date={record.expiryDate} format="date" />
         </div>
       </TableCell>
       <TableCell>
-        <Badge variant="outline" className={cn("text-[9px] uppercase font-black tracking-tighter border-transparent h-5", status.color)}>
-          {status.label}
+        <Badge variant="outline" className={cn("text-[9px] uppercase font-black tracking-tighter border-transparent h-5", isArchived ? "bg-slate-100 text-slate-600" : status.color)}>
+          {isArchived ? 'ARCHIVED' : status.label}
         </Badge>
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
           <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={handleToggleArchive} disabled={isPending}>
+                        {isArchived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>{isArchived ? 'Restore' : 'Archive'}</p></TooltipContent>
+            </Tooltip>
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-primary transition-opacity" onClick={() => setIsEditOpen(true)}>

@@ -540,6 +540,7 @@ export type TrainingRecord = {
   expiryDate: string;
   photos?: Photo[];
   createdAt: string;
+  archived?: boolean;
 };
 
 export type TrainingNeedStatus = 'requested' | 'booked' | 'completed';
