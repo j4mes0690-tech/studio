@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -14,6 +13,7 @@ import { OrderTable } from './order-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ExportButtons } from './export-buttons';
 
 function SubContractOrdersContent() {
   const db = useFirestore();
@@ -67,6 +67,8 @@ function SubContractOrdersContent() {
     });
   }, [allOrders, allowedProjectIds, projectFilter, statusFilter]);
 
+  const currentProject = useMemo(() => allowedProjects.find(p => p.id === projectFilter), [allowedProjects, projectFilter]);
+
   if (ordersLoading || !profile) {
     return (
       <div className="flex h-[50vh] w-full items-center justify-center">
@@ -83,17 +85,24 @@ function SubContractOrdersContent() {
         <div className="space-y-1">
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <FileSignature className="h-6 w-6 text-primary" />
-            Sub Contract Order Tracking
+            Sub Contract Orders
           </h2>
-          <p className="text-sm text-muted-foreground">Track the lifecycle of subcontractor agreements from drafting to execution.</p>
+          <p className="text-sm text-muted-foreground">Track agreement lifecycles from drafting to formal execution.</p>
           {hasFullVisibility && (
-            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
+            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1 ml-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Administrative Oversight Active
             </div>
           )}
         </div>
         <div className="flex items-center gap-2">
+          {filteredOrders.length > 0 && (
+            <ExportButtons 
+              items={filteredOrders} 
+              project={currentProject} 
+            />
+          )}
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -114,14 +123,14 @@ function SubContractOrdersContent() {
         </div>
       </div>
 
-      <Card className="bg-muted/30">
+      <Card className="bg-muted/30 border-none shadow-none">
         <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
           <div className="flex items-center gap-2 text-sm font-medium shrink-0">
             <Filter className="h-4 w-4 text-muted-foreground" />
             Filter Log:
           </div>
           <Select value={projectFilter} onValueChange={setProjectFilter}>
-            <SelectTrigger className="w-full sm:w-[200px] bg-background">
+            <SelectTrigger className="w-full sm:w-[250px] bg-background">
               <SelectValue placeholder="All Projects" />
             </SelectTrigger>
             <SelectContent>
