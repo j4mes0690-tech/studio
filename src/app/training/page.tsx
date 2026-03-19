@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -5,7 +6,7 @@ import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { TrainingRecord, TrainingNeed, DistributionUser } from '@/lib/types';
-import { Loader2, GraduationCap, ClipboardList, ShieldCheck, Filter, LayoutGrid, List, Archive, ArchiveRestore, Eye, EyeOff } from 'lucide-react';
+import { Loader2, GraduationCap, ClipboardList, ShieldCheck, Filter, LayoutGrid, List, Archive, ArchiveRestore, Eye, EyeOff, FileStack } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { NewTrainingRecord } from './new-training-record';
@@ -39,10 +40,10 @@ function TrainingContent() {
     localStorage.setItem('sitecommand_view_training', newVal);
   };
 
-  const toggleArchived = () => {
-    const newVal = !showArchived;
-    setShowArchived(newVal);
-    localStorage.setItem('sitecommand_show_archived_training', String(newVal));
+  const handleStatusChange = (val: string) => {
+    const isArchive = val === 'archived';
+    setShowArchived(isArchive);
+    localStorage.setItem('sitecommand_show_archived_training', String(isArchive));
   };
 
   // Load Data
@@ -108,22 +109,6 @@ function TrainingContent() {
             <div className="flex items-center border rounded-md p-0.5 bg-muted/20">
                 <Tooltip>
                     <TooltipTrigger asChild>
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            onClick={toggleArchived} 
-                            className={cn("h-9 w-9", showArchived && "bg-background shadow-sm text-primary")}
-                        >
-                            {showArchived ? <Eye className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-                        </Button>
-                    </TooltipTrigger>
-                    <TooltipContent><p>{showArchived ? 'Hide Archives' : 'Show Archives'}</p></TooltipContent>
-                </Tooltip>
-                
-                <Separator orientation="vertical" className="h-4 mx-1" />
-
-                <Tooltip>
-                    <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" onClick={toggleView} className="h-9 w-9">
                             {viewType === 'table' ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                         </Button>
@@ -154,33 +139,48 @@ function TrainingContent() {
         </TabsList>
 
         <TabsContent value="certificates" className="space-y-6 mt-6">
-          {canManageTraining && (
-            <Card className="bg-muted/30">
-                <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-center">
-                    <div className="flex items-center gap-2 text-sm font-medium shrink-0">
-                        <Filter className="h-4 w-4 text-muted-foreground" />
-                        Filter Staff:
-                    </div>
-                    <Select value={userFilter} onValueChange={setUserFilter}>
-                        <SelectTrigger className="w-full sm:w-[250px] bg-background">
-                            <SelectValue placeholder="All Employees" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Employees</SelectItem>
-                            {allUsers?.map(u => (
-                                <SelectItem key={u.id} value={u.email}>{u.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    {showArchived && (
-                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1.5 ml-auto">
-                            <Archive className="h-3 w-3" />
-                            Viewing Archived Records Only
-                        </Badge>
-                    )}
-                </CardContent>
-            </Card>
-          )}
+          <Card className="bg-muted/30 border-none shadow-none">
+              <CardContent className="p-4 flex flex-wrap gap-6 items-end">
+                  <div className="space-y-1.5 flex-1 min-w-[200px]">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 flex items-center gap-1.5">
+                        <Filter className="h-2.5 w-2.5" /> Employee Filter
+                      </Label>
+                      <Select value={userFilter} onValueChange={setUserFilter}>
+                          <SelectTrigger className="bg-background h-10">
+                              <SelectValue placeholder="All Employees" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="all">All Employees</SelectItem>
+                              {allUsers?.map(u => (
+                                  <SelectItem key={u.id} value={u.email}>{u.name}</SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                  </div>
+
+                  <div className="space-y-1.5 w-full sm:w-[200px]">
+                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 flex items-center gap-1.5">
+                        <FileStack className="h-2.5 w-2.5" /> Registry Status
+                      </Label>
+                      <Select value={showArchived ? 'archived' : 'active'} onValueChange={handleStatusChange}>
+                          <SelectTrigger className={cn("h-10 font-bold", showArchived ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-background")}>
+                              <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="active">Active Registry</SelectItem>
+                              <SelectItem value="archived">Historical Archive</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+
+                  {showArchived && (
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1.5 h-10 px-4 uppercase font-black text-[10px] tracking-widest">
+                          <Archive className="h-3.5 w-3.5" />
+                          Archive Mode
+                      </Badge>
+                  )}
+              </CardContent>
+          </Card>
 
           <div className="grid gap-4">
             {filteredRecords.length > 0 ? (
