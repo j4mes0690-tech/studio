@@ -282,15 +282,17 @@ function OrderTableRow({
               <TooltipContent><p>Download PO as PDF</p></TooltipContent>
             </Tooltip>
             
-            <EditOrderDialog 
-              order={order} 
-              projects={projects} 
-              suppliers={suppliers} 
-              allOrders={allOrders}
-              currentUser={currentUser}
-              open={isEditDialogOpen}
-              onOpenChange={setIsEditDialogOpen}
-            />
+            <div onClick={e => e.stopPropagation()}>
+                <EditOrderDialog 
+                order={order} 
+                projects={projects} 
+                suppliers={suppliers} 
+                allOrders={allOrders}
+                currentUser={currentUser}
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+                />
+            </div>
 
             <AlertDialog>
               <TooltipProvider>

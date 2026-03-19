@@ -224,10 +224,15 @@ function NoticeRow({ item, projects, subContractors, allUsers }: { item: CleanUp
             />
           )}
 
-          <EditCleanUpNotice notice={item} projects={projects} subContractors={subContractors} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} />
+          <div onClick={e => e.stopPropagation()}>
+            <EditCleanUpNotice notice={item} projects={projects} subContractors={subContractors} open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} />
+          </div>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                </Button>
             </AlertDialogTrigger>
             <AlertDialogContent onClick={e => e.stopPropagation()}>
                 <AlertDialogHeader><AlertDialogTitle>Delete Notice?</AlertDialogTitle><AlertDialogDescription>Permanently remove this requirement list.</AlertDialogDescription></AlertDialogHeader>

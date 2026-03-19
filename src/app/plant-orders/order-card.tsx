@@ -19,7 +19,9 @@ import {
   AlertTriangle,
   ShoppingCart,
   Tag,
-  MapPin
+  MapPin,
+  XCircle,
+  Pencil
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -163,6 +165,19 @@ export function OrderCard({
     });
   };
 
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    startTransition(async () => {
+      try {
+        const docRef = doc(db, 'plant-orders', order.id);
+        await updateDoc(docRef, { status: 'off-hired' });
+        toast({ title: 'Hire Closed', description: 'Order marked as off-hired.' });
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to close hire.', variant: 'destructive' });
+      }
+    });
+  };
+
   return (
     <>
       <Card 
@@ -219,7 +234,7 @@ export function OrderCard({
                       <TooltipContent><p>Activate Order</p></TooltipContent>
                     </Tooltip>
                   </>
-                ) : isClosed ? (
+                ) : order.status === 'off-hired' ? (
                   <Badge variant="secondary" className="bg-slate-100 text-slate-600">CLOSED</Badge>
                 ) : (
                   <>

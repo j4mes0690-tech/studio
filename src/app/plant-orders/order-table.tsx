@@ -27,7 +27,9 @@ import {
   Tag,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Pencil,
+  XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -262,6 +264,17 @@ function OrderTableRow({
     });
   };
 
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    startTransition(async () => {
+      try {
+        const docRef = doc(db, 'plant-orders', order.id);
+        await updateDoc(docRef, { status: 'off-hired' });
+        toast({ title: 'Success', description: 'Hire closed.' });
+      } catch (err) {}
+    });
+  };
+
   const offHireDisplayDate = order.status === 'off-hired' ? latestActualOffHire : latestAnticipatedOffHire;
 
   return (
@@ -309,6 +322,18 @@ function OrderTableRow({
               </Tooltip>
             )}
 
+            {!isDraft && order.status !== 'off-hired' && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-600" onClick={handleClose} disabled={isPending}>
+                    <XCircle className="h-4 w-4" />
+                    <span className="sr-only">Off-hire All</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Off-hire All Items</p></TooltipContent>
+              </Tooltip>
+            )}
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => downloadPDF(order)} disabled={isGenerating}>
@@ -319,13 +344,15 @@ function OrderTableRow({
               <TooltipContent><p>Download PO as PDF</p></TooltipContent>
             </Tooltip>
 
-            <EditPlantOrderDialog 
-              order={order} 
-              projects={projects} 
-              subContractors={subContractors} 
-              open={isEditDialogOpen}
-              onOpenChange={setIsEditDialogOpen}
-            />
+            <div onClick={e => e.stopPropagation()}>
+                <EditPlantOrderDialog 
+                order={order} 
+                projects={projects} 
+                subContractors={subContractors} 
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+                />
+            </div>
 
             <AlertDialog>
               <TooltipProvider>
