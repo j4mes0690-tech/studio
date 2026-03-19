@@ -120,7 +120,7 @@ function SiteDiaryContent() {
           </h2>
           <p className="text-sm text-muted-foreground">Daily logs of site activities, labour resources, and weather conditions.</p>
           {hasFullVisibility && (
-            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
+            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1 ml-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Administrative Oversight Active
             </div>
@@ -153,15 +153,15 @@ function SiteDiaryContent() {
         </div>
       </div>
 
-      <Card className="bg-muted/30">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                <Building2 className="h-3 w-3" /> Project
+      <Card className="bg-muted/20 border-none shadow-none">
+        <CardContent className="p-2 px-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[200px] space-y-1">
+              <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1.5 ml-1">
+                <Building2 className="h-2.5 w-2.5" /> Project
               </Label>
               <Select value={projectFilter} onValueChange={(v) => updateFilters({ project: v })}>
-                <SelectTrigger className="bg-background">
+                <SelectTrigger className="bg-background h-9 text-xs">
                   <SelectValue placeholder="All Projects" />
                 </SelectTrigger>
                 <SelectContent>
@@ -171,42 +171,42 @@ function SiteDiaryContent() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                <Calendar className="h-3 w-3" /> Start Date
-              </Label>
-              <Input 
-                type="date" 
-                value={fromFilter} 
-                onChange={(e) => updateFilters({ from: e.target.value })} 
-                className="bg-background h-10"
-              />
+            <div className="w-full sm:w-auto flex gap-2 flex-1 min-w-[280px]">
+                <div className="flex-1 space-y-1">
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1.5 ml-1">
+                        <Calendar className="h-2.5 w-2.5" /> From
+                    </Label>
+                    <Input 
+                        type="date" 
+                        value={fromFilter} 
+                        onChange={(e) => updateFilters({ from: e.target.value })} 
+                        className="bg-background h-9 text-xs"
+                    />
+                </div>
+
+                <div className="flex-1 space-y-1">
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1.5 ml-1">
+                        <Calendar className="h-2.5 w-2.5" /> To
+                    </Label>
+                    <Input 
+                        type="date" 
+                        value={toFilter} 
+                        onChange={(e) => updateFilters({ to: e.target.value })} 
+                        className="bg-background h-9 text-xs"
+                    />
+                </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                <Calendar className="h-3 w-3" /> End Date
-              </Label>
-              <Input 
-                type="date" 
-                value={toFilter} 
-                onChange={(e) => updateFilters({ to: e.target.value })} 
-                className="bg-background h-10"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              {hasActiveFilters && (
+            {hasActiveFilters && (
                 <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={clearFilters}
-                  className="h-10 px-3 text-muted-foreground hover:text-destructive gap-2 font-bold text-xs uppercase tracking-tighter"
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={clearFilters}
+                    className="h-9 px-2 text-muted-foreground hover:text-destructive gap-1.5 font-bold text-[10px] uppercase tracking-tight"
                 >
-                  <X className="h-4 w-4" /> Clear Filters
+                    <X className="h-3.5 w-3.5" /> Clear
                 </Button>
-              )}
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
