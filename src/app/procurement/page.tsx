@@ -12,6 +12,7 @@ import { ProcurementTable } from './procurement-table';
 import { NewProcurementDialog } from './new-item';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
+import { ExportButtons } from './export-buttons';
 
 function ProcurementContent() {
   const db = useFirestore();
@@ -98,6 +99,13 @@ function ProcurementContent() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              {filteredItems.length > 0 && (
+                <ExportButtons 
+                  items={filteredItems} 
+                  project={currentProject} 
+                  projects={allowedProjects}
+                />
+              )}
               <NewProcurementDialog 
                 projects={allowedProjects} 
                 subContractors={allSubContractors || []} 
@@ -140,18 +148,26 @@ function ProcurementContent() {
           </h2>
           <p className="text-sm text-muted-foreground">Select a project to manage its trade procurement schedule.</p>
           {hasFullVisibility && (
-            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
+            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1 ml-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Administrative Oversight Active
             </div>
           )}
         </div>
-        <NewProcurementDialog 
-          projects={allowedProjects} 
-          subContractors={allSubContractors || []} 
-          allProcurement={allProcurement || []}
-          currentUser={profile}
-        />
+        <div className="flex items-center gap-2">
+          {allProcurement && allProcurement.length > 0 && (
+            <ExportButtons 
+              items={allProcurement} 
+              projects={allowedProjects}
+            />
+          )}
+          <NewProcurementDialog 
+            projects={allowedProjects} 
+            subContractors={allSubContractors || []} 
+            allProcurement={allProcurement || []}
+            currentUser={profile}
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
