@@ -67,7 +67,7 @@ function SiteDiaryContent() {
 
   const filteredEntries = useMemo(() => {
     if (!allEntries) return [];
-    return allEntries.filter(entry => {
+    const results = allEntries.filter(entry => {
       const isAuthorised = allowedProjectIds.includes(entry.projectId);
       const matchesProject = projectFilter === 'all' || entry.projectId === projectFilter;
       
@@ -81,6 +81,15 @@ function SiteDiaryContent() {
 
       return isAuthorised && matchesProject && matchesDate;
     });
+
+    // If date filters are set, sort chronologically (Ascending) for easier sequential review
+    // Otherwise, keep the default "newest first" (Descending) order
+    if (fromFilter || toFilter) {
+        return results.sort((a, b) => a.date.localeCompare(b.date));
+    }
+    
+    // Explicitly sort descending if no date filters are present
+    return results.sort((a, b) => b.date.localeCompare(a.date));
   }, [allEntries, allowedProjectIds, projectFilter, fromFilter, toFilter]);
 
   const updateFilters = (updates: Record<string, string | null>) => {
