@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
 function TrainingContent() {
@@ -41,17 +42,14 @@ function TrainingContent() {
     localStorage.setItem('sitecommand_view_training', newVal);
   };
 
-  const handleStatusChange = (val: string) => {
-    const isArchive = val === 'archived';
-    setShowArchived(isArchive);
-    localStorage.setItem('sitecommand_show_archived_training', String(isArchive));
-  };
-
   // Load Data
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
-  const usersQuery = useMemoFirebase(() => (db ? collection(db, 'users') : null), [db]);
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'users'), orderBy('name', 'asc'));
+  }, [db]);
   const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
   const recordsQuery = useMemoFirebase(() => (db ? query(collection(db, 'training-records'), orderBy('expiryDate', 'asc')) : null), [db]);
@@ -141,7 +139,7 @@ function TrainingContent() {
 
         <TabsContent value="certificates" className="space-y-6 mt-6">
           <Card className="bg-muted/30 border-none shadow-none">
-              <CardContent className="p-4 flex flex-wrap gap-6 items-end">
+              <CardContent className="p-4 flex flex-wrap gap-6 items-center">
                   <div className="space-y-1.5 flex-1 min-w-[200px]">
                       <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 flex items-center gap-1.5">
                         <Filter className="h-2.5 w-2.5" /> Employee Filter
@@ -159,25 +157,25 @@ function TrainingContent() {
                       </Select>
                   </div>
 
-                  <div className="space-y-1.5 w-full sm:w-[200px]">
-                      <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1 flex items-center gap-1.5">
-                        <FileStack className="h-2.5 w-2.5" /> Registry Status
-                      </Label>
-                      <Select value={showArchived ? 'archived' : 'active'} onValueChange={handleStatusChange}>
-                          <SelectTrigger className={cn("h-10 font-bold", showArchived ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-background")}>
-                              <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="active">Active Registry</SelectItem>
-                              <SelectItem value="archived">Historical Archive</SelectItem>
-                          </SelectContent>
-                      </Select>
+                  <div className="flex items-center justify-between gap-4 bg-background border rounded-lg px-4 h-10 shadow-sm min-w-[200px] mt-4 sm:mt-0">
+                      <div className="flex items-center gap-2">
+                        <FileStack className="h-4 w-4 text-muted-foreground" />
+                        <Label htmlFor="archive-toggle" className="text-[10px] font-black uppercase tracking-widest cursor-pointer">Show Archived</Label>
+                      </div>
+                      <Switch 
+                        id="archive-toggle"
+                        checked={showArchived} 
+                        onCheckedChange={(val) => {
+                            setShowArchived(val);
+                            localStorage.setItem('sitecommand_show_archived_training', String(val));
+                        }} 
+                      />
                   </div>
 
                   {showArchived && (
-                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1.5 h-10 px-4 uppercase font-black text-[10px] tracking-widest">
+                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 gap-1.5 h-10 px-4 uppercase font-black text-[10px] tracking-widest animate-in fade-in">
                           <Archive className="h-3.5 w-3.5" />
-                          Archive Mode
+                          Archive View Active
                       </Badge>
                   )}
               </CardContent>
