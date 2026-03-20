@@ -77,13 +77,10 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
   }, [db, normalizedEmail]);
   const { data: rawClientInstructions, isLoading: ciLoading } = useCollection<ClientInstruction>(ciQuery);
 
-  // Query 3: Pending Holiday Requests
+  // Query 3: Holiday Requests (Both pending for manager and processed for user)
   const holidayQuery = useMemoFirebase(() => {
     if (!db || !normalizedEmail) return null;
-    return query(
-      collection(db, 'holiday-requests'),
-      where('status', '==', 'pending')
-    );
+    return query(collection(db, 'holiday-requests'));
   }, [db, normalizedEmail]);
   const { data: rawHolidays, isLoading: holidayLoading } = useCollection<HolidayRequest>(holidayQuery);
 
@@ -147,10 +144,18 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
     // Process Holiday Requests
     if (rawHolidays) {
         rawHolidays.forEach(req => {
+            if (req.dismissedBy?.includes(normalizedEmail)) return;
+
+            // Scenario A: Manager seeing a pending request
             const isApprover = profile.permissions?.canApproveHolidays || profile.permissions?.hasFullVisibility;
             const isLineManager = req.lineManagerEmail?.toLowerCase().trim() === normalizedEmail;
+            const isPendingForManager = (isApprover || isLineManager) && req.status === 'pending';
 
-            if (isApprover || isLineManager) {
+            // Scenario B: Employee seeing their own processed request
+            const isMine = req.userEmail.toLowerCase().trim() === normalizedEmail;
+            const isUpdateForMe = isMine && req.status !== 'pending';
+
+            if (isPendingForManager) {
                 list.push({
                     id: req.id,
                     collection: 'holiday-requests',
@@ -158,7 +163,18 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
                     notifType: 'assignment',
                     label: 'Leave Approval Required',
                     createdAt: req.createdAt,
-                    url: `/holidays?user=${req.userEmail}`
+                    url: `/holidays?user=${req.userEmail}`,
+                    isMandatory: true // Cannot dismiss pending approvals
+                });
+            } else if (isUpdateForMe) {
+                list.push({
+                    id: req.id,
+                    collection: 'holiday-requests',
+                    description: `Your ${req.type} request has been ${req.status}.`,
+                    notifType: req.status === 'approved' ? 'response' : 'assignment',
+                    label: `Leave Request ${req.status.charAt(0).toUpperCase() + req.status.slice(1)}`,
+                    createdAt: req.createdAt,
+                    url: `/holidays`
                 });
             }
         });
@@ -171,7 +187,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
     e.preventDefault();
     e.stopPropagation();
     
-    if (!normalizedEmail || coll === 'holiday-requests') return; // Cannot dismiss holiday requirements without taking action
+    if (!normalizedEmail) return;
 
     const docRef = doc(db, coll, id);
     updateDoc(docRef, {
@@ -195,7 +211,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
     try {
       const batch = writeBatch(db);
       notifications.forEach(notif => {
-        if (notif.collection === 'holiday-requests') return; // Skip holidays
+        if (notif.isMandatory) return; // Skip pending approvals
         const docRef = doc(db, notif.collection, notif.id);
         batch.update(docRef, {
           dismissedBy: arrayUnion(normalizedEmail)
@@ -231,8 +247,8 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
       <DropdownMenuContent align="end" className="w-80">
         <DropdownMenuLabel className="flex items-center justify-between">
           <div className="flex flex-col">
-            <span>Pending Actions</span>
-            {pendingCount > 0 && <span className="text-[10px] font-normal text-muted-foreground">{pendingCount} unread</span>}
+            <span>Action Hub</span>
+            {pendingCount > 0 && <span className="text-[10px] font-normal text-muted-foreground">{pendingCount} alerts</span>}
           </div>
           {pendingCount > 0 && (
             <Button 
@@ -290,7 +306,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
                     </p>
                   </div>
                   
-                  {notif.collection !== 'holiday-requests' && (
+                  {!notif.isMandatory && (
                     <Button
                         variant="ghost"
                         size="icon"

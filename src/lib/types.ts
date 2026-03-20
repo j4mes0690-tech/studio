@@ -631,6 +631,7 @@ export type HolidayRequest = {
   approvedByName?: string | null;
   lineManagerEmail?: string | null;
   createdAt: string;
+  dismissedBy?: string[];
 };
 
 // --- SITE DIARY MODULE TYPES ---

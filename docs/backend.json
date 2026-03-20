@@ -118,7 +118,9 @@
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
         "approvedByEmail": { "type": "string" },
         "approvedByName": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "lineManagerEmail": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "dismissedBy": { "type": "array", "items": { "type": "string" } }
       }
     },
     "SystemSettings": {
