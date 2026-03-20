@@ -6,7 +6,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import type { ReplicatePermitTemplateOutput } from '@/lib/types';
 
 // The schema used for AI generation is flattened to avoid "maximum nesting depth" errors in the Gemini API.

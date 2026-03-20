@@ -5,9 +5,8 @@ import {googleAI} from '@genkit-ai/google-genai';
  * Genkit Instance Configuration
  * 
  * We explicitly use 'gemini-1.5-flash' as the default model. 
- * Stable models like 1.5 Flash have significantly higher rate limits (RPM/TPM) 
- * compared to preview models (like gemini-3-flash-preview), effectively 
- * preventing 429 "Resource Exhausted" errors during normal usage.
+ * This model is optimized for speed and high throughput, making it the 
+ * quickest stable model for production-ready site documentation tasks.
  */
 export const ai = genkit({
   plugins: [googleAI()],
