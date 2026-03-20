@@ -1,6 +1,6 @@
 'use client';
 
-import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
@@ -34,6 +34,126 @@ async function getSystemBranding(): Promise<{ logoUri: string | null, address: s
     console.error("Failed to fetch branding for PDF:", e);
   }
   return { logoUri: null, address: null };
+}
+
+/**
+ * generateVariationPDF - Creates a formal professional Variation Order document.
+ */
+export async function generateVariationPDF(
+  variation: Variation,
+  project?: Project,
+  clientInstructions: ClientInstruction[] = [],
+  siteInstructions: Instruction[] = []
+) {
+  const { jsPDF } = await import('jspdf');
+  const html2canvas = (await import('html2canvas')).default;
+  const branding = await getSystemBranding();
+
+  const reportElement = document.createElement('div');
+  reportElement.style.padding = '50px';
+  reportElement.style.width = '800px';
+  reportElement.style.background = 'white';
+  reportElement.style.color = 'black';
+  reportElement.style.fontFamily = 'sans-serif';
+
+  const linkedCIs = clientInstructions.filter(c => (variation.clientInstructionIds || []).includes(c.id));
+  const linkedSIs = siteInstructions.filter(s => (variation.siteInstructionIds || []).includes(s.id));
+
+  const grossCost = (variation.items || []).reduce((sum, item) => {
+    return item.type === 'addition' ? sum + item.total : sum - item.total;
+  }, 0);
+
+  const ohpAmount = grossCost * ((variation.ohpPercentage || 0) / 100);
+
+  reportElement.innerHTML = `
+    <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <h1 style="margin: 0; color: #1e40af; font-size: 28px;">VARIATION ORDER</h1>
+        <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold;">${variation.title}</p>
+        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Ref: ${variation.reference}</p>
+      </div>
+      <div style="text-align: right; max-width: 300px;">
+        ${branding.logoUri ? `<img src="${branding.logoUri}" style="max-height: 60px; max-width: 200px; margin-bottom: 10px;" />` : ''}
+        ${branding.address ? `<p style="margin: 0; font-size: 10px; color: #475569; line-height: 1.4; white-space: pre-wrap;">${branding.address}</p>` : '<p style="margin: 0; font-size: 12px; color: #64748b; text-transform: uppercase;">Generated via SiteCommand</p>'}
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px;">
+      <div>
+        <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Project</p>
+        <p style="margin: 2px 0 0 0; font-size: 16px; font-weight: bold;">${project?.name || 'Project'}</p>
+        ${project?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${project.address}</p>` : ''}
+      </div>
+      <div>
+        <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Contract Authority</p>
+        ${project?.siteManager ? `<p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">${project.siteManager}</p>` : ''}
+        ${project?.siteManagerPhone ? `<p style="margin: 2px 0 0 0; font-size: 12px; color: #475569;">Tel: ${project.siteManagerPhone}</p>` : ''}
+        <p style="margin: 5px 0 0 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; border-top: 1px solid #e2e8f0; padding-top: 5px;">Status</p>
+        <p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold; text-transform: uppercase; color: #1e40af;">${variation.status}</p>
+      </div>
+    </div>
+
+    ${linkedCIs.length > 0 || linkedSIs.length > 0 ? `
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 40px;">
+        <p style="margin: 0 0 5px 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">Source Directives</p>
+        ${linkedCIs.map(ci => `<p style="margin: 0; font-size: 12px;"><strong>Client Inst:</strong> ${ci.reference}</p>`).join('')}
+        ${linkedSIs.map(si => `<p style="margin: 5px 0 0 0; font-size: 12px;"><strong>Site Inst:</strong> ${si.reference}</p>`).join('')}
+      </div>
+    ` : ''}
+
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+      <thead>
+        <tr style="background: #f1f5f9; border-bottom: 2px solid #1e40af;">
+          <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase;">Description</th>
+          <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; width: 60px;">Qty</th>
+          <th style="padding: 12px; text-align: left; font-size: 10px; text-transform: uppercase; width: 60px;">Unit</th>
+          <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; width: 100px;">Rate</th>
+          <th style="padding: 12px; text-align: right; font-size: 10px; text-transform: uppercase; width: 120px;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(variation.items || []).map(item => `
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 12px; font-size: 12px;">
+                <span style="color: ${item.type === 'omission' ? '#dc2626' : '#16a34a'}; font-weight: bold;">[${item.type === 'omission' ? '-' : '+'}]</span>
+                ${item.description}
+            </td>
+            <td style="padding: 12px; text-align: right; font-size: 12px;">${item.quantity}</td>
+            <td style="padding: 12px; text-align: left; font-size: 12px; color: #64748b;">${item.unit}</td>
+            <td style="padding: 12px; text-align: right; font-size: 12px;">£${item.rate.toFixed(2)}</td>
+            <td style="padding: 12px; text-align: right; font-size: 12px; font-weight: bold; color: ${item.type === 'omission' ? '#dc2626' : '#16a34a'};">
+                ${item.type === 'omission' ? '-' : ''}£${item.total.toFixed(2)}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+
+    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px; margin-bottom: 40px;">
+        <div style="font-size: 12px; color: #64748b;">Subtotal: £${grossCost.toFixed(2)}</div>
+        <div style="font-size: 12px; color: #64748b;">OHP (${variation.ohpPercentage}%): £${ohpAmount.toFixed(2)}</div>
+        <div style="font-size: 18px; font-weight: bold; color: #1e40af; border-top: 2px solid #1e40af; padding-top: 10px; margin-top: 5px;">
+            NET VARIATION TOTAL: £${(variation.totalAmount || 0).toFixed(2)}
+        </div>
+    </div>
+
+    <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
+      <p style="font-size: 10px; color: #94a3b8;">Issued by: ${variation.createdByEmail}</p>
+      <p style="font-size: 10px; color: #94a3b8;">Printed: ${new Date().toLocaleString()}</p>
+    </div>
+  `;
+
+  document.body.appendChild(reportElement);
+  const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
+  const imgData = canvas.toDataURL('image/jpeg', 0.95);
+  document.body.removeChild(reportElement);
+
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+  pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+  
+  return pdf;
 }
 
 /**
@@ -284,7 +404,7 @@ export async function generateSiteDiaryAuditPDF(
               <tr>
                 <td style="padding: 8px; border: 1px solid #e2e8f0; font-weight: bold;">${log.subcontractorName}</td>
                 <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: center;">${log.operativeCount || (log as any).employeeCount || 0}</td>
-                <td style="padding: 8px; border: 1px solid #e2e8f0;">${log.areaName || 'Site Wide'}</td>
+                <td style="padding: 8px; border: 1px solid #e2e8f0;">${log.areaId ? (project?.areas?.find(a => a.id === log.areaId)?.name || log.areaName) : 'Site Wide'}</td>
                 <td style="padding: 8px; border: 1px solid #e2e8f0;">${log.notes || '---'}</td>
               </tr>
             `).join('') : '<tr><td colspan="4" style="padding: 20px; text-align: center; color: #64748b; font-style: italic;">No labour resources recorded for this date.</td></tr>'}
