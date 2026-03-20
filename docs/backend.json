@@ -193,6 +193,8 @@
         "notificationLeadDays": { "type": "number" },
         "status": { "type": "string", "enum": ["open", "provided", "overdue", "escalated"] },
         "escalatedRfiId": { "type": "string" },
+        "providedDate": { "type": "string", "format": "date" },
+        "providedDescription": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "createdByEmail": { "type": "string" }
       }

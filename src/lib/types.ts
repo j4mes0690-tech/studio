@@ -1,3 +1,4 @@
+
 export type Planner = {
   id: string;
   name: string;
@@ -331,6 +332,8 @@ export type IRSItem = {
   notificationLeadDays: number;
   status: IRSItemStatus;
   escalatedRfiId?: string | null;
+  providedDate?: string | null;
+  providedDescription?: string | null;
   createdAt: string;
   createdByEmail: string;
 };

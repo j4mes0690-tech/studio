@@ -25,7 +25,9 @@ import {
   Clock,
   CheckCircle2,
   User,
-  ArrowRight
+  Check,
+  ArrowRight,
+  Save
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -41,6 +43,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 
 export function IRSTable({ 
@@ -101,6 +115,10 @@ function IRSRow({
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const [isMarkOpen, setIsMarkOpen] = useState(false);
+  
+  const [provDate, setProvDate] = useState(new Date().toISOString().split('T')[0]);
+  const [provDesc, setProvDesc] = useState('');
 
   const ragStatus = useMemo(() => {
     if (item.status === 'provided' || item.status === 'escalated') return null;
@@ -119,10 +137,27 @@ function IRSRow({
     });
   };
 
-  const handleToggleProvided = () => {
+  const handleMarkProvided = () => {
     startTransition(async () => {
-      const newStatus = item.status === 'provided' ? 'open' : 'provided';
-      await updateDoc(doc(db, 'irs-items', item.id), { status: newStatus });
+      const docRef = doc(db, 'irs-items', item.id);
+      await updateDoc(docRef, {
+        status: 'provided',
+        providedDate: provDate,
+        providedDescription: provDesc
+      });
+      setIsMarkOpen(false);
+      toast({ title: 'Success', description: 'Requirement resolved.' });
+    });
+  };
+
+  const handleReopen = () => {
+    startTransition(async () => {
+      const docRef = doc(db, 'irs-items', item.id);
+      await updateDoc(docRef, { 
+        status: 'open',
+        providedDate: null,
+        providedDescription: null
+      });
     });
   };
 
@@ -163,19 +198,52 @@ function IRSRow({
             </Button>
           )}
           
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className={cn("h-8 w-8", item.status === 'provided' ? 'text-green-600' : 'text-muted-foreground')}
-            onClick={handleToggleProvided}
-            disabled={isPending}
-          >
-            {item.status === 'provided' ? <CheckCircle2 className="h-4 w-4" /> : <div className="h-4 w-4 border-2 rounded-full border-muted-foreground/30" />}
-          </Button>
+          {item.status === 'provided' ? (
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-8 w-8 text-green-600"
+                onClick={handleReopen}
+                disabled={isPending}
+            >
+                <CheckCircle2 className="h-4 w-4" />
+            </Button>
+          ) : (
+            <Dialog open={isMarkOpen} onOpenChange={setIsMarkOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                        <Check className="h-4 w-4" />
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Resolve Requirement</DialogTitle>
+                        <DialogDescription>Provide details for the audit log.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground">Date Received</Label>
+                            <Input type="date" value={provDate} onChange={e => setProvDate(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground">Details</Label>
+                            <Textarea placeholder="How was this resolved?" value={provDesc} onChange={e => setProvDesc(e.target.value)} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsMarkOpen(false)}>Cancel</Button>
+                        <Button className="font-bold" onClick={handleMarkProvided} disabled={isPending || !provDate}>
+                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                            Resolve
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+          )}
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive transition-opacity">
                 <Trash2 className="h-4 w-4" />
               </Button>
             </AlertDialogTrigger>
