@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -164,7 +165,12 @@ export default function Dashboard() {
         return (ci.recipients || []).some(e => e.toLowerCase().trim() === email);
     }).length;
 
-    const hCount = profile.permissions?.canApproveHolidays ? (rawHolidays || []).length : 0;
+    // Count holidays I am authorized to approve
+    const hCount = (rawHolidays || []).filter(req => {
+        const isApprover = profile.permissions?.canApproveHolidays || profile.permissions?.hasFullVisibility;
+        const isLineManager = req.lineManagerEmail?.toLowerCase().trim() === email;
+        return isApprover || isLineManager;
+    }).length;
 
     return {
         'information-requests': rfiCount,

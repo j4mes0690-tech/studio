@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -11,11 +12,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Bell, HelpCircle, Loader2, MessageSquareReply, X, Check, MessageCircle } from 'lucide-react';
+import { Bell, HelpCircle, Loader2, MessageSquareReply, X, Check, MessageCircle, Sun } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, or, and, doc, updateDoc, arrayUnion, writeBatch } from 'firebase/firestore';
-import type { InformationRequest, Project, DistributionUser, ClientInstruction } from '@/lib/types';
+import type { InformationRequest, Project, DistributionUser, ClientInstruction, HolidayRequest } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -28,14 +29,14 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
   const normalizedEmail = userEmail?.toLowerCase().trim() || '';
   const [isClearingAll, setIsClearingAll] = useState(false);
 
-  // Fetch current user profile for permission check
+  // Fetch current user profile
   const profileRef = useMemoFirebase(() => {
     if (!db || !normalizedEmail) return null;
     return doc(db, 'users', normalizedEmail);
   }, [db, normalizedEmail]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
-  // Fetch projects to determine authorized project IDs
+  // Fetch projects
   const projectsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'projects');
@@ -76,6 +77,16 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
   }, [db, normalizedEmail]);
   const { data: rawClientInstructions, isLoading: ciLoading } = useCollection<ClientInstruction>(ciQuery);
 
+  // Query 3: Pending Holiday Requests
+  const holidayQuery = useMemoFirebase(() => {
+    if (!db || !normalizedEmail) return null;
+    return query(
+      collection(db, 'holiday-requests'),
+      where('status', '==', 'pending')
+    );
+  }, [db, normalizedEmail]);
+  const { data: rawHolidays, isLoading: holidayLoading } = useCollection<HolidayRequest>(holidayQuery);
+
   const notifications = useMemo(() => {
     if (!profile || !normalizedEmail) return [];
 
@@ -113,12 +124,9 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
         if (!allowedProjectIds.includes(ci.projectId)) return;
         if (ci.dismissedBy?.includes(normalizedEmail)) return;
 
-        // Everyone assigned to the project is a recipient
         const isRecipient = (ci.recipients || []).some(e => e.toLowerCase().trim() === normalizedEmail);
         const messages = ci.messages || [];
         const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
-        
-        // Notify if it's a new instruction or if someone else has commented
         const hasExternalUpdate = lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== normalizedEmail;
 
         if (isRecipient) {
@@ -136,14 +144,34 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
       });
     }
 
+    // Process Holiday Requests
+    if (rawHolidays) {
+        rawHolidays.forEach(req => {
+            const isApprover = profile.permissions?.canApproveHolidays || profile.permissions?.hasFullVisibility;
+            const isLineManager = req.lineManagerEmail?.toLowerCase().trim() === normalizedEmail;
+
+            if (isApprover || isLineManager) {
+                list.push({
+                    id: req.id,
+                    collection: 'holiday-requests',
+                    description: `${req.userName} requested ${req.totalDays} days leave.`,
+                    notifType: 'assignment',
+                    label: 'Leave Approval Required',
+                    createdAt: req.createdAt,
+                    url: `/holidays?user=${req.userEmail}`
+                });
+            }
+        });
+    }
+
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [rawRequests, rawClientInstructions, normalizedEmail, allowedProjectIds, profile]);
+  }, [rawRequests, rawClientInstructions, rawHolidays, normalizedEmail, allowedProjectIds, profile]);
 
   const handleDismiss = (e: React.MouseEvent, id: string, coll: string) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!normalizedEmail) return;
+    if (!normalizedEmail || coll === 'holiday-requests') return; // Cannot dismiss holiday requirements without taking action
 
     const docRef = doc(db, coll, id);
     updateDoc(docRef, {
@@ -167,6 +195,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
     try {
       const batch = writeBatch(db);
       notifications.forEach(notif => {
+        if (notif.collection === 'holiday-requests') return; // Skip holidays
         const docRef = doc(db, notif.collection, notif.id);
         batch.update(docRef, {
           dismissedBy: arrayUnion(normalizedEmail)
@@ -181,7 +210,7 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
   };
 
   const pendingCount = notifications.length;
-  const isLoading = rfiLoading || ciLoading;
+  const isLoading = rfiLoading || ciLoading || holidayLoading;
 
   return (
     <DropdownMenu>
@@ -240,10 +269,13 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
                 >
                   <div className={cn(
                     "mt-1 p-2 rounded-full shrink-0",
+                    notif.collection === 'holiday-requests' ? 'bg-amber-100' : 
                     notif.notifType === 'assignment' ? 'bg-primary/10' : 'bg-accent/10'
                   )}>
                     {notif.collection === 'client-instructions' ? (
                         <MessageCircle className={cn("h-4 w-4", notif.notifType === 'assignment' ? 'text-primary' : 'text-accent')} />
+                    ) : notif.collection === 'holiday-requests' ? (
+                        <Sun className="h-4 w-4 text-amber-600" />
                     ) : (
                         notif.notifType === 'assignment' ? <HelpCircle className="h-4 w-4 text-primary" /> : <MessageSquareReply className="h-4 w-4 text-accent" />
                     )}
@@ -258,15 +290,17 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
                     </p>
                   </div>
                   
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-2 top-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background hover:text-destructive z-10"
-                    onClick={(e) => handleDismiss(e, notif.id, notif.collection)}
-                    title="Clear Notification"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
+                  {notif.collection !== 'holiday-requests' && (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background hover:text-destructive z-10"
+                        onClick={(e) => handleDismiss(e, notif.id, notif.collection)}
+                        title="Clear Notification"
+                    >
+                        <X className="h-3 w-3" />
+                    </Button>
+                  )}
                 </DropdownMenuItem>
               ))}
             </div>

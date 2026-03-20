@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useEffect, useMemo } from 'react';
@@ -31,8 +32,9 @@ import type { HolidayRequest, DistributionUser } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { parseISO, isValid } from 'date-fns';
+import { parseISO } from 'date-fns';
 import { calculateWorkingDays } from '@/lib/utils';
+import { sendHolidayRequestEmailAction } from './actions';
 
 const NewRequestSchema = z.object({
   startDate: z.string().min(1, 'Start date is required.'),
@@ -87,10 +89,26 @@ export function NewHolidayRequest({ currentUser }: { currentUser: DistributionUs
           type: values.type,
           notes: values.notes || '',
           status: 'pending',
+          lineManagerEmail: currentUser.lineManagerEmail || null,
           createdAt: new Date().toISOString(),
         };
 
-        await addDoc(collection(db, 'holiday-requests'), requestData);
+        const docRef = await addDoc(collection(db, 'holiday-requests'), requestData);
+        
+        // Notify the manager via email if assigned
+        if (currentUser.lineManagerEmail) {
+            await sendHolidayRequestEmailAction({
+                managerEmail: currentUser.lineManagerEmail,
+                employeeName: currentUser.name,
+                startDate: values.startDate,
+                endDate: values.endDate,
+                totalDays,
+                type: values.type,
+                notes: values.notes,
+                requestId: docRef.id
+            });
+        }
+
         toast({ title: 'Request Submitted', description: 'Your leave request has been sent for approval.' });
         setOpen(false);
       } catch (err) {

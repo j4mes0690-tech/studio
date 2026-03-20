@@ -629,6 +629,7 @@ export type HolidayRequest = {
   status: HolidayRequestStatus;
   approvedByEmail?: string | null;
   approvedByName?: string | null;
+  lineManagerEmail?: string | null;
   createdAt: string;
 };
 
