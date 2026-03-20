@@ -1,6 +1,5 @@
 'use client';
 
-import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Home, Loader2, Settings } from 'lucide-react';
 import Link from 'next/link';
@@ -10,6 +9,7 @@ import { NotificationsMenu } from './notifications-menu';
 import { usePathname } from 'next/navigation';
 import { doc } from 'firebase/firestore';
 import type { DistributionUser, SystemSettings } from '@/lib/types';
+import { Logo } from '@/components/logo';
 
 export function Header({ title }: { title: string }) {
   const { user: sessionUser, isLoading: sessionLoading } = useUser();
@@ -42,10 +42,14 @@ export function Header({ title }: { title: string }) {
   );
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6">
-      {sessionUser && <SidebarTrigger className="md:hidden" />}
-      <div className="w-full flex-1">
-        <h1 className="text-lg font-semibold">{title}</h1>
+    <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6 sticky top-0 z-40 backdrop-blur-sm">
+      <div className="flex items-center gap-4 flex-1">
+        {pathname !== '/' && (
+          <Link href="/" className="hover:opacity-80 transition-opacity hidden sm:block">
+            <Logo hideText iconClassName="h-8 w-8" src={branding?.logoUrl} />
+          </Link>
+        )}
+        <h1 className="text-sm md:text-lg font-bold truncate">{title}</h1>
       </div>
 
       <div className="flex items-center gap-2 md:gap-4">
@@ -53,18 +57,16 @@ export function Header({ title }: { title: string }) {
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         ) : sessionUser ? (
           <>
-            <div className="text-sm text-muted-foreground hidden lg:block">
-              Logged in as: {profile?.name || sessionUser.email}
+            <div className="text-xs text-muted-foreground hidden lg:block font-medium">
+              {profile?.name || sessionUser.email}
             </div>
 
-            {pathname !== '/' && (
-              <Button asChild variant="ghost" size="icon">
-                <Link href="/">
-                  <Home className="h-5 w-5" />
-                  <span className="sr-only">Home</span>
-                </Link>
-              </Button>
-            )}
+            <Button asChild variant="ghost" size="icon" className={cn(pathname === '/' && "hidden")}>
+              <Link href="/">
+                <Home className="h-5 w-5" />
+                <span className="sr-only">Home</span>
+              </Link>
+            </Button>
 
             <NotificationsMenu userEmail={sessionUser.email} />
 
@@ -88,3 +90,6 @@ export function Header({ title }: { title: string }) {
     </header>
   );
 }
+
+// Helper needed for conditional class in Header
+import { cn } from '@/lib/utils';
