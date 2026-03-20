@@ -175,7 +175,7 @@ export function NewVariationDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2"><PlusCircle className="h-4 w-4" />New Variation</Button>
+        <Button className="gap-2"><PlusIcon className="h-4 w-4" />New Variation</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
