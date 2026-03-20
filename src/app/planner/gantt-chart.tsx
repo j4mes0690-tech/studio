@@ -12,7 +12,7 @@ import {
     isValid,
     startOfDay
 } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, parseDateString } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
@@ -22,13 +22,6 @@ import Image from 'next/image';
 const DAY_WIDTH = 40; // px per day
 const TIMELINE_WEEKS = 4;
 const ROW_HEIGHT = 52; // px per task row
-
-// Timezone-safe date parser for construction dates (YYYY-MM-DD)
-function parseDateString(dateStr: string | null | undefined) {
-  if (!dateStr) return new Date(NaN);
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
 
 function getTradeColor(id: string) {
   const colors = [
@@ -64,8 +57,13 @@ export function GanttChart({
 }) {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
-  // Use startOfDay to ensure time components don't interfere with getDay() logic
-  const startDate = useMemo(() => startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 })), []);
+  // Robust timeline start point: This week's Monday at noon local time.
+  const startDate = useMemo(() => {
+    const d = new Date();
+    const noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+    return startOfWeek(noon, { weekStartsOn: 1 });
+  }, []);
+
   const endDate = useMemo(() => addDays(startDate, TIMELINE_WEEKS * 7 - 1), [startDate]);
   
   const timelineDays = useMemo(() => 
@@ -153,7 +151,6 @@ export function GanttChart({
                     <div className="flex">
                         {timelineDays.map((day, i) => {
                             const isToday = isSameDay(day, new Date());
-                            // Explicit check for Sat (6) and Sun (0)
                             const dayOfWeek = day.getDay();
                             const isSat = dayOfWeek === 6;
                             const isSun = dayOfWeek === 0;

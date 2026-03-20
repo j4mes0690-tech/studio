@@ -1,23 +1,25 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { SubContractor, DistributionUser, PlannerTask } from "./types"
-import { addDays, isValid, format, startOfDay } from 'date-fns';
+import { addDays, isValid, format, startOfDay, differenceInDays } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
 /**
- * parseDateString - Timezone-safe date parser for construction dates (YYYY-MM-DD)
+ * parseDateString - Robust date parser for construction planning (YYYY-MM-DD).
+ * Anchors dates to noon to prevent timezone-related day shifts during calculations.
  */
 export function parseDateString(dateStr: string | null | undefined): Date {
   if (!dateStr) return new Date(NaN);
   const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d);
+  // Create date at noon local time to avoid midnight boundary issues
+  return new Date(y, m - 1, d, 12, 0, 0);
 }
 
 /**
- * calculateFinishDate - Determines the end date of a task based on its duration.
+ * calculateFinishDate - Determines the end date of a task based on its duration and working week.
  */
 export function calculateFinishDate(
   startDateStr: string, 
@@ -28,24 +30,23 @@ export function calculateFinishDate(
   let date = parseDateString(startDateStr);
   if (!isValid(date)) return startDateStr;
 
+  // 1. If the requested start falls on a non-working day, shift it forward to the first working day
+  while ((date.getDay() === 6 && !includeSaturday) || (date.getDay() === 0 && !includeSunday)) {
+    date = addDays(date, 1);
+  }
+
+  // 2. Count working days to determine finish date
   let count = 1;
   while (count < duration) {
     date = addDays(date, 1);
-    
-    // Day checks (0 = Sun, 6 = Sat)
     const day = date.getDay();
     const isSat = day === 6;
     const isSun = day === 0;
 
     if ((isSat && !includeSaturday) || (isSun && !includeSunday)) {
-      continue; // Skip counting this day
+      continue; // Skip non-working day
     }
     count++;
-  }
-
-  // Ensure finish date itself is on a working day
-  while ((date.getDay() === 6 && !includeSaturday) || (date.getDay() === 0 && !includeSunday)) {
-    date = addDays(date, 1);
   }
 
   return format(date, 'yyyy-MM-dd');
@@ -59,6 +60,7 @@ export function calculateNextStartDate(
   includeSaturday: boolean, 
   includeSunday: boolean
 ): string {
+  // A successor starts on the next working day AFTER the predecessor finishes
   let date = addDays(parseDateString(finishDateStr), 1);
   if (!isValid(date)) return finishDateStr;
 
@@ -124,15 +126,6 @@ export function optimiseGlobalSchedule(
 }
 
 /**
- * generateReference - Creates a short, unique reference number for site records.
- * @deprecated Use getNextReference for the new professional project-specific format.
- */
-export function generateReference(prefix: string) {
-  const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `${prefix}-${randomStr}`;
-}
-
-/**
  * getProjectInitials - Extracts the first letter of each word in a project name.
  */
 export function getProjectInitials(name: string) {
@@ -166,7 +159,6 @@ export function getNextReference(
     }
   });
 
-  // If no new-format references found, fallback to count + 1 to transition smoothly
   if (maxNum === 0) {
     maxNum = projectItems.length;
   }
@@ -208,7 +200,6 @@ export function wouldCreateCycle(
 
 /**
  * getPartnerEmails - Returns a list of all emails that should receive correspondence for a partner.
- * Includes the partner's primary email and any associated users with 'receivePartnerEmails' enabled.
  */
 export function getPartnerEmails(
   subId: string, 
@@ -235,31 +226,17 @@ export function getPartnerEmails(
 
 /**
  * scrollToFirstError - Finds the first element with a validation error and scrolls it into view.
- * Uses 'center' block alignment for better reliability on mobile devices.
  */
 export function scrollToFirstError() {
-  // Delay slightly to ensure React Hook Form has finished rendering the error state
   setTimeout(() => {
-    // Target ShadCN/Radix error patterns: aria-invalid fields or FormMessage containers
     const firstError = document.querySelector('[aria-invalid="true"], .text-destructive, [id*="-form-item-message"]');
-    
     if (firstError) {
-      // Find the container FormItem so the label is also scrolled into view
       const container = firstError.closest('.space-y-2') || firstError.closest('[data-radix-collection-item]') || firstError;
-      
-      container.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center', // Center in viewport to avoid overlaps from headers or keyboards
-        inline: 'nearest'
-      });
-      
-      // If it's a focusable control, put the cursor there
+      container.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
       const focusable = firstError.hasAttribute('aria-invalid')
         ? firstError
         : firstError.closest('.space-y-2')?.querySelector('input, textarea, button, [role="combobox"]');
-          
       if (focusable instanceof HTMLElement) {
-        // Focus without triggering another scroll to avoid fighting the smooth animation
         setTimeout(() => focusable.focus({ preventScroll: true }), 100);
       }
     }

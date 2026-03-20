@@ -10,7 +10,7 @@ import {
     isValid,
     startOfDay
 } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, parseDateString } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { User, MapPin, Sun, Cloud, CloudRain, Wind } from 'lucide-react';
@@ -32,12 +32,11 @@ export function AttendanceGantt({
   entries: SiteDiaryEntry[]; 
   subContractors: SubContractor[];
 }) {
-  // Trim the timeline to strictly match the data range to avoid white space
   const timelineDays = useMemo(() => {
     if (entries.length === 0) return [];
     
     try {
-        const dates = entries.map(e => startOfDay(parseISO(e.date)));
+        const dates = entries.map(e => parseDateString(e.date));
         const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
         const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
         
@@ -75,7 +74,6 @@ export function AttendanceGantt({
           <div className="flex">
             {timelineDays.map((day, i) => {
               const isToday = isSameDay(day, new Date());
-              // Standard weekend logic for generic map view
               const dayOfWeek = day.getDay();
               const isSatSun = dayOfWeek === 0 || dayOfWeek === 6;
               
