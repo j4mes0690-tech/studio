@@ -3,6 +3,7 @@ export type Planner = {
   id: string;
   name: string;
   archived?: boolean;
+  includeWeekends?: boolean;
 };
 
 export type Project = {

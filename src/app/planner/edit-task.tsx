@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -39,14 +40,7 @@ import { addDays, format, isValid, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { VoiceInput } from '@/components/voice-input';
-import { wouldCreateCycle, cn } from '@/lib/utils';
-
-// Timezone-safe date parser for construction dates (YYYY-MM-DD)
-function parseDateString(dateStr: string | null | undefined) {
-  if (!dateStr) return new Date(NaN);
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return new Date(y, m - 1, d);
-}
+import { wouldCreateCycle, cn, parseDateString, calculateFinishDate, calculateNextStartDate, optimiseGlobalSchedule } from '@/lib/utils';
 
 const EditTaskSchema = z.object({
   title: z.string().min(3, 'Description of work is required.'),
@@ -118,6 +112,10 @@ export function EditTaskDialog({
   }, [open, task, form]);
 
   const selectedProject = useMemo(() => projects.find(p => p.id === task.projectId), [projects, task.projectId]);
+  const currentPlanner = useMemo(() => {
+    return [...(selectedProject?.planners || []), ...(selectedProject?.areas || [])].find(p => p.id === task.plannerId || p.id === task.areaId);
+  }, [selectedProject, task.plannerId, task.areaId]);
+
   const selectedPredecessorIds = form.watch('predecessorIds');
   const selectedSubId = form.watch('subcontractorId');
   
@@ -136,74 +134,32 @@ export function EditTaskDialog({
       const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
       
       if (selectedPredecessors.length > 0) {
-        const latestFinishDate = selectedPredecessors.reduce((latest, current) => {
-          try {
-            const taskStart = parseDateString(current.startDate);
-            if (!isValid(taskStart)) return latest;
-            
-            const effectiveFinish = current.status === 'completed' && current.actualCompletionDate 
-                ? parseDateString(current.actualCompletionDate) 
-                : addDays(taskStart, current.durationDays - 1);
-            
-            const nextStart = addDays(effectiveFinish, 1);
-            return !latest || nextStart > latest ? nextStart : latest;
-          } catch (e) {
-            return latest;
-          }
-        }, null as Date | null);
+        const includeWeekends = !!currentPlanner?.includeWeekends;
+        let latestFinishDateStr: string | null = null;
+        let latestFinishDateObj: Date | null = null;
 
-        if (latestFinishDate) {
-          const nextStartStr = format(latestFinishDate, 'yyyy-MM-dd');
-          form.setValue('startDate', nextStartStr);
-        }
-      }
-    }
-  }, [selectedPredecessorIds, allTasks, form]);
-
-  const optimiseGlobalSchedule = (allPlannerTasks: PlannerTask[], batch: any) => {
-    let changed = true;
-    let iterations = 0;
-    const maxIterations = allPlannerTasks.length * 2; 
-    let currentTasks = [...allPlannerTasks];
-
-    while (changed && iterations < maxIterations) {
-      changed = false;
-      iterations++;
-
-      for (let i = 0; i < currentTasks.length; i++) {
-        const t = currentTasks[i];
-        if (!t.predecessorIds || t.predecessorIds.length === 0) continue;
-
-        const taskPredecessors = currentTasks.filter(p => t.predecessorIds.includes(p.id));
-        
-        let latestFinishDate: Date | null = null;
-        taskPredecessors.forEach(p => {
-          const pStart = parseDateString(p.startDate);
-          const pFinish = p.status === 'completed' && p.actualCompletionDate 
-            ? parseDateString(p.actualCompletionDate) 
-            : addDays(pStart, p.durationDays - 1);
+        selectedPredecessors.forEach(p => {
+          const pFinishStr = p.status === 'completed' && p.actualCompletionDate 
+            ? p.actualCompletionDate 
+            : calculateFinishDate(p.startDate, p.durationDays, includeWeekends);
           
-          if (isValid(pFinish)) {
-            if (!latestFinishDate || pFinish > latestFinishDate) {
-              latestFinishDate = pFinish;
+          const pFinishObj = parseDateString(pFinishStr);
+          
+          if (isValid(pFinishObj)) {
+            if (!latestFinishDateObj || pFinishObj > latestFinishDateObj) {
+              latestFinishDateObj = pFinishObj;
+              latestFinishDateStr = pFinishStr;
             }
           }
         });
 
-        if (latestFinishDate && isValid(latestFinishDate)) {
-          const idealStart = addDays(latestFinishDate, 1);
-          const idealStartStr = format(idealStart, 'yyyy-MM-dd');
-
-          if (t.startDate !== idealStartStr) {
-            const docRef = doc(db, 'planner-tasks', t.id);
-            batch.update(docRef, { startDate: idealStartStr });
-            currentTasks[i] = { ...t, startDate: idealStartStr };
-            changed = true;
-          }
+        if (latestFinishDateStr) {
+          const nextStartStr = calculateNextStartDate(latestFinishDateStr, includeWeekends);
+          form.setValue('startDate', nextStartStr);
         }
       }
     }
-  };
+  }, [selectedPredecessorIds, allTasks, form, currentPlanner]);
 
   const onSubmit = (values: EditTaskFormValues) => {
     startTransition(async () => {
@@ -237,10 +193,14 @@ export function EditTaskDialog({
         batch.update(taskRef, updates);
 
         const updatedTask = { ...task, ...updates };
+        const includeWeekends = !!currentPlanner?.includeWeekends;
         const allPlannerTasks = allTasks.filter(t => t.plannerId === task.plannerId || t.areaId === task.plannerId);
         const startingTasks = allPlannerTasks.map(t => t.id === task.id ? updatedTask : t);
         
-        optimiseGlobalSchedule(startingTasks, batch);
+        optimiseGlobalSchedule(startingTasks, includeWeekends, (taskId, taskUpdates) => {
+            const docRef = doc(db, 'planner-tasks', taskId);
+            batch.update(docRef, taskUpdates);
+        });
 
         await batch.commit();
         toast({ title: 'Schedule Optimised', description: 'All activities revised to follow the most efficient timeline.' });

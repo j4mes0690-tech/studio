@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -38,6 +39,7 @@ import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { addDays, parseISO, format, isValid } from 'date-fns';
 import { VoiceInput } from '@/components/voice-input';
 import { Separator } from '@/components/ui/separator';
+import { parseDateString, calculateFinishDate, calculateNextStartDate } from '@/lib/utils';
 
 const NewTaskSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -97,6 +99,9 @@ export function NewTaskDialog({
   const selectedSubId = form.watch('subcontractorId');
   
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+  const currentPlanner = useMemo(() => {
+    return [...(selectedProject?.planners || []), ...(selectedProject?.areas || [])].find(p => p.id === selectedPlannerId);
+  }, [selectedProject, selectedPlannerId]);
 
   const availablePartners = useMemo(() => {
     if (!selectedProject || !subContractors) return [];
@@ -109,28 +114,32 @@ export function NewTaskDialog({
       const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
       
       if (selectedPredecessors.length > 0) {
-        const latestFinishDate = selectedPredecessors.reduce((latest, current) => {
-          try {
-            const taskStart = parseISO(current.startDate);
-            if (!isValid(taskStart)) return latest;
-            
-            const effectiveFinish = current.status === 'completed' && current.actualCompletionDate 
-                ? parseISO(current.actualCompletionDate) 
-                : addDays(taskStart, current.durationDays - 1);
-            
-            const nextStart = addDays(effectiveFinish, 1);
-            return !latest || nextStart > latest ? nextStart : latest;
-          } catch (e) {
-            return latest;
-          }
-        }, null as Date | null);
+        const includeWeekends = !!currentPlanner?.includeWeekends;
+        let latestFinishDateStr: string | null = null;
+        let latestFinishDateObj: Date | null = null;
 
-        if (latestFinishDate) {
-          form.setValue('startDate', format(latestFinishDate, 'yyyy-MM-dd'));
+        selectedPredecessors.forEach(p => {
+          const pFinishStr = p.status === 'completed' && p.actualCompletionDate 
+            ? p.actualCompletionDate 
+            : calculateFinishDate(p.startDate, p.durationDays, includeWeekends);
+          
+          const pFinishObj = parseDateString(pFinishStr);
+          
+          if (isValid(pFinishObj)) {
+            if (!latestFinishDateObj || pFinishObj > latestFinishDateObj) {
+              latestFinishDateObj = pFinishObj;
+              latestFinishDateStr = pFinishStr;
+            }
+          }
+        });
+
+        if (latestFinishDateStr) {
+          const nextStartStr = calculateNextStartDate(latestFinishDateStr, includeWeekends);
+          form.setValue('startDate', nextStartStr);
         }
       }
     }
-  }, [selectedPredecessorIds, allTasks, form]);
+  }, [selectedPredecessorIds, allTasks, form, currentPlanner]);
 
   const potentialPredecessors = useMemo(() => {
     if (!selectedProjectId || !selectedPlannerId) return [];
@@ -267,7 +276,7 @@ export function NewTaskDialog({
 
             <FormField control={form.control} name="title" render={({ field }) => (
               <FormItem>
-                <div className="flex justify-between items-center"><FormLabel>Work Description</FormLabel><VoiceInput onResult={field.onChange} /></div>
+                <div className="flex justify-between items-center"><FormLabel>Activity Description</FormLabel><VoiceInput onResult={field.onChange} /></div>
                 <FormControl><Input placeholder="e.g. Install first fix plumbing" {...field} /></FormControl>
               </FormItem>
             )} />
@@ -373,7 +382,7 @@ export function NewTaskDialog({
             <DialogFooter className="gap-3">
               <Button type="button" variant="ghost" onClick={() => setOpen(false)} disabled={isPending}>Close</Button>
               <Button type="submit" className="flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending}>
-                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                 Add & Continue
               </Button>
             </DialogFooter>

@@ -1,9 +1,111 @@
+
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { SubContractor, DistributionUser } from "./types"
+import type { SubContractor, DistributionUser, PlannerTask } from "./types"
+import { addDays, isWeekend, isValid, format } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+/**
+ * parseDateString - Timezone-safe date parser for construction dates (YYYY-MM-DD)
+ */
+export function parseDateString(dateStr: string | null | undefined): Date {
+  if (!dateStr) return new Date(NaN);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/**
+ * calculateFinishDate - Determines the end date of a task based on its duration.
+ * If includeWeekends is false, it skips Saturday and Sunday.
+ */
+export function calculateFinishDate(startDateStr: string, duration: number, includeWeekends: boolean): string {
+  let date = parseDateString(startDateStr);
+  if (!isValid(date)) return startDateStr;
+
+  let count = 1;
+  while (count < duration) {
+    date = addDays(date, 1);
+    if (!includeWeekends) {
+      while (isWeekend(date)) {
+        date = addDays(date, 1);
+      }
+    }
+    count++;
+  }
+  return format(date, 'yyyy-MM-dd');
+}
+
+/**
+ * calculateNextStartDate - Determines the start date for a successor task.
+ */
+export function calculateNextStartDate(finishDateStr: string, includeWeekends: boolean): string {
+  let date = addDays(parseDateString(finishDateStr), 1);
+  if (!isValid(date)) return finishDateStr;
+
+  if (!includeWeekends) {
+    while (isWeekend(date)) {
+      date = addDays(date, 1);
+    }
+  }
+  return format(date, 'yyyy-MM-dd');
+}
+
+/**
+ * optimiseGlobalSchedule - Runs a critical path analysis on a set of tasks to 
+ * shift dates based on predecessor linkages.
+ */
+export function optimiseGlobalSchedule(
+  allPlannerTasks: PlannerTask[], 
+  includeWeekends: boolean,
+  onUpdate: (taskId: string, updates: Partial<PlannerTask>) => void
+) {
+  let changed = true;
+  let iterations = 0;
+  const maxIterations = allPlannerTasks.length * 2; 
+  let currentTasks = [...allPlannerTasks];
+
+  while (changed && iterations < maxIterations) {
+    changed = false;
+    iterations++;
+
+    for (let i = 0; i < currentTasks.length; i++) {
+      const t = currentTasks[i];
+      if (!t.predecessorIds || t.predecessorIds.length === 0) continue;
+
+      const taskPredecessors = currentTasks.filter(p => t.predecessorIds.includes(p.id));
+      
+      let latestFinishDateStr: string | null = null;
+      let latestFinishDateObj: Date | null = null;
+
+      taskPredecessors.forEach(p => {
+        const pFinishStr = p.status === 'completed' && p.actualCompletionDate 
+          ? p.actualCompletionDate 
+          : calculateFinishDate(p.startDate, p.durationDays, includeWeekends);
+        
+        const pFinishObj = parseDateString(pFinishStr);
+        
+        if (isValid(pFinishObj)) {
+          if (!latestFinishDateObj || pFinishObj > latestFinishDateObj) {
+            latestFinishDateObj = pFinishObj;
+            latestFinishDateStr = pFinishStr;
+          }
+        }
+      });
+
+      if (latestFinishDateStr) {
+        const idealStart = calculateNextStartDate(latestFinishDateStr, includeWeekends);
+
+        if (t.startDate !== idealStart) {
+          onUpdate(t.id, { startDate: idealStart });
+          currentTasks[i] = { ...t, startDate: idealStart };
+          changed = true;
+        }
+      }
+    }
+  }
 }
 
 /**

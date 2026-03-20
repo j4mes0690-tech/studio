@@ -26,7 +26,8 @@ import {
     Trash2,
     ArchiveRestore,
     Eye,
-    EyeOff
+    EyeOff,
+    Clock
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,11 +38,13 @@ import { useToast } from '@/hooks/use-toast';
 import { GanttChart } from './gantt-chart';
 import { NewTaskDialog } from './new-task';
 import { EditTaskDialog } from './edit-task';
-import { cn } from '@/lib/utils';
+import { cn, optimiseGlobalSchedule } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -186,13 +189,48 @@ function PlannerContent() {
     router.push(`/planner?${params.toString()}`);
   };
 
+  const handleToggleWeekends = (val: boolean) => {
+    if (!currentProject || !currentPlanner) return;
+    
+    startTransition(async () => {
+        try {
+            const batch = writeBatch(db);
+            const projRef = doc(db, 'projects', currentProject.id);
+            
+            // 1. Update the planner definition
+            const updatedPlanners = (currentProject.planners || []).map(p => 
+                p.id === currentPlanner.id ? { ...p, includeWeekends: val } : p
+            );
+            batch.update(projRef, { planners: updatedPlanners });
+
+            // 2. Trigger a global re-forecast for all tasks in this planner
+            const plannerTasks = allTasks.filter(t => t.projectId === currentProject.id && (t.plannerId === currentPlanner.id || t.areaId === currentPlanner.id));
+            
+            optimiseGlobalSchedule(plannerTasks, val, (taskId, updates) => {
+                const taskRef = doc(db, 'planner-tasks', taskId);
+                batch.update(taskRef, updates);
+            });
+
+            await batch.commit();
+            toast({ 
+                title: 'Schedule Reforecast', 
+                description: `Weekend logic ${val ? 'enabled' : 'disabled'}. All tasks shifted to follow the new working calendar.` 
+            });
+        } catch (err) {
+            console.error(err);
+            toast({ title: 'Error', description: 'Failed to reforecast schedule.', variant: 'destructive' });
+        }
+    });
+  };
+
   const handleAddPlanner = () => {
     if (!newPlannerName.trim() || !currentProject) return;
     startTransition(async () => {
         const newPlanner: Planner = {
             id: `planner-${currentProject.id}-${Date.now()}`,
             name: newPlannerName.trim(),
-            archived: false
+            archived: false,
+            includeWeekends: false
         };
         const projRef = doc(db, 'projects', currentProject.id);
         await updateDoc(projRef, {
@@ -521,6 +559,19 @@ function PlannerContent() {
                         Construction Schedule
                     </h2>
                     <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-lg border-2 border-primary/10 mr-2">
+                            <Label htmlFor="weekend-toggle" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 cursor-pointer">
+                                <Clock className="h-3 w-3" />
+                                7 Day Week
+                            </Label>
+                            <Switch 
+                                id="weekend-toggle" 
+                                checked={!!currentPlanner?.includeWeekends} 
+                                onCheckedChange={handleToggleWeekends} 
+                                disabled={isPending}
+                            />
+                        </div>
+
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
