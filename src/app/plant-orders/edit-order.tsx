@@ -19,6 +19,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -269,9 +270,9 @@ export function EditPlantOrderDialog({
           <DialogDescription>Adjust hire contract details and line item pricing.</DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto">
           <Form {...form}>
-            <form className="space-y-6">
+            <form className="space-y-6 p-6 pb-10">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="projectId" render={({ field }) => (
                   <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
@@ -410,41 +411,41 @@ export function EditPlantOrderDialog({
               <FormField control={form.control} name="notes" render={({ field }) => (
                 <FormItem><FormLabel>Contract Notes</FormLabel><FormControl><Textarea {...field} /></FormControl></FormItem>
               )} />
+
+              <div className="pt-6 border-t flex flex-col sm:flex-row gap-3">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full sm:w-auto h-12" 
+                  disabled={isPending} 
+                  onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}, false))}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Save as Draft
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full sm:flex-1 h-12 font-bold" 
+                  disabled={isPending} 
+                  onClick={form.handleSubmit(v => onSubmit(v, false))}
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  Save
+                </Button>
+                <Button 
+                  type="button" 
+                  className="w-full sm:flex-1 h-12 text-lg font-bold" 
+                  disabled={isPending} 
+                  onClick={form.handleSubmit(v => onSubmit(v, true))}
+                >
+                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
+                  Save and Print
+                </Button>
+              </div>
             </form>
           </Form>
         </div>
-
-        <DialogFooter className="p-6 bg-muted/10 border-t shrink-0 gap-3 flex flex-col sm:flex-row">
-          <Button 
-            type="button" 
-            variant="outline" 
-            className="w-full sm:w-auto h-12" 
-            disabled={isPending} 
-            onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}, false))}
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save as Draft
-          </Button>
-          <Button 
-            type="button" 
-            variant="outline" 
-            className="w-full sm:flex-1 h-12 font-bold" 
-            disabled={isPending} 
-            onClick={form.handleSubmit(v => onSubmit(v, false))}
-          >
-            <Save className="mr-2 h-4 w-4" />
-            Save
-          </Button>
-          <Button 
-            type="button" 
-            className="w-full sm:flex-1 h-12 text-lg font-bold" 
-            disabled={isPending} 
-            onClick={form.handleSubmit(v => onSubmit(v, true))}
-          >
-            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-5 w-5" />}
-            Save and Print
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
