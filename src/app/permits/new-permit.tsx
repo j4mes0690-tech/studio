@@ -30,18 +30,15 @@ import {
   Loader2, 
   Save, 
   Send, 
-  ShieldCheck, 
-  Clock, 
   Camera, 
   Upload, 
   X, 
   RefreshCw, 
-  Sparkles, 
-  ClipboardList, 
   CheckSquare, 
   Plus, 
   Trash2, 
-  Layout 
+  Layout,
+  MapPin
 } from 'lucide-react';
 import type { 
   Project, 
@@ -51,8 +48,7 @@ import type {
   Photo, 
   PermitTemplate, 
   TemplateSection, 
-  TemplateField, 
-  TemplateFieldType 
+  TemplateField 
 } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -60,19 +56,16 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
 import { VoiceInput } from '@/components/voice-input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { CameraOverlay } from '@/components/camera-overlay';
-import { replicatePermitTemplate } from '@/ai/flows/replicate-permit-template';
 
 const NewPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   areaId: z.string().optional(),
-  type: z.enum(['Hot Work', 'Confined Space', 'Excavation', 'Lifting', 'General']),
+  customAreaName: z.string().optional(),
+  templateId: z.string().min(1, 'Selecting a permit template is required.'),
   contractorId: z.string().min(1, 'Contractor is required.'),
   description: z.string().min(10, 'Details must be at least 10 characters.'),
   validFrom: z.string().min(1, 'Start time is required.'),
@@ -101,11 +94,7 @@ export function NewPermitDialog({
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const templateInputRef = useRef<HTMLInputElement>(null);
-
-  const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [dynamicSections, setDynamicSections] = useState<TemplateSection[]>([]);
-  const [isExtracting, setIsExtracting] = useState(false);
 
   const templatesQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -118,7 +107,8 @@ export function NewPermitDialog({
     defaultValues: {
       projectId: '',
       areaId: '',
-      type: 'General',
+      customAreaName: '',
+      templateId: '',
       contractorId: '',
       description: '',
       validFrom: new Date().toISOString().slice(0, 16),
@@ -128,56 +118,22 @@ export function NewPermitDialog({
   });
 
   const selectedProjectId = form.watch('projectId');
-  const selectedType = form.watch('type');
+  const selectedAreaId = form.watch('areaId');
+  const selectedTemplateId = form.watch('templateId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
   const availableAreas = selectedProject?.areas || [];
   
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
-
-  const filteredTemplates = useMemo(() => {
-    return (permitTemplates || []).filter(t => t.type === selectedType);
-  }, [permitTemplates, selectedType]);
 
   const handleApplyTemplate = (templateId: string) => {
     const template = permitTemplates?.find(t => t.id === templateId);
     if (template) {
-        setActiveTemplateId(templateId);
         form.setValue('description', template.description);
         setDynamicSections(JSON.parse(JSON.stringify(template.sections)));
-        toast({ title: 'Standard Template Loaded', description: `Controls for ${template.title} applied.` });
-    }
-  };
-
-  const handleSmartReplication = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsExtracting(true);
-    toast({ title: "Replicator Waking Up", description: "AI is mapping the structure of your document..." });
-    try {
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const dataUri = event.target?.result as string;
-        try {
-          const result = await replicatePermitTemplate({ fileDataUri: dataUri });
-          if (result) {
-            form.setValue('type', result.type);
-            form.setValue('description', result.description);
-            setDynamicSections(result.sections);
-            toast({ title: "Replication Complete", description: `Generated ${result.sections.length} custom sections.` });
-          }
-        } catch (err) {
-          toast({ title: "Wizard Failed", description: "Could not replicate this document structure.", variant: "destructive" });
-        } finally {
-          setIsExtracting(false);
-        }
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      setIsExtracting(false);
     }
   };
 
@@ -201,6 +157,9 @@ export function NewPermitDialog({
   };
 
   const onSubmit = (values: NewPermitFormValues) => {
+    const template = permitTemplates?.find(t => t.id === values.templateId);
+    if (!template) return;
+
     startTransition(async () => {
       try {
         toast({ title: 'Processing', description: 'Persisting digital permit and media...' });
@@ -219,14 +178,15 @@ export function NewPermitDialog({
         const typeMap: Record<string, string> = { 'Hot Work': 'HWP', 'Confined Space': 'CSP', 'Excavation': 'EXP', 'Lifting': 'LIP', 'General': 'GWP' };
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const existingRefs = allPermits.map(p => ({ reference: p.reference, projectId: p.projectId }));
-        const reference = getNextReference(existingRefs, values.projectId, typeMap[values.type], initials);
+        const reference = getNextReference(existingRefs, values.projectId, typeMap[template.type] || 'PRM', initials);
         const contractor = subContractors.find(s => s.id === values.contractorId);
 
         const permitData: Omit<Permit, 'id'> = {
           reference,
           projectId: values.projectId,
-          areaId: values.areaId || null,
-          type: values.type,
+          areaId: values.areaId === 'other' ? null : (values.areaId || null),
+          customAreaName: values.areaId === 'other' ? (values.customAreaName || null) : null,
+          type: template.type,
           contractorId: values.contractorId,
           contractorName: contractor?.name || 'Unknown',
           description: values.description,
@@ -252,7 +212,6 @@ export function NewPermitDialog({
     if (!open) {
       setPhotos([]);
       setDynamicSections([]);
-      setActiveTemplateId(null);
       form.reset();
     }
   }, [open, form]);
@@ -260,7 +219,7 @@ export function NewPermitDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2 h-10 px-5 shadow-lg shadow-primary/20">
+        <Button className="gap-2 h-10 px-5 shadow-lg shadow-primary/20 font-bold">
           <PlusCircle className="h-4 w-4" />
           New Permit
         </Button>
@@ -270,50 +229,71 @@ export function NewPermitDialog({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <DialogTitle>Issue Electronic Permit</DialogTitle>
-              <DialogDescription>Apply a standard template or build a custom layout for this task.</DialogDescription>
+              <DialogDescription>Select a standard template to initialize the safety controls for this task.</DialogDescription>
             </div>
             <div className="flex items-center gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={addSection} className="gap-2 border-primary/20 text-primary h-9">
-                    <Plus className="h-4 w-4" /> Add Section
+                    <Plus className="h-4 w-4" /> Add Custom Section
                 </Button>
             </div>
           </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-muted/5">
-            <div className="bg-gradient-to-br from-primary/10 to-background border-2 border-primary/20 rounded-xl p-6 mb-8 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none"><Sparkles className="h-24 w-24 text-primary" /></div>
-                <div className="relative z-10 space-y-4">
-                    <div className="flex flex-col gap-1">
-                        <h3 className="font-bold text-primary flex items-center gap-2"><Sparkles className="h-4 w-4" />AI Smart Replication</h3>
-                        <p className="text-xs text-muted-foreground max-w-md leading-relaxed">Upload a scan or photo of your existing paper permit to digitize its structure instantly.</p>
-                    </div>
-                    <input type="file" ref={templateInputRef} className="hidden" accept="image/*,.pdf" onChange={handleSmartReplication} />
-                    <Button type="button" className="w-full sm:w-auto h-11 px-6 font-bold gap-2" onClick={() => templateInputRef.current?.click()} disabled={isExtracting}>
-                        {isExtracting ? <><Loader2 className="h-4 w-4 animate-spin" />Analyzing...</> : <><Upload className="h-4 w-4" />Replicate Existing Form</>}
-                    </Button>
-                </div>
-            </div>
-
             <Form {...form}>
                 <form className="space-y-8">
                     <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField control={form.control} name="projectId" render={({ field }) => (
                                 <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
                             )} />
-                            <FormField control={form.control} name="type" render={({ field }) => (
-                                <FormItem><FormLabel>Permit Type</FormLabel><Select onValueChange={(val) => { field.onChange(val); setActiveTemplateId(null); setDynamicSections([]); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="General">General Works</SelectItem><SelectItem value="Hot Work">Hot Work</SelectItem><SelectItem value="Confined Space">Confined Space</SelectItem><SelectItem value="Excavation">Excavation</SelectItem><SelectItem value="Lifting">Lifting Ops</SelectItem></SelectContent></Select></FormItem>
+                            <FormField control={form.control} name="templateId" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Permit Type (Template)</FormLabel>
+                                    <Select onValueChange={(val) => { field.onChange(val); handleApplyTemplate(val); }} value={field.value}>
+                                        <FormControl><SelectTrigger className="border-primary/20 bg-primary/5"><SelectValue placeholder="Select standard template" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {permitTemplates?.map(t => (
+                                                <SelectItem key={t.id} value={t.id}>{t.title} ({t.type})</SelectItem>
+                                            ))}
+                                            {(!permitTemplates || permitTemplates.length === 0) && (
+                                                <SelectItem value="none" disabled>No templates defined in Settings</SelectItem>
+                                            )}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
                             )} />
-                            <FormItem><FormLabel>Start from Template</FormLabel><Select onValueChange={handleApplyTemplate} value={activeTemplateId || ''}><FormControl><SelectTrigger className="bg-primary/5 border-primary/20 text-primary font-semibold"><div className="flex items-center gap-2"><ClipboardList className="h-4 w-4" /><SelectValue placeholder={filteredTemplates.length > 0 ? "Select template..." : "No templates"} /></div></SelectTrigger></FormControl><SelectContent>{filteredTemplates.map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select></FormItem>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField control={form.control} name="contractorId" render={({ field }) => (
                                 <FormItem><FormLabel>Trade Partner</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="Select contractor" /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
                             )} />
-                            <FormField control={form.control} name="areaId" render={({ field }) => (
-                                <FormItem><FormLabel>Location / Plot</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="General Site" /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                            )} />
+                            <div className="space-y-4">
+                                <FormField control={form.control} name="areaId" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Location / Plot</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                                            <FormControl><SelectTrigger><SelectValue placeholder="General Site" /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="site-wide">General Site</SelectItem>
+                                                {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                                <Separator className="my-1" />
+                                                <SelectItem value="other">Other / Manual Entry</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </FormItem>
+                                )} />
+                                {selectedAreaId === 'other' && (
+                                    <FormField control={form.control} name="customAreaName" render={({ field }) => (
+                                        <FormItem className="animate-in fade-in slide-in-from-top-1">
+                                            <FormLabel className="text-primary font-bold">Specify Custom Location</FormLabel>
+                                            <FormControl><Input placeholder="e.g. Roof Plant Room Area B" {...field} className="bg-background" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                )}
+                            </div>
                         </div>
                         <FormField control={form.control} name="description" render={({ field }) => (
                             <FormItem><div className="flex items-center justify-between"><FormLabel>Work Description</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="Specific task details..." className="min-h-[80px]" {...field} /></FormControl></FormItem>
@@ -336,7 +316,14 @@ export function NewPermitDialog({
                                         <div className="space-y-3">
                                             <Input value={field.label} onChange={(e) => setDynamicSections(dynamicSections.map(s => s.id === section.id ? { ...s, fields: s.fields.map(f => f.id === field.id ? { ...f, label: e.target.value } : f) } : s))} className="h-7 text-xs font-semibold bg-muted/30 border-transparent" />
                                             <div className="pt-2 border-t border-dashed">
-                                                {field.type === 'checkbox' ? <div className="flex items-center justify-between"><span className="text-[10px] text-muted-foreground font-bold">Toggle Check</span><Checkbox checked={!!field.value} onCheckedChange={(val) => updateDynamicValue(section.id, field.id, !!val)} /></div> : <span className="text-[10px] text-muted-foreground uppercase">{field.type} Field</span>}
+                                                {field.type === 'checkbox' ? (
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-[10px] text-muted-foreground font-bold">Initial Verification</span>
+                                                        <Checkbox checked={!!field.value} onCheckedChange={(val) => updateDynamicValue(section.id, field.id, !!val)} />
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] text-muted-foreground uppercase">{field.type} Field</span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -370,7 +357,7 @@ export function NewPermitDialog({
         <DialogFooter className="p-6 bg-white border-t shrink-0 gap-3">
             <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
             <Button variant="outline" className="w-full sm:w-auto h-12 font-bold" disabled={isPending} onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}), () => scrollToFirstError())}><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
-            <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending} onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}), () => scrollToFirstError())}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}Issue Electronic Permit</Button>
+            <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending || !selectedTemplateId} onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}), () => scrollToFirstError())}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}Issue Electronic Permit</Button>
         </DialogFooter>
       </DialogContent>
 

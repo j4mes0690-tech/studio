@@ -430,6 +430,7 @@ export type Permit = {
   reference: string;
   projectId: string;
   areaId?: string | null;
+  customAreaName?: string | null;
   type: PermitType;
   contractorId: string;
   contractorName: string;

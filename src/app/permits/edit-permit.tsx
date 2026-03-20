@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -39,11 +38,10 @@ import Image from 'next/image';
 const EditPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   areaId: z.string().optional(),
+  customAreaName: z.string().optional(),
   type: z.enum(['Hot Work', 'Confined Space', 'Excavation', 'Lifting', 'General']),
   contractorId: z.string().min(1, 'Contractor is required.'),
   description: z.string().min(10, 'Details must be at least 10 characters.'),
-  hazards: z.string().min(1, 'Identify at least one hazard.'),
-  precautions: z.string().min(1, 'Identify at least one precaution.'),
   validFrom: z.string().min(1, 'Start time is required.'),
   validTo: z.string().min(1, 'Expiry time is required.'),
   status: z.enum(['draft', 'issued', 'closed', 'cancelled']).default('issued'),
@@ -85,11 +83,10 @@ export function EditPermitDialog({
     defaultValues: {
       projectId: permit.projectId,
       areaId: permit.areaId || '',
+      customAreaName: permit.customAreaName || '',
       type: permit.type,
       contractorId: permit.contractorId,
       description: permit.description,
-      hazards: permit.hazards,
-      precautions: permit.precautions,
       validFrom: new Date(permit.validFrom).toISOString().slice(0, 16),
       validTo: new Date(permit.validTo).toISOString().slice(0, 16),
       status: permit.status,
@@ -101,11 +98,10 @@ export function EditPermitDialog({
       form.reset({
         projectId: permit.projectId,
         areaId: permit.areaId || '',
+        customAreaName: permit.customAreaName || '',
         type: permit.type,
         contractorId: permit.contractorId,
         description: permit.description,
-        hazards: permit.hazards,
-        precautions: permit.precautions,
         validFrom: new Date(permit.validFrom).toISOString().slice(0, 16),
         validTo: new Date(permit.validTo).toISOString().slice(0, 16),
         status: permit.status,
@@ -115,6 +111,7 @@ export function EditPermitDialog({
   }, [open, permit, form]);
 
   const selectedProjectId = form.watch('projectId');
+  const selectedAreaId = form.watch('areaId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
   const availableAreas = selectedProject?.areas || [];
   
@@ -144,13 +141,12 @@ export function EditPermitDialog({
         const docRef = doc(db, 'permits', permit.id);
         const updates: any = {
           projectId: values.projectId,
-          areaId: values.areaId || null,
+          areaId: values.areaId === 'other' ? null : (values.areaId || null),
+          customAreaName: values.areaId === 'other' ? (values.customAreaName || null) : null,
           type: values.type,
           contractorId: values.contractorId,
           contractorName: contractor?.name || permit.contractorName,
           description: values.description,
-          hazards: values.hazards,
-          precautions: values.precautions,
           validFrom: new Date(values.validFrom).toISOString(),
           validTo: new Date(values.validTo).toISOString(),
           status: values.status,
@@ -216,11 +212,22 @@ export function EditPermitDialog({
             <div className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="projectId" render={({ field }) => (
-                        <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                        <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
                     )} />
-                    <FormField control={form.control} name="areaId" render={({ field }) => (
-                        <FormItem><FormLabel>Area / Plot</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="General Site" /></SelectTrigger></FormControl><SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                    )} />
+                    <div className="space-y-4">
+                        <FormField control={form.control} name="areaId" render={({ field }) => (
+                            <FormItem><FormLabel>Area / Plot</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="General Site" /></SelectTrigger></FormControl><SelectContent><SelectItem value="site-wide">General Site</SelectItem>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}<Separator className="my-1" /><SelectItem value="other">Other / Manual Entry</SelectItem></SelectContent></Select></FormItem>
+                        )} />
+                        {selectedAreaId === 'other' && (
+                            <FormField control={form.control} name="customAreaName" render={({ field }) => (
+                                <FormItem className="animate-in fade-in slide-in-from-top-1">
+                                    <FormLabel className="text-primary font-bold">Specify Custom Location</FormLabel>
+                                    <FormControl><Input placeholder="e.g. Roof Plant Room Area B" {...field} className="bg-background" /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )} />
+                        )}
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -228,22 +235,13 @@ export function EditPermitDialog({
                         <FormItem><FormLabel>Permit Type</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="General">General Works</SelectItem><SelectItem value="Hot Work">Hot Work</SelectItem><SelectItem value="Confined Space">Confined Space</SelectItem><SelectItem value="Excavation">Excavation</SelectItem><SelectItem value="Lifting">Lifting Ops</SelectItem></SelectContent></Select></FormItem>
                     )} />
                     <FormField control={form.control} name="contractorId" render={({ field }) => (
-                        <FormItem><FormLabel>Contractor / Party</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                        <FormItem><FormLabel>Contractor / Party</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
                     )} />
                 </div>
 
                 <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem><FormLabel>Work Description</FormLabel><FormControl><Textarea className="min-h-[100px]" {...field} /></FormControl></FormItem>
                 )} />
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <FormField control={form.control} name="hazards" render={({ field }) => (
-                        <FormItem><div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-destructive" /><FormLabel>Hazards</FormLabel></div><FormControl><Textarea className="min-h-[80px] bg-destructive/5" {...field} /></FormControl></FormItem>
-                    )} />
-                    <FormField control={form.control} name="precautions" render={({ field }) => (
-                        <FormItem><div className="flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /><FormLabel>Safety Controls</FormLabel></div><FormControl><Textarea className="min-h-[80px] bg-primary/5" {...field} /></FormControl></FormItem>
-                    )} />
-                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="validFrom" render={({ field }) => (

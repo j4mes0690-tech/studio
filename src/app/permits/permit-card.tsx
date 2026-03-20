@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -21,7 +20,8 @@ import {
   FileCheck,
   Check,
   X as XIcon,
-  Minus
+  Minus,
+  AlertTriangle
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -128,7 +128,7 @@ export function PermitCard({
       reportElement.style.color = 'black';
       reportElement.style.fontFamily = 'sans-serif';
 
-      const areaName = project?.areas?.find(a => a.id === permit.areaId)?.name || 'General Site';
+      const areaName = permit.customAreaName || project?.areas?.find(a => a.id === permit.areaId)?.name || 'General Site';
 
       reportElement.innerHTML = `
         <div style="border: 4px solid #1e40af; padding: 30px; border-radius: 8px;">
@@ -240,6 +240,8 @@ export function PermitCard({
     }
   };
 
+  const displayArea = permit.customAreaName || project?.areas?.find(a => a.id === permit.areaId)?.name || 'General Site';
+
   return (
     <>
       <Card 
@@ -266,7 +268,7 @@ export function PermitCard({
                     <HardHat className="h-2 w-2" /> {permit.contractorName}
                 </span>
                 <span className="font-semibold text-foreground flex items-center gap-1">
-                    <MapPin className="h-3 w-3 text-muted-foreground" /> {project?.name || 'Unknown'}
+                    <MapPin className="h-3 w-3 text-muted-foreground" /> {project?.name || 'Unknown'} - {displayArea}
                 </span>
               </CardDescription>
             </div>
@@ -324,7 +326,10 @@ export function PermitCard({
                   </Tooltip>
                   <AlertDialogContent onClick={e => e.stopPropagation()}>
                     <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove permit audit trail for {permit.reference}.</AlertDialogDescription></AlertDialogHeader>
-                    <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction></AlertDialogFooter>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               </TooltipProvider>
