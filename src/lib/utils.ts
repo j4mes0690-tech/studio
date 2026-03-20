@@ -1,8 +1,7 @@
-
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { SubContractor, DistributionUser, PlannerTask } from "./types"
-import { addDays, isWeekend, isValid, format } from 'date-fns';
+import { addDays, isValid, format, startOfDay } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -29,7 +28,8 @@ export function calculateFinishDate(startDateStr: string, duration: number, incl
   while (count < duration) {
     date = addDays(date, 1);
     if (!includeWeekends) {
-      while (isWeekend(date)) {
+      // Explicit check for Sunday (0) and Saturday (6)
+      while (date.getDay() === 0 || date.getDay() === 6) {
         date = addDays(date, 1);
       }
     }
@@ -46,7 +46,8 @@ export function calculateNextStartDate(finishDateStr: string, includeWeekends: b
   if (!isValid(date)) return finishDateStr;
 
   if (!includeWeekends) {
-    while (isWeekend(date)) {
+    // Explicit check for Sunday (0) and Saturday (6)
+    while (date.getDay() === 0 || date.getDay() === 6) {
       date = addDays(date, 1);
     }
   }

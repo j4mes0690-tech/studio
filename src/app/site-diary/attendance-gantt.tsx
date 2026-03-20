@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -8,8 +7,8 @@ import {
     eachDayOfInterval, 
     parseISO, 
     isSameDay, 
-    isWeekend,
-    isValid
+    isValid,
+    startOfDay
 } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -38,7 +37,7 @@ export function AttendanceGantt({
     if (entries.length === 0) return [];
     
     try {
-        const dates = entries.map(e => parseISO(e.date));
+        const dates = entries.map(e => startOfDay(parseISO(e.date)));
         const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
         const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
         
@@ -76,7 +75,10 @@ export function AttendanceGantt({
           <div className="flex">
             {timelineDays.map((day, i) => {
               const isToday = isSameDay(day, new Date());
-              const isSatSun = isWeekend(day);
+              // Explicit check for weekends
+              const dayOfWeek = day.getDay();
+              const isSatSun = dayOfWeek === 0 || dayOfWeek === 6;
+              
               const dayStr = format(day, 'yyyy-MM-dd');
               const dayEntry = entries.find(e => e.date === dayStr);
               const WeatherIcon = dayEntry ? (WEATHER_ICONS[dayEntry.weather.condition] || Cloud) : null;
@@ -86,7 +88,7 @@ export function AttendanceGantt({
                   key={i} 
                   className={cn(
                     "flex flex-col items-center justify-between border-r shrink-0 py-2 min-h-[75px]",
-                    isToday && "bg-primary/10 text-primary",
+                    isToday && "bg-primary/10 text-primary font-black",
                     isSatSun && "bg-muted/50"
                   )}
                   style={{ width: DAY_WIDTH }}
@@ -116,16 +118,18 @@ export function AttendanceGantt({
             const sub = subContractors.find(s => s.id === subId);
             return (
               <div key={subId} className="flex border-b group hover:bg-muted/5 transition-colors">
-                <div className="w-48 border-r px-4 py-3 flex items-center min-w-0 bg-background sticky left-0 z-10">
+                <div className="w-48 border-r px-4 py-3 flex items-center min-w-0 bg-background sticky left-0 z-10 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
                   <span className="text-xs font-bold truncate">{sub?.name || 'Unknown Partner'}</span>
                 </div>
                 <div className="flex">
                   {timelineDays.map((day, i) => {
+                    const dayOfWeek = day.getDay();
+                    const isSatSun = dayOfWeek === 0 || dayOfWeek === 6;
+                    
                     const dayStr = format(day, 'yyyy-MM-dd');
                     const entry = entries.find(e => e.date === dayStr);
                     const log = entry?.subcontractorLogs.find(l => l.subcontractorId === subId);
                     
-                    // Support both key names for backward compatibility
                     const count = log ? (log.operativeCount || (log as any).employeeCount || 0) : 0;
 
                     return (
@@ -133,7 +137,7 @@ export function AttendanceGantt({
                         key={i} 
                         className={cn(
                           "border-r shrink-0 flex items-center justify-center h-14 relative transition-colors",
-                          isWeekend(day) && "bg-muted/20"
+                          isSatSun && "bg-muted/20"
                         )}
                         style={{ width: DAY_WIDTH }}
                       >

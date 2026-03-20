@@ -9,8 +9,8 @@ import {
     differenceInDays, 
     eachDayOfInterval, 
     startOfWeek, 
-    isWeekend,
-    isValid
+    isValid,
+    startOfDay
 } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -62,7 +62,8 @@ export function GanttChart({
 }) {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
-  const startDate = useMemo(() => startOfWeek(new Date(), { weekStartsOn: 1 }), []);
+  // Use startOfDay to ensure time components don't interfere with getDay() logic
+  const startDate = useMemo(() => startOfDay(startOfWeek(new Date(), { weekStartsOn: 1 })), []);
   const endDate = useMemo(() => addDays(startDate, TIMELINE_WEEKS * 7 - 1), [startDate]);
   
   const timelineDays = useMemo(() => 
@@ -119,7 +120,7 @@ export function GanttChart({
               strokeWidth="1.5"
             />
             <polygon 
-              points={`${successorX},${successorY} ${successorX-arrowHeadSize},${successorY-(arrowHeadSize/1.5)} ${successorX-arrowHeadSize},${successorY+(arrowHeadSize/1.5)}`}
+              points={`${successorX},${successorY} ${successorX-arrowHeadSize},${successorX-arrowHeadSize},${successorY-(arrowHeadSize/1.5)} ${successorX-arrowHeadSize},${successorY+(arrowHeadSize/1.5)}`}
               fill="currentColor"
             />
           </g>
@@ -150,13 +151,16 @@ export function GanttChart({
                     <div className="flex">
                         {timelineDays.map((day, i) => {
                             const isToday = isSameDay(day, new Date());
-                            const isSatSun = isWeekend(day);
+                            // Explicit check for Sat (6) and Sun (0) to prevent locale confusion
+                            const dayOfWeek = day.getDay();
+                            const isSatSun = dayOfWeek === 0 || dayOfWeek === 6;
+                            
                             return (
                                 <div 
                                     key={i} 
                                     className={cn(
                                         "flex flex-col items-center justify-center border-r shrink-0 py-2",
-                                        isToday && "bg-primary/10 text-primary",
+                                        isToday && "bg-primary/10 text-primary font-black",
                                         isSatSun && "bg-muted/50"
                                     )}
                                     style={{ width: DAY_WIDTH }}
@@ -188,110 +192,129 @@ export function GanttChart({
                         })}
                     </div>
 
-                    {/* Right Column: Bars & SVG Overlay */}
-                    <div className="relative flex-1 bg-[repeating-linear-gradient(to_right,transparent,transparent_39px,rgba(0,0,0,0.05)_39px,rgba(0,0,0,0.05)_40px)]" style={{ width: chartWidth }}>
-                        <svg className="absolute inset-0 pointer-events-none z-0" style={{ width: chartWidth, height: chartHeight }}>
+                    {/* Right Column: Bars & Grid */}
+                    <div className="relative flex-1" style={{ width: chartWidth }}>
+                        {/* Shaded Weekend Columns in Body */}
+                        <div className="absolute inset-0 flex z-0 pointer-events-none">
+                            {timelineDays.map((day, i) => {
+                                const dayOfWeek = day.getDay();
+                                const isSatSun = dayOfWeek === 0 || dayOfWeek === 6;
+                                return (
+                                    <div 
+                                        key={i} 
+                                        className={cn("h-full border-r", isSatSun && "bg-muted/20")} 
+                                        style={{ width: DAY_WIDTH }}
+                                    />
+                                );
+                            })}
+                        </div>
+
+                        {/* Drawing Layer for Dependencies */}
+                        <svg className="absolute inset-0 pointer-events-none z-10" style={{ width: chartWidth, height: chartHeight }}>
                             {dependencyArrows}
                         </svg>
 
-                        <TooltipProvider>
-                            {tasks.map((task, taskIdx) => {
-                                const taskStart = parseDateString(task.startDate);
-                                if (!isValid(taskStart)) return null;
+                        {/* Bars Layer */}
+                        <div className="relative z-20">
+                            <TooltipProvider>
+                                {tasks.map((task, taskIdx) => {
+                                    const taskStart = parseDateString(task.startDate);
+                                    if (!isValid(taskStart)) return null;
 
-                                const offsetDays = differenceInDays(taskStart, startDate);
-                                const leftOffset = offsetDays * DAY_WIDTH;
-                                const barWidth = task.durationDays * DAY_WIDTH;
+                                    const offsetDays = differenceInDays(taskStart, startDate);
+                                    const leftOffset = offsetDays * DAY_WIDTH;
+                                    const barWidth = task.durationDays * DAY_WIDTH;
 
-                                let actualBarWidth = barWidth;
-                                if (task.status === 'completed' && task.actualCompletionDate) {
-                                    const actualEnd = parseDateString(task.actualCompletionDate);
-                                    if (isValid(actualEnd)) {
-                                        actualBarWidth = (differenceInDays(actualEnd, taskStart) + 1) * DAY_WIDTH;
+                                    let actualBarWidth = barWidth;
+                                    if (task.status === 'completed' && task.actualCompletionDate) {
+                                        const actualEnd = parseDateString(task.actualCompletionDate);
+                                        if (isValid(actualEnd)) {
+                                            actualBarWidth = (differenceInDays(actualEnd, taskStart) + 1) * DAY_WIDTH;
+                                        }
                                     }
-                                }
 
-                                const tradeColor = getTradeColor(task.subcontractorId || '');
-                                const isVisible = (taskStart <= endDate && addDays(taskStart, task.durationDays) >= startDate);
+                                    const tradeColor = getTradeColor(task.subcontractorId || '');
+                                    const isVisible = (taskStart <= endDate && addDays(taskStart, task.durationDays) >= startDate);
 
-                                const hasBaseline = !!task.originalStartDate && !!task.originalDurationDays;
-                                const origStart = hasBaseline ? parseDateString(task.originalStartDate) : null;
-                                const isValidBaseline = origStart && isValid(origStart);
-                                const origOffset = isValidBaseline ? differenceInDays(origStart!, startDate) * DAY_WIDTH : 0;
-                                const origWidth = hasBaseline ? task.originalDurationDays * DAY_WIDTH : 0;
-                                const isBaselineVisible = isValidBaseline && (origStart! <= endDate && addDays(origStart!, task.originalDurationDays) >= startDate);
+                                    const hasBaseline = !!task.originalStartDate && !!task.originalDurationDays;
+                                    const origStart = hasBaseline ? parseDateString(task.originalStartDate) : null;
+                                    const isValidBaseline = origStart && isValid(origStart);
+                                    const origOffset = isValidBaseline ? differenceInDays(origStart!, startDate) * DAY_WIDTH : 0;
+                                    const origWidth = hasBaseline ? task.originalDurationDays * DAY_WIDTH : 0;
+                                    const isBaselineVisible = isValidBaseline && (origStart! <= endDate && addDays(origStart!, task.originalDurationDays) >= startDate);
 
-                                const sub = subContractors.find(s => s.id === task.subcontractorId);
-                                const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
+                                    const sub = subContractors.find(s => s.id === task.subcontractorId);
+                                    const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
 
-                                return (
-                                    <div key={task.id} className="border-b relative" style={{ height: ROW_HEIGHT, width: chartWidth }}>
-                                        {isBaselineVisible && (
-                                            <div 
-                                                className="absolute h-4 top-1.5 opacity-20 bg-slate-400 rounded-sm border border-slate-500 z-0"
-                                                style={{ left: origOffset, width: origWidth }}
-                                                title="Original Planned Period"
-                                            />
-                                        )}
+                                    return (
+                                        <div key={task.id} className="border-b relative" style={{ height: ROW_HEIGHT, width: chartWidth }}>
+                                            {isBaselineVisible && (
+                                                <div 
+                                                    className="absolute h-4 top-1.5 opacity-20 bg-slate-400 rounded-sm border border-slate-500 z-0"
+                                                    style={{ left: origOffset, width: origWidth }}
+                                                    title="Original Planned Period"
+                                                />
+                                            )}
 
-                                        {isVisible && (
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <div 
-                                                        className={cn(
-                                                            "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
-                                                            task.status === 'completed' ? "text-white opacity-80" : 
-                                                            task.status === 'in-progress' ? "text-white animate-pulse" : 
-                                                            "text-white"
-                                                        )}
-                                                        style={{ 
-                                                            left: leftOffset, 
-                                                            width: actualBarWidth,
-                                                            backgroundColor: tradeColor,
-                                                            borderColor: `${tradeColor}cc`
-                                                        }}
-                                                        onClick={() => onTaskClick(task)}
-                                                    >
-                                                        {actualBarWidth > 40 && <span className="text-[9px] font-black truncate">{Math.round(actualBarWidth / DAY_WIDTH)}d</span>}
-                                                    </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent className="p-3 w-64 z-[100]">
-                                                    <div className="space-y-2">
-                                                        <div className='flex justify-between items-start'>
-                                                            <div>
-                                                                <p className="font-bold text-sm">{task.title}</p>
-                                                                <p className="text-xs font-semibold" style={{ color: tradeColor }}>{tradeName}</p>
-                                                            </div>
-                                                            <Badge variant="outline" className="text-[8px] uppercase font-black">{task.status}</Badge>
-                                                        </div>
-                                                        <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
-                                                            <span className='flex justify-between'>Forecast: <strong>{format(taskStart, 'PP')} ({task.durationDays}d)</strong></span>
-                                                            {task.status === 'completed' && task.actualCompletionDate && (
-                                                                <span className='flex justify-between text-green-600 font-bold'>Actual Finish: <strong>{format(parseDateString(task.actualCompletionDate), 'PP')}</strong></span>
+                                            {isVisible && (
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <div 
+                                                            className={cn(
+                                                                "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
+                                                                task.status === 'completed' ? "text-white opacity-80" : 
+                                                                task.status === 'in-progress' ? "text-white animate-pulse" : 
+                                                                "text-white"
                                                             )}
-                                                            {task.originalStartDate && (
-                                                                <span className='flex justify-between opacity-60'>Baseline: <strong>{format(parseDateString(task.originalStartDate), 'PP')}</strong></span>
-                                                            )}
+                                                            style={{ 
+                                                                left: leftOffset, 
+                                                                width: actualBarWidth,
+                                                                backgroundColor: tradeColor,
+                                                                borderColor: `${tradeColor}cc`
+                                                            }}
+                                                            onClick={() => onTaskClick(task)}
+                                                        >
+                                                            {actualBarWidth > 40 && <span className="text-[9px] font-black truncate">{Math.round(actualBarWidth / DAY_WIDTH)}d</span>}
                                                         </div>
-                                                        {task.photos && task.photos.length > 0 && (
-                                                            <div className="grid grid-cols-3 gap-1 pt-1">
-                                                                {task.photos.map((p, idx) => (
-                                                                    <div key={idx} className="relative aspect-square rounded border overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
-                                                                        <Image src={p.url} alt="Context" fill className="object-cover" />
-                                                                    </div>
-                                                                ))}
+                                                    </TooltipTrigger>
+                                                    <TooltipContent className="p-3 w-64 z-[100]">
+                                                        <div className="space-y-2">
+                                                            <div className='flex justify-between items-start'>
+                                                                <div>
+                                                                    <p className="font-bold text-sm">{task.title}</p>
+                                                                    <p className="text-xs font-semibold" style={{ color: tradeColor }}>{tradeName}</p>
+                                                                </div>
+                                                                <Badge variant="outline" className="text-[8px] uppercase font-black">{task.status}</Badge>
                                                             </div>
-                                                        )}
-                                                        <Separator className="my-1" />
-                                                        <p className="text-[9px] text-center font-bold text-primary italic">Click to edit reforecast</p>
-                                                    </div>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </TooltipProvider>
+                                                            <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
+                                                                <span className='flex justify-between'>Forecast: <strong>{format(taskStart, 'PP')} ({task.durationDays}d)</strong></span>
+                                                                {task.status === 'completed' && task.actualCompletionDate && (
+                                                                    <span className='flex justify-between text-green-600 font-bold'>Actual Finish: <strong>{format(parseDateString(task.actualCompletionDate), 'PP')}</strong></span>
+                                                                )}
+                                                                {task.originalStartDate && (
+                                                                    <span className='flex justify-between opacity-60'>Baseline: <strong>{format(parseDateString(task.originalStartDate), 'PP')}</strong></span>
+                                                                )}
+                                                            </div>
+                                                            {task.photos && task.photos.length > 0 && (
+                                                                <div className="grid grid-cols-3 gap-1 pt-1">
+                                                                    {task.photos.map((p, idx) => (
+                                                                        <div key={idx} className="relative aspect-square rounded border overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
+                                                                            <Image src={p.url} alt="Context" fill className="object-cover" />
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                            <Separator className="my-1" />
+                                                            <p className="text-[9px] text-center font-bold text-primary italic">Click to edit reforecast</p>
+                                                        </div>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </TooltipProvider>
+                        </div>
                     </div>
                 </div>
             </div>
