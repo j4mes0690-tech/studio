@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
-import type { IRSItem, Project, DistributionUser, SubContractor } from '@/lib/types';
+import type { IRSItem, Project, DistributionUser, SubContractor, Photo, ChatMessage } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,11 +18,12 @@ import {
   Loader2,
   Check,
   History,
-  Info
+  Info,
+  MessageSquareReply
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
@@ -46,26 +47,38 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
+import { RespondToIRS } from './respond-to-irs';
+import { ImageLightbox } from '@/components/image-lightbox';
+import Image from 'next/image';
 
 export function IRSCard({ 
   item, 
   project, 
   users, 
-  subContractors 
+  subContractors,
+  currentUser
 }: { 
   item: IRSItem; 
   project?: Project; 
   users: DistributionUser[];
   subContractors: SubContractor[];
+  currentUser: DistributionUser;
 }) {
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isMarkOpen, setIsMarkOpen] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
   
   // Resolution Form State
   const [provDate, setProvDate] = useState(item.providedDate || new Date().toISOString().split('T')[0]);
@@ -97,10 +110,20 @@ export function IRSCard({
   const handleMarkProvided = () => {
     startTransition(async () => {
       const docRef = doc(db, 'irs-items', item.id);
+      
+      const systemMessage: ChatMessage = {
+        id: `sys-${Date.now()}`,
+        sender: 'System',
+        senderEmail: 'system@sitecommand.internal',
+        message: `ITEM RESOLVED: Marked as provided on ${new Date(provDate).toLocaleDateString()}. Answer: ${provDesc}`,
+        createdAt: new Date().toISOString()
+      };
+
       await updateDoc(docRef, {
         status: 'provided',
         providedDate: provDate,
-        providedDescription: provDesc
+        providedDescription: provDesc,
+        messages: arrayUnion(systemMessage)
       });
       setIsMarkOpen(false);
       toast({ title: 'Resolution Logged', description: 'Item marked as provided with details.' });
@@ -110,14 +133,29 @@ export function IRSCard({
   const handleReopen = () => {
     startTransition(async () => {
       const docRef = doc(db, 'irs-items', item.id);
+      
+      const systemMessage: ChatMessage = {
+        id: `sys-${Date.now()}`,
+        sender: 'System',
+        senderEmail: 'system@sitecommand.internal',
+        message: `REOPENED: Item returned to Open status by ${currentUser.name}.`,
+        createdAt: new Date().toISOString()
+      };
+
       await updateDoc(docRef, { 
         status: 'open',
         providedDate: null,
-        providedDescription: null
+        providedDescription: null,
+        messages: arrayUnion(systemMessage)
       });
       toast({ title: 'Requirement Reopened', description: 'Resolution data cleared.' });
     });
   };
+
+  const sortedMessages = useMemo(() => 
+    [...(item.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+    [item.messages]
+  );
 
   return (
     <>
@@ -140,16 +178,19 @@ export function IRSCard({
             </div>
             <div className="flex items-center gap-1 shrink-0">
               <Badge className={cn(
-                  "text-[9px] uppercase font-bold tracking-tight",
+                  "text-[9px] uppercase font-bold tracking-tight h-5",
                   item.status === 'provided' ? 'bg-green-100 text-green-800' :
                   item.status === 'escalated' ? 'bg-indigo-100 text-indigo-800' :
                   item.status === 'overdue' ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'
               )}>
                   {item.status}
               </Badge>
+              
+              <RespondToIRS item={item} currentUser={currentUser} />
+
               <AlertDialog>
                   <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive transition-opacity">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
                           <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                   </AlertDialogTrigger>
@@ -165,7 +206,7 @@ export function IRSCard({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {item.description && <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>}
+          {item.description && <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed bg-muted/10 p-2 rounded border border-dashed italic">"{item.description}"</p>}
           
           <div className="grid grid-cols-2 gap-3 bg-muted/20 p-3 rounded-lg border border-dashed text-[11px]">
               <div className="space-y-1">
@@ -226,50 +267,109 @@ export function IRSCard({
               </Button>
           )}
 
-          {item.status !== 'provided' && (
-              <Dialog open={isMarkOpen} onOpenChange={setIsMarkOpen}>
-                  <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full h-9 gap-2 font-bold hover:border-primary hover:text-primary">
-                          <Check className="h-4 w-4" />
-                          Mark as Provided
-                      </Button>
-                  </DialogTrigger>
-                  <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                          <DialogTitle>Resolve Requirement</DialogTitle>
-                          <DialogDescription>Record the details of the information provided to satisfy this schedule item.</DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                              <Label className="text-xs font-bold uppercase text-muted-foreground">Date Received</Label>
-                              <Input 
-                                type="date" 
-                                value={provDate} 
-                                onChange={e => setProvDate(e.target.value)} 
-                              />
-                          </div>
-                          <div className="space-y-2">
-                              <Label className="text-xs font-bold uppercase text-muted-foreground">Answer / Deliverable Summary</Label>
-                              <Textarea 
-                                placeholder="e.g. Layout drawing issue P02 received and reviewed." 
-                                className="min-h-[100px]"
-                                value={provDesc}
-                                onChange={e => setProvDesc(e.target.value)}
-                              />
-                          </div>
+          <Accordion type="single" collapsible className="w-full">
+              <AccordionItem value="messages" className="border-b-0">
+                  <AccordionTrigger className="text-xs font-bold uppercase tracking-widest hover:no-underline py-2">
+                      <div className="flex items-center gap-2">
+                          <MessageSquareReply className="h-3.5 w-3.5 text-primary" />
+                          <span>Implementation Thread ({sortedMessages.length})</span>
                       </div>
-                      <DialogFooter>
-                          <Button variant="ghost" onClick={() => setIsMarkOpen(false)}>Cancel</Button>
-                          <Button className="font-bold gap-2" onClick={handleMarkProvided} disabled={isPending || !provDate}>
-                              {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                              Commit to Audit Log
-                          </Button>
-                      </DialogFooter>
-                  </DialogContent>
-              </Dialog>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-2">
+                      <div className="space-y-3 bg-muted/10 p-3 rounded-lg border shadow-inner">
+                          {sortedMessages.map(msg => {
+                              const isSystem = msg.senderEmail === 'system@sitecommand.internal';
+                              const isMe = msg.senderEmail === currentUser.email.toLowerCase().trim();
+                              
+                              if (isSystem) {
+                                  return (
+                                      <div key={msg.id} className="flex justify-center my-1">
+                                          <span className="bg-white/50 text-[8px] uppercase font-bold px-2 py-0.5 rounded-full text-muted-foreground border border-dashed">
+                                              {msg.message}
+                                          </span>
+                                      </div>
+                                  );
+                              }
+
+                              return (
+                                  <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
+                                      <div className={cn(
+                                          "px-3 py-1.5 rounded-xl max-w-[90%] shadow-sm",
+                                          isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-white text-foreground rounded-tl-none border"
+                                      )}>
+                                          {!isMe && <p className="text-[9px] font-bold mb-0.5 text-primary">{msg.sender}</p>}
+                                          <p className="text-[11px] leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                                          
+                                          {msg.photos && msg.photos.length > 0 && (
+                                              <div className="flex gap-1 flex-wrap mt-2">
+                                                  {msg.photos.map((p, idx) => (
+                                                      <div key={idx} className="relative w-10 h-8 rounded overflow-hidden border cursor-pointer" onClick={() => setViewingPhoto(p)}>
+                                                          <Image src={p.url} alt="Thread" fill className="object-cover" />
+                                                      </div>
+                                                  ))}
+                                              </div>
+                                          )}
+                                          
+                                          <div className="text-[8px] text-right mt-1 opacity-60">
+                                              <ClientDate date={msg.createdAt} />
+                                          </div>
+                                      </div>
+                                  </div>
+                              );
+                          })}
+                          {sortedMessages.length === 0 && (
+                              <p className="text-[10px] text-center py-4 text-muted-foreground italic">No discussion yet. Use the Workspace button to post updates.</p>
+                          )}
+                      </div>
+                  </AccordionContent>
+              </AccordionItem>
+          </Accordion>
+
+          {item.status !== 'provided' && (
+              <Button variant="outline" className="w-full h-10 gap-2 font-bold hover:border-primary hover:text-primary transition-all shadow-sm" onClick={() => setIsMarkOpen(true)}>
+                  <Check className="h-4 w-4" />
+                  Mark as Provided
+              </Button>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isMarkOpen} onOpenChange={setIsMarkOpen}>
+          <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                  <DialogTitle>Resolve Requirement</DialogTitle>
+                  <DialogDescription>Record the details of the information provided to satisfy this schedule item.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">Date Received</Label>
+                      <Input 
+                        type="date" 
+                        value={provDate} 
+                        onChange={e => setProvDate(e.target.value)} 
+                      />
+                  </div>
+                  <div className="space-y-2">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">Answer / Deliverable Summary</Label>
+                      <Textarea 
+                        placeholder="e.g. Layout drawing issue P02 received and reviewed." 
+                        className="min-h-[100px]"
+                        value={provDesc}
+                        onChange={e => setProvDesc(e.target.value)}
+                      />
+                  </div>
+              </div>
+              <DialogFooter>
+                  <Button variant="ghost" onClick={() => setIsMarkOpen(false)}>Cancel</Button>
+                  <Button className="font-bold gap-2" onClick={handleMarkProvided} disabled={isPending || !provDate}>
+                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      Commit to Audit Log
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
+
+      <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
   );
 }

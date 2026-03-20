@@ -334,6 +334,7 @@ export type IRSItem = {
   escalatedRfiId?: string | null;
   providedDate?: string | null;
   providedDescription?: string | null;
+  messages: ChatMessage[];
   createdAt: string;
   createdByEmail: string;
 };

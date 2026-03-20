@@ -10,12 +10,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import type { IRSItem, Project, DistributionUser, SubContractor } from '@/lib/types';
+import type { IRSItem, Project, DistributionUser, SubContractor, ChatMessage } from '@/lib/types';
 import { ClientDate } from '@/components/client-date';
 import { useState, useTransition, useMemo } from 'react';
-import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { 
   Trash2, 
   Calendar, 
@@ -27,7 +26,8 @@ import {
   User,
   Check,
   ArrowRight,
-  Save
+  Save,
+  MessageSquareReply
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -56,17 +56,20 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
+import { RespondToIRS } from './respond-to-irs';
 
 export function IRSTable({ 
   items, 
   projects, 
   users, 
-  subContractors 
+  subContractors,
+  currentUser
 }: { 
   items: IRSItem[]; 
   projects: Project[]; 
   users: DistributionUser[];
   subContractors: SubContractor[];
+  currentUser: DistributionUser;
 }) {
   return (
     <div className="rounded-md border bg-card">
@@ -79,6 +82,7 @@ export function IRSTable({
             <TableHead className="w-[150px]">Assigned To</TableHead>
             <TableHead className="w-[120px]">Target Date</TableHead>
             <TableHead className="w-[120px]">Status</TableHead>
+            <TableHead className="w-[80px] text-center">Chat</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -90,6 +94,7 @@ export function IRSTable({
               projects={projects} 
               users={users} 
               subContractors={subContractors} 
+              currentUser={currentUser}
             />
           ))}
         </TableBody>
@@ -102,12 +107,14 @@ function IRSRow({
   item, 
   projects, 
   users, 
-  subContractors 
+  subContractors,
+  currentUser
 }: { 
   item: IRSItem; 
   projects: Project[]; 
-  users: DistributionUser[];
+  users: DistributionUser[]; 
   subContractors: SubContractor[];
+  currentUser: DistributionUser;
 }) {
   const project = projects.find(p => p.id === item.projectId);
   const assignedPerson = users.find(u => u.email === item.assignedToEmail) || subContractors.find(s => s.email === item.assignedToEmail);
@@ -140,10 +147,20 @@ function IRSRow({
   const handleMarkProvided = () => {
     startTransition(async () => {
       const docRef = doc(db, 'irs-items', item.id);
+      
+      const systemMessage: ChatMessage = {
+        id: `sys-${Date.now()}`,
+        sender: 'System',
+        senderEmail: 'system@sitecommand.internal',
+        message: `ITEM RESOLVED: Marked as provided on ${new Date(provDate).toLocaleDateString()}. Answer: ${provDesc}`,
+        createdAt: new Date().toISOString()
+      };
+
       await updateDoc(docRef, {
         status: 'provided',
         providedDate: provDate,
-        providedDescription: provDesc
+        providedDescription: provDesc,
+        messages: arrayUnion(systemMessage)
       });
       setIsMarkOpen(false);
       toast({ title: 'Success', description: 'Requirement resolved.' });
@@ -153,10 +170,20 @@ function IRSRow({
   const handleReopen = () => {
     startTransition(async () => {
       const docRef = doc(db, 'irs-items', item.id);
+      
+      const systemMessage: ChatMessage = {
+        id: `sys-${Date.now()}`,
+        sender: 'System',
+        senderEmail: 'system@sitecommand.internal',
+        message: `REOPENED: Item returned to Open status by ${currentUser.name}.`,
+        createdAt: new Date().toISOString()
+      };
+
       await updateDoc(docRef, { 
         status: 'open',
         providedDate: null,
-        providedDescription: null
+        providedDescription: null,
+        messages: arrayUnion(systemMessage)
       });
     });
   };
@@ -188,6 +215,12 @@ function IRSRow({
             {item.status}
         </Badge>
       </TableCell>
+      <TableCell className="text-center">
+          <div className="flex items-center justify-center gap-1 text-[10px] text-muted-foreground">
+              <MessageSquareReply className="h-3 w-3" />
+              {item.messages?.length || 0}
+          </div>
+      </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1">
           {item.status === 'escalated' && item.escalatedRfiId && (
@@ -198,6 +231,8 @@ function IRSRow({
             </Button>
           )}
           
+          <RespondToIRS item={item} currentUser={currentUser} />
+
           {item.status === 'provided' ? (
             <Button 
                 variant="ghost" 

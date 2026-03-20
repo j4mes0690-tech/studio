@@ -164,7 +164,7 @@ function IRSContent() {
           </h2>
           <p className="text-sm text-muted-foreground">Monitor design deliverables and client choices against project milestones.</p>
           {hasFullVisibility && (
-            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
+            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1 ml-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Administrative Oversight Active
             </div>
@@ -248,6 +248,7 @@ function IRSContent() {
               projects={allowedProjects} 
               users={allUsers || []}
               subContractors={subContractors || []}
+              currentUser={profile}
             />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -258,6 +259,7 @@ function IRSContent() {
                         project={allProjects?.find(p => p.id === item.projectId)}
                         users={allUsers || []}
                         subContractors={subContractors || []}
+                        currentUser={profile}
                     />
                 ))}
             </div>

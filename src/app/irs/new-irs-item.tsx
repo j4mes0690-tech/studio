@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -106,6 +107,7 @@ export function NewIRSItemDialog({
           requiredByDate: values.requiredByDate,
           notificationLeadDays: values.notificationLeadDays,
           status: 'open',
+          messages: [],
           createdAt: new Date().toISOString(),
           createdByEmail: currentUser.email.toLowerCase().trim()
         };
