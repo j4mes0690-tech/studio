@@ -31,7 +31,8 @@ import type { HolidayRequest, DistributionUser } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { differenceInDays, parseISO, isValid } from 'date-fns';
+import { parseISO, isValid } from 'date-fns';
+import { calculateWorkingDays } from '@/lib/utils';
 
 const NewRequestSchema = z.object({
   startDate: z.string().min(1, 'Start date is required.'),
@@ -70,10 +71,7 @@ export function NewHolidayRequest({ currentUser }: { currentUser: DistributionUs
 
   const totalDays = useMemo(() => {
     if (!startDate || !endDate) return 0;
-    const s = parseISO(startDate);
-    const e = parseISO(endDate);
-    if (!isValid(s) || !isValid(e)) return 0;
-    return Math.max(1, differenceInDays(e, s) + 1);
+    return calculateWorkingDays(startDate, endDate);
   }, [startDate, endDate]);
 
   const onSubmit = (values: NewRequestFormValues) => {
@@ -121,7 +119,7 @@ export function NewHolidayRequest({ currentUser }: { currentUser: DistributionUs
             </div>
             <DialogTitle>Book Time Off</DialogTitle>
           </div>
-          <DialogDescription>Submit a formal leave request for approval.</DialogDescription>
+          <DialogDescription>Submit a formal leave request for approval. Durations are calculated as working days.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -152,9 +150,9 @@ export function NewHolidayRequest({ currentUser }: { currentUser: DistributionUs
             <div className="bg-muted/30 p-3 rounded-lg border border-dashed flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest">
                     <Calculator className="h-4 w-4 text-primary" />
-                    Total Days
+                    Working Days
                 </div>
-                <Badge variant="secondary" className="h-7 px-3 text-sm font-bold text-primary">{totalDays} Calendar Days</Badge>
+                <Badge variant="secondary" className="h-7 px-3 text-sm font-bold text-primary">{totalDays} Days</Badge>
             </div>
 
             <FormField control={form.control} name="notes" render={({ field }) => (

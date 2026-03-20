@@ -19,6 +19,26 @@ export function parseDateString(dateStr: string | null | undefined): Date {
 }
 
 /**
+ * calculateWorkingDays - Calculates the number of working days (Mon-Fri) between two dates inclusive.
+ */
+export function calculateWorkingDays(startDateStr: string, endDateStr: string): number {
+  const start = parseDateString(startDateStr);
+  const end = parseDateString(endDateStr);
+  if (!isValid(start) || !isValid(end) || start > end) return 0;
+
+  let count = 0;
+  let current = new Date(start);
+  while (current <= end) {
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) { // Not Sunday (0) or Saturday (6)
+      count++;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+}
+
+/**
  * calculateFinishDate - Determines the end date of a task based on its duration and working week.
  */
 export function calculateFinishDate(
