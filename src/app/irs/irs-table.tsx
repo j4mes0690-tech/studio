@@ -15,6 +15,7 @@ import { ClientDate } from '@/components/client-date';
 import { useState, useTransition, useMemo } from 'react';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Trash2, 
   Calendar, 
@@ -244,7 +245,7 @@ function IRSRow({
                 <CheckCircle2 className="h-4 w-4" />
             </Button>
           ) : (
-            <Dialog open={isMarkOpen} onOpenChange={setIsMarkOpen}>
+            <Dialog open={isMarkOpen} onValueChange={setIsMarkOpen}>
                 <DialogTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
                         <Check className="h-4 w-4" />
