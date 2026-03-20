@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Plane,
   Stethoscope,
-  Info
+  Info,
+  Calculator
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -29,11 +30,13 @@ import { sendHolidayStatusEmailAction } from './actions';
 export function HolidayRequestCard({ 
   request, 
   currentUser,
-  canApprove 
+  canApprove,
+  remainingDays
 }: { 
   request: HolidayRequest; 
   currentUser: DistributionUser;
   canApprove: boolean;
+  remainingDays?: number;
 }) {
   const db = useFirestore();
   const { toast } = useToast();
@@ -151,24 +154,38 @@ export function HolidayRequestCard({
         )}
 
         {isPendingStatus && canApprove && !isMe && (
-            <div className="grid grid-cols-2 gap-2 pt-2">
-                <Button 
-                    variant="outline" 
-                    className="h-9 gap-2 text-red-600 border-red-200 bg-red-50/50 hover:bg-red-50 font-bold"
-                    onClick={() => handleUpdateStatus('rejected')}
-                    disabled={isPending}
-                >
-                    <XCircle className="h-4 w-4" />
-                    Reject
-                </Button>
-                <Button 
-                    className="h-9 gap-2 bg-green-600 hover:bg-green-700 font-bold"
-                    onClick={() => handleUpdateStatus('approved')}
-                    disabled={isPending}
-                >
-                    <CheckCircle2 className="h-4 w-4" />
-                    Approve
-                </Button>
+            <div className="pt-2 space-y-3">
+                <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+                        <Calculator className="h-3 w-3" /> Remaining Balance
+                    </span>
+                    <Badge variant="outline" className={cn(
+                        "h-5 px-2 text-[10px] font-black border-transparent",
+                        (remainingDays || 0) <= 0 ? "bg-red-50 text-red-700" : 
+                        (remainingDays || 0) <= 5 ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"
+                    )}>
+                        {remainingDays ?? 0} Days Left
+                    </Badge>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                        variant="outline" 
+                        className="h-9 gap-2 text-red-600 border-red-200 bg-red-50/50 hover:bg-red-50 font-bold"
+                        onClick={() => handleUpdateStatus('rejected')}
+                        disabled={isPending}
+                    >
+                        <XCircle className="h-4 w-4" />
+                        Reject
+                    </Button>
+                    <Button 
+                        className="h-9 gap-2 bg-green-600 hover:bg-green-700 font-bold"
+                        onClick={() => handleUpdateStatus('approved')}
+                        disabled={isPending}
+                    >
+                        <CheckCircle2 className="h-4 w-4" />
+                        Approve
+                    </Button>
+                </div>
             </div>
         )}
       </CardContent>

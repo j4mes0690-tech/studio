@@ -42,7 +42,10 @@ function HolidayContent() {
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
-  const usersQuery = useMemoFirebase(() => (db ? collection(db, 'users') : null), [db]);
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
   const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
   const requestsQuery = useMemoFirebase(() => (db ? query(collection(db, 'holiday-requests'), orderBy('startDate', 'desc')) : null), [db]);
@@ -51,12 +54,29 @@ function HolidayContent() {
   // Security Logic
   const canApproveHolidays = !!profile?.permissions?.canApproveHolidays || !!profile?.permissions?.hasFullVisibility;
 
-  // Determine whose balance we are looking at
+  // Determine whose balance we are looking at for the TOP KPI CARDS
   const isFilteringUser = userFilter !== 'all' && canApproveHolidays;
   const targetUserEmail = isFilteringUser ? userFilter : profile?.email;
   const targetUserProfile = allUsers?.find(u => u.email.toLowerCase() === targetUserEmail?.toLowerCase());
 
-  // Balance Calculations
+  // Balance Calculation Helper
+  const getRemainingDaysForUser = (userEmail: string) => {
+    if (!allUsers || !allRequests) return 0;
+    const user = allUsers.find(u => u.email.toLowerCase() === userEmail.toLowerCase());
+    if (!user) return 0;
+
+    const currentYear = new Date().getFullYear();
+    const approvedHolidayDays = allRequests.filter(r => {
+        if (r.userEmail.toLowerCase() !== userEmail.toLowerCase()) return false;
+        if (r.status !== 'approved' || r.type !== 'holiday') return false;
+        const start = new Date(r.startDate);
+        return start.getFullYear() === currentYear;
+    }).reduce((sum, r) => sum + r.totalDays, 0);
+
+    const entitlement = user.holidayEntitlement || 0;
+    return Math.max(0, entitlement - approvedHolidayDays);
+  };
+
   const balance = useMemo(() => {
     if (!targetUserProfile || !allRequests) return { entitlement: 0, used: 0, pending: 0, remaining: 0, percentage: 0 };
     
@@ -65,7 +85,6 @@ function HolidayContent() {
     
     const targetRequests = allRequests.filter(r => r.userEmail.toLowerCase() === email);
     
-    // Sum only 'holiday' type for entitlement calculation in the current calendar year
     const approvedHolidayDays = targetRequests.filter(r => {
         if (r.status !== 'approved' || r.type !== 'holiday') return false;
         const start = new Date(r.startDate);
@@ -262,11 +281,12 @@ function HolidayContent() {
 
       <div className="grid gap-4">
         {filteredRequests.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pb-20">
               {filteredRequests.map(request => {
                   const targetUser = allUsers?.find(u => u.email.toLowerCase().trim() === request.userEmail.toLowerCase().trim());
                   const isManager = targetUser?.lineManagerEmail?.toLowerCase().trim() === profile.email.toLowerCase().trim();
                   const canIApprove = canApproveHolidays || isManager;
+                  const userRemaining = getRemainingDaysForUser(request.userEmail);
 
                   return (
                     <HolidayRequestCard 
@@ -274,6 +294,7 @@ function HolidayContent() {
                         request={request} 
                         currentUser={profile}
                         canApprove={canIApprove}
+                        remainingDays={userRemaining}
                     />
                   );
               })}
