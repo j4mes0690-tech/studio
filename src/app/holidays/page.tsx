@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -47,29 +48,37 @@ function HolidayContent() {
   const requestsQuery = useMemoFirebase(() => (db ? query(collection(db, 'holiday-requests'), orderBy('startDate', 'desc')) : null), [db]);
   const { data: allRequests, isLoading: requestsLoading } = useCollection<HolidayRequest>(requestsQuery);
 
+  // Security Logic
+  const canApproveHolidays = !!profile?.permissions?.canApproveHolidays || !!profile?.permissions?.hasFullVisibility;
+
+  // Determine whose balance we are looking at
+  const isFilteringUser = userFilter !== 'all' && canApproveHolidays;
+  const targetUserEmail = isFilteringUser ? userFilter : profile?.email;
+  const targetUserProfile = allUsers?.find(u => u.email.toLowerCase() === targetUserEmail?.toLowerCase());
+
   // Balance Calculations
   const balance = useMemo(() => {
-    if (!profile || !allRequests) return { entitlement: 0, used: 0, pending: 0, remaining: 0, percentage: 0 };
+    if (!targetUserProfile || !allRequests) return { entitlement: 0, used: 0, pending: 0, remaining: 0, percentage: 0 };
     
-    const email = profile.email.toLowerCase();
+    const email = targetUserProfile.email.toLowerCase();
     const currentYear = new Date().getFullYear();
     
-    const myRequests = allRequests.filter(r => r.userEmail.toLowerCase() === email);
+    const targetRequests = allRequests.filter(r => r.userEmail.toLowerCase() === email);
     
     // Sum only 'holiday' type for entitlement calculation in the current calendar year
-    const approvedHolidayDays = myRequests.filter(r => {
+    const approvedHolidayDays = targetRequests.filter(r => {
         if (r.status !== 'approved' || r.type !== 'holiday') return false;
         const start = new Date(r.startDate);
         return start.getFullYear() === currentYear;
     }).reduce((sum, r) => sum + r.totalDays, 0);
 
-    const pendingHolidayDays = myRequests.filter(r => {
+    const pendingHolidayDays = targetRequests.filter(r => {
         if (r.status !== 'pending' || r.type !== 'holiday') return false;
         const start = new Date(r.startDate);
         return start.getFullYear() === currentYear;
     }).reduce((sum, r) => sum + r.totalDays, 0);
 
-    const entitlement = profile.holidayEntitlement || 0;
+    const entitlement = targetUserProfile.holidayEntitlement || 0;
     const remaining = Math.max(0, entitlement - approvedHolidayDays);
     const percentage = entitlement > 0 ? (approvedHolidayDays / entitlement) * 100 : 0;
 
@@ -80,10 +89,7 @@ function HolidayContent() {
         remaining,
         percentage
     };
-  }, [allRequests, profile]);
-
-  // Security Logic
-  const canApproveHolidays = !!profile?.permissions?.canApproveHolidays || !!profile?.permissions?.hasFullVisibility;
+  }, [allRequests, targetUserProfile]);
 
   const filteredRequests = useMemo(() => {
     if (!allRequests || !profile) return [];
@@ -133,7 +139,7 @@ function HolidayContent() {
           </h2>
           <p className="text-sm text-muted-foreground">Manage time off requests and track site availability.</p>
           {canApproveHolidays && (
-            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
+            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1 ml-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Administrative Approval Access
             </div>
@@ -155,52 +161,63 @@ function HolidayContent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-primary/5 border-primary/20">
-              <CardHeader className="pb-2 p-4">
-                  <div className="flex items-center justify-between">
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Yearly Allowance</p>
-                      <Calculator className="h-3 w-3 text-primary opacity-40" />
-                  </div>
-                  <CardTitle className="text-2xl font-black">{balance.entitlement} Days</CardTitle>
-              </CardHeader>
-              <CardContent className="px-4 pb-4">
-                  <div className="space-y-2">
-                      <Progress value={balance.percentage} className="h-1.5" />
-                      <p className="text-[10px] text-muted-foreground font-bold">Current Calendar Year</p>
-                  </div>
-              </CardContent>
-          </Card>
+      <div className="space-y-4">
+          {isFilteringUser && (
+              <div className="flex items-center gap-2 px-1 animate-in fade-in slide-in-from-left-2">
+                  <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 gap-2 h-7 px-3 text-[10px] font-black uppercase tracking-widest">
+                      <User className="h-3 w-3" />
+                      Viewing Balance For: {targetUserProfile?.name}
+                  </Badge>
+              </div>
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="bg-primary/5 border-primary/20">
+                  <CardHeader className="pb-2 p-4">
+                      <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Yearly Allowance</p>
+                          <Calculator className="h-3 w-3 text-primary opacity-40" />
+                      </div>
+                      <CardTitle className="text-2xl font-black">{balance.entitlement} Days</CardTitle>
+                  </CardHeader>
+                  <CardContent className="px-4 pb-4">
+                      <div className="space-y-2">
+                          <Progress value={balance.percentage} className="h-1.5" />
+                          <p className="text-[10px] text-muted-foreground font-bold">Current Calendar Year</p>
+                      </div>
+                  </CardContent>
+              </Card>
 
-          <Card className="bg-green-50 border-green-200">
-              <CardContent className="p-4 flex items-center gap-4">
-                  <div className="bg-green-100 p-2 rounded-lg text-green-600"><CheckCircle2 className="h-5 w-5" /></div>
-                  <div>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Used Holidays</p>
-                      <p className="text-xl font-bold text-green-700">{balance.used} Days Approved</p>
-                  </div>
-              </CardContent>
-          </Card>
+              <Card className="bg-green-50 border-green-200">
+                  <CardContent className="p-4 flex items-center gap-4">
+                      <div className="bg-green-100 p-2 rounded-lg text-green-600"><CheckCircle2 className="h-5 w-5" /></div>
+                      <div>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Used Holidays</p>
+                          <p className="text-xl font-bold text-green-700">{balance.used} Days Approved</p>
+                      </div>
+                  </CardContent>
+              </Card>
 
-          <Card className="bg-amber-50 border-amber-200">
-              <CardContent className="p-4 flex items-center gap-4">
-                  <div className="bg-amber-100 p-2 rounded-lg text-amber-600"><Clock className="h-5 w-5" /></div>
-                  <div>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pending Approval</p>
-                      <p className="text-xl font-bold text-amber-700">{balance.pending} Days Requested</p>
-                  </div>
-              </CardContent>
-          </Card>
+              <Card className="bg-amber-50 border-amber-200">
+                  <CardContent className="p-4 flex items-center gap-4">
+                      <div className="bg-amber-100 p-2 rounded-lg text-amber-600"><Clock className="h-5 w-5" /></div>
+                      <div>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Pending Approval</p>
+                          <p className="text-xl font-bold text-amber-700">{balance.pending} Days Requested</p>
+                      </div>
+                  </CardContent>
+              </Card>
 
-          <Card className="bg-primary/5 border-primary/20">
-              <CardContent className="p-4 flex items-center gap-4">
-                  <div className="bg-primary/10 p-2 rounded-lg text-primary"><TrendingUp className="h-5 w-5" /></div>
-                  <div>
-                      <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Remaining Balance</p>
-                      <p className="text-xl font-bold text-primary">{balance.remaining} Days Left</p>
-                  </div>
-              </CardContent>
-          </Card>
+              <Card className="bg-primary/5 border-primary/20">
+                  <CardContent className="p-4 flex items-center gap-4">
+                      <div className="bg-primary/10 p-2 rounded-lg text-primary"><TrendingUp className="h-5 w-5" /></div>
+                      <div>
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Remaining Balance</p>
+                          <p className="text-xl font-bold text-primary">{balance.remaining} Days Left</p>
+                      </div>
+                  </CardContent>
+              </Card>
+          </div>
       </div>
 
       <Card className="bg-muted/30">
