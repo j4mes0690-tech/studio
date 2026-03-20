@@ -27,10 +27,12 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Loader2, Save, Calculator, Plus, Trash2, Link as LinkIcon, MinusCircle, PlusCircle as PlusIcon, Percent } from 'lucide-react';
+import { Trash2, Calculator, Loader2, Save, Plus, PlusCircle as PlusIcon, MinusCircle, Link as LinkIcon, Percent, ChevronDown, Check } from 'lucide-react';
 import type { Project, DistributionUser, Variation, VariationItem, VariationItemType, ClientInstruction, Instruction } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
@@ -38,6 +40,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const NewVariationSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -195,35 +198,65 @@ export function NewVariationDialog({
               <FormField
                 control={form.control}
                 name="clientInstructionIds"
-                render={() => (
-                  <FormItem>
-                    <div className="flex items-center gap-2 mb-2"><LinkIcon className="h-4 w-4 text-primary" /><FormLabel>Link Client Instructions (CI)</FormLabel></div>
-                    <ScrollArea className="h-32 rounded-md border p-2 bg-muted/5">
-                      {filteredCIs.length === 0 ? (
-                        <p className="text-[10px] text-muted-foreground text-center py-8">Select project to see CIs.</p>
-                      ) : filteredCIs.map((ci) => (
-                        <FormField
-                          key={ci.id}
-                          control={form.control}
-                          name="clientInstructionIds"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center space-x-3 space-y-0 mb-1">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(ci.id)}
-                                  onCheckedChange={(checked) => {
-                                    return checked
-                                      ? field.onChange([...(field.value || []), ci.id])
-                                      : field.onChange(field.value?.filter((v) => v !== ci.id));
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel className="flex items-center gap-2 mb-1">
+                      <LinkIcon className="h-3.5 w-3.5 text-primary" /> 
+                      Link Client Instructions
+                    </FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button 
+                            variant="outline" 
+                            role="combobox" 
+                            className={cn(
+                              "w-full justify-between font-normal h-10 px-3 bg-background",
+                              !field.value?.length && "text-muted-foreground"
+                            )}
+                            disabled={!selectedProjectId}
+                          >
+                            {field.value?.length > 0 
+                              ? `${field.value.length} CI${field.value.length > 1 ? 's' : ''} Linked` 
+                              : "Select CI References"}
+                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-0" align="start">
+                        <div className="p-2 border-b bg-muted/30">
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest px-2">Project Client Directives</p>
+                        </div>
+                        <ScrollArea className="h-64">
+                          {filteredCIs.length === 0 ? (
+                            <p className="text-xs text-center py-10 text-muted-foreground italic">No instructions found.</p>
+                          ) : (
+                            <div className="p-1 space-y-1">
+                              {filteredCIs.map((ci) => (
+                                <div 
+                                  key={ci.id} 
+                                  className="flex items-center gap-3 px-3 py-2 rounded-sm hover:bg-muted/50 cursor-pointer transition-colors"
+                                  onClick={() => {
+                                    const curr = field.value || [];
+                                    const next = curr.includes(ci.id) ? curr.filter(v => v !== ci.id) : [...curr, ci.id];
+                                    field.onChange(next);
                                   }}
-                                />
-                              </FormControl>
-                              <FormLabel className="text-xs font-medium cursor-pointer">{ci.reference}: {ci.summary}</FormLabel>
-                            </FormItem>
+                                >
+                                  <Checkbox 
+                                    checked={field.value?.includes(ci.id)} 
+                                    onCheckedChange={() => {}} // Controlled by div click
+                                  />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-xs font-bold truncate">{ci.reference}</span>
+                                    <span className="text-[10px] text-muted-foreground truncate">{ci.summary}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
-                        />
-                      ))}
-                    </ScrollArea>
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
                   </FormItem>
                 )}
               />
@@ -231,35 +264,65 @@ export function NewVariationDialog({
               <FormField
                 control={form.control}
                 name="siteInstructionIds"
-                render={() => (
-                  <FormItem>
-                    <div className="flex items-center gap-2 mb-2"><LinkIcon className="h-4 w-4 text-primary" /><FormLabel>Link Subcontract Instructions (SI)</FormLabel></div>
-                    <ScrollArea className="h-32 rounded-md border p-2 bg-muted/5">
-                      {filteredSIs.length === 0 ? (
-                        <p className="text-[10px] text-muted-foreground text-center py-8">Select project to see SIs.</p>
-                      ) : filteredSIs.map((si) => (
-                        <FormField
-                          key={si.id}
-                          control={form.control}
-                          name="siteInstructionIds"
-                          render={({ field }) => (
-                            <FormItem className="flex items-center space-x-3 space-y-0 mb-1">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(si.id)}
-                                  onCheckedChange={(checked) => {
-                                    return checked
-                                      ? field.onChange([...(field.value || []), si.id])
-                                      : field.onChange(field.value?.filter((v) => v !== si.id));
+                render={({ field }) => (
+                  <FormItem className="flex flex-col">
+                    <FormLabel className="flex items-center gap-2 mb-1">
+                      <LinkIcon className="h-3.5 w-3.5 text-primary" /> 
+                      Link Site Instructions
+                    </FormLabel>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <FormControl>
+                          <Button 
+                            variant="outline" 
+                            role="combobox" 
+                            className={cn(
+                              "w-full justify-between font-normal h-10 px-3 bg-background",
+                              !field.value?.length && "text-muted-foreground"
+                            )}
+                            disabled={!selectedProjectId}
+                          >
+                            {field.value?.length > 0 
+                              ? `${field.value.length} SI${field.value.length > 1 ? 's' : ''} Linked` 
+                              : "Select SI References"}
+                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </FormControl>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-0" align="start">
+                        <div className="p-2 border-b bg-muted/30">
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest px-2">Project Site Instructions</p>
+                        </div>
+                        <ScrollArea className="h-64">
+                          {filteredSIs.length === 0 ? (
+                            <p className="text-xs text-center py-10 text-muted-foreground italic">No instructions found.</p>
+                          ) : (
+                            <div className="p-1 space-y-1">
+                              {filteredSIs.map((si) => (
+                                <div 
+                                  key={si.id} 
+                                  className="flex items-center gap-3 px-3 py-2 rounded-sm hover:bg-muted/50 cursor-pointer transition-colors"
+                                  onClick={() => {
+                                    const curr = field.value || [];
+                                    const next = curr.includes(si.id) ? curr.filter(v => v !== si.id) : [...curr, si.id];
+                                    field.onChange(next);
                                   }}
-                                />
-                              </FormControl>
-                              <FormLabel className="text-xs font-medium cursor-pointer">{si.reference}: {si.summary}</FormLabel>
-                            </FormItem>
+                                >
+                                  <Checkbox 
+                                    checked={field.value?.includes(si.id)} 
+                                    onCheckedChange={() => {}} // Controlled by div click
+                                  />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="text-xs font-bold truncate">{si.reference}</span>
+                                    <span className="text-[10px] text-muted-foreground truncate">{si.summary}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
-                        />
-                      ))}
-                    </ScrollArea>
+                        </ScrollArea>
+                      </PopoverContent>
+                    </Popover>
                   </FormItem>
                 )}
               />
@@ -302,7 +365,7 @@ export function NewVariationDialog({
                             <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Unit</Label><Input value={pendingUnit} onChange={e => setPendingUnit(e.target.value)} className="bg-background h-9" /></div>
                             <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Rate £</Label><Input type="number" step="0.01" value={pendingRate} onChange={e => setPendingRate(e.target.value)} className="bg-background h-9" /></div>
                         </div>
-                        <Button type="button" onClick={handleAddItem} disabled={!pendingDesc} className="w-full h-9"><Plus className="h-4 w-4 mr-2" /> Add Line Item</Button>
+                        <Button type="button" onClick={handleAddItem} disabled={!pendingDesc} className="w-full h-10"><Plus className="h-4 w-4 mr-2" /> Add Line Item</Button>
                     </div>
                 </div>
               </div>
