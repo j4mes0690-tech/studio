@@ -337,6 +337,7 @@ export type IRSItem = {
   messages: ChatMessage[];
   createdAt: string;
   createdByEmail: string;
+  dismissedBy?: string[];
 };
 
 // --- PROCUREMENT MODULE TYPES ---

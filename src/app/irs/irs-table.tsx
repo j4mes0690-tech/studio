@@ -28,7 +28,11 @@ import {
   Check,
   ArrowRight,
   Save,
-  MessageSquareReply
+  MessageSquareReply,
+  RefreshCw,
+  EyeOff,
+  Bell,
+  Pencil
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -58,6 +62,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { RespondToIRS } from './respond-to-irs';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { EditIRSItemDialog } from './edit-irs-item';
 
 export function IRSTable({ 
   items, 
@@ -68,7 +74,7 @@ export function IRSTable({
 }: { 
   items: IRSItem[]; 
   projects: Project[]; 
-  users: DistributionUser[];
+  users: DistributionUser[]; 
   subContractors: SubContractor[];
   currentUser: DistributionUser;
 }) {
@@ -125,8 +131,17 @@ function IRSRow({
   const [isPending, startTransition] = useTransition();
   const [isMarkOpen, setIsMarkOpen] = useState(false);
   
-  const [provDate, setProvDate] = useState(new Date().toISOString().split('T')[0]);
-  const [provDesc, setProvDesc] = useState('');
+  const [provDate, setProvDate] = useState(item.providedDate || new Date().toISOString().split('T')[0]);
+  const [provDesc, setProvDesc] = useState(item.providedDescription || '');
+
+  const email = currentUser?.email.toLowerCase().trim();
+
+  // Attention Check
+  const isAttentionRequired = useMemo(() => {
+    if (!item || !email || item.status !== 'open') return false;
+    if (item.dismissedBy?.includes(email)) return false;
+    return item.assignedToEmail.toLowerCase().trim() === email;
+  }, [item, email]);
 
   const ragStatus = useMemo(() => {
     if (item.status === 'provided' || item.status === 'escalated') return null;
@@ -138,6 +153,45 @@ function IRSRow({
     return { color: 'text-green-600', icon: CheckCircle2 };
   }, [item]);
 
+  const handleDismissAlert = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const docRef = doc(db, 'irs-items', item.id);
+    updateDoc(docRef, { dismissedBy: arrayUnion(email) });
+  };
+
+  const handleUpdateStatus = (newStatus: 'open' | 'provided') => {
+    startTransition(async () => {
+      const docRef = doc(db, 'irs-items', item.id);
+      const updates: any = { 
+        status: newStatus,
+        dismissedBy: [] 
+      };
+
+      if (newStatus === 'provided') {
+          updates.providedDate = provDate;
+          updates.providedDescription = provDesc;
+      } else {
+          updates.providedDate = null;
+          updates.providedDescription = null;
+      }
+
+      const systemMsg: ChatMessage = {
+        id: `msg-system-${Date.now()}`,
+        sender: 'System',
+        senderEmail: 'system@sitecommand.internal',
+        message: newStatus === 'provided' 
+          ? `Requirement resolved by ${currentUser.name}.`
+          : `Requirement reopened by ${currentUser.name}`,
+        createdAt: new Date().toISOString(),
+      };
+      updates.messages = arrayUnion(systemMsg);
+
+      await updateDoc(docRef, updates);
+      toast({ title: 'Success', description: `Item ${newStatus}.` });
+      setIsMarkOpen(false);
+    });
+  };
+
   const handleDelete = () => {
     startTransition(async () => {
       await deleteDoc(doc(db, 'irs-items', item.id));
@@ -145,53 +199,14 @@ function IRSRow({
     });
   };
 
-  const handleMarkProvided = () => {
-    startTransition(async () => {
-      const docRef = doc(db, 'irs-items', item.id);
-      
-      const systemMessage: ChatMessage = {
-        id: `sys-${Date.now()}`,
-        sender: 'System',
-        senderEmail: 'system@sitecommand.internal',
-        message: `ITEM RESOLVED: Marked as provided on ${new Date(provDate).toLocaleDateString()}. Answer: ${provDesc}`,
-        createdAt: new Date().toISOString()
-      };
-
-      await updateDoc(docRef, {
-        status: 'provided',
-        providedDate: provDate,
-        providedDescription: provDesc,
-        messages: arrayUnion(systemMessage)
-      });
-      setIsMarkOpen(false);
-      toast({ title: 'Success', description: 'Requirement resolved.' });
-    });
-  };
-
-  const handleReopen = () => {
-    startTransition(async () => {
-      const docRef = doc(db, 'irs-items', item.id);
-      
-      const systemMessage: ChatMessage = {
-        id: `sys-${Date.now()}`,
-        sender: 'System',
-        senderEmail: 'system@sitecommand.internal',
-        message: `REOPENED: Item returned to Open status by ${currentUser.name}.`,
-        createdAt: new Date().toISOString()
-      };
-
-      await updateDoc(docRef, { 
-        status: 'open',
-        providedDate: null,
-        providedDescription: null,
-        messages: arrayUnion(systemMessage)
-      });
-    });
-  };
-
   return (
     <TableRow className={cn(item.status === 'provided' && "opacity-60 grayscale")}>
-      <TableCell className="font-mono text-[10px]">{item.reference}</TableCell>
+      <TableCell className="font-mono text-[10px]">
+          <div className="flex items-center gap-2">
+              {isAttentionRequired && <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />}
+              {item.reference}
+          </div>
+      </TableCell>
       <TableCell className="font-medium truncate max-w-[250px]" title={item.title}>{item.title}</TableCell>
       <TableCell className="truncate max-w-[150px] text-xs text-muted-foreground">{project?.name || 'Unknown'}</TableCell>
       <TableCell className="truncate max-w-[150px]">
@@ -223,74 +238,103 @@ function IRSRow({
           </div>
       </TableCell>
       <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-1">
-          {item.status === 'escalated' && item.escalatedRfiId && (
-            <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-indigo-600">
-                <Link href={`/information-requests/${item.escalatedRfiId}`} title="View Linked RFI">
-                    <MessageSquare className="h-4 w-4" />
-                </Link>
-            </Button>
-          )}
-          
-          <RespondToIRS item={item} currentUser={currentUser} />
-
-          {item.status === 'provided' ? (
-            <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-8 w-8 text-green-600"
-                onClick={handleReopen}
-                disabled={isPending}
-            >
-                <CheckCircle2 className="h-4 w-4" />
-            </Button>
-          ) : (
-            <Dialog open={isMarkOpen} onValueChange={setIsMarkOpen}>
-                <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                        <Check className="h-4 w-4" />
-                    </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Resolve Requirement</DialogTitle>
-                        <DialogDescription>Provide details for the audit log.</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase text-muted-foreground">Date Received</Label>
-                            <Input type="date" value={provDate} onChange={e => setProvDate(e.target.value)} />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase text-muted-foreground">Details</Label>
-                            <Textarea placeholder="How was this resolved?" value={provDesc} onChange={e => setProvDesc(e.target.value)} />
-                        </div>
-                    </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setIsMarkOpen(false)}>Cancel</Button>
-                        <Button className="font-bold" onClick={handleMarkProvided} disabled={isPending || !provDate}>
-                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                            Resolve
+        <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+          <TooltipProvider>
+            {isAttentionRequired && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-muted-foreground h-8 w-8 hover:text-primary" onClick={handleDismissAlert}>
+                            <EyeOff className="h-4 w-4" />
                         </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-          )}
+                    </TooltipTrigger>
+                    <TooltipContent><p>Dismiss Alert</p></TooltipContent>
+                </Tooltip>
+            )}
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive transition-opacity">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader><AlertDialogTitle>Confirm Removal</AlertDialogTitle><AlertDialogDescription>Permanently remove this IRS item?</AlertDialogDescription></AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            <RespondToIRS item={item} currentUser={currentUser} />
+
+            {item.status === 'provided' ? (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-muted-foreground hover:text-primary"
+                            onClick={() => handleUpdateStatus('open')}
+                            disabled={isPending}
+                        >
+                            <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Reopen Requirement</p></TooltipContent>
+                </Tooltip>
+            ) : (
+                <Dialog open={isMarkOpen} onOpenChange={setIsMarkOpen}>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:bg-green-50">
+                                        <CheckCircle2 className="h-4 w-4" />
+                                    </Button>
+                                </DialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Mark as Provided</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <DialogContent onClick={e => e.stopPropagation()}>
+                        <DialogHeader>
+                            <DialogTitle>Resolve Requirement</DialogTitle>
+                            <DialogDescription>Provide details for the audit log.</DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label>Date Received</Label>
+                                <Input type="date" value={provDate} onChange={e => setProvDate(e.target.value)} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Details</Label>
+                                <Textarea placeholder="How was this resolved?" value={provDesc} onChange={e => setProvDesc(e.target.value)} />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="ghost" onClick={() => setIsMarkOpen(false)}>Cancel</Button>
+                            <Button className="font-bold" onClick={() => handleUpdateStatus('provided')} disabled={isPending || !provDesc}>
+                                {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                                Resolve
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            )}
+
+            <EditIRSItemDialog 
+                item={item} 
+                projects={project ? [project] : []} 
+                users={users} 
+                subContractors={subContractors} 
+            />
+
+            <AlertDialog>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Delete Item</p></TooltipContent>
+                </Tooltip>
+                <AlertDialogContent onClick={e => e.stopPropagation()}>
+                    <AlertDialogHeader><AlertDialogTitle>Delete IRS Item?</AlertDialogTitle><AlertDialogDescription>Permanently remove this requirement from the schedule.</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+          </TooltipProvider>
         </div>
       </TableCell>
     </TableRow>

@@ -197,7 +197,8 @@
         "providedDescription": { "type": "string" },
         "messages": { "type": "array", "items": { "$ref": "#/backend/entities/ChatMessage" } },
         "createdAt": { "type": "string", "format": "date-time" },
-        "createdByEmail": { "type": "string" }
+        "createdByEmail": { "type": "string" },
+        "dismissedBy": { "type": "array", "items": { "type": "string" } }
       }
     },
     "Project": {

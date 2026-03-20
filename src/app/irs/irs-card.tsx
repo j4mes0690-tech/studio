@@ -19,7 +19,11 @@ import {
   Check,
   History,
   Info,
-  MessageSquareReply
+  MessageSquareReply,
+  RefreshCw,
+  XCircle,
+  EyeOff,
+  Bell
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -60,6 +64,121 @@ import Link from 'next/link';
 import { RespondToIRS } from './respond-to-irs';
 import { ImageLightbox } from '@/components/image-lightbox';
 import Image from 'next/image';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { EditIRSItemDialog } from './edit-irs-item';
+
+function UpdateStatusButton({ item, currentUser }: { item: IRSItem, currentUser: DistributionUser }) {
+    const [isPending, startTransition] = useTransition();
+    const { toast } = useToast();
+    const db = useFirestore();
+    const [isMarkOpen, setIsMarkOpen] = useState(false);
+    const [provDate, setProvDate] = useState(item.providedDate || new Date().toISOString().split('T')[0]);
+    const [provDesc, setProvDesc] = useState(item.providedDescription || '');
+
+    const handleUpdate = (newStatus: 'open' | 'provided') => {
+        startTransition(async () => {
+            const docRef = doc(db, 'irs-items', item.id);
+            const updates: any = { 
+                status: newStatus, 
+                dismissedBy: [] 
+            };
+            
+            if (newStatus === 'provided') {
+                updates.providedDate = provDate;
+                updates.providedDescription = provDesc;
+            } else {
+                updates.providedDate = null;
+                updates.providedDescription = null;
+            }
+
+            const systemMsg: ChatMessage = {
+                id: `msg-system-${Date.now()}`,
+                sender: 'System',
+                senderEmail: 'system@sitecommand.internal',
+                message: `Requirement ${newStatus === 'provided' ? 'resolved' : 'reopened'} by ${currentUser.name}.`,
+                createdAt: new Date().toISOString(),
+            };
+            updates.messages = arrayUnion(systemMsg);
+
+            await updateDoc(docRef, updates);
+            toast({ title: 'Success', description: `Item ${newStatus}.` });
+            setIsMarkOpen(false);
+        });
+    };
+
+    if (item.status === 'provided') {
+        return (
+            <AlertDialog>
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                                    <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
+                                </Button>
+                            </AlertDialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Reopen Requirement</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+                <AlertDialogContent onClick={e => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Reopen Requirement?</AlertDialogTitle>
+                        <AlertDialogDescription>This will clear the resolution data and return the item to the active schedule.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => handleUpdate('open')} disabled={isPending}>Confirm</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        );
+    }
+
+    return (
+        <Dialog open={isMarkOpen} onOpenChange={setIsMarkOpen}>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <DialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600 hover:bg-green-50">
+                                <CheckCircle2 className="h-4 w-4" />
+                            </Button>
+                        </DialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Mark as Provided</p></TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+            <DialogContent className="sm:max-w-md" onClick={e => e.stopPropagation()}>
+                <DialogHeader>
+                    <DialogTitle>Resolve Requirement</DialogTitle>
+                    <DialogDescription>Record the details of the information provided.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Date Received</Label>
+                        <Input type="date" value={provDate} onChange={e => setProvDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Answer / Deliverable Summary</Label>
+                        <Textarea 
+                            placeholder="How was this resolved?" 
+                            value={provDesc} 
+                            onChange={e => setProvDesc(e.target.value)} 
+                        />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => setIsMarkOpen(false)}>Cancel</Button>
+                    <Button className="font-bold" onClick={() => handleUpdate('provided')} disabled={isPending || !provDesc}>
+                        {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Check className="h-4 w-4 mr-2" />}
+                        Resolve
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export function IRSCard({ 
   item, 
@@ -77,12 +196,16 @@ export function IRSCard({
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  const [isMarkOpen, setIsMarkOpen] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
-  
-  // Resolution Form State
-  const [provDate, setProvDate] = useState(item.providedDate || new Date().toISOString().split('T')[0]);
-  const [provDesc, setProvDesc] = useState(item.providedDescription || '');
+
+  const email = currentUser?.email.toLowerCase().trim();
+
+  // Attention Check
+  const isAttentionRequired = useMemo(() => {
+    if (!item || !email || item.status !== 'open') return false;
+    if (item.dismissedBy?.includes(email)) return false;
+    return item.assignedToEmail.toLowerCase().trim() === email;
+  }, [item, email]);
 
   const assignedPerson = useMemo(() => {
     return users.find(u => u.email === item.assignedToEmail) || subContractors.find(s => s.email === item.assignedToEmail);
@@ -100,55 +223,17 @@ export function IRSCard({
     return { color: 'text-green-600', bg: 'bg-green-50', label: 'ON TRACK', icon: CheckCircle2 };
   }, [item]);
 
+  const handleDismissAlert = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const docRef = doc(db, 'irs-items', item.id);
+    updateDoc(docRef, { dismissedBy: arrayUnion(email) })
+        .then(() => toast({ title: 'Alert Dismissed', description: 'Item removed from your priority queue.' }));
+  };
+
   const handleDelete = () => {
     startTransition(async () => {
       await deleteDoc(doc(db, 'irs-items', item.id));
       toast({ title: 'Removed', description: 'IRS item deleted.' });
-    });
-  };
-
-  const handleMarkProvided = () => {
-    startTransition(async () => {
-      const docRef = doc(db, 'irs-items', item.id);
-      
-      const systemMessage: ChatMessage = {
-        id: `sys-${Date.now()}`,
-        sender: 'System',
-        senderEmail: 'system@sitecommand.internal',
-        message: `ITEM RESOLVED: Marked as provided on ${new Date(provDate).toLocaleDateString()}. Answer: ${provDesc}`,
-        createdAt: new Date().toISOString()
-      };
-
-      await updateDoc(docRef, {
-        status: 'provided',
-        providedDate: provDate,
-        providedDescription: provDesc,
-        messages: arrayUnion(systemMessage)
-      });
-      setIsMarkOpen(false);
-      toast({ title: 'Resolution Logged', description: 'Item marked as provided with details.' });
-    });
-  };
-
-  const handleReopen = () => {
-    startTransition(async () => {
-      const docRef = doc(db, 'irs-items', item.id);
-      
-      const systemMessage: ChatMessage = {
-        id: `sys-${Date.now()}`,
-        sender: 'System',
-        senderEmail: 'system@sitecommand.internal',
-        message: `REOPENED: Item returned to Open status by ${currentUser.name}.`,
-        createdAt: new Date().toISOString()
-      };
-
-      await updateDoc(docRef, { 
-        status: 'open',
-        providedDate: null,
-        providedDescription: null,
-        messages: arrayUnion(systemMessage)
-      });
-      toast({ title: 'Requirement Reopened', description: 'Resolution data cleared.' });
     });
   };
 
@@ -160,23 +245,43 @@ export function IRSCard({
   return (
     <>
       <Card className={cn(
-          "transition-all hover:border-primary border-l-4 shadow-sm group",
+          "transition-all border-l-4 shadow-sm group",
           item.status === 'overdue' ? 'border-l-red-500' : 
           item.status === 'escalated' ? 'border-l-indigo-500' :
-          item.status === 'provided' ? 'border-l-green-500 opacity-90' : 'border-l-primary'
+          item.status === 'provided' ? 'border-l-green-500 opacity-90' : 'border-l-primary',
+          isAttentionRequired && "border-primary border-2 shadow-primary/10 bg-primary/[0.02] ring-1 ring-primary animate-in fade-in zoom-in"
       )}>
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-3 border-b">
           <div className="flex justify-between items-start">
             <div className="space-y-1 flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="font-mono text-[10px] bg-background text-primary shrink-0">{item.reference}</Badge>
                 <CardTitle className="text-base truncate group-hover:text-primary transition-colors">{item.title}</CardTitle>
               </div>
-              <CardDescription className="flex items-center gap-2">
-                <span className="font-semibold text-foreground text-xs">{project?.name || 'Unknown Project'}</span>
-              </CardDescription>
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardDescription className="font-semibold text-foreground text-xs">{project?.name || 'Unknown Project'}</CardDescription>
+                {isAttentionRequired && (
+                    <Badge className="bg-primary text-white h-5 px-2 text-[9px] font-black uppercase tracking-widest animate-pulse gap-1.5">
+                        <Bell className="h-2.5 w-2.5" />
+                        Action Required
+                    </Badge>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+              {isAttentionRequired && (
+                  <TooltipProvider>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={handleDismissAlert}>
+                                  <EyeOff className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Dismiss Alert</p></TooltipContent>
+                      </Tooltip>
+                  </TooltipProvider>
+              )}
+
               <Badge className={cn(
                   "text-[9px] uppercase font-bold tracking-tight h-5",
                   item.status === 'provided' ? 'bg-green-100 text-green-800' :
@@ -187,11 +292,19 @@ export function IRSCard({
               </Badge>
               
               <RespondToIRS item={item} currentUser={currentUser} />
+              <UpdateStatusButton item={item} currentUser={currentUser} />
+              
+              <EditIRSItemDialog 
+                item={item} 
+                projects={project ? [project] : []} 
+                users={users} 
+                subContractors={subContractors} 
+              />
 
               <AlertDialog>
                   <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive">
-                          <Trash2 className="h-3.5 w-3.5" />
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                          <Trash2 className="h-4 w-4" />
                       </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -205,7 +318,7 @@ export function IRSCard({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-4">
           {item.description && <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed bg-muted/10 p-2 rounded border border-dashed italic">"{item.description}"</p>}
           
           <div className="grid grid-cols-2 gap-3 bg-muted/20 p-3 rounded-lg border border-dashed text-[11px]">
@@ -239,9 +352,6 @@ export function IRSCard({
                   <p className="text-xs text-green-800 leading-relaxed font-medium bg-white/50 p-2 rounded-md border border-green-100">
                       {item.providedDescription || 'Information provided per project requirements.'}
                   </p>
-                  <Button variant="ghost" className="w-full h-7 text-[9px] font-bold uppercase text-green-700 hover:bg-green-100" onClick={handleReopen} disabled={isPending}>
-                      Reset Status & Clear Answer
-                  </Button>
               </div>
           )}
 
@@ -324,50 +434,8 @@ export function IRSCard({
                   </AccordionContent>
               </AccordionItem>
           </Accordion>
-
-          {item.status !== 'provided' && (
-              <Button variant="outline" className="w-full h-10 gap-2 font-bold hover:border-primary hover:text-primary transition-all shadow-sm" onClick={() => setIsMarkOpen(true)}>
-                  <Check className="h-4 w-4" />
-                  Mark as Provided
-              </Button>
-          )}
         </CardContent>
       </Card>
-
-      <Dialog open={isMarkOpen} onOpenChange={setIsMarkOpen}>
-          <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                  <DialogTitle>Resolve Requirement</DialogTitle>
-                  <DialogDescription>Record the details of the information provided to satisfy this schedule item.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                      <Label className="text-xs font-bold uppercase text-muted-foreground">Date Received</Label>
-                      <Input 
-                        type="date" 
-                        value={provDate} 
-                        onChange={e => setProvDate(e.target.value)} 
-                      />
-                  </div>
-                  <div className="space-y-2">
-                      <Label className="text-xs font-bold uppercase text-muted-foreground">Answer / Deliverable Summary</Label>
-                      <Textarea 
-                        placeholder="e.g. Layout drawing issue P02 received and reviewed." 
-                        className="min-h-[100px]"
-                        value={provDesc}
-                        onChange={e => setProvDesc(e.target.value)}
-                      />
-                  </div>
-              </div>
-              <DialogFooter>
-                  <Button variant="ghost" onClick={() => setIsMarkOpen(false)}>Cancel</Button>
-                  <Button className="font-bold gap-2" onClick={handleMarkProvided} disabled={isPending || !provDate}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      Commit to Audit Log
-                  </Button>
-              </DialogFooter>
-          </DialogContent>
-      </Dialog>
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
