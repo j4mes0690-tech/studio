@@ -22,7 +22,6 @@ import Image from 'next/image';
 const DAY_WIDTH = 40; // px per day
 const TIMELINE_WEEKS = 4;
 const ROW_HEIGHT = 52; // px per task row
-const LABEL_COLUMN_WIDTH = 256; // Matching w-64
 
 // Timezone-safe date parser for construction dates (YYYY-MM-DD)
 function parseDateString(dateStr: string | null | undefined) {
@@ -145,7 +144,7 @@ export function GanttChart({
             <div className="flex flex-col min-w-max">
                 {/* Timeline Header */}
                 <div className="flex border-b bg-muted/30">
-                    <div className="w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end">
+                    <div className="w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end sticky left-0 z-30 bg-muted/30 backdrop-blur-sm">
                         Work Activity
                     </div>
                     <div className="flex">
@@ -172,8 +171,8 @@ export function GanttChart({
 
                 {/* Gantt Body */}
                 <div className="flex">
-                    {/* Left Column: Task Labels */}
-                    <div className="flex flex-col border-r shrink-0 w-64 bg-background z-20">
+                    {/* Left Column: Task Labels (Sticky) */}
+                    <div className="flex flex-col border-r shrink-0 w-64 bg-background sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                         {tasks.map(task => {
                             const sub = subContractors.find(s => s.id === task.subcontractorId);
                             const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
@@ -240,7 +239,7 @@ export function GanttChart({
                                                 <TooltipTrigger asChild>
                                                     <div 
                                                         className={cn(
-                                                            "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-30 pointer-events-auto",
+                                                            "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
                                                             task.status === 'completed' ? "text-white opacity-80" : 
                                                             task.status === 'in-progress' ? "text-white animate-pulse" : 
                                                             "text-white"
