@@ -12,7 +12,7 @@ import {
     isValid,
     startOfDay
 } from 'date-fns';
-import { cn, parseDateString } from '@/lib/utils';
+import { cn, parseDateString, calculateFinishDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Separator } from '@/components/ui/separator';
@@ -40,6 +40,64 @@ function getTradeColor(id: string) {
   
   const index = Math.abs(hash) % colors.length;
   return colors[index];
+}
+
+/**
+ * getTaskSegments - Calculates contiguous working day segments for a task.
+ * This allows the bar to "break" across non-working weekends.
+ */
+function getTaskSegments(
+    startDateStr: string, 
+    duration: number, 
+    status: string,
+    actualFinishStr: string | null | undefined,
+    timelineStart: Date,
+    planner?: Planner
+) {
+    const start = parseDateString(startDateStr);
+    const sat = !!planner?.includeSaturday;
+    const sun = !!planner?.includeSunday;
+    
+    const finishDateStr = status === 'completed' && actualFinishStr
+        ? actualFinishStr 
+        : calculateFinishDate(startDateStr, duration, sat, sun);
+    
+    const end = parseDateString(finishDateStr);
+    
+    if (!isValid(start) || !isValid(end) || start > end) return [];
+    
+    const days = eachDayOfInterval({ start, end });
+    const segments: { start: Date; days: number }[] = [];
+    let currentSegment: { start: Date; days: number } | null = null;
+    
+    days.forEach(day => {
+        const dayOfWeek = day.getDay();
+        const isWorking = !((dayOfWeek === 6 && !sat) || (dayOfWeek === 0 && !sun));
+        
+        if (isWorking) {
+            if (!currentSegment) {
+                currentSegment = { start: day, days: 1 };
+            } else {
+                currentSegment.days++;
+            }
+        } else {
+            if (currentSegment) {
+                segments.push(currentSegment);
+                currentSegment = null;
+            }
+        }
+    });
+    
+    if (currentSegment) {
+        segments.push(currentSegment);
+    }
+    
+    return segments.map(seg => ({
+        left: differenceInDays(seg.start, timelineStart) * DAY_WIDTH,
+        width: seg.days * DAY_WIDTH,
+        isFirst: isSameDay(seg.start, start),
+        isLast: isSameDay(addDays(seg.start, seg.days - 1), end)
+    }));
 }
 
 export function GanttChart({ 
@@ -102,11 +160,14 @@ export function GanttChart({
         const predStart = parseDateString(pred.startDate);
         if (!isValid(predStart)) return;
         
-        const effectiveDuration = pred.status === 'completed' && pred.actualCompletionDate 
-            ? Math.max(1, differenceInDays(parseDateString(pred.actualCompletionDate), predStart) + 1)
-            : pred.durationDays;
-
-        const predecessorEndX = (differenceInDays(predStart, startDate) + effectiveDuration) * DAY_WIDTH;
+        const sat = !!planner?.includeSaturday;
+        const sun = !!planner?.includeSunday;
+        const finishDateStr = pred.status === 'completed' && pred.actualCompletionDate 
+            ? pred.actualCompletionDate 
+            : calculateFinishDate(pred.startDate, pred.durationDays, sat, sun);
+        
+        const predFinish = parseDateString(finishDateStr);
+        const predecessorEndX = (differenceInDays(predFinish, startDate) + 1) * DAY_WIDTH;
         const predecessorY = (predIdx * ROW_HEIGHT) + (ROW_HEIGHT / 2);
 
         const midX = predecessorEndX + ((successorX - predecessorEndX) / 2);
@@ -129,7 +190,7 @@ export function GanttChart({
     });
 
     return arrows;
-  }, [tasks, startDate, taskMap]);
+  }, [tasks, startDate, taskMap, planner]);
 
   if (tasks.length === 0) {
     return (
@@ -221,63 +282,74 @@ export function GanttChart({
                         <div className="relative z-20">
                             <TooltipProvider>
                                 {tasks.map((task, taskIdx) => {
-                                    const taskStart = parseDateString(task.startDate);
-                                    if (!isValid(taskStart)) return null;
-
-                                    const offsetDays = differenceInDays(taskStart, startDate);
-                                    const leftOffset = offsetDays * DAY_WIDTH;
-                                    const barWidth = task.durationDays * DAY_WIDTH;
-
-                                    let actualBarWidth = barWidth;
-                                    if (task.status === 'completed' && task.actualCompletionDate) {
-                                        const actualEnd = parseDateString(task.actualCompletionDate);
-                                        if (isValid(actualEnd)) {
-                                            actualBarWidth = (differenceInDays(actualEnd, taskStart) + 1) * DAY_WIDTH;
-                                        }
-                                    }
-
                                     const tradeColor = getTradeColor(task.subcontractorId || '');
-                                    const isVisible = (taskStart <= endDate && addDays(taskStart, task.durationDays) >= startDate);
-
-                                    const hasBaseline = !!task.originalStartDate && !!task.originalDurationDays;
-                                    const origStart = hasBaseline ? parseDateString(task.originalStartDate) : null;
-                                    const isValidBaseline = origStart && isValid(origStart);
-                                    const origOffset = isValidBaseline ? differenceInDays(origStart!, startDate) * DAY_WIDTH : 0;
-                                    const origWidth = hasBaseline ? task.originalDurationDays * DAY_WIDTH : 0;
-                                    const isBaselineVisible = isValidBaseline && (origStart! <= endDate && addDays(origStart!, task.originalDurationDays) >= startDate);
-
                                     const sub = subContractors.find(s => s.id === task.subcontractorId);
                                     const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
 
+                                    // Fragmented segments logic for task bar
+                                    const segments = getTaskSegments(
+                                        task.startDate, 
+                                        task.durationDays, 
+                                        task.status, 
+                                        task.actualCompletionDate, 
+                                        startDate, 
+                                        planner
+                                    );
+
+                                    // Fragmented segments logic for baseline (original)
+                                    const baselineSegments = task.originalStartDate && task.originalDurationDays ? getTaskSegments(
+                                        task.originalStartDate,
+                                        task.originalDurationDays,
+                                        'pending', // always use calculated end for baseline
+                                        null,
+                                        startDate,
+                                        planner
+                                    ) : [];
+
                                     return (
                                         <div key={task.id} className="border-b relative" style={{ height: ROW_HEIGHT, width: chartWidth }}>
-                                            {isBaselineVisible && (
+                                            {/* Baseline fragmented bars */}
+                                            {baselineSegments.map((seg, sIdx) => (
                                                 <div 
-                                                    className="absolute h-4 top-1.5 opacity-20 bg-slate-400 rounded-sm border border-slate-500 z-0"
-                                                    style={{ left: origOffset, width: origWidth }}
-                                                    title="Original Planned Period"
+                                                    key={`baseline-${sIdx}`}
+                                                    className="absolute h-4 top-1.5 opacity-20 bg-slate-400 border border-slate-500 z-0"
+                                                    style={{ 
+                                                        left: seg.left, 
+                                                        width: seg.width,
+                                                        borderTopLeftRadius: seg.isFirst ? '2px' : '0',
+                                                        borderBottomLeftRadius: seg.isFirst ? '2px' : '0',
+                                                        borderTopRightRadius: seg.isLast ? '2px' : '0',
+                                                        borderBottomRightRadius: seg.isLast ? '2px' : '0',
+                                                        borderLeft: seg.isFirst ? '' : 'none',
+                                                        borderRight: seg.isLast ? '' : 'none'
+                                                    }}
                                                 />
-                                            )}
+                                            ))}
 
-                                            {isVisible && (
-                                                <Tooltip>
+                                            {/* Live fragmented task bars */}
+                                            {segments.map((seg, sIdx) => (
+                                                <Tooltip key={`task-${sIdx}`}>
                                                     <TooltipTrigger asChild>
                                                         <div 
                                                             className={cn(
-                                                                "absolute h-7 top-4 rounded-md shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
+                                                                "absolute h-7 top-4 shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
                                                                 task.status === 'completed' ? "text-white opacity-80" : 
                                                                 task.status === 'in-progress' ? "text-white animate-pulse" : 
-                                                                "text-white"
+                                                                "text-white",
+                                                                seg.isFirst && "rounded-l-md",
+                                                                seg.isLast && "rounded-r-md"
                                                             )}
                                                             style={{ 
-                                                                left: leftOffset, 
-                                                                width: actualBarWidth,
+                                                                left: seg.left, 
+                                                                width: seg.width,
                                                                 backgroundColor: tradeColor,
-                                                                borderColor: `${tradeColor}cc`
+                                                                borderColor: `${tradeColor}cc`,
+                                                                borderLeft: seg.isFirst ? '' : 'none',
+                                                                borderRight: seg.isLast ? '' : 'none'
                                                             }}
                                                             onClick={() => onTaskClick(task)}
                                                         >
-                                                            {actualBarWidth > 40 && <span className="text-[9px] font-black truncate">{Math.round(actualBarWidth / DAY_WIDTH)}d</span>}
+                                                            {seg.isFirst && seg.width > 40 && <span className="text-[9px] font-black truncate">{Math.round(seg.width / DAY_WIDTH)}d</span>}
                                                         </div>
                                                     </TooltipTrigger>
                                                     <TooltipContent className="p-3 w-64 z-[100]">
@@ -290,7 +362,7 @@ export function GanttChart({
                                                                 <Badge variant="outline" className="text-[8px] uppercase font-black">{task.status}</Badge>
                                                             </div>
                                                             <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
-                                                                <span className='flex justify-between'>Forecast: <strong>{format(taskStart, 'PP')} ({task.durationDays}d)</strong></span>
+                                                                <span className='flex justify-between'>Forecast: <strong>{format(parseDateString(task.startDate), 'PP')} ({task.durationDays}d)</strong></span>
                                                                 {task.status === 'completed' && task.actualCompletionDate && (
                                                                     <span className='flex justify-between text-green-600 font-bold'>Actual Finish: <strong>{format(parseDateString(task.actualCompletionDate), 'PP')}</strong></span>
                                                                 )}
@@ -312,7 +384,7 @@ export function GanttChart({
                                                         </div>
                                                     </TooltipContent>
                                                 </Tooltip>
-                                            )}
+                                            ))}
                                         </div>
                                     );
                                 })}
