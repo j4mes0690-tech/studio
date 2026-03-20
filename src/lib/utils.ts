@@ -18,49 +18,63 @@ export function parseDateString(dateStr: string | null | undefined): Date {
 
 /**
  * calculateFinishDate - Determines the end date of a task based on its duration.
- * If includeWeekends is false, it skips Saturday and Sunday.
  */
-export function calculateFinishDate(startDateStr: string, duration: number, includeWeekends: boolean): string {
+export function calculateFinishDate(
+  startDateStr: string, 
+  duration: number, 
+  includeSaturday: boolean, 
+  includeSunday: boolean
+): string {
   let date = parseDateString(startDateStr);
   if (!isValid(date)) return startDateStr;
 
   let count = 1;
   while (count < duration) {
     date = addDays(date, 1);
-    if (!includeWeekends) {
-      // Explicit check for Sunday (0) and Saturday (6)
-      while (date.getDay() === 0 || date.getDay() === 6) {
-        date = addDays(date, 1);
-      }
+    
+    // Day checks (0 = Sun, 6 = Sat)
+    const day = date.getDay();
+    const isSat = day === 6;
+    const isSun = day === 0;
+
+    if ((isSat && !includeSaturday) || (isSun && !includeSunday)) {
+      continue; // Skip counting this day
     }
     count++;
   }
+
+  // Ensure finish date itself is on a working day
+  while ((date.getDay() === 6 && !includeSaturday) || (date.getDay() === 0 && !includeSunday)) {
+    date = addDays(date, 1);
+  }
+
   return format(date, 'yyyy-MM-dd');
 }
 
 /**
  * calculateNextStartDate - Determines the start date for a successor task.
  */
-export function calculateNextStartDate(finishDateStr: string, includeWeekends: boolean): string {
+export function calculateNextStartDate(
+  finishDateStr: string, 
+  includeSaturday: boolean, 
+  includeSunday: boolean
+): string {
   let date = addDays(parseDateString(finishDateStr), 1);
   if (!isValid(date)) return finishDateStr;
 
-  if (!includeWeekends) {
-    // Explicit check for Sunday (0) and Saturday (6)
-    while (date.getDay() === 0 || date.getDay() === 6) {
-      date = addDays(date, 1);
-    }
+  while ((date.getDay() === 6 && !includeSaturday) || (date.getDay() === 0 && !includeSunday)) {
+    date = addDays(date, 1);
   }
   return format(date, 'yyyy-MM-dd');
 }
 
 /**
- * optimiseGlobalSchedule - Runs a critical path analysis on a set of tasks to 
- * shift dates based on predecessor linkages.
+ * optimiseGlobalSchedule - Runs a critical path analysis on a set of tasks.
  */
 export function optimiseGlobalSchedule(
   allPlannerTasks: PlannerTask[], 
-  includeWeekends: boolean,
+  includeSaturday: boolean,
+  includeSunday: boolean,
   onUpdate: (taskId: string, updates: Partial<PlannerTask>) => void
 ) {
   let changed = true;
@@ -84,7 +98,7 @@ export function optimiseGlobalSchedule(
       taskPredecessors.forEach(p => {
         const pFinishStr = p.status === 'completed' && p.actualCompletionDate 
           ? p.actualCompletionDate 
-          : calculateFinishDate(p.startDate, p.durationDays, includeWeekends);
+          : calculateFinishDate(p.startDate, p.durationDays, includeSaturday, includeSunday);
         
         const pFinishObj = parseDateString(pFinishStr);
         
@@ -97,7 +111,7 @@ export function optimiseGlobalSchedule(
       });
 
       if (latestFinishDateStr) {
-        const idealStart = calculateNextStartDate(latestFinishDateStr, includeWeekends);
+        const idealStart = calculateNextStartDate(latestFinishDateStr, includeSaturday, includeSunday);
 
         if (t.startDate !== idealStart) {
           onUpdate(t.id, { startDate: idealStart });

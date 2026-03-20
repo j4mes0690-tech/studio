@@ -1,9 +1,9 @@
-
 export type Planner = {
   id: string;
   name: string;
   archived?: boolean;
-  includeWeekends?: boolean;
+  includeSaturday?: boolean;
+  includeSunday?: boolean;
 };
 
 export type Project = {

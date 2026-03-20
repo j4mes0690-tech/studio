@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { PlannerTask, SubContractor, Photo, Project } from '@/lib/types';
+import type { PlannerTask, SubContractor, Photo, Project, Planner } from '@/lib/types';
 import { 
     format, 
     addDays, 
@@ -53,11 +53,13 @@ export function GanttChart({
   tasks, 
   subContractors, 
   projects,
+  planner,
   onTaskClick 
 }: { 
   tasks: PlannerTask[]; 
   subContractors: SubContractor[]; 
   projects: Project[];
+  planner?: Planner;
   onTaskClick: (task: PlannerTask) => void;
 }) {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
@@ -120,7 +122,7 @@ export function GanttChart({
               strokeWidth="1.5"
             />
             <polygon 
-              points={`${successorX},${successorY} ${successorX-arrowHeadSize},${successorX-arrowHeadSize},${successorY-(arrowHeadSize/1.5)} ${successorX-arrowHeadSize},${successorY+(arrowHeadSize/1.5)}`}
+              points={`${successorX},${successorY} ${successorX-arrowHeadSize},${successorY-(arrowHeadSize/1.5)} ${successorX-arrowHeadSize},${successorY+(arrowHeadSize/1.5)}`}
               fill="currentColor"
             />
           </g>
@@ -151,9 +153,11 @@ export function GanttChart({
                     <div className="flex">
                         {timelineDays.map((day, i) => {
                             const isToday = isSameDay(day, new Date());
-                            // Explicit check for Sat (6) and Sun (0) to prevent locale confusion
+                            // Explicit check for Sat (6) and Sun (0)
                             const dayOfWeek = day.getDay();
-                            const isSatSun = dayOfWeek === 0 || dayOfWeek === 6;
+                            const isSat = dayOfWeek === 6;
+                            const isSun = dayOfWeek === 0;
+                            const isNonWorking = (isSat && !planner?.includeSaturday) || (isSun && !planner?.includeSunday);
                             
                             return (
                                 <div 
@@ -161,7 +165,7 @@ export function GanttChart({
                                     className={cn(
                                         "flex flex-col items-center justify-center border-r shrink-0 py-2",
                                         isToday && "bg-primary/10 text-primary font-black",
-                                        isSatSun && "bg-muted/50"
+                                        isNonWorking && "bg-muted/50"
                                     )}
                                     style={{ width: DAY_WIDTH }}
                                 >
@@ -198,11 +202,13 @@ export function GanttChart({
                         <div className="absolute inset-0 flex z-0 pointer-events-none">
                             {timelineDays.map((day, i) => {
                                 const dayOfWeek = day.getDay();
-                                const isSatSun = dayOfWeek === 0 || dayOfWeek === 6;
+                                const isSat = dayOfWeek === 6;
+                                const isSun = dayOfWeek === 0;
+                                const isNonWorking = (isSat && !planner?.includeSaturday) || (isSun && !planner?.includeSunday);
                                 return (
                                     <div 
                                         key={i} 
-                                        className={cn("h-full border-r", isSatSun && "bg-muted/20")} 
+                                        className={cn("h-full border-r", isNonWorking && "bg-muted/20")} 
                                         style={{ width: DAY_WIDTH }}
                                     />
                                 );

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -189,7 +188,7 @@ function PlannerContent() {
     router.push(`/planner?${params.toString()}`);
   };
 
-  const handleToggleWeekends = (val: boolean) => {
+  const handleUpdateScheduleLogic = (key: 'includeSaturday' | 'includeSunday', val: boolean) => {
     if (!currentProject || !currentPlanner) return;
     
     startTransition(async () => {
@@ -199,14 +198,17 @@ function PlannerContent() {
             
             // 1. Update the planner definition
             const updatedPlanners = (currentProject.planners || []).map(p => 
-                p.id === currentPlanner.id ? { ...p, includeWeekends: val } : p
+                p.id === currentPlanner.id ? { ...p, [key]: val } : p
             );
             batch.update(projRef, { planners: updatedPlanners });
 
             // 2. Trigger a global re-forecast for all tasks in this planner
             const plannerTasks = allTasks.filter(t => t.projectId === currentProject.id && (t.plannerId === currentPlanner.id || t.areaId === currentPlanner.id));
             
-            optimiseGlobalSchedule(plannerTasks, val, (taskId, updates) => {
+            const sat = key === 'includeSaturday' ? val : !!currentPlanner.includeSaturday;
+            const sun = key === 'includeSunday' ? val : !!currentPlanner.includeSunday;
+
+            optimiseGlobalSchedule(plannerTasks, sat, sun, (taskId, updates) => {
                 const taskRef = doc(db, 'planner-tasks', taskId);
                 batch.update(taskRef, updates);
             });
@@ -214,7 +216,7 @@ function PlannerContent() {
             await batch.commit();
             toast({ 
                 title: 'Schedule Reforecast', 
-                description: `Weekend logic ${val ? 'enabled' : 'disabled'}. All tasks shifted to follow the new working calendar.` 
+                description: `${key === 'includeSaturday' ? 'Saturday' : 'Sunday'} logic ${val ? 'enabled' : 'disabled'}. All tasks shifted to follow the new working calendar.` 
             });
         } catch (err) {
             console.error(err);
@@ -230,7 +232,8 @@ function PlannerContent() {
             id: `planner-${currentProject.id}-${Date.now()}`,
             name: newPlannerName.trim(),
             archived: false,
-            includeWeekends: false
+            includeSaturday: false,
+            includeSunday: false
         };
         const projRef = doc(db, 'projects', currentProject.id);
         await updateDoc(projRef, {
@@ -558,18 +561,27 @@ function PlannerContent() {
                         <Layout className="h-7 w-7 text-primary" />
                         Construction Schedule
                     </h2>
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2 bg-muted/30 p-2 rounded-lg border-2 border-primary/10 mr-2">
-                            <Label htmlFor="weekend-toggle" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2 cursor-pointer">
-                                <Clock className="h-3 w-3" />
-                                7 Day Week
-                            </Label>
-                            <Switch 
-                                id="weekend-toggle" 
-                                checked={!!currentPlanner?.includeWeekends} 
-                                onCheckedChange={handleToggleWeekends} 
-                                disabled={isPending}
-                            />
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 bg-muted/30 p-2 px-4 rounded-lg border-2 border-primary/10">
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="sat-toggle" className="text-[9px] font-black uppercase tracking-widest text-muted-foreground cursor-pointer">Sat Work</Label>
+                                <Switch 
+                                    id="sat-toggle" 
+                                    checked={!!currentPlanner?.includeSaturday} 
+                                    onCheckedChange={(val) => handleUpdateScheduleLogic('includeSaturday', val)} 
+                                    disabled={isPending}
+                                />
+                            </div>
+                            <Separator orientation="vertical" className="h-4" />
+                            <div className="flex items-center gap-2">
+                                <Label htmlFor="sun-toggle" className="text-[9px] font-black uppercase tracking-widest text-muted-foreground cursor-pointer">Sun Work</Label>
+                                <Switch 
+                                    id="sun-toggle" 
+                                    checked={!!currentPlanner?.includeSunday} 
+                                    onCheckedChange={(val) => handleUpdateScheduleLogic('includeSunday', val)} 
+                                    disabled={isPending}
+                                />
+                            </div>
                         </div>
 
                         <TooltipProvider>
@@ -618,7 +630,8 @@ function PlannerContent() {
                 <GanttChart 
                     tasks={filteredTasks} 
                     subContractors={allSubContractors || []} 
-                    projects={allowedProjects} 
+                    projects={allowedProjects}
+                    planner={currentPlanner}
                     onTaskClick={(task) => setEditingTaskId(task.id)}
                 />
             </div>

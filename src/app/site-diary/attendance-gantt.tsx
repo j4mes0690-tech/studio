@@ -75,7 +75,7 @@ export function AttendanceGantt({
           <div className="flex">
             {timelineDays.map((day, i) => {
               const isToday = isSameDay(day, new Date());
-              // Explicit check for weekends
+              // Standard weekend logic for generic map view
               const dayOfWeek = day.getDay();
               const isSatSun = dayOfWeek === 0 || dayOfWeek === 6;
               

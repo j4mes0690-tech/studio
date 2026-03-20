@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -114,14 +113,16 @@ export function NewTaskDialog({
       const selectedPredecessors = allTasks.filter(t => selectedPredecessorIds.includes(t.id));
       
       if (selectedPredecessors.length > 0) {
-        const includeWeekends = !!currentPlanner?.includeWeekends;
+        const sat = !!currentPlanner?.includeSaturday;
+        const sun = !!currentPlanner?.includeSunday;
+        
         let latestFinishDateStr: string | null = null;
         let latestFinishDateObj: Date | null = null;
 
         selectedPredecessors.forEach(p => {
           const pFinishStr = p.status === 'completed' && p.actualCompletionDate 
             ? p.actualCompletionDate 
-            : calculateFinishDate(p.startDate, p.durationDays, includeWeekends);
+            : calculateFinishDate(p.startDate, p.durationDays, sat, sun);
           
           const pFinishObj = parseDateString(pFinishStr);
           
@@ -134,7 +135,7 @@ export function NewTaskDialog({
         });
 
         if (latestFinishDateStr) {
-          const nextStartStr = calculateNextStartDate(latestFinishDateStr, includeWeekends);
+          const nextStartStr = calculateNextStartDate(latestFinishDateStr, sat, sun);
           form.setValue('startDate', nextStartStr);
         }
       }
