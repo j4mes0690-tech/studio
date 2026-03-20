@@ -35,6 +35,7 @@ export async function extractPermitDetails(
 
 const prompt = ai.definePrompt({
   name: 'extractPermitDetailsPrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: { schema: ExtractPermitDetailsInputSchema },
   output: { schema: ExtractPermitDetailsOutputSchema },
   prompt: `You are an expert site safety assistant. Your task is to analyze the provided document or image, which is a template or an existing Permit to Work.

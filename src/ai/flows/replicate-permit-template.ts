@@ -39,6 +39,7 @@ export async function replicatePermitTemplate(
 
 const prompt = ai.definePrompt({
   name: 'replicatePermitTemplatePrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: { schema: ReplicatePermitTemplateInputSchema },
   output: { schema: ReplicatePermitTemplateAISchema },
   prompt: `You are an expert safety systems analyst. Your task is to look at the provided permit document and REPLICATE its structure into a digital template.

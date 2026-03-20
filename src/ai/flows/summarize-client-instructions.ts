@@ -36,6 +36,7 @@ export async function summarizeInstructions(
 
 const summarizeInstructionsPrompt = ai.definePrompt({
   name: 'summarizeInstructionsPrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: {schema: SummarizeInstructionsInputSchema},
   output: {schema: SummarizeInstructionsOutputSchema},
   prompt: `You are an expert assistant for construction managers. Your task is to concisely summarize instructions.

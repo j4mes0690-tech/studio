@@ -36,6 +36,7 @@ export async function extractInstructionActionItems(
 
 const prompt = ai.definePrompt({
   name: 'extractInstructionActionItemsPrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: { schema: ExtractInstructionActionItemsInputSchema },
   output: { schema: ExtractInstructionActionItemsOutputSchema },
   prompt: `You are an AI assistant for a construction manager. Your task is to carefully read the instructions provided and extract all distinct, actionable tasks from the text.
