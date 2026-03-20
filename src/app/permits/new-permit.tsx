@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
+import { useState, useTransition, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -31,9 +31,7 @@ import {
   Save, 
   Send, 
   Camera, 
-  Upload, 
   X, 
-  RefreshCw, 
   CheckSquare, 
   Plus, 
   Trash2, 
@@ -56,7 +54,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
 import { VoiceInput } from '@/components/voice-input';
-import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CameraOverlay } from '@/components/camera-overlay';
@@ -138,12 +136,12 @@ export function NewPermitDialog({
   };
 
   const addSection = () => {
-    const newSection: TemplateSection = { id: `section-${Date.now()}`, title: 'New Safety Section', fields: [] };
+    const newSection: TemplateSection = { id: `section-${Date.now()}`, title: 'Additional Controls', fields: [] };
     setDynamicSections([...dynamicSections, newSection]);
   };
 
   const addField = (sectionId: string) => {
-    const newField: TemplateField = { id: `field-${Date.now()}`, label: 'New Check Item', type: 'checkbox', value: false };
+    const newField: TemplateField = { id: `field-${Date.now()}`, label: 'Verification Item', type: 'checkbox', value: false };
     setDynamicSections(dynamicSections.map(s => s.id === sectionId ? { ...s, fields: [...s.fields, newField] } : s));
   };
 
@@ -162,8 +160,6 @@ export function NewPermitDialog({
 
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Persisting digital permit and media...' });
-
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -221,7 +217,7 @@ export function NewPermitDialog({
       <DialogTrigger asChild>
         <Button className="gap-2 h-10 px-5 shadow-lg shadow-primary/20 font-bold">
           <PlusCircle className="h-4 w-4" />
-          New Permit
+          Issue Permit
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0">
@@ -318,7 +314,7 @@ export function NewPermitDialog({
                                             <div className="pt-2 border-t border-dashed">
                                                 {field.type === 'checkbox' ? (
                                                     <div className="flex items-center justify-between">
-                                                        <span className="text-[10px] text-muted-foreground font-bold">Initial Verification</span>
+                                                        <span className="text-[10px] text-muted-foreground font-bold">Verification Sign-off</span>
                                                         <Checkbox checked={!!field.value} onCheckedChange={(val) => updateDynamicValue(section.id, field.id, !!val)} />
                                                     </div>
                                                 ) : (
