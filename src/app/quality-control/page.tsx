@@ -130,6 +130,11 @@ function QualityControlContent() {
     return allChecklists.filter(c => !!c.isTemplate);
   }, [allChecklists]);
 
+  const checklistInstances = useMemo(() => {
+    if (!allChecklists) return [];
+    return allChecklists.filter(c => !c.isTemplate);
+  }, [allChecklists]);
+
   const filteredChecklists = useMemo(() => {
     if (!allChecklists) return [];
     return allChecklists.filter(c => 
