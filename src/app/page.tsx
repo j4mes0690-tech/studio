@@ -36,7 +36,9 @@ import {
   BarChart3,
   Sun,
   BookOpen,
-  FolderOpen
+  FolderOpen,
+  LayoutList,
+  Layers
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
@@ -81,7 +83,7 @@ const DASHBOARD_CARDS = [
 function FlashingBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <div className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center z-40">
+    <div className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center z-40">
       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
       <span className="relative inline-flex rounded-full h-5 w-5 bg-accent text-[10px] font-black text-white items-center justify-center shadow-lg border border-white/20">
         {count}
@@ -165,7 +167,6 @@ export default function Dashboard() {
         return (ci.recipients || []).some(e => e.toLowerCase().trim() === email);
     }).length;
 
-    // Count holidays I am authorized to approve
     const hCount = (rawHolidays || []).filter(req => {
         const isApprover = profile.permissions?.canApproveHolidays || profile.permissions?.hasFullVisibility;
         const isLineManager = req.lineManagerEmail?.toLowerCase().trim() === email;
@@ -272,12 +273,29 @@ export default function Dashboard() {
                           loadingModule === card.id && "ring-2 ring-primary ring-offset-2"
                         )}>
                             {loadingModule === card.id && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>)}
-                            <CardHeader className="p-0 relative">
-                                <card.icon className={cn("mb-2 transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary", isCompact ? "h-6 w-6" : "h-8 w-8 mb-2 md:h-12 md:w-12 md:mb-4", loadingModule === card.id && "opacity-20")} />
-                                <FlashingBadge count={pendingCount} />
-                                <CardTitle className={cn("transition-all font-bold", isCompact ? "text-xs md:text-sm" : "text-sm md:text-xl")}>{card.label}</CardTitle>
+                            <CardHeader className="p-0 relative w-full flex flex-col items-center">
+                                <div className="relative flex items-center justify-center mb-2 md:mb-4">
+                                    <card.icon className={cn(
+                                        "transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary", 
+                                        isCompact ? "h-6 w-6" : "h-10 w-10 md:h-12 md:w-12", 
+                                        loadingModule === card.id && "opacity-20"
+                                    )} />
+                                    <FlashingBadge count={pendingCount} />
+                                </div>
+                                <CardTitle className={cn(
+                                    "transition-all font-bold text-center w-full", 
+                                    isCompact ? "text-xs md:text-sm" : "text-sm md:text-xl"
+                                )}>
+                                    {card.label}
+                                </CardTitle>
                             </CardHeader>
-                            {!isCompact && card.desc && <CardContent className="p-0 mt-2 hidden sm:block"><p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">{card.desc}</p></CardContent>}
+                            {!isCompact && card.desc && (
+                                <CardContent className="p-0 mt-3 hidden sm:block text-center w-full">
+                                    <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">
+                                        {card.desc}
+                                    </p>
+                                </CardContent>
+                            )}
                         </Card>
                     </Link>
                 </div>
