@@ -306,7 +306,7 @@ export function NewClientInstruction({ projects, allInstructions }: NewInstructi
                     <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
                     
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handlePhotoSelect} />
-                    <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
+                    <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" />
                   </div>
                 </div>
               </FormItem>

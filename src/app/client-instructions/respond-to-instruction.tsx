@@ -353,7 +353,7 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
                           reader.readAsDataURL(f);
                         });
                       }} />
-                      <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
+                      <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" />
                   </form>
               </Form>
           ) : (
