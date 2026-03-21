@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -33,25 +34,28 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, History, Eye, FileSearch } from 'lucide-react';
+import { Pencil, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, History, Eye, FileSearch, Check, Send } from 'lucide-react';
 import type { Project, SnaggingItem, Photo, Area, SnaggingListItem, SubContractor, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
-import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useStorage, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { doc, updateDoc, collection, query, orderBy, addDoc, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { cn, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { VoiceInput } from '@/components/voice-input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { CameraOverlay } from '@/components/camera-overlay';
+import { sendSubcontractorReportAction } from './actions';
+import { generateSnaggingPDF } from '@/lib/pdf-utils';
 
 const EditSnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   areaId: z.string().optional(),
   title: z.string().min(3, 'List title is required.'),
   description: z.string().optional(),
+  status: z.enum(['draft', 'issued']).default('issued'),
 });
 
 type EditSnaggingListFormValues = z.infer<typeof EditSnaggingListSchema>;
@@ -61,6 +65,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
+  const { user: sessionUser } = useUser();
   
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
@@ -70,12 +75,27 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   const [newItemText, setNewItemText] = useState('');
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   
+  // Item Editing State
+  const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
+  const [editItemText, setEditItemText] = useState('');
+  const [editItemSubId, setEditItemSubId] = useState<string | undefined>(undefined);
+
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
+  const [submitMode, setSubmitMode] = useState<'draft' | 'save' | 'issue'>('save');
+
+  const usersQuery = useMemoFirebase(() => db ? collection(db, 'users') : null, [db]);
+  const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
   const form = useForm<EditSnaggingListFormValues>({
     resolver: zodResolver(EditSnaggingListSchema),
-    defaultValues: { projectId: item.projectId, areaId: item.areaId || '', title: item.title || '', description: item.description || '' },
+    defaultValues: { 
+      projectId: item.projectId, 
+      areaId: item.areaId || '', 
+      title: item.title || '', 
+      description: item.description || '',
+      status: item.status || 'issued'
+    },
   });
 
   const selectedProjectId = form.watch('projectId');
@@ -93,72 +113,168 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
 
   useEffect(() => {
     if (open) {
-      form.reset({ projectId: item.projectId, areaId: item.areaId || '', title: item.title || '', description: item.description || '' });
+      form.reset({ 
+        projectId: item.projectId, 
+        areaId: item.areaId || '', 
+        title: item.title || '', 
+        description: item.description || '',
+        status: item.status || 'issued'
+      });
       setPhotos(item.photos || []);
       setItems(item.items || []);
+      setEditingItemIdx(null);
     }
   }, [open, item, form]);
 
-  const handleMetadataChange = () => {
-    const values = form.getValues();
-    startTransition(async () => {
-        await updateDoc(doc(db, 'snagging-items', item.id), {
-            ...values,
-            areaId: values.areaId || null,
-            description: values.description || null
-        });
-    });
-  }
-
   const handleAddItem = () => {
     if (!newItemText.trim()) return;
-    startTransition(async () => {
-        const newItem: SnaggingListItem = {
-            id: `item-${Date.now()}`,
-            description: newItemText.trim(),
-            status: 'open',
-            photos: [],
-            subContractorId: pendingSubId || null,
-            completionPhotos: []
-        };
-        const newItemsList = [...items, newItem];
-        setItems(newItemsList);
-        await updateDoc(doc(db, 'snagging-items', item.id), { items: newItemsList });
-        setNewItemText('');
-        setPendingSubId(undefined);
-    });
+    const newItem: SnaggingListItem = {
+        id: `item-${Date.now()}`,
+        description: newItemText.trim(),
+        status: 'open',
+        photos: [],
+        subContractorId: pendingSubId || null,
+        completionPhotos: []
+    };
+    setItems([...items, newItem]);
+    setNewItemText('');
+    setPendingSubId(undefined);
   };
 
-  const handleRemoveItem = (id: string) => {
-    const newItemsList = items.filter(i => i.id !== id);
-    setItems(newItemsList);
-    updateDoc(doc(db, 'snagging-items', item.id), { items: newItemsList });
+  const handleStartEditItem = (idx: number) => {
+    const item = items[idx];
+    setEditingItemIdx(idx);
+    setEditItemText(item.description);
+    setEditItemSubId(item.subContractorId || undefined);
+  };
+
+  const handleSaveEditItem = (idx: number) => {
+    setItems(items.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: editItemSubId || null } : it));
+    setEditingItemIdx(null);
+  };
+
+  const handleRemoveItem = (idx: number) => {
+    setItems(items.filter((_, i) => i !== idx));
+  };
+
+  const handleToggleStatus = (idx: number) => {
+    setItems(items.map((it, i) => i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as any } : it));
   };
 
   const onCaptureGeneral = (photo: Photo) => {
-    startTransition(async () => {
-        const blob = await dataUriToBlob(photo.url);
-        const url = await uploadFile(storage, `snagging/general/${item.id}-${Date.now()}.jpg`, blob);
-        const updatedPhoto = { ...photo, url };
-        await updateDoc(doc(db, 'snagging-items', item.id), {
-          photos: arrayUnion(updatedPhoto)
-        });
-        setPhotos(prev => [...prev, updatedPhoto]);
-    });
+    setPhotos(prev => [...prev, photo]);
   };
 
   const onCaptureItem = (photo: Photo) => {
     if (itemPhotoTargetId) {
-      startTransition(async () => {
-        const blob = await dataUriToBlob(photo.url);
-        const url = await uploadFile(storage, `snagging/items/${itemPhotoTargetId}-${Date.now()}.jpg`, blob);
-        const updatedPhoto = { ...photo, url };
-        const newItems = items.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } : itm);
-        setItems(newItems);
-        await updateDoc(doc(db, 'snagging-items', item.id), { items: newItems });
-      });
+      setItems(prev => prev.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), photo] } : itm));
       setItemPhotoTargetId(null);
     }
+  };
+
+  const onSubmit = (values: EditSnaggingListFormValues) => {
+    const isIssuing = submitMode === 'issue';
+    const isDrafting = submitMode === 'draft';
+
+    if (isIssuing && items.length === 0) {
+        toast({ title: 'List Empty', description: 'Add at least one snagging item before issuing reports.', variant: 'destructive' });
+        return;
+    }
+
+    startTransition(async () => {
+      try {
+        toast({ title: 'Processing', description: 'Persisting changes and distributing reports...' });
+
+        // 1. Upload Photos
+        const uploadedPhotos = await Promise.all(
+          photos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `snagging/general/${item.id}-${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
+
+        const uploadedItems = await Promise.all(items.map(async (snag) => {
+            const updatedPhotos = await Promise.all((snag.photos || []).map(async (p, pi) => {
+                if (p.url.startsWith('data:')) {
+                    const blob = await dataUriToBlob(p.url);
+                    const url = await uploadFile(storage, `snagging/items/${snag.id}-${Date.now()}-${pi}.jpg`, blob);
+                    return { ...p, url };
+                }
+                return p;
+            }));
+            return { ...snag, photos: updatedPhotos };
+        }));
+
+        const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : values.status);
+
+        const updates: any = {
+          ...values,
+          areaId: values.areaId || null,
+          items: uploadedItems,
+          photos: uploadedPhotos,
+          status: targetStatus
+        };
+
+        const docRef = doc(db, 'snagging-items', item.id);
+        await updateDoc(docRef, updates);
+
+        // 2. Multi-trade Distribution Logic
+        if (isIssuing && allUsers) {
+            const area = selectedProject?.areas?.find(a => a.id === values.areaId);
+            const subIds = Array.from(new Set(uploadedItems.map(i => i.subContractorId).filter(id => !!id))) as string[];
+            let sentCount = 0;
+
+            for (const subId of subIds) {
+                const sub = subContractors.find(s => s.id === subId);
+                const recipientEmails = getPartnerEmails(subId, subContractors, allUsers);
+                
+                if (sub && recipientEmails.length > 0) {
+                    const myItems = uploadedItems.filter(i => i.subContractorId === subId && i.status === 'open');
+                    if (myItems.length === 0) continue;
+
+                    const pdf = await generateSnaggingPDF({
+                        title: 'Snagging Audit Report',
+                        project: selectedProject,
+                        subContractors,
+                        aggregatedEntries: myItems.map(snag => ({
+                            listTitle: values.title,
+                            areaName: area?.name || 'General Site',
+                            snag
+                        })),
+                        generalPhotos: uploadedPhotos,
+                        scopeLabel: `Trade: ${sub.name} (Outstanding Items)`
+                    });
+
+                    const pdfBase64 = pdf.output('datauristring').split(',')[1];
+                    const fileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${values.title.replace(/\s+/g, '-')}.pdf`;
+
+                    for (const email of recipientEmails) {
+                        await sendSubcontractorReportAction({
+                            email,
+                            name: sub.name,
+                            projectName: selectedProject?.name || 'Project',
+                            areaName: area?.name || 'General Area',
+                            pdfBase64,
+                            fileName
+                        });
+                    }
+                    sentCount++;
+                }
+            }
+            toast({ title: 'Success', description: `List updated and ${sentCount} trade reports issued.` });
+        } else {
+            toast({ title: 'Success', description: 'Snagging list updated.' });
+        }
+
+        setOpen(false);
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to update record.', variant: 'destructive' });
+      }
+    });
   };
 
   return (
@@ -166,91 +282,158 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
-          <DialogHeader className="p-6 pb-0 border-b shrink-0 flex flex-row items-center justify-between">
-            <div>
-                <DialogTitle>Snagging List Editor</DialogTitle>
-                <DialogDescription>Changes are saved automatically.</DialogDescription>
-            </div>
-            <div className="flex items-center gap-2">
-                {isPending && <Badge variant="secondary" className="animate-pulse">Auto-saving...</Badge>}
-            </div>
+          <DialogHeader className="p-6 pb-0 border-b shrink-0 bg-muted/5">
+            <DialogTitle>Edit Snagging List</DialogTitle>
+            <DialogDescription>Modify area metadata or add specific defects.</DialogDescription>
           </DialogHeader>
           
           <ScrollArea className="flex-1">
-            <div className="px-6 py-4">
+            <div className="px-6 py-6">
               <Form {...form}>
-                  <form className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="projectId" render={({ field }) => (
-                            <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                        )} />
-                        <FormField control={form.control} name="areaId" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Area</FormLabel>
-                              <Select onValueChange={(v) => { field.onChange(v); handleMetadataChange(); }} value={field.value}>
-                                <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                <SelectContent>
-                                  {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                                  {availableAreas.length > 0 && <Separator className="my-1" />}
-                                  <SelectItem value="other">Other / Not Listed</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </FormItem>
+                  <form className="space-y-8">
+                    <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={form.control} name="projectId" render={({ field }) => (
+                                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                            )} />
+                            <FormField control={form.control} name="areaId" render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Area / Level</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                      {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                      {availableAreas.length > 0 && <Separator className="my-1" />}
+                                      <SelectItem value="other">Other / Manual</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </FormItem>
+                            )} />
+                        </div>
+                        <FormField control={form.control} name="title" render={({ field }) => (
+                            <FormItem><FormLabel>List Identification</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                         )} />
                     </div>
-                    <FormField control={form.control} name="title" render={({ field }) => (
-                        <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} onBlur={handleMetadataChange} /></FormControl></FormItem>
-                    )} />
                     
                     <Separator />
 
                     <div className="space-y-4">
-                      <FormLabel>Manage Items</FormLabel>
+                      <FormLabel className="text-xs font-black uppercase text-muted-foreground tracking-widest">Manage Defects</FormLabel>
                       
-                      <div className="flex gap-2 items-end bg-muted/20 p-3 rounded-lg border">
-                          <div className="flex-1">
-                              <Input placeholder="Add new snag..." value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}} />
+                      <div className="flex gap-2 items-end bg-muted/20 p-4 rounded-xl border border-dashed">
+                          <div className="flex-1 space-y-2">
+                              <div className="flex justify-between items-center"><Label className="text-[10px] font-bold">New Defect</Label><VoiceInput onResult={setNewItemText} /></div>
+                              <Input placeholder="Describe the issue..." value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}} className="bg-background" />
                           </div>
-                          <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
-                              <SelectTrigger className="w-40"><SelectValue placeholder="Assign" /></SelectTrigger>
-                              <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-                          </Select>
-                          <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim()}><Plus className="h-4 w-4" /></Button>
+                          <div className="flex gap-1">
+                              <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
+                                  <SelectTrigger className="w-40 bg-background"><SelectValue placeholder="Assign" /></SelectTrigger>
+                                  <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                              </Select>
+                              <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim()} size="icon" className="h-10 w-10"><Plus className="h-4 w-4" /></Button>
+                          </div>
                       </div>
 
                       <div className="space-y-3">
-                          {items.map((listItem) => (
-                              <div key={listItem.id} className="p-3 border rounded-md bg-muted/10 flex items-center justify-between animate-in slide-in-from-left-1">
-                                  <div className="flex flex-col">
-                                      <span className={cn("text-sm font-bold", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</span>
-                                      {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
-                                  </div>
-                                  <div className="flex gap-1">
-                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(listItem.id)}><Trash2 className="h-4 w-4" /></Button>
-                                  </div>
+                          {items.map((listItem, idx) => (
+                              <div key={listItem.id} className={cn(
+                                "p-4 border rounded-xl bg-background shadow-sm transition-all group",
+                                editingItemIdx === idx && "ring-2 ring-primary border-transparent"
+                              )}>
+                                  {editingItemIdx === idx ? (
+                                      <div className="space-y-4 animate-in slide-in-from-top-1">
+                                          <div className="space-y-2">
+                                              <Label className="text-[10px] font-bold">Defect Description</Label>
+                                              <Input value={editItemText} onChange={e => setEditItemText(e.target.value)} className="h-9" autoFocus />
+                                          </div>
+                                          <div className="flex justify-between items-center">
+                                              <Select value={editItemSubId || 'unassigned'} onValueChange={v => setEditItemSubId(v === 'unassigned' ? undefined : v)}>
+                                                  <SelectTrigger className="w-48 h-8 text-xs"><SelectValue /></SelectTrigger>
+                                                  <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                              </Select>
+                                              <div className="flex gap-1">
+                                                  <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => setEditingItemIdx(null)}>Cancel</Button>
+                                                  <Button type="button" size="sm" className="h-8 gap-1.5" onClick={() => handleSaveEditItem(idx)}><Check className="h-3.5 w-3.5" /> Done</Button>
+                                              </div>
+                                          </div>
+                                      </div>
+                                  ) : (
+                                      <div className="flex items-start justify-between gap-3">
+                                          <div className="flex items-start gap-3 flex-1 min-w-0">
+                                              <button type="button" onClick={() => handleToggleStatus(idx)} className="mt-1 flex-shrink-0 transition-transform active:scale-90">
+                                                  {listItem.status === 'closed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+                                              </button>
+                                              <div className="min-w-0 flex-1">
+                                                  <p className={cn("text-sm font-bold truncate", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</p>
+                                                  {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
+                                                  {listItem.photos && listItem.photos.length > 0 && (
+                                                      <div className="flex gap-1.5 mt-2 flex-wrap">
+                                                          {listItem.photos.map((p, pi) => (
+                                                              <div key={pi} className="relative w-8 h-6 rounded border bg-muted overflow-hidden">
+                                                                  <Image src={p.url} alt="Defect" fill className="object-cover" />
+                                                              </div>
+                                                          ))}
+                                                      </div>
+                                                  )}
+                                              </div>
+                                          </div>
+                                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleStartEditItem(idx)}><Pencil className="h-4 w-4" /></Button>
+                                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}><Trash2 className="h-4 w-4" /></Button>
+                                          </div>
+                                      </div>
+                                  )}
                               </div>
                           ))}
                       </div>
                     </div>
 
                     <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
-                      <FormLabel className="font-black text-xs uppercase text-muted-foreground">General Photos</FormLabel>
+                      <FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Site Photos (Area Context)</FormLabel>
                       <div className="flex flex-wrap gap-3">
                           {photos.map((p, i) => (
-                              <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
+                              <div key={i} className="relative w-24 h-24 group">
+                                  <Image src={p.url} alt="Context" fill className="rounded-xl object-cover border-2" />
+                                  <button type="button" className="absolute -top-2 -right-2 bg-destructive text-white h-6 w-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3.5 w-3.5" /></button>
+                              </div>
                           ))}
-                          <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase tracking-tighter">Photo</span></Button>
+                          <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase">Capture</span></Button>
                       </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t sticky bottom-0 bg-white/80 backdrop-blur-sm pb-2">
+                        <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="w-full sm:w-auto h-12 gap-2" 
+                            disabled={isPending} 
+                            onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}), () => scrollToFirstError())}
+                        >
+                            <Save className="h-4 w-4" /> Save as Draft
+                        </Button>
+                        <Button 
+                            type="button" 
+                            variant="outline" 
+                            className="w-full sm:flex-1 h-12 font-bold gap-2" 
+                            disabled={isPending} 
+                            onClick={form.handleSubmit(v => onSubmit(v, false), () => scrollToFirstError())}
+                        >
+                            <CheckCircle2 className="h-4 w-4" /> Save Changes
+                        </Button>
+                        <Button 
+                            type="button" 
+                            className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
+                            disabled={isPending} 
+                            onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, true), () => scrollToFirstError())}
+                        >
+                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Save & Send Reports
+                        </Button>
                     </div>
                   </form>
               </Form>
             </div>
           </ScrollArea>
-          
-          <DialogFooter className="p-6 border-t bg-white">
-            <Button type="button" className="w-full h-12 font-bold" onClick={() => setOpen(false)}>Done & Finish Editing</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -258,14 +441,14 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
         isOpen={isCameraOpen} 
         onClose={() => setIsCameraOpen(false)} 
         onCapture={onCaptureGeneral}
-        title="Snag List Evidence"
+        title="Area Documentation"
       />
 
       <CameraOverlay 
         isOpen={itemPhotoTargetId !== null} 
         onClose={() => setItemPhotoTargetId(null)} 
         onCapture={onCaptureItem}
-        title="Specific Defect Photo"
+        title="Defect Documentation"
       />
     </>
   );

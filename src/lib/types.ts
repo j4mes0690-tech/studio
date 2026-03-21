@@ -118,8 +118,11 @@ export type SnaggingListItem = {
   closedAt?: string;
 };
 
+export type SnaggingItemStatus = 'draft' | 'issued';
+
 export type SnaggingItem = {
   id: string;
+  reference: string;
   projectId: string;
   areaId?: string;
   title: string;
@@ -127,6 +130,7 @@ export type SnaggingItem = {
   createdAt: string;
   photos?: Photo[];
   items: SnaggingListItem[];
+  status?: SnaggingItemStatus;
 };
 
 export type SnaggingHistoryRecord = {

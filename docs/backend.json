@@ -275,6 +275,33 @@
         "createdByEmail": { "type": "string" }
       },
       "required": ["id", "projectId", "date"]
+    },
+    "SnaggingItem": {
+      "title": "Snagging Item",
+      "description": "A list of completion defects for a project area.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "areaId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["draft", "issued"] },
+        "photos": { "type": "array", "items": { "$ref": "#/backend/entities/Photo" } },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "description": { "type": "string" },
+              "status": { "type": "string", "enum": ["open", "provisionally-complete", "closed"] },
+              "subContractorId": { "type": "string" }
+            }
+          }
+        }
+      }
     }
   },
   "auth": {
@@ -289,6 +316,7 @@
     "/system-settings/{id}": { "schema": { "$ref": "#/backend/entities/SystemSettings" }, "description": "Global app configurations." },
     "/holiday-requests/{id}": { "schema": { "$ref": "#/backend/entities/HolidayRequest" }, "description": "Staff leave and holiday requests." },
     "/site-diary/{id}": { "schema": { "$ref": "#/backend/entities/SiteDiaryEntry" }, "description": "Daily site logs and labour records." },
-    "/drawings/{id}": { "schema": { "$ref": "#/backend/entities/DrawingDocument" }, "description": "Project drawings and technical document register." }
+    "/drawings/{id}": { "schema": { "$ref": "#/backend/entities/DrawingDocument" }, "description": "Project drawings and technical document register." },
+    "/snagging-items/{id}": { "schema": { "$ref": "#/backend/entities/SnaggingItem" }, "description": "Area snagging and defect management lists." }
   }
 }

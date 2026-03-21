@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -16,8 +17,8 @@ import { PdfReportButton } from './pdf-report-button';
 import { DistributeReportsButton } from './distribute-reports-button';
 import { useTransition } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, deleteDoc, collection } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
+import { doc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import {
@@ -36,8 +37,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Trash2, CheckCircle2, MapPin, ArrowUpDown, ArrowUp, ArrowDown, History, Loader2, Building2, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRouter } from 'next/navigation';
+import { EditSnaggingItem } from './edit-snagging-item';
 
-type SortKey = 'project' | 'area' | 'title' | 'date' | 'progress';
+type SortKey = 'project' | 'area' | 'title' | 'date' | 'progress' | 'status';
 type SortOrder = 'asc' | 'desc';
 
 type TableProps = {
@@ -79,6 +81,10 @@ export function SnaggingTable({ items, projects, subContractors, allUsers }: Tab
         case 'title':
           valA = a.title;
           valB = b.title;
+          break;
+        case 'status':
+          valA = a.status || 'issued';
+          valB = b.status || 'issued';
           break;
         case 'date':
           valA = new Date(a.createdAt).getTime();
@@ -131,6 +137,12 @@ export function SnaggingTable({ items, projects, subContractors, allUsers }: Tab
               <div className="flex items-center">Identifier <SortIcon column="title" /></div>
             </TableHead>
             <TableHead 
+              className="w-[100px] cursor-pointer hover:text-foreground transition-colors"
+              onClick={() => handleSort('status')}
+            >
+              <div className="flex items-center">Status <SortIcon column="status" /></div>
+            </TableHead>
+            <TableHead 
               className="hidden md:table-cell w-[120px] cursor-pointer hover:text-foreground transition-colors"
               onClick={() => handleSort('date')}
             >
@@ -140,7 +152,7 @@ export function SnaggingTable({ items, projects, subContractors, allUsers }: Tab
               className="w-[80px] md:w-[100px] cursor-pointer hover:text-foreground transition-colors text-right pr-4 md:pr-6"
               onClick={() => handleSort('progress')}
             >
-              <div className="flex items-center justify-end">Progress <SortIcon column="progress" /></div>
+              <div className="flex items-center justify-end">Ready <SortIcon column="progress" /></div>
             </TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
@@ -172,6 +184,7 @@ function SnagRow({ item, projects, subContractors, allUsers }: { item: SnaggingI
   const totalItems = item.items?.length || 0;
   const closedItems = item.items?.filter(i => i.status === 'closed').length || 0;
   const isComplete = totalItems > 0 && totalItems === closedItems;
+  const isDraft = item.status === 'draft';
 
   const handleClick = () => {
     if (item.isProjectAggregation) {
@@ -201,7 +214,11 @@ function SnagRow({ item, projects, subContractors, allUsers }: { item: SnaggingI
 
   return (
     <TableRow 
-      className={cn("group cursor-pointer hover:bg-muted/30", item.isProjectAggregation && "bg-primary/[0.03]")}
+      className={cn(
+        "group cursor-pointer hover:bg-muted/30", 
+        item.isProjectAggregation && "bg-primary/[0.03]",
+        isDraft && "bg-orange-50/20"
+      )}
       onClick={handleClick}
     >
       <TableCell className="hidden md:table-cell font-medium text-xs">
@@ -235,6 +252,13 @@ function SnagRow({ item, projects, subContractors, allUsers }: { item: SnaggingI
             {item.isProjectAggregation && <ChevronRight className="h-3 w-3 text-muted-foreground ml-auto opacity-0 group-hover:opacity-100 transition-all" />}
         </div>
       </TableCell>
+      <TableCell>
+        {isDraft ? (
+            <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[9px] font-black tracking-tight">DRAFT</Badge>
+        ) : (
+            <Badge variant="outline" className="text-[9px] font-black tracking-tight border-green-200 text-green-700 bg-green-50">ISSUED</Badge>
+        )}
+      </TableCell>
       <TableCell className="hidden md:table-cell">
         <span className="text-[10px] md:text-xs text-muted-foreground whitespace-nowrap">
             <ClientDate date={item.createdAt} format="date" />
@@ -253,32 +277,37 @@ function SnagRow({ item, projects, subContractors, allUsers }: { item: SnaggingI
           </div>
           
           {!item.isProjectAggregation && (
-            <AlertDialog>
-                <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 hover:bg-destructive/10">
-                        <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </AlertDialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent><p>Delete Entire List</p></TooltipContent>
-                </Tooltip>
-                </TooltipProvider>
-                <AlertDialogContent onClick={e => e.stopPropagation()}>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Snagging List?</AlertDialogTitle>
-                    <AlertDialogDescription>This will permanently remove the list "{item.title}" and all its recorded defects. This action cannot be undone.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
-                    Delete
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <>
+                <div onClick={e => e.stopPropagation()}>
+                    <EditSnaggingItem item={item} projects={projects} subContractors={subContractors} />
+                </div>
+                <AlertDialog>
+                    <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 hover:bg-destructive/10">
+                            <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        </TooltipTrigger>
+                        <TooltipContent><p>Delete Entire List</p></TooltipContent>
+                    </Tooltip>
+                    </TooltipProvider>
+                    <AlertDialogContent onClick={e => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Snagging List?</AlertDialogTitle>
+                        <AlertDialogDescription>This will permanently remove the list "{item.title}" and all its recorded defects. This action cannot be undone.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                        Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </>
           )}
         </div>
       </TableCell>
