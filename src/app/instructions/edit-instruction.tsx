@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, RefreshCw, Loader2, Send, Save, Users2, FileText, FileIcon } from 'lucide-react';
+import { Pencil, Camera, Upload, X, RefreshCw, Loader2, Send, Save, Users2, FileText, FileIcon, CheckCircle2 } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage } from '@/firebase';
@@ -87,6 +87,7 @@ export function EditInstruction({
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
   const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [submitMode, setSubmitMode] = useState<'draft' | 'save' | 'issue'>('save');
 
   const form = useForm<EditInstructionFormValues>({
     resolver: zodResolver(EditInstructionSchema),
@@ -125,7 +126,10 @@ export function EditInstruction({
   }, [open, item, form, subContractors]);
 
   const onSubmit = (values: EditInstructionFormValues) => {
-    if (values.status === 'issued') {
+    const isIssuing = submitMode === 'issue';
+    const isDrafting = submitMode === 'draft';
+
+    if (isIssuing) {
       let hasError = false;
       if (!values.originalText || values.originalText.trim().length < 10) {
         form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' }, { shouldFocus: true });
@@ -140,10 +144,9 @@ export function EditInstruction({
 
     startTransition(async () => {
       try {
-        const isIssuingNow = values.status === 'issued' && item.status !== 'issued';
         toast({ 
-          title: values.status === 'issued' ? 'Issuing Instruction' : 'Updating Draft', 
-          description: isIssuingNow ? 'Generating PDF and distributing...' : 'Saving changes and media...' 
+          title: isIssuing ? 'Issuing Instruction' : 'Updating Record', 
+          description: isIssuing ? 'Generating PDF and distributing...' : 'Saving changes and media...' 
         });
 
         const uploadedPhotos = await Promise.all(
@@ -171,6 +174,8 @@ export function EditInstruction({
         const internalStaffEmails = selectedProject?.assignedUsers || [];
         const combinedRecipients = [values.externalRecipient, ...internalStaffEmails].filter(Boolean);
 
+        const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : item.status);
+
         const updates: any = {
           projectId: values.projectId,
           originalText: values.originalText || '',
@@ -178,14 +183,14 @@ export function EditInstruction({
           recipients: combinedRecipients,
           photos: uploadedPhotos,
           files: uploadedFiles,
-          status: values.status
+          status: targetStatus
         };
 
         const docRef = doc(db, 'instructions', item.id);
         await updateDoc(docRef, updates);
 
         const sub = subContractors.find(s => s.email === values.externalRecipient);
-        if (values.status === 'issued' && sub) {
+        if (isIssuing && sub) {
           try {
             const updatedInstruction = { ...item, ...updates };
             const pdf = await generateInstructionPDF(updatedInstruction, selectedProject, sub);
@@ -231,8 +236,6 @@ export function EditInstruction({
     });
   };
 
-  const submissionStatus = form.watch('status');
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
@@ -242,7 +245,7 @@ export function EditInstruction({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6 p-6">
             <FormField control={form.control} name="projectId" render={({ field }) => (
-              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
             )} />
             
             <FormField
@@ -305,10 +308,37 @@ export function EditInstruction({
             
             <Separator />
 
-            <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t sticky bottom-0 bg-background">
-              <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}><Save className="mr-2 h-4 w-4" />Save Draft</Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Update & Issue</Button>
-            </DialogFooter>
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t bg-background">
+              <Button 
+                type="submit" 
+                variant="outline" 
+                className="w-full sm:w-auto h-12 gap-2" 
+                disabled={isPending} 
+                onClick={() => setSubmitMode('draft')}
+              >
+                <Save className="h-4 w-4" />
+                Save Draft
+              </Button>
+              <Button 
+                type="submit" 
+                variant="outline" 
+                className="w-full sm:flex-1 h-12 font-bold gap-2" 
+                disabled={isPending} 
+                onClick={() => setSubmitMode('save')}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Save Changes
+              </Button>
+              <Button 
+                type="submit" 
+                className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
+                disabled={isPending} 
+                onClick={() => setSubmitMode('issue')}
+              >
+                {isPending && submitMode === 'issue' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Update & Issue
+              </Button>
+            </div>
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
               const selected = e.target.files; if (!selected) return;
               Array.from(selected).forEach(f => {

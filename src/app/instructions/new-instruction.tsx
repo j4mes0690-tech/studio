@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Users2, Send, Save } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Users2, Send, Save, CheckCircle2 } from 'lucide-react';
 import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage } from '@/firebase';
@@ -53,23 +53,6 @@ const NewInstructionSchema = z.object({
   originalText: z.string().optional().default(''),
   externalRecipient: z.string().optional().default(''),
   status: z.enum(['draft', 'issued']).default('issued'),
-}).superRefine((data, ctx) => {
-  if (data.status === 'issued') {
-    if (!data.originalText || data.originalText.trim().length < 10) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Instructions must be at least 10 characters to formally issue.',
-        path: ['originalText'],
-      });
-    }
-    if (!data.externalRecipient) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'An external partner must be selected to formally issue this instruction.',
-        path: ['externalRecipient'],
-      });
-    }
-  }
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
@@ -89,6 +72,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
+  const [submitMode, setSubmitMode] = useState<'draft' | 'save' | 'issue'>('issue');
 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
@@ -114,9 +98,24 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
   }, [selectedProject, subContractors]);
 
   const onSubmit = (values: NewInstructionFormValues) => {
+    const isIssuing = submitMode === 'issue';
+    const isDrafting = submitMode === 'draft';
+
+    if (isIssuing) {
+      let hasError = false;
+      if (!values.originalText || values.originalText.trim().length < 10) {
+        form.setError('originalText', { message: 'Instructions must be at least 10 characters to formally issue.' }, { shouldFocus: true });
+        hasError = true;
+      }
+      if (!values.externalRecipient) {
+        form.setError('externalRecipient', { message: 'An external partner must be selected to formally issue this instruction.' }, { shouldFocus: true });
+        hasError = true;
+      }
+      if (hasError) return;
+    }
+
     startTransition(async () => {
       try {
-        const isIssuing = values.status === 'issued';
         toast({ 
           title: isIssuing ? 'Issuing Instruction' : 'Saving Draft', 
           description: isIssuing ? 'Uploading documentation and generating PDF...' : 'Saving progress and media...' 
@@ -151,6 +150,8 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         const existingRefs = allInstructions.map(o => ({ reference: o.reference, projectId: o.projectId }));
         const reference = getNextReference(existingRefs, values.projectId, 'SI', initials);
 
+        const targetStatus = isIssuing ? 'issued' : 'draft';
+
         const instructionData = {
           reference,
           projectId: values.projectId,
@@ -161,13 +162,13 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
           files: uploadedFiles,
-          status: values.status
+          status: targetStatus
         };
 
         const newDocRef = await addDoc(collection(db, 'instructions'), instructionData);
 
         const sub = subContractors.find(s => s.email === values.externalRecipient);
-        if (values.status === 'issued' && sub) {
+        if (isIssuing && sub) {
           try {
             const fullInstruction = { ...instructionData, id: newDocRef.id } as Instruction;
             const pdf = await generateInstructionPDF(fullInstruction, selectedProject, sub);
@@ -194,7 +195,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
             toast({ title: 'Issued with Warning', description: 'Instruction saved, but email failed.', variant: 'destructive' });
           }
         } else {
-          toast({ title: 'Success', description: 'Instruction recorded.' });
+          toast({ title: 'Success', description: isDrafting ? 'Draft saved.' : 'Instruction recorded.' });
         }
         setOpen(false);
       } catch (err) {
@@ -216,16 +217,14 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
 
   useEffect(() => { if (!open) { setPhotos([]); setFiles([]); form.reset(); } }, [open, form]);
 
-  const submissionStatus = form.watch('status');
-
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />New Instruction</Button></DialogTrigger>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Record New Site Instruction</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="p-6 pb-0"><DialogTitle>Record New Site Instruction</DialogTitle></DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6 p-6">
               <FormField control={form.control} name="projectId" render={({ field }) => (
                 <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
               )} />
@@ -304,16 +303,27 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               
               <Separator />
 
-              <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-                <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
-                  {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t bg-background">
+                <Button 
+                  type="submit" 
+                  variant="outline" 
+                  className="w-full sm:w-auto h-12 gap-2" 
+                  disabled={isPending} 
+                  onClick={() => setSubmitMode('draft')}
+                >
+                  <Save className="mr-2 h-4 w-4" />
                   Save Draft
                 </Button>
-                <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>
-                  {isPending && submissionStatus === 'issued' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                <Button 
+                  type="submit" 
+                  className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
+                  disabled={isPending} 
+                  onClick={() => setSubmitMode('issue')}
+                >
+                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                   Save & Issue Instruction
                 </Button>
-              </DialogFooter>
+              </div>
               <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
             </form>
           </Form>
