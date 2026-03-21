@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, CheckCircle2, Send, Pencil, Check } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, CheckCircle2, Send, Pencil, Check, Circle } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
 import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -86,9 +86,6 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
 
   const usersQuery = useMemoFirebase(() => db ? collection(db, 'users') : null, [db]);
   const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
-
-  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
-  const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   const form = useForm<NewSnaggingListFormValues>({
     resolver: zodResolver(SnaggingListSchema),
@@ -156,6 +153,10 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
 
   const handleRemoveItem = (idx: number) => {
     setItems(items.filter((_, i) => i !== idx));
+  };
+
+  const handleToggleStatus = (idx: number) => {
+    setItems(items.map((it, i) => i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as any } : it));
   };
 
   const onCaptureGeneral = (photo: Photo) => {
@@ -374,6 +375,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                                       <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                                   </Select>
                                                   <div className="flex gap-1">
+                                                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>
                                                       <Button type="button" variant="ghost" size="sm" onClick={() => setEditingItemIdx(null)}>Cancel</Button>
                                                       <Button type="button" size="sm" onClick={() => handleSaveEditItem(idx)}><Check className="h-4 w-4 mr-1.5" /> Done</Button>
                                                   </div>
@@ -389,6 +391,9 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                                   </div>
                                               </div>
                                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                  <button type="button" onClick={() => handleToggleStatus(idx)} className="mt-1 flex-shrink-0 transition-transform active:scale-90">
+                                                      {item.status === 'closed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+                                                  </button>
                                                   <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleStartEditItem(idx)}><Pencil className="h-4 w-4" /></Button>
                                                   <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}><Trash2 className="h-4 w-4" /></Button>
                                               </div>

@@ -17,7 +17,7 @@ import { doc, updateDoc, collection, addDoc, query, orderBy, arrayUnion } from '
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord } from '@/lib/types';
-import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, Loader2, Save, RefreshCw, History, Eye, FileSearch, Check } from 'lucide-react';
+import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, Loader2, Save, RefreshCw, History, Eye, FileSearch, Check, Link as LinkIcon } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
@@ -74,7 +74,9 @@ function EditSnaggingContent() {
   // Local UI State
   const [newItemText, setNewItemText] = useState('');
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
+  const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isItemCameraOpen, setIsItemCameraOpen] = useState(false);
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
   const [viewingHistoryRecord, setViewingHistoryRecord] = useState<SnaggingHistoryRecord | null>(null);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
@@ -139,6 +141,8 @@ function EditSnaggingContent() {
         await updateDoc(snagRef, { items: newItems });
       });
       setItemPhotoTargetId(null);
+    } else {
+      setPendingItemPhotos(prev => [...prev, photo]);
     }
   };
 
@@ -148,21 +152,38 @@ function EditSnaggingContent() {
   };
 
   const handleAddItem = () => {
-    if (!newItemText.trim() || !snagRef) return;
+    if (!newItemText.trim() && pendingItemPhotos.length === 0) return;
+    if (!snagRef) return;
+
     startTransition(async () => {
-        const newItem: SnaggingListItem = {
-            id: `item-${Date.now()}`,
-            description: newItemText.trim(),
-            status: 'open',
-            photos: [],
-            subContractorId: pendingSubId || null,
-            completionPhotos: []
-        };
-        const newItemsList = [...items, newItem];
-        setItems(newItemsList);
-        await updateDoc(snagRef, { items: newItemsList });
-        setNewItemText('');
-        setPendingSubId(undefined);
+        try {
+            // Upload pending photos
+            const uploadedPhotos = await Promise.all(
+                pendingItemPhotos.map(async (p, i) => {
+                    const blob = await dataUriToBlob(p.url);
+                    const url = await uploadFile(storage, `snagging/items/${Date.now()}-${i}.jpg`, blob);
+                    return { ...p, url };
+                })
+            );
+
+            const newItem: SnaggingListItem = {
+                id: `item-${Date.now()}`,
+                description: newItemText.trim() || 'No description',
+                status: 'open',
+                photos: uploadedPhotos,
+                subContractorId: pendingSubId || null,
+                completionPhotos: []
+            };
+            const newItemsList = [...items, newItem];
+            setItems(newItemsList);
+            await updateDoc(snagRef, { items: newItemsList });
+            setNewItemText('');
+            setPendingSubId(undefined);
+            setPendingItemPhotos([]);
+            toast({ title: 'Item Added', description: 'Saved to snagging list.' });
+        } catch (err) {
+            toast({ title: 'Error', description: 'Failed to add item.', variant: 'destructive' });
+        }
     });
   };
 
@@ -283,9 +304,21 @@ function EditSnaggingContent() {
                         {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
-                    <Button type="button" onClick={handleAddItem} size="icon"><Plus className="h-4 w-4" /></Button>
+                    <Button type="button" variant="ghost" className="h-10" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
+                    <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim() && pendingItemPhotos.length === 0} size="icon"><Plus className="h-4 w-4" /></Button>
                     </div>
                 </div>
+
+                {pendingItemPhotos.length > 0 && (
+                    <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed">
+                        {pendingItemPhotos.map((p, idx) => (
+                            <div key={idx} className="relative w-16 h-12">
+                                <Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" />
+                                <button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-2 w-2" /></button>
+                            </div>
+                        ))}
+                    </div>
+                )}
 
                 <div className="space-y-4">
                     {items.map((listItem) => {
@@ -414,8 +447,8 @@ function EditSnaggingContent() {
       />
 
       <CameraOverlay 
-        isOpen={itemPhotoTargetId !== null} 
-        onClose={() => setItemPhotoTargetId(null)} 
+        isOpen={isItemCameraOpen || itemPhotoTargetId !== null} 
+        onClose={() => { setIsItemCameraOpen(false); setItemPhotoTargetId(null); }} 
         onCapture={onCaptureItem}
         title="Defect Documentation"
       />

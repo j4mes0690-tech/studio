@@ -73,6 +73,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   const [items, setItems] = useState<SnaggingListItem[]>(item.items || []);
   const [newItemText, setNewItemText] = useState('');
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
+  const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   
   // Item Editing State
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
@@ -80,6 +81,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   const [editItemSubId, setEditItemSubId] = useState<string | undefined>(undefined);
 
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
+  const [isItemCameraOpen, setIsItemCameraOpen] = useState(false);
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
   const [submitMode, setSubmitMode] = useState<'draft' | 'save' | 'issue'>('save');
 
@@ -122,22 +124,24 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
       setPhotos(item.photos || []);
       setItems(item.items || []);
       setEditingItemIdx(null);
+      setPendingItemPhotos([]);
     }
   }, [open, item, form]);
 
   const handleAddItem = () => {
-    if (!newItemText.trim()) return;
+    if (!newItemText.trim() && pendingItemPhotos.length === 0) return;
     const newItem: SnaggingListItem = {
         id: `item-${Date.now()}`,
-        description: newItemText.trim(),
+        description: newItemText.trim() || 'No description',
         status: 'open',
-        photos: [],
+        photos: [...pendingItemPhotos],
         subContractorId: pendingSubId || null,
         completionPhotos: []
     };
     setItems([...items, newItem]);
     setNewItemText('');
     setPendingSubId(undefined);
+    setPendingItemPhotos([]);
   };
 
   const handleStartEditItem = (idx: number) => {
@@ -157,7 +161,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   };
 
   const handleToggleStatus = (idx: number) => {
-    setItems(items.map((it, i) => i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as any } : it));
+    setItems(items.map((it, i) => i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as any } : i));
   };
 
   const onCaptureGeneral = (photo: Photo) => {
@@ -168,6 +172,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
     if (itemPhotoTargetId) {
       setItems(prev => prev.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), photo] } : itm));
       setItemPhotoTargetId(null);
+    } else {
+      setPendingItemPhotos(prev => [...prev, photo]);
     }
   };
 
@@ -292,7 +298,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                     <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <FormField control={form.control} name="projectId" render={({ field }) => (
-                                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
                             )} />
                             <FormField control={form.control} name="areaId" render={({ field }) => (
                                 <FormItem>
@@ -328,9 +334,21 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                   <SelectTrigger className="w-40 bg-background"><SelectValue placeholder="Assign" /></SelectTrigger>
                                   <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                               </Select>
-                              <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim()} size="icon" className="h-10 w-10"><Plus className="h-4 w-4" /></Button>
+                              <Button type="button" variant="ghost" className="h-10" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
+                              <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim() && pendingItemPhotos.length === 0} size="icon" className="h-10 w-10"><Plus className="h-4 w-4" /></Button>
                           </div>
                       </div>
+
+                      {pendingItemPhotos.length > 0 && (
+                        <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed">
+                          {pendingItemPhotos.map((p, idx) => (
+                            <div key={idx} className="relative w-16 h-12">
+                              <Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" />
+                              <button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-2 w-2" /></button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       <div className="space-y-3">
                           {items.map((listItem, idx) => (
@@ -350,6 +368,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                                   <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                               </Select>
                                               <div className="flex gap-1">
+                                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
                                                   <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => setEditingItemIdx(null)}>Cancel</Button>
                                                   <Button type="button" size="sm" className="h-8 gap-1.5" onClick={() => handleSaveEditItem(idx)}><Check className="h-3.5 w-3.5" /> Done</Button>
                                               </div>
@@ -388,7 +407,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                     </div>
 
                     <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
-                      <FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Site Photos (Area Context)</FormLabel>
+                      <FormLabel className="text-xs font-black uppercase text-muted-foreground tracking-widest">Site Photos (Area Context)</FormLabel>
                       <div className="flex flex-wrap gap-3">
                           {photos.map((p, i) => (
                               <div key={i} className="relative w-24 h-24 group">
@@ -442,8 +461,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
       />
 
       <CameraOverlay 
-        isOpen={itemPhotoTargetId !== null} 
-        onClose={() => setItemPhotoTargetId(null)} 
+        isOpen={isItemCameraOpen || itemPhotoTargetId !== null} 
+        onClose={() => { setIsItemCameraOpen(false); setItemPhotoTargetId(null); }} 
         onCapture={onCaptureItem}
         title="Defect Documentation"
       />
