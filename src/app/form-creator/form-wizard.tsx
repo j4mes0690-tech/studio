@@ -15,7 +15,8 @@ import {
   Layout, 
   Sparkles,
   Save,
-  Tag
+  Tag,
+  X
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -81,9 +82,24 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         if (result.topic) setTopic(result.topic);
         if (result.content) setContent(result.content);
         
-        if (result.sections) setSections(result.sections);
-        if (result.items) setChecklistItems(result.items.map((it: any, i: number) => ({ id: `it-${Date.now()}-${i}`, text: it.text })));
-        if (result.verificationItems) setChecklistItems(result.verificationItems.map((it: any, i: number) => ({ id: `v-${Date.now()}-${i}`, text: it.text })));
+        if (result.sections) {
+            setSections(result.sections.map((s: any, i: number) => ({
+                id: `sec-${Date.now()}-${i}`,
+                title: s.title,
+                fields: s.fields.map((f: any, fi: number) => ({
+                    id: `f-${Date.now()}-${i}-${fi}`,
+                    label: f.label,
+                    type: f.type
+                }))
+            })));
+        }
+
+        if (result.items) {
+            setChecklistItems(result.items.map((it: any, i: number) => ({ 
+                id: `it-${Date.now()}-${i}`, 
+                text: it.text 
+            })));
+        }
         
         toast({ title: "AI Draft Ready", description: "The template structure has been generated. You can now refine it." });
         setStep('structure');
@@ -378,7 +394,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                 <ScrollArea className="h-40 p-4 rounded-lg bg-muted/20 border border-dashed">
                   {type === 'toolbox' && <div className="text-xs leading-relaxed whitespace-pre-wrap">{content}</div>}
                   {type === 'qc' && checklistItems.map((i, idx) => <div key={idx} className="text-xs py-1 border-b last:border-0">• {i.text}</div>)}
-                  {type === 'permit' && sections.map((s, idx) => <div key={idx} className="text-xs py-1 font-bold text-primary uppercase tracking-tighter">&rsaquo; {s.title} (${s.fields.length} fields)</div>)}
+                  {type === 'permit' && sections.map((s, idx) => <div key={idx} className="text-xs py-1 font-bold text-primary uppercase tracking-tighter">&rsaquo; {s.title} ({s.fields.length} fields)</div>)}
                 </ScrollArea>
               </div>
             </CardContent>

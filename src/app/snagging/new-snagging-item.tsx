@@ -14,7 +14,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -82,7 +81,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
   const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); 
   const [itemPhotoTargetIdx, setItemPhotoTargetIdx] = useState<number | null>(null);
-  const [submitMode, setSubmitMode] = useState<'draft' | 'save' | 'issue'>('issue');
+  const [submitMode, setSubmitMode] = useState<'draft' | 'save' | 'issue'>('save');
 
   const usersQuery = useMemoFirebase(() => db ? collection(db, 'users') : null, [db]);
   const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
