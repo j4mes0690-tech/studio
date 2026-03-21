@@ -17,7 +17,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Camera, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2, Pencil } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
   Carousel,
@@ -172,7 +172,7 @@ export function InstructionCard({
                 </span>
                 {instruction.clientInstructionId && (
                     <Link href={`/client-instructions/${instruction.clientInstructionId}`}>
-                        <Badge variant="secondary" className="text-[9px] gap-1 h-4 px-1.5 font-normal hover:bg-secondary/80 transition-colors">
+                        <Badge variant="secondary" className="text-[9px] gap-1 h-4 px-1.5 font-normal hover:bg-secondary/80 transition-colors cursor-pointer">
                             <LinkIcon className="h-2 w-2" /> Linked to Client Directive
                         </Badge>
                     </Link>
@@ -215,6 +215,17 @@ export function InstructionCard({
                 subContractors={subContractors} 
               />
 
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="text-primary h-8 w-8" onClick={() => setIsEditDialogOpen(true)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent><p>Edit Instruction</p></TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+
               <EditInstruction 
                 item={instruction} 
                 projects={projects} 
@@ -226,7 +237,7 @@ export function InstructionCard({
 
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive">
+                  <Button variant="ghost" size="icon" className="text-destructive h-8 w-8">
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only">Delete Instruction</span>
                   </Button>

@@ -34,7 +34,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Trash2, FileText, Camera, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2 } from 'lucide-react';
+import { Trash2, FileText, Camera, ArrowUpDown, ArrowUp, ArrowDown, CheckCircle2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SortKey = 'reference' | 'project' | 'summary' | 'recipient' | 'date';
@@ -261,7 +261,7 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-orange-600" onClick={handleIssue} disabled={isPending}>
+                  <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleIssue} disabled={isPending}>
                     <CheckCircle2 className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -282,6 +282,17 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
             subContractors={subContractors} 
           />
 
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-primary h-8 w-8" onClick={() => setIsEditDialogOpen(true)}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Edit Instruction</p></TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           <EditInstruction 
             item={item} 
             projects={projects} 
@@ -296,8 +307,8 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </AlertDialogTrigger>
                 </TooltipTrigger>

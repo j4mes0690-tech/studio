@@ -66,8 +66,8 @@ function ClientInstructionDetailContent() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center">
-        <Button variant="ghost" onClick={() => router.push('/client-instructions')} className="gap-2">
-          <ChevronLeft className="h-4 w-4" /> Back to Log
+        <Button variant="ghost" onClick={() => router.back()} className="gap-2">
+          <ChevronLeft className="h-4 w-4" /> Back
         </Button>
       </div>
       <ClientInstructionCard 
