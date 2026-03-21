@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -176,37 +177,6 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
     });
   };
 
-  const handleIssue = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    const hasText = item.originalText && item.originalText.trim().length >= 10;
-    const hasRecipient = !!instructedParty;
-
-    if (!hasText || !hasRecipient) {
-      toast({ 
-        title: "Requirements Not Met", 
-        description: "Please complete the directive details and assign a trade partner before issuing.", 
-        variant: "destructive" 
-      });
-      setIsEditDialogOpen(true);
-      return;
-    }
-
-    startTransition(async () => {
-      const docRef = doc(db, 'instructions', item.id);
-      updateDoc(docRef, { status: 'issued' })
-        .then(() => toast({ title: 'Success', description: 'Instruction issued.' }))
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'update',
-            requestResourceData: { status: 'issued' }
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
-    });
-  };
-
   return (
     <TableRow 
       href={`/instructions/${item.id}`}
@@ -257,19 +227,6 @@ function InstructionRow({ item, projects, distributionUsers, subContractors }: {
       </TableCell>
       <TableCell className="text-right">
         <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-          {isDraft && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-orange-600 h-8 w-8" onClick={handleIssue} disabled={isPending}>
-                    <CheckCircle2 className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Issue Instruction</p></TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-          
           <DownloadInstructionButton 
             instruction={item}
             project={project}

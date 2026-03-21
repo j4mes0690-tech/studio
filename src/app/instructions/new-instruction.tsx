@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -180,7 +181,8 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
             ];
 
             await sendSiteInstructionEmailAction({ 
-              emails: combinedRecipients, 
+              to: [values.externalRecipient],
+              cc: internalStaffEmails,
               projectName: selectedProject?.name || 'Project', 
               reference, 
               pdfBase64, 
@@ -258,7 +260,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                       </SelectContent>
                     </Select>
                     <FormDescription className="text-[10px]">
-                      The selected partner and all project staff will be notified automatically upon issuance.
+                      The selected partner will be the primary recipient. All other project staff will be CC'd automatically.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

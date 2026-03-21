@@ -11,17 +11,19 @@ export type EmailAttachment = {
 
 /**
  * sendSiteInstructionEmailAction - Uses the Resend API to send a Site Instruction PDF to recipients.
- * Supports multiple recipients and multiple attachments for photos and documents.
+ * Supports a primary recipient (To) and multiple CCs for project staff.
  */
 export async function sendSiteInstructionEmailAction({
-  emails,
+  to,
+  cc = [],
   projectName,
   reference,
   pdfBase64,
   fileName,
   additionalAttachments = []
 }: {
-  emails: string[];
+  to: string[];
+  cc?: string[];
   projectName: string;
   reference: string;
   pdfBase64: string;
@@ -59,7 +61,8 @@ export async function sendSiteInstructionEmailAction({
   try {
     const { data, error } = await resend.emails.send({
       from: 'notifications@site-command.com',
-      to: emails,
+      to,
+      cc,
       subject: `Site Instruction Issued: ${reference} - ${projectName}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #334155; line-height: 1.6;">
@@ -82,7 +85,7 @@ export async function sendSiteInstructionEmailAction({
             <p>The relevant parties are required to review the specific requirements and ensure immediate compliance on-site.</p>
             
             <p style="font-size: 12px; color: #64748b; margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-              This is an automated distribution via <strong>SiteCommand</strong> to all assigned project personnel.
+              This is an automated distribution via <strong>SiteCommand</strong>.
             </p>
           </div>
         </div>
@@ -95,7 +98,7 @@ export async function sendSiteInstructionEmailAction({
       return { success: false, message: error.message };
     }
 
-    return { success: true, message: `Instruction distributed to ${emails.length} project personnel.` };
+    return { success: true, message: `Instruction distributed to ${to.length + cc.length} recipients.` };
   } catch (err: any) {
     console.error('Server Side Email Error:', err);
     return { success: false, message: err.message || 'An unexpected server error occurred.' };

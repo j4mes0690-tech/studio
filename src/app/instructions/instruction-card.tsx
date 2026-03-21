@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -101,35 +102,6 @@ export function InstructionCard({
     return subContractors.find(s => instruction.recipients?.includes(s.email));
   }, [subContractors, instruction.recipients]);
 
-  const handleIssue = () => {
-    const hasText = instruction.originalText && instruction.originalText.trim().length >= 10;
-    const hasRecipient = !!instructedParty;
-
-    if (!hasText || !hasRecipient) {
-      toast({ 
-        title: "Requirements Not Met", 
-        description: "A description (min 10 chars) and an assigned trade partner are required to formally issue this instruction.", 
-        variant: "destructive" 
-      });
-      setIsEditDialogOpen(true);
-      return;
-    }
-
-    startTransition(async () => {
-      const docRef = doc(db, 'instructions', instruction.id);
-      updateDoc(docRef, { status: 'issued' })
-        .then(() => toast({ title: 'Success', description: 'Site Instruction has been formally issued.' }))
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'update',
-            requestResourceData: { status: 'issued' }
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
-    });
-  };
-
   const isIssued = instruction.status === 'issued' && !!instruction.distributedAt;
   const isDraft = !isIssued;
 
@@ -190,19 +162,6 @@ export function InstructionCard({
               )}
             </div>
             <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              {isDraft && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-8 gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50 font-bold"
-                  onClick={handleIssue}
-                  disabled={isPending}
-                >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Issue Instruction
-                </Button>
-              )}
-              
               <DownloadInstructionButton 
                 instruction={instruction}
                 project={project}

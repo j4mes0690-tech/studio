@@ -20,7 +20,7 @@ import { generateInstructionPDF } from '@/lib/pdf-utils';
 
 /**
  * DistributeInstructionButton - Generates a high-resolution PDF of the site instruction
- * and sends it to all recipients (partners and staff) via the Resend server action.
+ * and sends it to the primary sub (To) and project staff (CC) via Resend.
  */
 export function DistributeInstructionButton({
   instruction,
@@ -72,9 +72,15 @@ export function DistributeInstructionButton({
         }))
       ];
 
-      // 4. Send via Resend to the full list
+      // 4. Split recipients: Primary sub goes To, others go CC
+      const recipients = instruction.recipients || [];
+      const to = recipients.length > 0 ? [recipients[0]] : [];
+      const cc = recipients.slice(1);
+
+      // 5. Send via Resend
       const result = await sendSiteInstructionEmailAction({
-        emails: instruction.recipients || [],
+        to,
+        cc,
         projectName: project?.name || 'Project',
         reference: instruction.reference,
         pdfBase64,
@@ -84,7 +90,7 @@ export function DistributeInstructionButton({
 
       if (result.success) {
         const docRef = doc(db, 'instructions', instruction.id);
-        await updateDoc(docRef, { distributedAt: new Date().toISOString() });
+        await updateDoc(docRef, { distributedAt: new Date().toISOString(), status: 'issued' });
         toast({ title: "Distribution Complete", description: `Instruction emailed to ${recipientCount} recipients.` });
       } else {
         toast({ title: "Email Error", description: result.message, variant: "destructive" });

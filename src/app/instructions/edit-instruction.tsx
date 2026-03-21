@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -202,7 +203,8 @@ export function EditInstruction({
             ];
 
             await sendSiteInstructionEmailAction({ 
-              emails: combinedRecipients, 
+              to: [values.externalRecipient],
+              cc: internalStaffEmails,
               projectName: selectedProject?.name || 'Project', 
               reference: item.reference, 
               pdfBase64, 
@@ -277,7 +279,7 @@ export function EditInstruction({
                     </SelectContent>
                   </Select>
                   <FormDescription className="text-[10px]">
-                    Project staff will be notified automatically alongside the selected partner.
+                    The selected partner will be the primary recipient. All other project staff will be CC'd automatically.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
