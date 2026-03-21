@@ -139,21 +139,21 @@ export function InstructionCard({
         "border-l-4 transition-all", 
         isDraft ? "border-orange-200 border-l-orange-400 bg-orange-50/10" : "border-l-green-500"
       )}>
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div className="space-y-1 flex-1">
+        <CardHeader className="p-4 md:p-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="space-y-1 flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <Link href={`/instructions/${instruction.id}`} className="group flex items-center gap-2">
-                  <CardTitle className="text-lg group-hover:text-primary transition-colors">{project?.name || 'Unknown Project'}</CardTitle>
-                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Link href={`/instructions/${instruction.id}`} className="group flex items-center gap-2 min-w-0">
+                  <CardTitle className="text-lg group-hover:text-primary transition-colors truncate">{project?.name || 'Unknown Project'}</CardTitle>
+                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                 </Link>
-                <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
+                <Badge variant="outline" className="font-mono text-[10px] bg-background shrink-0">{instruction.reference}</Badge>
                 
                 {isIssued ? (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 cursor-help text-[10px] uppercase font-bold tracking-tight">
+                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 cursor-help text-[10px] uppercase font-bold tracking-tight shrink-0">
                           ISSUED
                         </Badge>
                       </TooltipTrigger>
@@ -163,7 +163,7 @@ export function InstructionCard({
                     </Tooltip>
                   </TooltipProvider>
                 ) : (
-                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px] uppercase font-bold tracking-tight">DRAFT</Badge>
+                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px] uppercase font-bold tracking-tight shrink-0">DRAFT</Badge>
                 )}
               </div>
               <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
@@ -181,20 +181,20 @@ export function InstructionCard({
               
               {instructedParty && (
                 <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Instructed:</span>
-                  <Badge variant="default" className="gap-1.5 h-5 px-2 text-[10px] bg-primary/10 text-primary border-primary/20">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest shrink-0">Instructed:</span>
+                  <Badge variant="default" className="gap-1.5 h-5 px-2 text-[10px] bg-primary/10 text-primary border-primary/20 truncate">
                     {instructedParty.isDesigner ? <Ruler className="h-2.5 w-2.5" /> : <HardHat className="h-2.5 w-2.5" />}
                     {instructedParty.name}
                   </Badge>
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
               {isDraft && (
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="h-8 gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50"
+                  className="h-8 gap-1.5 text-orange-600 border-orange-200 hover:bg-orange-50 font-bold"
                   onClick={handleIssue}
                   disabled={isPending}
                 >

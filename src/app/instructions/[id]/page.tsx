@@ -60,7 +60,7 @@ function InstructionDetailContent() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <div className="flex items-center">
         <Button variant="ghost" onClick={() => router.push('/instructions')} className="gap-2">
           <ChevronLeft className="h-4 w-4" /> Back to Log
