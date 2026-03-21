@@ -821,6 +821,7 @@ export async function generateInstructionPDF(
 ) {
   const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
+  const branding = await getSystemBranding();
 
   const reportElement = document.createElement('div');
   reportElement.style.position = 'absolute';
@@ -832,26 +833,39 @@ export async function generateInstructionPDF(
   reportElement.style.fontFamily = 'sans-serif';
 
   reportElement.innerHTML = `
-    <div style="border-bottom: 3px solid #f97316; padding-bottom: 20px; margin-bottom: 30px;">
-      <h1 style="margin: 0; color: #1e40af; font-size: 32px;">Site Instruction</h1>
-      <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Reference: ${instruction.reference}</p>
+    <div style="border-bottom: 3px solid #f97316; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <h1 style="margin: 0; color: #1e40af; font-size: 32px;">Site Instruction</h1>
+        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px; font-weight: bold;">Reference: ${instruction.reference}</p>
+      </div>
+      <div style="text-align: right; max-width: 300px;">
+        ${branding.logoUri ? `<img src="${branding.logoUri}" style="max-height: 60px; max-width: 200px; margin-bottom: 10px;" />` : ''}
+        ${branding.address ? `<p style="margin: 0; font-size: 10px; color: #475569; line-height: 1.4; white-space: pre-wrap;">${branding.address}</p>` : '<p style="margin: 0; font-size: 12px; color: #64748b; text-transform: uppercase;">Generated via SiteCommand</p>'}
+      </div>
     </div>
 
     <div style="margin-bottom: 40px;">
       <table style="width: 100%; border-collapse: collapse;">
         <tr>
           <td style="width: 50%; vertical-align: top; padding-right: 20px;">
-            <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; height: 120px;">
-              <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Project Location</p>
+            <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; min-height: 140px; height: auto;">
+              <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Project Location & Site Authority</p>
               <p style="margin: 0; font-size: 16px; font-weight: bold; color: #1e293b;">${project?.name || 'Unknown'}</p>
-              <p style="margin: 8px 0 0 0; font-size: 12px; color: #475569; line-height: 1.4;">${project?.address || 'No address provided'}</p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; line-height: 1.4; white-space: pre-wrap;">${project?.address || 'No address provided'}</p>
+              ${project?.siteManager ? `
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                  <p style="margin: 0; font-size: 11px;"><strong>Site Manager:</strong> ${project.siteManager}</p>
+                  ${project.siteManagerPhone ? `<p style="margin: 2px 0 0 0; font-size: 11px;"><strong>Contact:</strong> ${project.siteManagerPhone}</p>` : ''}
+                </div>
+              ` : ''}
             </div>
           </td>
           <td style="width: 50%; vertical-align: top;">
-            <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; height: 120px;">
+            <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; min-height: 140px; height: auto;">
               <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px; margin-bottom: 5px;">Issued To</p>
               <p style="margin: 0; font-size: 16px; font-weight: bold;">${recipient?.name || 'Assigned Partner'}</p>
               <p style="margin: 4px 0 0 0; font-size: 12px; color: #475569;">${recipient?.email || ''}</p>
+              ${recipient?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${recipient.address}</p>` : ''}
               <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0;">
                 <p style="margin: 0; font-size: 11px;"><strong>Date Issued:</strong> ${new Date(instruction.createdAt).toLocaleDateString()}</p>
               </div>
