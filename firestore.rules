@@ -45,5 +45,6 @@ service cloud.firestore {
     match /holiday-requests/{id} { allow read, write: if isSignedIn(); }
     match /site-diary/{id} { allow read, write: if isSignedIn(); }
     match /drawings/{id} { allow read, write: if isSignedIn(); }
+    match /toolbox-talk-templates/{id} { allow read, write: if isSignedIn(); }
   }
 }

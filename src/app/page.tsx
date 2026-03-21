@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -37,7 +38,8 @@ import {
   BookOpen,
   FolderOpen,
   LayoutList,
-  Layers
+  Layers,
+  Wand2
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
@@ -57,6 +59,7 @@ import {
 import { Logo } from '@/components/logo';
 
 const DASHBOARD_CARDS = [
+  { id: 'form-creator', href: '/form-creator', label: 'Form Creator', icon: Wand2, desc: 'AI-assisted template wizard for safety and quality forms.', permission: 'hasFullVisibility' },
   { id: 'insights', href: '/insights', label: 'Project Insights', icon: BarChart3, desc: 'Project performance, procurement tracking, and RFI analytics.', permission: 'hasFullVisibility' },
   { id: 'documents', href: '/documents', label: 'Drawing Register', icon: FolderOpen, desc: 'Manage project drawings with authorised SharePoint backups.', permission: 'accessDocuments' },
   { id: 'site-diary', href: '/site-diary', label: 'Site Diary', icon: BookOpen, desc: 'Daily records of weather, labour resources, and site activities.', permission: 'accessSiteDiary' },

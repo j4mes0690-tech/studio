@@ -134,173 +134,28 @@
         "companyAddress": { "type": "string" }
       }
     },
-    "PlannerTask": {
-      "title": "Planner Task",
-      "description": "A specific work item in the short term construction schedule.",
+    "ToolboxTalkTemplate": {
+      "title": "Toolbox Talk Template",
+      "description": "A template for site educational safety briefings.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "projectId": { "type": "string" },
-        "plannerId": { "type": "string" },
         "title": { "type": "string" },
-        "subcontractorId": { "type": "string" },
-        "startDate": { "type": "string", "format": "date" },
-        "durationDays": { "type": "number" },
-        "originalStartDate": { "type": "string", "format": "date" },
-        "originalDurationDays": { "type": "number" },
-        "actualCompletionDate": { "type": "string", "format": "date" },
-        "predecessorIds": { "type": "array", "items": { "type": "string" } },
-        "status": { "type": "string", "enum": ["pending", "in-progress", "completed"] },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "ProcurementItem": {
-      "title": "Procurement Item",
-      "description": "Represents an entry in the procurement schedule for a project trade.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "reference": { "type": "string" },
-        "projectId": { "type": "string" },
+        "topic": { "type": "string" },
+        "content": { "type": "string" },
         "trade": { "type": "string" },
-        "subcontractorId": { "type": "string" },
-        "subcontractorName": { "type": "string" },
-        "warrantyRequired": { "type": "boolean" },
-        "targetEnquiryDate": { "type": "string", "format": "date" },
-        "tenderPeriodWeeks": { "type": "number" },
-        "actualEnquiryDate": { "type": "string", "format": "date" },
-        "tenderReturnDate": { "type": "string", "format": "date" },
-        "latestDateForOrder": { "type": "string", "format": "date" },
-        "leadInPeriodWeeks": { "type": "number" },
-        "startOnSiteDate": { "type": "string", "format": "date" },
-        "preContractMeetingDate": { "type": "string", "format": "date" },
-        "orderPlacedDate": { "type": "string", "format": "date" },
-        "comments": { "type": "string" },
-        "status": { "type": "string", "enum": ["planned", "enquiry", "tender-returned", "ordered", "on-site"] },
-        "createdAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "IRSItem": {
-      "title": "IRS Item",
-      "description": "Information Required Schedule item tracking design deliverables.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "reference": { "type": "string" },
-        "projectId": { "type": "string" },
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "assignedToEmail": { "type": "string" },
-        "requiredByDate": { "type": "string", "format": "date" },
-        "notificationLeadDays": { "type": "number" },
-        "status": { "type": "string", "enum": ["open", "provided", "overdue", "escalated"] },
-        "escalatedRfiId": { "type": "string" },
-        "providedDate": { "type": "string", "format": "date" },
-        "providedDescription": { "type": "string" },
-        "messages": { "type": "array", "items": { "$ref": "#/backend/entities/ChatMessage" } },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "createdByEmail": { "type": "string" },
-        "dismissedBy": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "Project": {
-      "title": "Project",
-      "description": "Represents a construction project.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "address": { "type": "string" },
-        "siteManager": { "type": "string" },
-        "siteManagerPhone": { "type": "string" },
-        "planners": {
+        "verificationItems": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
               "id": { "type": "string" },
-              "name": { "type": "string" }
+              "text": { "type": "string" }
             }
           }
         },
-        "areas": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "string" },
-              "name": { "type": "string" }
-            }
-          }
-        },
-        "assignedUsers": { "type": "array", "items": { "type": "string" } },
-        "assignedSubContractors": { "type": "array", "items": { "type": "string" } },
-        "drawingApprovers": { "type": "array", "items": { "type": "string" } }
-      },
-      "required": ["id", "name"]
-    },
-    "SiteDiaryEntry": {
-      "title": "Site Diary Entry",
-      "description": "Daily record of site activities, weather, and labour resources.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "projectId": { "type": "string" },
-        "date": { "type": "string", "format": "date" },
-        "weather": {
-          "type": "object",
-          "properties": {
-            "condition": { "type": "string" },
-            "temp": { "type": "number" },
-            "notes": { "type": "string" }
-          }
-        },
-        "subcontractorLogs": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "subcontractorId": { "type": "string" },
-              "subcontractorName": { "type": "string" },
-              "employeeCount": { "type": "number" },
-              "areaId": { "type": "string" },
-              "areaName": { "type": "string" },
-              "notes": { "type": "string" }
-            }
-          }
-        },
-        "generalComments": { "type": "string" },
-        "photos": { "type": "array", "items": { "$ref": "#/backend/entities/Photo" } },
         "createdAt": { "type": "string", "format": "date-time" },
         "createdByEmail": { "type": "string" }
-      },
-      "required": ["id", "projectId", "date"]
-    },
-    "SnaggingItem": {
-      "title": "Snagging Item",
-      "description": "A list of completion defects for a project area.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "projectId": { "type": "string" },
-        "areaId": { "type": "string" },
-        "title": { "type": "string" },
-        "description": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["draft", "issued"] },
-        "photos": { "type": "array", "items": { "$ref": "#/backend/entities/Photo" } },
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "string" },
-              "description": { "type": "string" },
-              "status": { "type": "string", "enum": ["open", "provisionally-complete", "closed"] },
-              "subContractorId": { "type": "string" }
-            }
-          }
-        }
       }
     }
   },
@@ -317,6 +172,7 @@
     "/holiday-requests/{id}": { "schema": { "$ref": "#/backend/entities/HolidayRequest" }, "description": "Staff leave and holiday requests." },
     "/site-diary/{id}": { "schema": { "$ref": "#/backend/entities/SiteDiaryEntry" }, "description": "Daily site logs and labour records." },
     "/drawings/{id}": { "schema": { "$ref": "#/backend/entities/DrawingDocument" }, "description": "Project drawings and technical document register." },
-    "/snagging-items/{id}": { "schema": { "$ref": "#/backend/entities/SnaggingItem" }, "description": "Area snagging and defect management lists." }
+    "/snagging-items/{id}": { "schema": { "$ref": "#/backend/entities/SnaggingItem" }, "description": "Area snagging and defect management lists." },
+    "/toolbox-talk-templates/{id}": { "schema": { "$ref": "#/backend/entities/ToolboxTalkTemplate" }, "description": "Master library of safety briefings." }
   }
 }

@@ -664,3 +664,23 @@ export type SiteDiaryEntry = {
   createdAt: string;
   createdByEmail: string;
 };
+
+export type ToolboxTalkTemplate = {
+  id: string;
+  title: string;
+  topic: string;
+  content: string;
+  trade: string;
+  verificationItems: { id: string; text: string }[];
+  createdAt: string;
+  createdByEmail: string;
+};
+
+export type FormWizardType = 'permit' | 'qc' | 'toolbox';
+
+export type ReplicatePermitTemplateOutput = {
+  title: string;
+  type: PermitType;
+  description: string;
+  sections: TemplateSection[];
+};
