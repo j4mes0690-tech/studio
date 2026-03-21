@@ -43,22 +43,19 @@ const prompt = ai.definePrompt({
   output: { schema: FormStructureOutputSchema },
   prompt: `You are an expert site safety and quality manager. Based on the user's description, generate a structured template.
 
-{{#if (eq type "permit")}}
+For a "permit": 
 Generate a Permit to Work. 
 Provide a clear title, description, and multiple sections (e.g., "Personal Protective Equipment", "Safety Controls", "Authorisation").
 Each section should have specific fields with appropriate types (checkbox for yes/no, text for names/times).
-{{/if}}
 
-{{#if (eq type "qc")}}
+For a "qc":
 Generate a Trade Quality Checklist.
 Provide a professional title and a list of specific "items" (verification points) that must be checked for compliance.
-{{/if}}
 
-{{#if (eq type "toolbox")}}
+For a "toolbox":
 Generate a Toolbox Talk Briefing.
 Provide a title, a high-level "topic", and a "content" field with a bulleted educational briefing in Markdown.
 Also provide a list of "items" which are verification questions to check staff understanding.
-{{/if}}
 
 User Description:
 ---

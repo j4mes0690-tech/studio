@@ -275,17 +275,13 @@ export default function Dashboard() {
                         )}>
                             {loadingModule === card.id && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>)}
                             <CardHeader className="p-0 relative w-full flex flex-col items-center">
-                                <div className="relative flex items-center justify-center mb-2 md:mb-4">
-                                    <div className="h-12 w-12 flex items-center justify-center">
-                                        <card.icon className={cn(
-                                            "transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary", 
-                                            isCompact ? "h-6 w-6" : "h-10 w-10 md:h-12 md:w-12", 
-                                            loadingModule === card.id && "opacity-20"
-                                        )} />
-                                    </div>
-                                    <div className="absolute -top-1 -right-1">
-                                        <FlashingBadge count={pendingCount} />
-                                    </div>
+                                <div className="relative flex items-center justify-center mb-2 md:mb-4 h-12 w-12">
+                                    <card.icon className={cn(
+                                        "transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary", 
+                                        isCompact ? "h-6 w-6" : "h-10 w-10 md:h-12 md:w-12", 
+                                        loadingModule === card.id && "opacity-20"
+                                    )} />
+                                    <FlashingBadge count={pendingCount} />
                                 </div>
                                 <CardTitle className={cn(
                                     "transition-all font-bold text-center w-full", 

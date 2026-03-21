@@ -93,6 +93,7 @@ function QualityControlContent() {
     });
   }, [allProjects, profile]);
 
+  // FIX: Define checklistInstances for the template assigner
   const checklistInstances = useMemo(() => {
     if (!allChecklists) return [];
     return allChecklists.filter(c => !c.isTemplate);
