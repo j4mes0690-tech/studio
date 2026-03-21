@@ -528,13 +528,15 @@ export function ClientInstructionCard({
     projects, 
     currentUser,
     allSiteInstructions,
-    allRfis
+    allRfis,
+    readOnly = false
 }: { 
     instruction: ClientInstruction, 
     projects: Project[], 
     currentUser: DistributionUser,
     allSiteInstructions: Instruction[],
-    allRfis: InformationRequest[]
+    allRfis: InformationRequest[],
+    readOnly?: boolean
 }) {
   const project = projects.find((p) => p.id === instruction.projectId);
   const db = useFirestore();
@@ -584,7 +586,7 @@ export function ClientInstructionCard({
         className={cn(
             "border-l-4 transition-all", 
             isAccepted ? "border-l-green-500 bg-green-50/10" : "border-l-primary",
-            isAttentionRequired && "border-primary border-2 shadow-primary/10 bg-primary/[0.02] ring-1 ring-primary",
+            isAttentionRequired && !readOnly && "border-primary border-2 shadow-primary/10 bg-primary/[0.02] ring-1 ring-primary",
             !isDetailPage && "cursor-pointer hover:shadow-md hover:border-l-primary/80 group/card"
         )}
         onClick={handleCardClick}
@@ -602,7 +604,7 @@ export function ClientInstructionCard({
                 <span className="text-xs text-muted-foreground/80">
                   <ClientDate date={instruction.createdAt} />
                 </span>
-                {isAttentionRequired && (
+                {isAttentionRequired && !readOnly && (
                     <Badge className="bg-primary text-white h-5 px-2 text-[9px] font-black uppercase tracking-widest animate-pulse gap-1.5">
                         <Bell className="h-2.5 w-2.5" />
                         Action Required
@@ -610,46 +612,53 @@ export function ClientInstructionCard({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap" onClick={(e) => e.stopPropagation()}>
-              {isAttentionRequired && (
-                  <TooltipProvider>
-                      <Tooltip>
-                          <TooltipTrigger asChild>
-                              <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={handleDismissAlert}>
-                                  <EyeOff className="h-4 w-4" />
-                              </Button>
-                          </TooltipTrigger>
-                          <TooltipContent><p>Dismiss Alert</p></TooltipContent>
-                      </Tooltip>
-                  </TooltipProvider>
-              )}
+            {!readOnly && (
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap" onClick={(e) => e.stopPropagation()}>
+                {isAttentionRequired && (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={handleDismissAlert}>
+                                    <EyeOff className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Dismiss Alert</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                )}
 
-              <Badge variant={isAccepted ? "secondary" : "default"} className={cn("h-6", isAccepted && "bg-green-100 text-green-800 border-green-200")}>
+                <Badge variant={isAccepted ? "secondary" : "default"} className={cn("h-6", isAccepted && "bg-green-100 text-green-800 border-green-200")}>
+                    {isAccepted ? "Accepted" : "Open Directive"}
+                </Badge>
+                {!isAccepted ? (
+                  <AcceptInstructionButton 
+                      instruction={instruction} 
+                      currentUser={currentUser} 
+                      projects={projects} 
+                      allSiteInstructions={allSiteInstructions}
+                      allRfis={allRfis}
+                  />
+                ) : (
+                  <ReopenInstructionButton instruction={instruction} currentUser={currentUser} />
+                )}
+                <RespondToInstruction instruction={instruction} currentUser={currentUser} />
+                <AlertDialog>
+                  <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
+            {readOnly && (
+              <Badge variant="secondary" className={cn("h-6", isAccepted && "bg-green-100 text-green-800 border-green-200")}>
                   {isAccepted ? "Accepted" : "Open Directive"}
               </Badge>
-              {!isAccepted ? (
-                <AcceptInstructionButton 
-                    instruction={instruction} 
-                    currentUser={currentUser} 
-                    projects={projects} 
-                    allSiteInstructions={allSiteInstructions}
-                    allRfis={allRfis}
-                />
-              ) : (
-                <ReopenInstructionButton instruction={instruction} currentUser={currentUser} />
-              )}
-              <RespondToInstruction instruction={instruction} currentUser={currentUser} />
-              <AlertDialog>
-                <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+            )}
           </div>
         </CardHeader>
         <CardContent className="p-4 md:p-6">

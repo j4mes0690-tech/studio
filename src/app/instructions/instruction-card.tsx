@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -143,7 +142,7 @@ export function InstructionCard({
                   Logged <ClientDate date={instruction.createdAt} />
                 </span>
                 {instruction.clientInstructionId && (
-                    <Link href={`/client-instructions/${instruction.clientInstructionId}`}>
+                    <Link href={`/client-instructions/${instruction.clientInstructionId}?mode=view`}>
                         <Badge variant="secondary" className="text-[9px] gap-1 h-4 px-1.5 font-normal hover:bg-secondary/80 transition-colors cursor-pointer">
                             <LinkIcon className="h-2 w-2" /> Linked to Client Directive
                         </Badge>

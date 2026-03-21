@@ -1,20 +1,25 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, Suspense } from 'react';
 import { Header } from '@/components/layout/header';
-import { useFirestore, useDoc, useUser, useCollection, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import type { ClientInstruction, Project, DistributionUser, Instruction, InformationRequest } from '@/lib/types';
-import { Loader2, ChevronLeft } from 'lucide-react';
+import { Loader2, ChevronLeft, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ClientInstructionCard } from '../instruction-card';
+import { Badge } from '@/components/ui/badge';
 
 function ClientInstructionDetailContent() {
   const { id } = useParams() as { id: string };
+  const searchParams = useSearchParams();
   const router = useRouter();
   const db = useFirestore();
   const { user: firebaseUser } = useUser();
+
+  // Detect if we are in view-only mode (linked from another module)
+  const isViewOnly = searchParams.get('mode') === 'view';
 
   // Fetch current instruction
   const instructionRef = useMemoFirebase(() => (db && id ? doc(db, 'client-instructions', id) : null), [db, id]);
@@ -65,10 +70,16 @@ function ClientInstructionDetailContent() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
-      <div className="flex items-center">
+      <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={() => router.back()} className="gap-2">
           <ChevronLeft className="h-4 w-4" /> Back
         </Button>
+        {isViewOnly && (
+          <Badge variant="outline" className="bg-muted/50 gap-1.5 px-3 py-1 font-bold text-muted-foreground border-dashed">
+            <Eye className="h-3.5 w-3.5" />
+            READ ONLY VIEW
+          </Badge>
+        )}
       </div>
       <ClientInstructionCard 
         instruction={item} 
@@ -76,6 +87,7 @@ function ClientInstructionDetailContent() {
         currentUser={profile}
         allSiteInstructions={allSiteInstructions || []}
         allRfis={allRfis || []}
+        readOnly={isViewOnly}
       />
     </div>
   );

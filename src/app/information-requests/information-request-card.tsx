@@ -251,7 +251,7 @@ export function InformationRequestCard({
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-1">
                   <span className="text-xs text-muted-foreground/80 font-medium">Captured <ClientDate date={item.createdAt} format="date" /></span>
                   {item.clientInstructionId && (
-                    <Link href={`/client-instructions/${item.clientInstructionId}`} onClick={(e) => e.stopPropagation()}>
+                    <Link href={`/client-instructions/${item.clientInstructionId}?mode=view`} onClick={(e) => e.stopPropagation()}>
                       <Badge variant="outline" className="text-[9px] gap-1 h-4 px-1.5 hover:bg-muted transition-colors cursor-pointer">
                         <LinkIcon className="h-2 w-2" /> Linked to Client Directive
                       </Badge>
