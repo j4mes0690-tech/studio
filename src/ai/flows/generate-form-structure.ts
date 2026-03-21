@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview This file implements a Genkit flow for generating form structures.
@@ -9,7 +8,6 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
-import type { FormWizardType, TemplateSection, ChecklistItem } from '@/lib/types';
 
 const GenerateFormStructureInputSchema = z.object({
   type: z.enum(['permit', 'qc', 'toolbox']),

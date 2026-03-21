@@ -317,7 +317,7 @@ function QualityControlContent() {
             <div className="flex items-center justify-between">
                 <div className="space-y-1">
                     <Button variant="ghost" size="sm" onClick={clearSelection} className="mb-2 -ml-2 text-muted-foreground h-8 gap-1.5">
-                        <ArrowLeft className="h-4 w-4" /> All Projects
+                        <ArrowLeft className="h-4 w-4" /> Back to All Projects
                     </Button>
                     <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                         <Building2 className="h-6 w-6 text-primary" />

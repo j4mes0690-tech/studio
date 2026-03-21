@@ -1,4 +1,3 @@
-
 export type Planner = {
   id: string;
   name: string;
