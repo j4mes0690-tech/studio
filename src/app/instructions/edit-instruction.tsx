@@ -34,11 +34,11 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, RefreshCw, Loader2, Send, Save, Users2, FileText, FileIcon, CheckCircle2 } from 'lucide-react';
-import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction } from '@/lib/types';
+import { Pencil, Camera, Upload, X, RefreshCw, Loader2, Send, Save, Users2, FileText, FileIcon, CheckCircle2, Link as LinkIcon } from 'lucide-react';
+import type { Project, DistributionUser, Photo, SubContractor, FileAttachment, Instruction, ClientInstruction } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
-import { useFirestore, useStorage } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, updateDoc, collection, query, where } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
@@ -50,6 +50,7 @@ import { scrollToFirstError } from '@/lib/utils';
 
 const EditInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
+  clientInstructionId: z.string().optional().nullable(),
   originalText: z.string().optional().default(''),
   externalRecipient: z.string().optional().default(''),
   status: z.enum(['draft', 'issued']).default('issued'),
@@ -94,6 +95,7 @@ export function EditInstruction({
     resolver: zodResolver(EditInstructionSchema),
     defaultValues: {
       projectId: item.projectId,
+      clientInstructionId: item.clientInstructionId || 'none',
       originalText: item.originalText,
       externalRecipient: '',
       status: item.status === 'issued' ? 'issued' : 'draft',
@@ -102,6 +104,12 @@ export function EditInstruction({
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [selectedProjectId, projects]);
+
+  const ciQuery = useMemoFirebase(() => {
+    if (!db || !selectedProjectId) return null;
+    return query(collection(db, 'client-instructions'), where('projectId', '==', selectedProjectId));
+  }, [db, selectedProjectId]);
+  const { data: clientDirectives } = useCollection<ClientInstruction>(ciQuery);
 
   const availableSubContractors = useMemo(() => {
     if (!selectedProject) return [];
@@ -117,6 +125,7 @@ export function EditInstruction({
       
       form.reset({
         projectId: item.projectId,
+        clientInstructionId: item.clientInstructionId || 'none',
         originalText: item.originalText,
         externalRecipient: external,
         status: item.status === 'issued' ? 'issued' : 'draft',
@@ -179,6 +188,7 @@ export function EditInstruction({
 
         const updates: any = {
           projectId: values.projectId,
+          clientInstructionId: (values.clientInstructionId && values.clientInstructionId !== 'none') ? values.clientInstructionId : null,
           originalText: values.originalText || '',
           summary: values.originalText && values.originalText.length > 100 ? values.originalText.substring(0, 100) + '...' : (values.originalText || 'No description'),
           recipients: combinedRecipients,
@@ -246,9 +256,29 @@ export function EditInstruction({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6 p-6">
-            <FormField control={form.control} name="projectId" render={({ field }) => (
-              <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
-            )} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="projectId" render={({ field }) => (
+                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); form.setValue('clientInstructionId', 'none'); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                )} />
+                
+                <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                            <LinkIcon className="h-4 w-4 text-primary" />
+                            Linked Client Directive
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="No link" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="none">No Link / Standalone</SelectItem>
+                                {clientDirectives?.map(ci => (
+                                    <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </FormItem>
+                )} />
+            </div>
             
             <FormField
               control={form.control}
@@ -292,10 +322,27 @@ export function EditInstruction({
             <div className="space-y-4">
               <FormLabel>Documentation & Files</FormLabel>
               <div className="flex gap-2 flex-wrap">
-                {photos.map((p, i) => (<div key={i} className="relative w-20 h-20"><Image src={p.url} alt="Site" fill className="rounded-md object-cover border" /><button type="button" className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></button></div>))}
-                <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
+                {photos.map((p, i) => (
+                    <div key={i} className="relative w-20 h-20 group">
+                        <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
+                        <button 
+                            type="button" 
+                            className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" 
+                            onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}
+                        >
+                            <X className="h-3 w-3" />
+                        </button>
+                    </div>
+                ))}
+                <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)} className="gap-2">
+                    <Camera className="h-4 w-4" /> Camera
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-2">
+                    <Upload className="h-4 w-4" /> Photos
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()} className="gap-2">
+                    <FileIcon className="h-4 w-4" /> Files
+                </Button>
               </div>
               
               <div className="space-y-1">

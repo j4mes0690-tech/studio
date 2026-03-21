@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -46,14 +47,15 @@ import {
   Users2, 
   Loader2, 
   Save, 
-  Send 
+  Send,
+  Link as LinkIcon
 } from 'lucide-react';
-import type { Project, InformationRequest, DistributionUser, Photo, SubContractor, FileAttachment } from '@/lib/types';
+import type { Project, InformationRequest, DistributionUser, Photo, SubContractor, FileAttachment, ClientInstruction } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { DatePicker } from '@/components/date-picker';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, where } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
@@ -69,6 +71,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const EditInformationRequestSchema = z.object({
   id: z.string().min(1),
   projectId: z.string().min(1, 'Project is required.'),
+  clientInstructionId: z.string().optional().nullable(),
   description: z.string().optional().default(''),
   assignedTo: z.array(z.string()).default([]),
   requiredBy: z.string().optional(),
@@ -109,6 +112,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
     defaultValues: {
       id: item.id,
       projectId: item.projectId,
+      clientInstructionId: item.clientInstructionId || 'none',
       description: item.description || '',
       assignedTo: (item.assignedTo || []).map(email => {
           const isStaff = (distributionUsers || []).some(u => u.email === email);
@@ -121,6 +125,12 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+
+  const ciQuery = useMemoFirebase(() => {
+    if (!db || !selectedProjectId) return null;
+    return query(collection(db, 'client-instructions'), where('projectId', '==', selectedProjectId));
+  }, [db, selectedProjectId]);
+  const { data: clientDirectives } = useCollection<ClientInstruction>(ciQuery);
 
   const availableInternalUsers = useMemo(() => {
     if (!selectedProject) return [];
@@ -183,6 +193,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
         const targetEmail = values.assignedTo[0]?.replace(/^(staff|partner):/, '') || '';
         const updates: any = {
           projectId: values.projectId,
+          clientInstructionId: (values.clientInstructionId && values.clientInstructionId !== 'none') ? values.clientInstructionId : null,
           description: values.description || '',
           assignedTo: (values.assignedTo || []).map(val => val.replace(/^(staff|partner):/, '').toLowerCase().trim()),
           photos: uploadedPhotos,
@@ -272,6 +283,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
       form.reset({
         id: item.id,
         projectId: item.projectId,
+        clientInstructionId: item.clientInstructionId || 'none',
         description: item.description || '',
         assignedTo: (item.assignedTo || []).map(email => {
             const isStaff = (distributionUsers || []).some(u => u.email === email);
@@ -321,7 +333,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Project</FormLabel>
-                      <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); }} value={field.value}>
+                      <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); form.setValue('clientInstructionId', 'none'); }} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                       </Select>
@@ -329,56 +341,75 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="assignedTo"
-                  render={({ field }) => (
+                
+                <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Assign To (Recipient)</FormLabel>
-                      <Select 
-                        onValueChange={(val) => {
-                          field.onChange([val]);
-                          form.clearErrors('assignedTo');
-                        }} 
-                        value={field.value?.[0] || ""}
-                        disabled={!selectedProjectId}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select project recipient" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel className="flex items-center gap-2 text-primary">
-                              <ShieldCheck className="h-3 w-3" /> Project Staff
-                            </SelectLabel>
-                            {availableInternalUsers.map(u => (
-                              <SelectItem key={`staff:${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
-                            ))}
-                            {availableInternalUsers.length === 0 && (
-                              <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
-                            )}
-                          </SelectGroup>
-                          <Separator className="my-1" />
-                          <SelectGroup>
-                            <SelectLabel className="flex items-center gap-2 text-accent">
-                              <Users2 className="h-3 w-3" /> Trade Partners
-                            </SelectLabel>
-                            {availableExternalPartners.map(s => (
-                              <SelectItem key={`partner:${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
-                            ))}
-                            {availableExternalPartners.length === 0 && (
-                              <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
-                            )}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
+                        <FormLabel className="flex items-center gap-2">
+                            <LinkIcon className="h-4 w-4 text-primary" />
+                            Linked Client Directive
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="No link" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="none">No Link / Standalone</SelectItem>
+                                {clientDirectives?.map(ci => (
+                                    <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </FormItem>
-                  )}
-                />
+                )} />
               </div>
+
+              <FormField
+                control={form.control}
+                name="assignedTo"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Assign To (Recipient)</FormLabel>
+                    <Select 
+                    onValueChange={(val) => {
+                        field.onChange([val]);
+                        form.clearErrors('assignedTo');
+                    }} 
+                    value={field.value?.[0] || ""}
+                    disabled={!selectedProjectId}
+                    >
+                    <FormControl>
+                        <SelectTrigger>
+                        <SelectValue placeholder="Select project recipient" />
+                        </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        <SelectGroup>
+                        <SelectLabel className="flex items-center gap-2 text-primary">
+                            <ShieldCheck className="h-3 w-3" /> Project Staff
+                        </SelectLabel>
+                        {availableInternalUsers.map(u => (
+                            <SelectItem key={`staff:${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
+                        ))}
+                        {availableInternalUsers.length === 0 && (
+                            <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
+                        )}
+                        </SelectGroup>
+                        <Separator className="my-1" />
+                        <SelectGroup>
+                        <SelectLabel className="flex items-center gap-2 text-accent">
+                            <Users2 className="h-3 w-3" /> Trade Partners
+                        </SelectLabel>
+                        {availableExternalPartners.map(s => (
+                            <SelectItem key={`partner:${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
+                        ))}
+                        {availableExternalPartners.length === 0 && (
+                            <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
+                        )}
+                        </SelectGroup>
+                    </SelectContent>
+                    </Select>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
 
               <FormField
                 control={form.control}
