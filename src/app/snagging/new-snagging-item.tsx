@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -46,7 +45,6 @@ import { Badge } from '@/components/ui/badge';
 import { cn, getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { generateSnaggingPDF } from '@/lib/pdf-utils';
 import { sendSubcontractorReportAction } from './actions';
 
@@ -227,7 +225,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
         };
 
         const colRef = collection(db, 'snagging-items');
-        const docRef = await addDoc(colRef, snagData);
+        const newDocRef = await addDoc(colRef, snagData);
 
         // 2. Issuance Logic
         if (isIssuing && allUsers) {
@@ -294,14 +292,16 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button className="font-bold"><PlusCircle className="mr-2 h-4 w-4" />New List</Button></DialogTrigger>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent 
+          className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
               <DialogTitle>Create Snagging List</DialogTitle>
               <DialogDescription>Define an area audit. Save & Send will distribute individual trade reports.</DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="flex-1">
-            <div className="px-6 py-6">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
               <Form {...form}>
                   <form onSubmit={form.handleSubmit(() => {}, () => scrollToFirstError())} className="space-y-8">
                       <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
@@ -409,7 +409,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                           </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t sticky bottom-0 bg-white/80 backdrop-blur-sm pb-2">
+                      <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-2">
                         <Button 
                             type="button" 
                             variant="outline" 
@@ -439,8 +439,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                     </div>
                   </form>
               </Form>
-            </div>
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 

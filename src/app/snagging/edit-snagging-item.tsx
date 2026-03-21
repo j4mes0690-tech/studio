@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -282,13 +281,12 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
-          <DialogHeader className="p-6 pb-0 border-b shrink-0 bg-muted/5">
+          <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/5">
             <DialogTitle>Edit Snagging List</DialogTitle>
             <DialogDescription>Modify area metadata or add specific defects.</DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="flex-1">
-            <div className="px-6 py-6">
+          <div className="flex-1 overflow-y-auto px-6 py-6">
               <Form {...form}>
                   <form className="space-y-8">
                     <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
@@ -402,7 +400,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t sticky bottom-0 bg-white/80 backdrop-blur-sm pb-2">
+                    <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-2">
                         <Button 
                             type="button" 
                             variant="outline" 
@@ -419,7 +417,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                             disabled={isPending} 
                             onClick={form.handleSubmit(v => onSubmit(v, false), () => scrollToFirstError())}
                         >
-                            <CheckCircle2 className="h-4 w-4" /> Save Changes
+                            <CheckCircle2 className="h-4 w-4" /> Save
                         </Button>
                         <Button 
                             type="button" 
@@ -427,13 +425,12 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                             disabled={isPending} 
                             onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, true), () => scrollToFirstError())}
                         >
-                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Save & Send Reports
+                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Save & Send
                         </Button>
                     </div>
                   </form>
               </Form>
-            </div>
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 
