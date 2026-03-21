@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -34,6 +33,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Users2, Send, Save, CheckCircle2 } from 'lucide-react';
 import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser } from '@/lib/types';
@@ -166,7 +166,8 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
           status: targetStatus
         };
 
-        const newDocRef = await addDoc(collection(db, 'instructions'), instructionData);
+        const colRef = collection(db, 'instructions');
+        const newDocRef = await addDoc(colRef, instructionData);
 
         const sub = subContractors.find(s => s.email === values.externalRecipient);
         if (isIssuing && sub) {
@@ -223,12 +224,21 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />New Instruction</Button></DialogTrigger>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
-          <DialogHeader className="p-6 pb-0"><DialogTitle>Record New Site Instruction</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0 shadow-2xl">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle>Record New Site Instruction</DialogTitle>
+          </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6 p-6">
               <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Target Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel>Target Project</FormLabel>
+                  <Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                    <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )} />
               
               <FormField
@@ -268,36 +278,54 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
               />
 
               <FormField control={form.control} name="originalText" render={({ field }) => (
-                <FormItem><div className="flex items-center justify-between"><FormLabel>Instruction Text</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Instruction Text</FormLabel>
+                    <VoiceInput onResult={field.onChange} />
+                  </div>
+                  <FormControl>
+                    <Textarea placeholder="Describe what needs to be done..." className="min-h-[150px]" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
+
               <div className="space-y-4">
                 <FormLabel>Documentation & Files</FormLabel>
                 <div className="flex gap-2 flex-wrap">
-                  {photos.map((p, i) => (<div key={i} className="relative w-20 h-20"><Image src={p.url} alt="Site" fill className="rounded-md object-cover border" /><button type="button" className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></button></div>))}
-                  <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = 'image/*';
-                    input.multiple = true;
-                    input.onchange = (e: any) => {
-                      const files = e.target.files; if (!files) return;
-                      Array.from(files).forEach((f: any) => {
-                        const reader = new FileReader();
-                        reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                        reader.readAsDataURL(f);
-                      });
-                    };
-                    input.click();
-                  }}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
+                  {photos.map((p, i) => (
+                    <div key={i} className="relative w-20 h-20 group">
+                      <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
+                      <button 
+                        type="button" 
+                        className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" 
+                        onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)} className="gap-2">
+                    <Camera className="h-4 w-4" /> Camera
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="gap-2">
+                    <Upload className="h-4 w-4" /> Photos
+                  </Button>
+                  <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()} className="gap-2">
+                    <FileIcon className="h-4 w-4" /> Files
+                  </Button>
                 </div>
                 
                 <div className="space-y-1">
                   {files.map((f, i) => (
                     <div key={i} className="flex items-center justify-between p-2 rounded border bg-muted/30 text-xs">
-                      <span className="truncate">{f.name}</span>
-                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                      <div className="flex items-center gap-2 truncate">
+                        <FileText className="h-3 w-3 text-primary shrink-0" />
+                        <span className="truncate">{f.name}</span>
+                      </div>
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}>
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
                   ))}
                 </div>
@@ -309,11 +337,11 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                 <Button 
                   type="submit" 
                   variant="outline" 
-                  className="w-full sm:w-auto h-12 gap-2" 
+                  className="w-full sm:w-auto h-12 gap-2 font-bold" 
                   disabled={isPending} 
                   onClick={() => setSubmitMode('draft')}
                 >
-                  <Save className="mr-2 h-4 w-4" />
+                  <Save className="h-4 w-4" />
                   Save Draft
                 </Button>
                 <Button 
@@ -322,11 +350,28 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                   disabled={isPending} 
                   onClick={() => setSubmitMode('issue')}
                 >
-                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                  {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Save & Issue Instruction
                 </Button>
               </div>
-              <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} />
+              
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                const selected = e.target.files; 
+                if (!selected) return;
+                Array.from(selected).forEach(f => {
+                  const reader = new FileReader();
+                  reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                  reader.readAsDataURL(f);
+                });
+              }} />
+              <input 
+                type="file" 
+                ref={docInputRef} 
+                className="hidden" 
+                multiple 
+                onChange={handleFileSelect} 
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
+              />
             </form>
           </Form>
         </DialogContent>
