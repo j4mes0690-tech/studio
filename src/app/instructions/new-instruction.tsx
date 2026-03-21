@@ -118,7 +118,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     startTransition(async () => {
       try {
         toast({ 
-          title: isIssuing ? 'Issuing Instruction' : 'Saving Draft', 
+          title: isIssuing ? 'Issuing Instruction' : (isDrafting ? 'Saving Draft' : 'Saving Changes'), 
           description: isIssuing ? 'Uploading documentation and generating PDF...' : 'Saving progress and media...' 
         });
 
@@ -151,7 +151,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         const existingRefs = allInstructions.map(o => ({ reference: o.reference, projectId: o.projectId }));
         const reference = getNextReference(existingRefs, values.projectId, 'SI', initials);
 
-        const targetStatus = isIssuing ? 'issued' : 'draft';
+        const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : values.status);
 
         const instructionData = {
           reference,
@@ -346,12 +346,22 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                 </Button>
                 <Button 
                   type="submit" 
+                  variant="outline" 
+                  className="w-full sm:flex-1 h-12 font-bold gap-2" 
+                  disabled={isPending} 
+                  onClick={() => setSubmitMode('save')}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  Save
+                </Button>
+                <Button 
+                  type="submit" 
                   className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
                   disabled={isPending} 
                   onClick={() => setSubmitMode('issue')}
                 >
-                  {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                  Save & Issue Instruction
+                  {isPending && submitMode === 'issue' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Save & Issue
                 </Button>
               </div>
               
