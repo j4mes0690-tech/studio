@@ -282,7 +282,6 @@ function AcceptInstructionButton({
                         files: instruction.files || []
                     };
                     
-                    // Add to local list to correctly calculate next number if multiple RFIs added
                     currentRfis.push(rfiData as any);
 
                     addDoc(collection(db, 'information-requests'), rfiData).catch(err => {
@@ -308,7 +307,7 @@ function AcceptInstructionButton({
                         createdAt: new Date().toISOString(),
                         photos: instruction.photos || [],
                         recipients: sub ? [sub.email] : [],
-                        status: 'draft' // Site instructions generated from CI start as draft
+                        status: 'draft' 
                     };
 
                     currentSis.push(siData as any);
@@ -322,7 +321,6 @@ function AcceptInstructionButton({
                     });
                 });
 
-                // Broadcast acceptance to the project team
                 const projectRecipients = project?.assignedUsers || [];
                 if (projectRecipients.length > 0) {
                   await sendClientInstructionEmailAction({
@@ -360,8 +358,8 @@ function AcceptInstructionButton({
                     </DialogDescription>
                 </DialogHeader>
                 
-                <ScrollArea className="flex-1 p-6">
-                    <div className="space-y-8 pb-10">
+                <ScrollArea className="flex-1">
+                    <div className="p-6 space-y-8 pb-32">
                         <div className="space-y-4">
                             <div className="flex items-center justify-between border-b pb-2">
                                 <div className="flex items-center gap-2">
@@ -390,6 +388,7 @@ function AcceptInstructionButton({
                                             <div className="space-y-1">
                                                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Enquiry Details</Label>
                                                 <Input 
+                                                    id={`rfi-desc-${idx}`}
                                                     value={rfi.description} 
                                                     onChange={(e) => setRfis(rfis.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
                                                     className="text-sm h-8"
@@ -399,13 +398,18 @@ function AcceptInstructionButton({
                                             <div className="space-y-1">
                                                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Project Assignee</Label>
                                                 <Select 
-                                                    onValueChange={(val) => setRfis(rfis.map((r, i) => i === idx ? { ...r, assignedTo: [val.split(':')[1]] } : r))}
+                                                    onValueChange={(val) => {
+                                                        const newVal = val === 'clear' ? [] : [val.split(':')[1]];
+                                                        setRfis(rfis.map((r, i) => i === idx ? { ...r, assignedTo: newVal } : r));
+                                                    }}
                                                     value={rfi.assignedTo[0] ? (projectStaff.some(u => u.email === rfi.assignedTo[0]) ? `staff:${rfi.assignedTo[0]}` : `partner:${rfi.assignedTo[0]}`) : ""}
                                                 >
                                                     <SelectTrigger className="h-8 text-xs">
                                                         <SelectValue placeholder="Select Project Recipient" />
                                                     </SelectTrigger>
                                                     <SelectContent>
+                                                        <SelectItem value="clear" className="text-destructive font-bold text-xs">Clear Selection</SelectItem>
+                                                        <Separator className="my-1" />
                                                         <SelectGroup>
                                                           <SelectLabel className="flex items-center gap-2 text-primary">
                                                             <ShieldCheck className="h-3 w-3" /> Project Staff
@@ -464,6 +468,7 @@ function AcceptInstructionButton({
                                             <div className="space-y-1">
                                                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Trade Instruction</Label>
                                                 <Input 
+                                                    id={`si-desc-${idx}`}
                                                     value={si.description} 
                                                     onChange={(e) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, description: e.target.value } : s))}
                                                     className="text-sm h-8"
@@ -473,13 +478,18 @@ function AcceptInstructionButton({
                                             <div className="space-y-1">
                                                 <Label className="text-[10px] uppercase font-bold text-muted-foreground">Assigned Trade</Label>
                                                 <Select 
-                                                    onValueChange={(val) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, subcontractorId: val } : s))}
+                                                    onValueChange={(val) => {
+                                                        const newVal = val === 'clear' ? '' : val;
+                                                        setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, subcontractorId: newVal } : s));
+                                                    }}
                                                     value={si.subcontractorId}
                                                 >
                                                     <SelectTrigger className="h-8 text-xs">
                                                         <SelectValue placeholder="Assign trade" />
                                                     </SelectTrigger>
                                                     <SelectContent>
+                                                        <SelectItem value="clear" className="text-destructive font-bold text-xs">Clear Selection</SelectItem>
+                                                        <Separator className="my-1" />
                                                         {projectExternalPartners.length === 0 ? (
                                                             <div className="p-2 text-[10px] text-muted-foreground italic">No sub-contractors assigned to project</div>
                                                         ) : projectExternalPartners.map(s => (
@@ -493,16 +503,21 @@ function AcceptInstructionButton({
                                 </div>
                             )}
                         </div>
+
+                        {/* Scrolling action buttons */}
+                        <div className="flex flex-col sm:flex-row gap-3 pt-10">
+                            <Button variant="ghost" className="flex-1" onClick={() => setOpen(false)}>Cancel</Button>
+                            <Button 
+                                onClick={handleAccept} 
+                                disabled={isPending} 
+                                className="flex-[2] bg-green-600 hover:bg-green-700 font-bold h-12 shadow-lg shadow-green-600/20"
+                            >
+                                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
+                                Accept & Create Actions
+                            </Button>
+                        </div>
                     </div>
                 </ScrollArea>
-
-                <DialogFooter className="p-6 bg-muted/5 border-t flex-none gap-2 sm:gap-0">
-                    <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-                    <Button onClick={handleAccept} disabled={isPending} className="bg-green-600 hover:bg-green-700 font-bold min-w-[180px]">
-                        {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
-                        Accept & Create Actions
-                    </Button>
-                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -528,13 +543,11 @@ export function ClientInstructionCard({
   const pathname = usePathname();
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
-  // Determine if navigation is needed (only if not already on the detail page)
   const isDetailPage = pathname === `/client-instructions/${instruction.id}`;
 
   const isAccepted = instruction.status === 'accepted';
   const email = currentUser?.email.toLowerCase().trim();
 
-  // Attention Check
   const isAttentionRequired = useMemo(() => {
     if (!instruction || !email || isAccepted || instruction.status !== 'open') return false;
     if (instruction.dismissedBy?.includes(email)) return false;
