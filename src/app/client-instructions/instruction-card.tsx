@@ -205,8 +205,35 @@ function AcceptInstructionButton({
         return allSubs.filter(s => projectSubIds.includes(s.id));
     }, [allSubs, project]);
 
-    const handleAddRfi = () => setRfis([...rfis, { description: `Clarification for ${instruction.reference}`, assignedTo: [] }]);
-    const handleAddInst = () => setSiteInsts([...siteInsts, { description: `Implementation of ${instruction.reference}`, subcontractorId: '' }]);
+    const handleAddRfi = () => {
+        if (rfis.length > 0) {
+            const lastRfi = rfis[rfis.length - 1];
+            if (lastRfi.assignedTo.length === 0) {
+                toast({
+                    title: "Assignee Required",
+                    description: "Please assign the current enquiry to a project member before adding another.",
+                    variant: "destructive"
+                });
+                return;
+            }
+        }
+        setRfis([...rfis, { description: `Clarification for ${instruction.reference}`, assignedTo: [] }]);
+    };
+
+    const handleAddInst = () => {
+        if (siteInsts.length > 0) {
+            const lastInst = siteInsts[siteInsts.length - 1];
+            if (!lastInst.subcontractorId) {
+                toast({
+                    title: "Partner Required",
+                    description: "Please assign the current instruction to a trade partner before adding another.",
+                    variant: "destructive"
+                });
+                return;
+            }
+        }
+        setSiteInsts([...siteInsts, { description: `Implementation of ${instruction.reference}`, subcontractorId: '' }]);
+    };
 
     const handleAccept = () => {
         startTransition(async () => {
@@ -366,6 +393,7 @@ function AcceptInstructionButton({
                                                     value={rfi.description} 
                                                     onChange={(e) => setRfis(rfis.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
                                                     className="text-sm h-8"
+                                                    autoFocus={idx === rfis.length - 1}
                                                 />
                                             </div>
                                             <div className="space-y-1">
@@ -439,6 +467,7 @@ function AcceptInstructionButton({
                                                     value={si.description} 
                                                     onChange={(e) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, description: e.target.value } : s))}
                                                     className="text-sm h-8"
+                                                    autoFocus={idx === siteInsts.length - 1}
                                                 />
                                             </div>
                                             <div className="space-y-1">
