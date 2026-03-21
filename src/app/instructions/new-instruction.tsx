@@ -35,11 +35,11 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Users2, Send, Save, CheckCircle2 } from 'lucide-react';
-import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser } from '@/lib/types';
+import { PlusCircle, Camera, Upload, X, RefreshCw, FileIcon, FileText, Loader2, Users2, Send, Save, CheckCircle2, Link as LinkIcon } from 'lucide-react';
+import type { Project, Photo, FileAttachment, Instruction, SubContractor, DistributionUser, ClientInstruction } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
-import { useFirestore, useStorage } from '@/firebase';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, updateDoc, doc, query, where } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
@@ -51,6 +51,7 @@ import { CameraOverlay } from '@/components/camera-overlay';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
+  clientInstructionId: z.string().optional().nullable(),
   originalText: z.string().optional().default(''),
   externalRecipient: z.string().optional().default(''),
   status: z.enum(['draft', 'issued']).default('issued'),
@@ -83,6 +84,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
     resolver: zodResolver(NewInstructionSchema),
     defaultValues: {
       projectId: '',
+      clientInstructionId: 'none',
       originalText: '',
       externalRecipient: '',
       status: 'issued',
@@ -91,6 +93,12 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [selectedProjectId, projects]);
+
+  const ciQuery = useMemoFirebase(() => {
+    if (!db || !selectedProjectId) return null;
+    return query(collection(db, 'client-instructions'), where('projectId', '==', selectedProjectId));
+  }, [db, selectedProjectId]);
+  const { data: clientDirectives } = useCollection<ClientInstruction>(ciQuery);
 
   const availableSubContractors = useMemo(() => {
     if (!selectedProject) return [];
@@ -156,6 +164,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
         const instructionData = {
           reference,
           projectId: values.projectId,
+          clientInstructionId: (values.clientInstructionId && values.clientInstructionId !== 'none') ? values.clientInstructionId : null,
           originalText: values.originalText || '',
           summary: values.originalText && values.originalText.length > 100 ? values.originalText.substring(0, 100) + '...' : (values.originalText || 'No description'),
           actionItems: [],
@@ -229,17 +238,37 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
             <DialogTitle>Record New Site Instruction</DialogTitle>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6 p-6">
-              <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Target Project</FormLabel>
-                  <Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); }} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
-                    <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )} />
+            <form onSubmit={form.handleSubmit(() => {}, () => scrollToFirstError())} className="space-y-6 p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="projectId" render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Target Project</FormLabel>
+                    <Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); form.setValue('clientInstructionId', 'none'); }} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                        <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )} />
+                
+                <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel className="flex items-center gap-2">
+                            <LinkIcon className="h-4 w-4 text-primary" />
+                            Linked Client Directive
+                        </FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="No link" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="none">No Link / Standalone</SelectItem>
+                                {clientDirectives?.map(ci => (
+                                    <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </FormItem>
+                )} />
+              </div>
               
               <FormField
                 control={form.control}
@@ -298,7 +327,7 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
                       <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
                       <button 
                         type="button" 
-                        className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" 
+                        className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm" 
                         onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}
                       >
                         <X className="h-3 w-3" />

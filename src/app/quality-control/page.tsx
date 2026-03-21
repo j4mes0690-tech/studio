@@ -93,26 +93,36 @@ function QualityControlContent() {
     });
   }, [allProjects, profile]);
 
+  const checklistInstances = useMemo(() => {
+    if (!allChecklists) return [];
+    return allChecklists.filter(c => !c.isTemplate);
+  }, [allChecklists]);
+
+  const checklistTemplates = useMemo(() => {
+    if (!allChecklists) return [];
+    return allChecklists.filter(c => !!c.isTemplate);
+  }, [allChecklists]);
+
   // Derived Data: Project Progress
   const projectProgress = useMemo(() => {
-    if (!allChecklists) return new Map();
+    if (!checklistInstances) return new Map();
     const map = new Map();
-    allChecklists.forEach(c => {
-        if (c.isTemplate || !c.projectId) return;
+    checklistInstances.forEach(c => {
+        if (!c.projectId) return;
         const current = map.get(c.projectId) || { total: 0, closed: 0 };
         const totalItems = c.items?.length || 0;
         const closedItems = c.items?.filter(i => i.status !== 'pending' && i.status !== 'no').length || 0;
         map.set(c.projectId, { total: current.total + totalItems, closed: current.closed + closedItems });
     });
     return map;
-  }, [allChecklists]);
+  }, [checklistInstances]);
 
   // Derived Data: Area Progress
   const areaProgress = useMemo(() => {
-    if (!allChecklists || !activeProjectId) return new Map();
+    if (!checklistInstances || !activeProjectId) return new Map();
     const map = new Map();
-    allChecklists.forEach(c => {
-        if (c.isTemplate || c.projectId !== activeProjectId || !c.areaId) return;
+    checklistInstances.forEach(c => {
+        if (c.projectId !== activeProjectId || !c.areaId) return;
         const current = map.get(c.areaId) || { total: 0, closed: 0, count: 0 };
         const totalItems = c.items?.length || 0;
         const closedItems = c.items?.filter(i => i.status !== 'pending' && i.status !== 'no').length || 0;
@@ -123,26 +133,15 @@ function QualityControlContent() {
         });
     });
     return map;
-  }, [allChecklists, activeProjectId]);
-
-  const checklistTemplates = useMemo(() => {
-    if (!allChecklists) return [];
-    return allChecklists.filter(c => !!c.isTemplate);
-  }, [allChecklists]);
-
-  const checklistInstances = useMemo(() => {
-    if (!allChecklists) return [];
-    return allChecklists.filter(c => !c.isTemplate);
-  }, [allChecklists]);
+  }, [checklistInstances, activeProjectId]);
 
   const filteredChecklists = useMemo(() => {
-    if (!allChecklists) return [];
-    return allChecklists.filter(c => 
-        !c.isTemplate && 
+    if (!checklistInstances) return [];
+    return checklistInstances.filter(c => 
         c.projectId === activeProjectId &&
         c.areaId === activeAreaId
     );
-  }, [allChecklists, activeProjectId, activeAreaId]);
+  }, [checklistInstances, activeProjectId, activeAreaId]);
 
   const focusedChecklist = useMemo(() => {
     if (!activeChecklistId || !allChecklists) return null;

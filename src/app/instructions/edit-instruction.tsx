@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -250,7 +249,7 @@ export function EditInstruction({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0 shadow-2xl">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle>Edit Site Instruction</DialogTitle>
         </DialogHeader>
@@ -258,7 +257,7 @@ export function EditInstruction({
           <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6 p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="projectId" render={({ field }) => (
-                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); form.setValue('clientInstructionId', 'none'); }} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(val) => { field.onChange(val); form.setValue('externalRecipient', ''); form.setValue('clientInstructionId', 'none'); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
                 )} />
                 
                 <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
@@ -327,7 +326,7 @@ export function EditInstruction({
                         <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
                         <button 
                             type="button" 
-                            className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity" 
+                            className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-sm" 
                             onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}
                         >
                             <X className="h-3 w-3" />
@@ -348,7 +347,10 @@ export function EditInstruction({
               <div className="space-y-1">
                 {files.map((f, i) => (
                   <div key={i} className="flex items-center justify-between p-2 rounded border bg-muted/30 text-xs">
-                    <span className="truncate">{f.name}</span>
+                    <div className="flex items-center gap-2 truncate">
+                        <FileText className="h-3 w-3 text-primary shrink-0" />
+                        <span className="truncate">{f.name}</span>
+                    </div>
                     <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
                   </div>
                 ))}

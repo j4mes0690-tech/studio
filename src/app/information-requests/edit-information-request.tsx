@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -221,7 +220,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                     return (distributionUsers || []).find(u => u.email === email)?.name || email;
                 });
                 
-                const pdf = await generateInformationRequestPDF({ ...item, ...updates }, selectedProject, assignedToNames);
+                const pdf = await generateInformationRequestPDF({ ...item, ...updates } as InformationRequest, selectedProject, assignedToNames);
                 const pdfBase64 = pdf.output('datauristring').split(',')[1];
 
                 await sendInformationRequestEmailAction({
@@ -511,7 +510,7 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 <Button 
                   type="submit" 
                   className="w-full sm:flex-1 h-12 text-lg font-bold" 
-                  disabled={isPending}
+                  disabled={isPending} 
                   onClick={() => form.setValue('status', 'open')}
                 >
                   {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 animate-spin mr-2" />}

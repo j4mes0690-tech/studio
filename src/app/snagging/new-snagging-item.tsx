@@ -156,7 +156,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   };
 
   const handleToggleStatus = (idx: number) => {
-    setItems(items.map((it, i) => i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as any } : it));
+    setItems(items.map((it, i) => i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as any } : i));
   };
 
   const onCaptureGeneral = (photo: Photo) => {

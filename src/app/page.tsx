@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -67,7 +66,7 @@ const DASHBOARD_CARDS = [
   { id: 'materials', href: '/materials-orders', label: 'Materials Orders', icon: ClipboardList, desc: 'Create and manage purchase orders for project materials.', permission: 'accessMaterials' },
   { id: 'plant', href: '/plant-orders', label: 'Plant Orders', icon: Truck, desc: 'Track equipment hire, off-hire dates, and commercial rates.', permission: 'accessPlant' },
   { id: 'subcontract-orders', href: '/subcontract-orders', label: 'Sub-contract Orders', icon: FileSignature, desc: 'Track the drafting and DocuSign signing status of partners.', permission: 'accessSubContractOrders' },
-  { id: 'variations', href: '/variations', label: 'Variations', icon: Calculator, desc: 'Manage additions and omissions linked to instructions.', permission: 'accessVariations' },
+  { id: 'variations', href: '/variations', label: 'Variations', icon: Calculator, permission: 'accessVariations' },
   { id: 'payment-notices', label: 'Payment Notices', href: '/payment-notices', icon: Banknote, desc: 'Track sub-contractor applications, certificates, and invoices.', permission: 'accessPaymentNotices' },
   { id: 'permits', href: '/permits', label: 'Permits to Work', icon: FileCheck, desc: 'Issue and track high-risk activity permits electronically.', permission: 'accessPermits' },
   { id: 'training', href: '/training', label: 'Training & Compliance', icon: GraduationCap, desc: 'Store employee certificates and monitor expiry dates.', permission: 'accessTraining' },
@@ -275,12 +274,16 @@ export default function Dashboard() {
                             {loadingModule === card.id && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>)}
                             <CardHeader className="p-0 relative w-full flex flex-col items-center">
                                 <div className="relative flex items-center justify-center mb-2 md:mb-4">
-                                    <card.icon className={cn(
-                                        "transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary", 
-                                        isCompact ? "h-6 w-6" : "h-10 w-10 md:h-12 md:w-12", 
-                                        loadingModule === card.id && "opacity-20"
-                                    )} />
-                                    <FlashingBadge count={pendingCount} />
+                                    <div className="h-12 w-12 flex items-center justify-center">
+                                        <card.icon className={cn(
+                                            "transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary", 
+                                            isCompact ? "h-6 w-6" : "h-10 w-10 md:h-12 md:w-12", 
+                                            loadingModule === card.id && "opacity-20"
+                                        )} />
+                                    </div>
+                                    <div className="absolute -top-1 -right-1">
+                                        <FlashingBadge count={pendingCount} />
+                                    </div>
                                 </div>
                                 <CardTitle className={cn(
                                     "transition-all font-bold text-center w-full", 

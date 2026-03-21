@@ -17,7 +17,7 @@ import { doc, updateDoc, collection, addDoc, query, orderBy, arrayUnion } from '
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord } from '@/lib/types';
-import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, Loader2, Save, RefreshCw, History, Eye, FileSearch, Check, Link as LinkIcon, Pencil } from 'lucide-react';
+import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, RefreshCw, Loader2, Save, History, Eye, FileSearch, Check, Link as LinkIcon, Pencil, Maximize2, ListChecks } from 'lucide-react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
@@ -316,7 +316,6 @@ function EditSnaggingContent() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    {/* Add Item Widget */}
                     <div className="p-6 bg-muted/20 border-b space-y-4">
                         <div className="flex gap-2 items-end">
                             <div className="flex-1 space-y-2">
@@ -416,7 +415,6 @@ function EditSnaggingContent() {
                                                 </div>
                                             </div>
 
-                                            {/* Photo Management in Edit Mode */}
                                             <div className="space-y-2 pt-2">
                                                 <Label className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Item Photos</Label>
                                                 <div className="flex flex-wrap gap-2">

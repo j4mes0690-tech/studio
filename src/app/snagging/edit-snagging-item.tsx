@@ -135,7 +135,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
         description: newItemText.trim() || 'No description',
         status: 'open',
         photos: [...pendingItemPhotos],
-        subContractorId: pendingSubId || null,
+        subContractorId: pendingSubId === 'unassigned' ? null : pendingSubId,
         completionPhotos: []
     };
     setItems([...items, newItem]);
@@ -304,7 +304,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                 <FormItem>
                                   <FormLabel>Area / Level</FormLabel>
                                   <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger></FormControl>
                                     <SelectContent>
                                       {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                                       {availableAreas.length > 0 && <Separator className="my-1" />}
@@ -363,7 +363,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                               <Input value={editItemText} onChange={e => setEditItemText(e.target.value)} className="h-9" autoFocus />
                                           </div>
                                           <div className="flex justify-between items-center">
-                                              <Select value={editItemSubId || 'unassigned'} onValueChange={v => setEditItemSubId(v === 'unassigned' ? undefined : v)}>
+                                              <Select value={editItemSubId} onValueChange={setEditItemSubId}>
                                                   <SelectTrigger className="w-48 h-8 text-xs"><SelectValue /></SelectTrigger>
                                                   <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                               </Select>
