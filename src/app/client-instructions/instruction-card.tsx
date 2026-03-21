@@ -8,9 +8,9 @@ import Link from 'next/link';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import {
   Accordion,
@@ -39,7 +39,8 @@ import {
   Users2,
   RefreshCw,
   Bell,
-  EyeOff
+  EyeOff,
+  ExternalLink
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ClientDate } from '../../components/client-date';
@@ -546,14 +547,14 @@ export function ClientInstructionCard({
         )}
         onClick={handleCardClick}
       >
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
+        <CardHeader className="p-4 md:p-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="space-y-1 flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <CardTitle className={cn("text-xl transition-colors", !isDetailPage && "group-hover/card:text-primary")}>
+                <CardTitle className={cn("text-xl transition-colors truncate", !isDetailPage && "group-hover/card:text-primary")}>
                     {project?.name || 'Unknown'}
                 </CardTitle>
-                <Badge variant="outline" className="font-mono text-[10px] bg-background">{instruction.reference}</Badge>
+                <Badge variant="outline" className="font-mono text-[10px] bg-background shrink-0">{instruction.reference}</Badge>
               </div>
               <div className="flex items-center gap-2 pt-1 flex-wrap">
                 <span className="text-xs text-muted-foreground/80">
@@ -567,7 +568,7 @@ export function ClientInstructionCard({
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap" onClick={(e) => e.stopPropagation()}>
               {isAttentionRequired && (
                   <TooltipProvider>
                       <Tooltip>
@@ -581,7 +582,7 @@ export function ClientInstructionCard({
                   </TooltipProvider>
               )}
 
-              <Badge variant={isAccepted ? "secondary" : "default"} className={cn(isAccepted && "bg-green-100 text-green-800 border-green-200")}>
+              <Badge variant={isAccepted ? "secondary" : "default"} className={cn("h-6", isAccepted && "bg-green-100 text-green-800 border-green-200")}>
                   {isAccepted ? "Accepted" : "Open Directive"}
               </Badge>
               {!isAccepted ? (
@@ -600,13 +601,16 @@ export function ClientInstructionCard({
                 <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction></AlertDialogFooter>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction>
+                  </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-6">
           <div className="bg-muted/20 rounded-lg border p-4 space-y-4">
               <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest border-b pb-2">
                   <MessageCircle className="h-3 w-3" /> <span>Implementation Thread</span>
