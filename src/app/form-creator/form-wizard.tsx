@@ -91,6 +91,10 @@ export function FormWizard({
   const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
 
+  // Open Accordion States
+  const [openSections, setOpenSections] = useState<string[]>([]);
+  const [openQCSections, setOpenQCSections] = useState<string[]>([]);
+
   // Drag and Drop State
   const [draggedFieldInfo, setDraggedFieldId] = useState<{ sectionId: string, fieldId: string } | null>(null);
   const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
@@ -103,19 +107,23 @@ export function FormWizard({
         setDescription(initialTemplate.description || '');
         
         if (initialType === 'permit') {
-            setSections(initialTemplate.sections || []);
+            const s = initialTemplate.sections || [];
+            setSections(s);
             setPermitType(initialTemplate.type || 'General');
+            setOpenSections(s.map((sec: any) => sec.id));
         } else if (initialType === 'qc') {
-            // Support legacy conversion
+            let s: QCSection[] = [];
             if (initialTemplate.sections) {
-                setQCSections(initialTemplate.sections);
+                s = initialTemplate.sections;
             } else {
-                setQCSections([{ 
+                s = [{ 
                     id: 'default-sec', 
                     title: 'Verification Points', 
                     items: initialTemplate.items || [] 
-                }]);
+                }];
             }
+            setQCSections(s);
+            setOpenQCSections(s.map((sec: any) => sec.id));
         } else if (initialType === 'toolbox') {
             setTopic(initialTemplate.topic || '');
             setContent(initialTemplate.content || '');
@@ -170,7 +178,7 @@ export function FormWizard({
             ...data, 
             isTemplate: true, 
             sections: qcSections,
-            items: [] // Keep legacy flat array empty for new sectional checklists
+            items: [] 
           };
         } else {
           collName = 'toolbox-talk-templates';
@@ -419,11 +427,19 @@ export function FormWizard({
                     <p className="text-xs text-muted-foreground">Adjust layout widths and data types for each capture point.</p>
                 </div>
                 {type === 'permit' ? (
-                    <Button variant="outline" size="sm" onClick={() => setSections([...sections, { id: `sec-${Date.now()}`, title: 'New Section', fields: [] }])} className="gap-2">
+                    <Button variant="outline" size="sm" onClick={() => {
+                        const newId = `sec-${Date.now()}`;
+                        setSections([...sections, { id: newId, title: 'New Section', fields: [] }]);
+                        setOpenSections(prev => [...prev, newId]);
+                    }} className="gap-2">
                         <Plus className="h-4 w-4" /> Add Section
                     </Button>
                 ) : type === 'qc' ? (
-                    <Button variant="outline" size="sm" onClick={() => setQCSections([...qcSections, { id: `sec-qc-${Date.now()}`, title: 'New Category', items: [] }])} className="gap-2">
+                    <Button variant="outline" size="sm" onClick={() => {
+                        const newId = `sec-qc-${Date.now()}`;
+                        setQCSections([...qcSections, { id: newId, title: 'New Category', items: [] }]);
+                        setOpenQCSections(prev => [...prev, newId]);
+                    }} className="gap-2">
                         <Plus className="h-4 w-4" /> Add Section
                     </Button>
                 ) : (
@@ -445,7 +461,7 @@ export function FormWizard({
 
                 {type === 'permit' ? (
                     <div className="space-y-8">
-                        <Accordion type="multiple" defaultValue={sections.map(s => s.id)} className="space-y-4">
+                        <Accordion type="multiple" value={openSections} onValueChange={setOpenSections} className="space-y-4">
                             {sections.map((section) => (
                                 <AccordionItem 
                                     key={section.id} 
@@ -466,8 +482,8 @@ export function FormWizard({
                                             />
                                         </div>
                                         <div className="flex items-center gap-1 shrink-0">
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => addField(section.id)} className="h-8 text-[10px] uppercase font-bold text-primary">
-                                                <Plus className="h-3 w-3 mr-1" /> Add Field
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => addField(section.id)} className="h-8 w-8 text-primary">
+                                                <Plus className="h-4 w-4" />
                                             </Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setSections(sections.filter(s => s.id !== section.id))}>
                                                 <Trash2 className="h-4 w-4" />
@@ -572,7 +588,7 @@ export function FormWizard({
                     </div>
                 ) : type === 'qc' ? (
                     <div className="space-y-8">
-                        <Accordion type="multiple" defaultValue={qcSections.map(s => s.id)} className="space-y-4">
+                        <Accordion type="multiple" value={openQCSections} onValueChange={setOpenQCSections} className="space-y-4">
                             {qcSections.map((section) => (
                                 <AccordionItem 
                                     key={section.id} 
@@ -593,8 +609,8 @@ export function FormWizard({
                                             />
                                         </div>
                                         <div className="flex items-center gap-1 shrink-0">
-                                            <Button type="button" variant="ghost" size="sm" onClick={() => addQCItem(section.id)} className="h-8 text-[10px] uppercase font-bold text-primary">
-                                                <Plus className="h-3 w-3 mr-1" /> Add Question
+                                            <Button type="button" variant="ghost" size="icon" onClick={() => addQCItem(section.id)} className="h-8 w-8 text-primary">
+                                                <Plus className="h-4 w-4" />
                                             </Button>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setQCSections(qcSections.filter(s => s.id !== section.id))}>
                                                 <Trash2 className="h-4 w-4" />

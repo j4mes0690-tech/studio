@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, X, Loader2, Settings2 } from 'lucide-react';
+import { PlusCircle, X, Loader2, Plus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -201,7 +201,9 @@ export function NewChecklist() {
                             placeholder="Add a new checklist item"
                             onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}}
                         />
-                        <Button type="button" variant="secondary" onClick={handleAddItem}>Add</Button>
+                        <Button type="button" variant="secondary" size="icon" onClick={handleAddItem} className="h-10 w-10 shrink-0">
+                            <Plus className="h-4 w-4" />
+                        </Button>
                     </div>
 
                     <ScrollArea className="h-48 rounded-md border mt-2 bg-muted/5">
