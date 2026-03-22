@@ -135,15 +135,15 @@ export function PermitCard({
 
       const areaName = permit.customAreaName || project?.areas?.find(a => a.id === permit.areaId)?.name || 'General Site';
 
-      // Build fields HTML string first to avoid complex template literal nesting issues
+      // Build sections HTML
       let sectionsHtml = '';
       (permit.sections || []).forEach(section => {
         let fieldsHtml = '';
         section.fields.forEach(f => {
-          let valueDisplay = f.value || '---';
+          let valueDisplay = String(f.value || '---');
           if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
           if (f.type === 'yes-no-na') valueDisplay = String(f.value || '---').toUpperCase();
-          if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = `[${f.value.length} Photo(s) Captured]`;
+          if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = '[' + f.value.length + ' Photo(s) Captured]';
 
           fieldsHtml += `
             <div style="display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f1f5f9; padding: 8px; border-radius: 4px;">
@@ -423,7 +423,7 @@ export function PermitCard({
                   </p>
               </div>
           </div>
-        </CardHeader>
+        </CardContent>
       </Card>
 
       <EditPermitDialog 

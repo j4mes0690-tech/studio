@@ -331,12 +331,13 @@ export function NewPermitDialog({
                 <Accordion type="multiple" defaultValue={dynamicSections.map(s => s.id)} className="space-y-4">
                     {dynamicSections.map((section) => (
                         <AccordionItem key={section.id} value={section.id} className="border bg-background rounded-xl overflow-hidden shadow-sm">
-                            <AccordionTrigger className="px-6 py-3 hover:no-underline hover:bg-muted/5 group border-none">
-                                <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-between px-6 bg-muted/5 group">
+                                <div className="flex items-center gap-2 py-3">
                                     <Layout className="h-4 w-4 text-primary" />
                                     <span className="font-bold text-xs uppercase tracking-widest text-primary">{section.title}</span>
                                 </div>
-                            </AccordionTrigger>
+                                <AccordionTrigger className="w-10 h-10 p-0 hover:no-underline border-none shadow-none" />
+                            </div>
                             <AccordionContent className="px-6 py-4 border-t">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {section.fields.map((field) => (
