@@ -21,7 +21,8 @@ import {
   Image as ImageIcon,
   CheckSquare,
   AlignLeft,
-  ListTodo
+  ListTodo,
+  GripVertical
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,7 +40,8 @@ import type {
   TemplateFieldType,
   PermitType, 
   Trade,
-  DistributionUser 
+  DistributionUser,
+  TemplateField
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -72,6 +74,9 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
   const [checklistItems, setChecklistItems] = useState<{ id: string, text: string }[]>([]);
   const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
+
+  // Drag and Drop State
+  const [draggedFieldInfo, setDraggedFieldId] = useState<{ sectionId: string, fieldId: string } | null>(null);
 
   const tradesQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -172,6 +177,31 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         }
         return s;
     }));
+  };
+
+  // Reordering Logic
+  const handleFieldDragStart = (sectionId: string, fieldId: string) => {
+    setDraggedFieldId({ sectionId, fieldId });
+  };
+
+  const handleFieldDrop = (targetSectionId: string, targetFieldId: string) => {
+    if (!draggedFieldInfo || draggedFieldInfo.fieldId === targetFieldId) return;
+
+    setSections(prev => prev.map(section => {
+      if (section.id === targetSectionId) {
+        const newFields = [...section.fields];
+        const draggedIdx = newFields.findIndex(f => f.id === draggedFieldInfo.fieldId);
+        const targetIdx = newFields.findIndex(f => f.id === targetFieldId);
+
+        if (draggedIdx > -1 && targetIdx > -1) {
+          const [draggedField] = newFields.splice(draggedIdx, 1);
+          newFields.splice(targetIdx, 0, draggedField);
+          return { ...section, fields: newFields };
+        }
+      }
+      return section;
+    }));
+    setDraggedFieldId(null);
   };
 
   const getFieldTypeIcon = (type: TemplateFieldType) => {
@@ -313,39 +343,49 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                     {section.fields.map((field) => (
                                         <div 
                                             key={field.id} 
+                                            draggable
+                                            onDragStart={() => handleFieldDragStart(section.id, field.id)}
+                                            onDragOver={(e) => e.preventDefault()}
+                                            onDrop={() => handleFieldDrop(section.id, field.id)}
                                             className={cn(
                                                 "p-3 bg-white border rounded-lg shadow-sm space-y-3 transition-all relative group",
-                                                field.width === 'half' ? "col-span-1" : "col-span-1 md:col-span-2"
+                                                field.width === 'half' ? "col-span-1" : "col-span-1 md:col-span-2",
+                                                draggedFieldInfo?.fieldId === field.id && "opacity-40"
                                             )}
                                         >
                                             <div className="flex items-start justify-between gap-4">
-                                                <div className="flex-1 space-y-1">
-                                                    <Input 
-                                                        value={field.label} 
-                                                        onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
-                                                        className="h-7 text-xs font-bold leading-tight bg-transparent border-transparent p-0 focus-visible:ring-0 placeholder:text-muted-foreground/30" 
-                                                        placeholder="Label..."
-                                                    />
-                                                    <div className="flex items-center gap-2">
-                                                        <Select 
-                                                            value={field.type} 
-                                                            onValueChange={(v: TemplateFieldType) => updateFieldType(section.id, field.id, v)}
-                                                        >
-                                                            <SelectTrigger className="h-5 text-[8px] w-24 bg-muted/30 border-none px-1.5 font-black uppercase tracking-tighter">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    {getFieldTypeIcon(field.type)}
-                                                                    <SelectValue />
-                                                                </div>
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                <SelectItem value="checkbox" className="text-[10px]">Checkbox</SelectItem>
-                                                                <SelectItem value="date" className="text-[10px]">Date Field</SelectItem>
-                                                                <SelectItem value="text" className="text-[10px]">Short Text</SelectItem>
-                                                                <SelectItem value="textarea" className="text-[10px]">Long Text</SelectItem>
-                                                                <SelectItem value="photo" className="text-[10px]">Photo Upload</SelectItem>
-                                                                <SelectItem value="yes-no-na" className="text-[10px]">Yes/No/NA</SelectItem>
-                                                            </SelectContent>
-                                                        </Select>
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <div className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded text-muted-foreground">
+                                                        <GripVertical className="h-3.5 w-3.5" />
+                                                    </div>
+                                                    <div className="flex-1 space-y-1">
+                                                        <Input 
+                                                            value={field.label} 
+                                                            onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
+                                                            className="h-7 text-xs font-bold leading-tight bg-transparent border-transparent p-0 focus-visible:ring-0 placeholder:text-muted-foreground/30" 
+                                                            placeholder="Label..."
+                                                        />
+                                                        <div className="flex items-center gap-2">
+                                                            <Select 
+                                                                value={field.type} 
+                                                                onValueChange={(v: TemplateFieldType) => updateFieldType(section.id, field.id, v)}
+                                                            >
+                                                                <SelectTrigger className="h-5 text-[8px] w-24 bg-muted/30 border-none px-1.5 font-black uppercase tracking-tighter">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {getFieldTypeIcon(field.type)}
+                                                                        <SelectValue />
+                                                                    </div>
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="checkbox" className="text-[10px]">Checkbox</SelectItem>
+                                                                    <SelectItem value="date" className="text-[10px]">Date Field</SelectItem>
+                                                                    <SelectItem value="text" className="text-[10px]">Short Text</SelectItem>
+                                                                    <SelectItem value="textarea" className="text-[10px]">Long Text</SelectItem>
+                                                                    <SelectItem value="photo" className="text-[10px]">Photo Upload</SelectItem>
+                                                                    <SelectItem value="yes-no-na" className="text-[10px]">Yes/No/NA</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">

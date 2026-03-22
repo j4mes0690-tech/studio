@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import type { Permit, Project, SubContractor, DistributionUser, Photo } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +23,8 @@ import {
   Minus,
   AlertTriangle,
   FileText,
-  Camera
+  Camera,
+  Layout
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -42,11 +43,12 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { EditPermitDialog } from './edit-permit';
 import { ImageLightbox } from '@/components/image-lightbox';
 import Image from 'next/image';
 import { sendPermitEmailAction } from './actions';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 export function PermitCard({ 
   permit, 
@@ -346,43 +348,52 @@ export function PermitCard({
                     {isExpanded ? "Hide Controls" : "View Safety Controls"}
                 </Button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="pt-4 space-y-6">
-                {(permit.sections || []).map((section) => (
-                    <div key={section.id} className="space-y-2">
-                        <p className="text-[10px] font-black uppercase text-primary tracking-widest">{section.title}</p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {section.fields.map((field) => (
-                                <div key={field.id} className={cn(
-                                    "flex items-center justify-between p-2 rounded border bg-muted/5 gap-4",
-                                    field.width === 'full' ? 'col-span-1 sm:col-span-2' : 'col-span-1'
-                                )}>
-                                    <span className="text-[11px] font-medium truncate flex-1">{field.label}</span>
-                                    <div className="flex shrink-0">
-                                        {field.type === 'checkbox' ? (
-                                            field.value === true ? <Check className="h-3 w-3 text-green-600" /> : <Minus className="h-3 w-3 text-muted-foreground/30" />
-                                        ) : field.type === 'yes-no-na' ? (
-                                            <Badge variant="outline" className={cn(
-                                                "text-[8px] h-4 px-1 leading-none font-bold border-transparent",
-                                                field.value === 'yes' ? 'bg-green-50 text-green-700' :
-                                                field.value === 'no' ? 'bg-red-50 text-red-700' : 'bg-muted text-muted-foreground'
-                                            )}>
-                                                {String(field.value || '---').toUpperCase()}
-                                            </Badge>
-                                        ) : field.type === 'photo' && field.value ? (
-                                            <div className="relative w-8 h-6 rounded overflow-hidden border cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(field.value); }}>
-                                                <Image src={field.value.url} alt="Verification" fill className="object-cover" />
-                                            </div>
-                                        ) : field.type === 'date' && field.value ? (
-                                            <span className="text-[10px] font-mono text-primary">{new Date(field.value).toLocaleDateString()}</span>
-                                        ) : (
-                                            <span className="text-[10px] font-bold text-primary truncate max-w-[100px]">{field.value || '---'}</span>
-                                        )}
-                                    </div>
+            <CollapsibleContent className="pt-4">
+                <Accordion type="multiple" defaultValue={(permit.sections || []).map(s => s.id)} className="space-y-2">
+                    {(permit.sections || []).map((section) => (
+                        <AccordionItem key={section.id} value={section.id} className="border rounded-lg bg-muted/5 overflow-hidden">
+                            <AccordionTrigger className="px-4 py-2 hover:no-underline hover:bg-muted/10">
+                                <div className="flex items-center gap-2">
+                                    <Layout className="h-3.5 w-3.5 text-primary" />
+                                    <span className="text-[10px] font-black uppercase text-primary tracking-widest">{section.title}</span>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
+                            </AccordionTrigger>
+                            <AccordionContent className="px-4 pb-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+                                    {section.fields.map((field) => (
+                                        <div key={field.id} className={cn(
+                                            "flex items-center justify-between p-2 rounded border bg-background gap-4",
+                                            field.width === 'full' ? 'col-span-1 sm:col-span-2' : 'col-span-1'
+                                        )}>
+                                            <span className="text-[11px] font-medium truncate flex-1">{field.label}</span>
+                                            <div className="flex shrink-0">
+                                                {field.type === 'checkbox' ? (
+                                                    field.value === true ? <Check className="h-3 w-3 text-green-600" /> : <Minus className="h-3 w-3 text-muted-foreground/30" />
+                                                ) : field.type === 'yes-no-na' ? (
+                                                    <Badge variant="outline" className={cn(
+                                                        "text-[8px] h-4 px-1 leading-none font-bold border-transparent",
+                                                        field.value === 'yes' ? 'bg-green-50 text-green-700' :
+                                                        field.value === 'no' ? 'bg-red-50 text-red-700' : 'bg-muted text-muted-foreground'
+                                                    )}>
+                                                        {String(field.value || '---').toUpperCase()}
+                                                    </Badge>
+                                                ) : field.type === 'photo' && field.value ? (
+                                                    <div className="relative w-8 h-6 rounded overflow-hidden border cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(field.value); }}>
+                                                        <Image src={field.value.url} alt="Verification" fill className="object-cover" />
+                                                    </div>
+                                                ) : field.type === 'date' && field.value ? (
+                                                    <span className="text-[10px] font-mono text-primary">{new Date(field.value).toLocaleDateString()}</span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold text-primary truncate max-w-[100px]">{field.value || '---'}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
             </CollapsibleContent>
           </Collapsible>
 
@@ -416,7 +427,7 @@ export function PermitCard({
         projects={projects} 
         subContractors={subContractors} 
         allPermits={allPermits}
-        currentUser={currentUser}
+        currentUser={profile}
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
       />
