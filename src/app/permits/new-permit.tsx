@@ -188,9 +188,36 @@ export function NewPermitDialog({
     e.target.value = '';
   };
 
+  const validateRequiredFields = () => {
+    let missing: string[] = [];
+    dynamicSections.forEach(s => {
+        s.fields.forEach(f => {
+            if (f.required) {
+                const hasValue = f.type === 'photo' 
+                    ? (Array.isArray(f.value) && f.value.length > 0) 
+                    : (f.type === 'checkbox' ? f.value === true : !!f.value);
+                if (!hasValue) missing.push(f.label);
+            }
+        });
+    });
+    return missing;
+  };
+
   const onSubmit = (values: NewPermitFormValues, status: 'draft' | 'issued') => {
     const template = permitTemplates?.find(t => t.id === values.templateId);
     if (!template) return;
+
+    if (status === 'issued') {
+        const missing = validateRequiredFields();
+        if (missing.length > 0) {
+            toast({ 
+                title: "Mandatory Fields Missing", 
+                description: `Please complete: ${missing.slice(0, 2).join(', ')}${missing.length > 2 ? '...' : ''}`, 
+                variant: "destructive" 
+            });
+            return;
+        }
+    }
 
     startTransition(async () => {
       try {
@@ -346,7 +373,10 @@ export function NewPermitDialog({
                                             field.width === 'full' ? 'col-span-1 md:col-span-2' : 'col-span-1'
                                         )}>
                                             <div className="space-y-3">
-                                                <Label className="text-xs font-bold leading-relaxed">{field.label}</Label>
+                                                <Label className="text-xs font-bold leading-relaxed">
+                                                    {field.label}
+                                                    {field.required && <span className="text-red-500 ml-1 font-black">*</span>}
+                                                </Label>
                                                 
                                                 <div className="pt-1">
                                                     {field.type === 'checkbox' && (

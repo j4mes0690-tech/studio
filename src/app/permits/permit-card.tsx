@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
-import type { Permit, Project, SubContractor, DistributionUser, Photo, TemplateField } from '@/lib/types';
+import type { Permit, Project, SubContractor, DistributionUser, Photo } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,15 +17,10 @@ import {
   Maximize2,
   CheckCircle2,
   ChevronDown,
-  FileCheck,
-  Check,
-  X as XIcon,
-  Minus,
-  AlertTriangle,
-  FileText,
-  Camera,
   Layout,
-  Pencil
+  Pencil,
+  Check,
+  Minus
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -137,7 +132,6 @@ export function PermitCard({
 
       const areaName = permit.customAreaName || project?.areas?.find(a => a.id === permit.areaId)?.name || 'General Site';
 
-      // Build sections HTML
       let sectionsHtml = '';
       (permit.sections || []).forEach(section => {
         let fieldsHtml = '';
@@ -145,13 +139,13 @@ export function PermitCard({
           let valueDisplay = String(f.value || '---');
           if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
           if (f.type === 'yes-no-na') valueDisplay = String(f.value || '---').toUpperCase();
-          if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = `[${f.value.length} Photo(s) Captured]`;
+          if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = `[${f.value.length} Photos]`;
 
           fieldsHtml += `
             <div style="display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f1f5f9; padding: 8px; border-radius: 4px;">
               <div style="flex: 1;">
                 <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">${f.label}</p>
-                <p style="margin: 2px 0 0 0; font-size: 12px; font-weight: bold; color: ${f.value === 'no' ? '#dc2626' : '#1e293b'};">${valueDisplay}</p>
+                <p style="margin: 2px 0 0 0; font-size: 12px; font-weight: bold;">${valueDisplay}</p>
               </div>
             </div>
           `;
@@ -169,15 +163,8 @@ export function PermitCard({
 
       reportElement.innerHTML = `
         <div style="border: 4px solid #1e40af; padding: 30px; border-radius: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px;">
-            <div>
-              <h1 style="margin: 0; color: #1e40af; font-size: 32px; letter-spacing: -1px;">PERMIT TO WORK</h1>
-              <p style="margin: 5px 0 0 0; font-weight: bold; color: #dc2626;">Ref: ${permit.reference}</p>
-            </div>
-            <div style="text-align: right; background: #1e40af; color: white; padding: 10px 20px; border-radius: 4px;">
-              <p style="margin: 0; font-size: 18px; font-weight: bold;">${permit.type.toUpperCase()}</p>
-            </div>
-          </div>
+          <h1 style="margin: 0; color: #1e40af; font-size: 28px;">PERMIT TO WORK</h1>
+          <p style="margin: 5px 0 30px 0; font-weight: bold; color: #dc2626;">Ref: ${permit.reference}</p>
 
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
             <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
@@ -190,33 +177,10 @@ export function PermitCard({
             </div>
           </div>
 
-          <div style="margin-bottom: 30px;">
-            <h2 style="font-size: 14px; color: #1e40af; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 10px;">WORK DESCRIPTION</h2>
-            <p style="font-size: 13px; line-height: 1.6;">${permit.description}</p>
-          </div>
-
           ${sectionsHtml}
 
-          <div style="background: #fffbeb; border: 2px solid #fde68a; padding: 20px; border-radius: 8px; margin-bottom: 40px; display: flex; justify-content: space-between;">
-            <div>
-              <p style="margin: 0; font-size: 10px; font-weight: bold; color: #92400e;">VALID FROM</p>
-              <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: bold;">${new Date(permit.validFrom).toLocaleString()}</p>
-            </div>
-            <div style="text-align: right;">
-              <p style="margin: 0; font-size: 10px; font-weight: bold; color: #92400e;">VALID UNTIL</p>
-              <p style="margin: 5px 0 0 0; font-size: 14px; font-weight: bold; color: #dc2626;">${new Date(permit.validTo).toLocaleString()}</p>
-            </div>
-          </div>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 50px;">
-            <div style="border-top: 1px solid #334155; padding-top: 10px;">
-              <p style="margin: 0; font-size: 10px; font-weight: bold;">SITE AUTHORITY SIGNATURE</p>
-              <p style="margin: 5px 0 0 0; font-size: 12px;">${project?.siteManager || permit.createdByEmail}</p>
-            </div>
-            <div style="border-top: 1px solid #334155; padding-top: 10px;">
-              <p style="margin: 0; font-size: 10px; font-weight: bold;">RECIPIENT ACCEPTANCE</p>
-              <p style="margin: 5px 0 0 0; font-size: 12px;">${permit.contractorName}</p>
-            </div>
+          <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
+            <p style="font-size: 10px; color: #94a3b8;">Printed: ${new Date().toLocaleString()}</p>
           </div>
         </div>
       `;
@@ -245,7 +209,7 @@ export function PermitCard({
       }
 
       pdf.save(`Permit-${permit.reference}.pdf`);
-      toast({ title: 'PDF Ready', description: 'Digital permit generated and shared with partner.' });
+      toast({ title: 'PDF Ready', description: 'Digital permit generated and shared.' });
     } catch (err) {
       console.error(err);
       toast({ title: 'Error', description: 'Failed to generate PDF.', variant: 'destructive' });

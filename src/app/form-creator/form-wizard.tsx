@@ -23,7 +23,8 @@ import {
   AlignLeft,
   ListTodo,
   GripVertical,
-  Fingerprint
+  Fingerprint,
+  Asterisk
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -116,9 +117,9 @@ export function FormWizard({
   const generateNextRef = async () => {
     if (initialTemplate || !db) return;
     try {
-        const collections = ['permit-templates', 'quality-checklists', 'toolbox-talk-templates'];
+        const collectionsList = ['permit-templates', 'quality-checklists', 'toolbox-talk-templates'];
         let maxNum = 0;
-        for (const colName of collections) {
+        for (const colName of collectionsList) {
             const snap = await getDocs(collection(db, colName));
             snap.docs.forEach(d => {
                 const ref = d.data().reference;
@@ -181,7 +182,7 @@ export function FormWizard({
         if (s.id === sectionId) {
             return {
                 ...s,
-                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Verification Point', type: 'checkbox', width: 'full' }]
+                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Point', type: 'checkbox', width: 'full', required: false }]
             };
         }
         return s;
@@ -200,12 +201,12 @@ export function FormWizard({
     }));
   };
 
-  const updateFieldType = (sectionId: string, fieldId: string, type: TemplateFieldType) => {
+  const updateFieldType = (sectionId: string, fieldId: string, fieldType: TemplateFieldType) => {
     setSections(prev => prev.map(s => {
         if (s.id === sectionId) {
             return {
                 ...s,
-                fields: s.fields.map(f => f.id === fieldId ? { ...f, type } : f)
+                fields: s.fields.map(f => f.id === fieldId ? { ...f, type: fieldType } : f)
             };
         }
         return s;
@@ -218,6 +219,18 @@ export function FormWizard({
             return {
                 ...s,
                 fields: s.fields.map(f => f.id === fieldId ? { ...f, label } : f)
+            };
+        }
+        return s;
+    }));
+  };
+
+  const toggleFieldRequired = (sectionId: string, fieldId: string) => {
+    setSections(prev => prev.map(s => {
+        if (s.id === sectionId) {
+            return {
+                ...s,
+                fields: s.fields.map(f => f.id === fieldId ? { ...f, required: !f.required } : f)
             };
         }
         return s;
@@ -274,8 +287,8 @@ export function FormWizard({
     setDraggedSectionId(null);
   };
 
-  const getFieldTypeIcon = (type: TemplateFieldType) => {
-    switch (type) {
+  const getFieldTypeIcon = (fieldType: TemplateFieldType) => {
+    switch (fieldType) {
         case 'checkbox': return <CheckSquare className="h-3 w-3" />;
         case 'date': return <CalendarIcon className="h-3 w-3" />;
         case 'text': return <Type className="h-3 w-3" />;
@@ -380,7 +393,11 @@ export function FormWizard({
                     </h3>
                     <p className="text-xs text-muted-foreground">Adjust layout widths and data types for each capture point.</p>
                 </div>
-                {type !== 'permit' && (
+                {type === 'permit' ? (
+                    <Button variant="outline" size="sm" onClick={() => setSections([...sections, { id: `sec-${Date.now()}`, title: 'New Section', fields: [] }])} className="gap-2">
+                        <Plus className="h-4 w-4" /> Add Section
+                    </Button>
+                ) : (
                     <Button variant="outline" size="sm" onClick={() => setChecklistItems([...checklistItems, { id: `ci-${Date.now()}`, text: '' }])} className="gap-2">
                         <Plus className="h-4 w-4" /> Add Item
                     </Button>
@@ -426,9 +443,7 @@ export function FormWizard({
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setSections(sections.filter(s => s.id !== section.id))}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
-                                            <AccordionTrigger className="flex-none w-8 h-8 p-0 flex items-center justify-center border-none shadow-none hover:bg-transparent">
-                                                <span className="sr-only">Toggle Section</span>
-                                            </AccordionTrigger>
+                                            <AccordionTrigger className="flex-none w-8 h-8 p-0 flex items-center justify-center border-none shadow-none hover:bg-transparent" />
                                         </div>
                                     </div>
                                     <AccordionContent className="p-4">
@@ -452,12 +467,15 @@ export function FormWizard({
                                                                 <GripVertical className="h-3.5 w-3.5" />
                                                             </div>
                                                             <div className="flex-1 space-y-1">
-                                                                <Input 
-                                                                    value={field.label} 
-                                                                    onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
-                                                                    className="h-7 text-xs font-bold leading-tight bg-transparent border-transparent p-0 focus-visible:ring-0 placeholder:text-muted-foreground/30" 
-                                                                    placeholder="Label..."
-                                                                />
+                                                                <div className="flex items-center gap-1">
+                                                                    <Input 
+                                                                        value={field.label} 
+                                                                        onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
+                                                                        className="h-7 text-xs font-bold leading-tight bg-transparent border-transparent p-0 focus-visible:ring-0 placeholder:text-muted-foreground/30" 
+                                                                        placeholder="Label..."
+                                                                    />
+                                                                    {field.required && <Asterisk className="h-2.5 w-2.5 text-red-500" />}
+                                                                </div>
                                                                 <div className="flex items-center gap-2">
                                                                     <Select 
                                                                         value={field.type} 
@@ -488,6 +506,21 @@ export function FormWizard({
                                                                         <Button 
                                                                             variant="ghost" 
                                                                             size="icon" 
+                                                                            className={cn("h-6 w-6", field.required ? "text-red-500 bg-red-50" : "text-muted-foreground")}
+                                                                            onClick={() => toggleFieldRequired(section.id, field.id)}
+                                                                        >
+                                                                            <Asterisk className="h-3 w-3" />
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>{field.required ? 'Make Optional' : 'Make Mandatory'}</p></TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button 
+                                                                            variant="ghost" 
+                                                                            size="icon" 
                                                                             className={cn("h-6 w-6", field.width === 'half' ? "text-primary bg-primary/10" : "text-muted-foreground")}
                                                                             onClick={() => updateFieldWidth(section.id, field.id, field.width === 'half' ? 'full' : 'half')}
                                                                         >
@@ -507,9 +540,6 @@ export function FormWizard({
                                 </AccordionItem>
                             ))}
                         </Accordion>
-                        <Button variant="outline" className="w-full border-dashed h-12 gap-2" onClick={() => setSections([...sections, { id: `sec-${Date.now()}`, title: 'New Safety Section', fields: [] }])}>
-                            <Layout className="h-4 w-4" /> Add Section
-                        </Button>
                     </div>
                 ) : (
                     <div className="space-y-3">

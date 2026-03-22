@@ -428,6 +428,7 @@ export type TemplateField = {
   type: TemplateFieldType;
   value?: any;
   width?: 'half' | 'full';
+  required?: boolean;
 };
 
 export type TemplateSection = {
