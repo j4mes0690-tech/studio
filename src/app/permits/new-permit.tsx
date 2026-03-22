@@ -144,7 +144,7 @@ export function NewPermitDialog({
                 return { 
                     ...s, 
                     fields: s.fields.map(f => {
-                        if (f.id === activePhotoPhotoFieldId.fieldId) {
+                        if (f.id === activePhotoFieldId.fieldId) {
                             const currentPhotos = Array.isArray(f.value) ? f.value : [];
                             return { ...f, value: [...currentPhotos, photo] };
                         }
@@ -298,7 +298,7 @@ export function NewPermitDialog({
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField control={form.control} name="contractorId" render={({ field }) => (
-                            <FormItem><FormLabel>Trade Partner</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="Select contractor" /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                            <FormItem><FormLabel>Trade Partner</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder={availablePartners.length > 0 ? "Select contractor" : "No partners assigned to project"} /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
                         )} />
                         <div className="space-y-4">
                             <FormField control={form.control} name="areaId" render={({ field }) => (
@@ -428,7 +428,7 @@ export function NewPermitDialog({
                     ))}
                 </Accordion>
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-10">
                     <Button variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
                     <div className="hidden sm:block flex-1" />
                     <Button 

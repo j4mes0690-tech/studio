@@ -31,7 +31,6 @@ import { useFirestore, useStorage, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { cn, scrollToFirstError } from '@/lib/utils';
@@ -172,7 +171,7 @@ export function EditPermitDialog({
     e.target.value = '';
   };
 
-  const onSubmit = (values: EditPermitFormValues, targetStatus: 'draft' | 'issued') => {
+  const onSubmit = (values: EditPermitFormValues, targetStatus: 'draft' | 'issued' | 'closed') => {
     startTransition(async () => {
       try {
         toast({ title: 'Updating', description: 'Persisting changes...' });
