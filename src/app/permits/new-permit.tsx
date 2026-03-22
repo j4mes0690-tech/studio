@@ -32,8 +32,6 @@ import {
   Send, 
   Camera, 
   X, 
-  Plus, 
-  Trash2, 
   Layout,
   Calendar as CalendarIcon
 } from 'lucide-react';
@@ -49,8 +47,6 @@ import type {
 } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
@@ -60,6 +56,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -130,16 +127,6 @@ export function NewPermitDialog({
     }
   };
 
-  const addSection = () => {
-    const newSection: TemplateSection = { id: `section-${Date.now()}`, title: 'Additional Controls', fields: [] };
-    setDynamicSections([...dynamicSections, newSection]);
-  };
-
-  const addField = (sectionId: string) => {
-    const newField: TemplateField = { id: `field-${Date.now()}`, label: 'Verification Item', type: 'checkbox', value: false };
-    setDynamicSections(dynamicSections.map(s => s.id === sectionId ? { ...s, fields: [...s.fields, newField] } : s));
-  };
-
   const updateDynamicValue = (sectionId: string, fieldId: string, value: any) => {
     setDynamicSections(prev => prev.map(s => {
         if (s.id === sectionId) {
@@ -185,7 +172,7 @@ export function NewPermitDialog({
           type: template.type,
           contractorId: values.contractorId,
           contractorName: contractor?.name || 'Unknown',
-          description: template.title, // Use template title as description
+          description: template.title,
           sections: processedSections,
           validFrom: now.toISOString(),
           validTo: expiry.toISOString(),
@@ -230,172 +217,154 @@ export function NewPermitDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
         <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <DialogTitle>Issue Electronic Permit</DialogTitle>
-              <DialogDescription>Assign a master template to a contractor and area.</DialogDescription>
-            </div>
-            <div className="flex items-center gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={addSection} className="gap-2 border-primary/20 text-primary h-9">
-                    <Plus className="h-4 w-4" /> Add Custom Section
-                </Button>
-            </div>
+          <div>
+            <DialogTitle>Issue Electronic Permit</DialogTitle>
+            <DialogDescription>Apply a master safety template to a contractor and work area.</DialogDescription>
           </div>
         </DialogHeader>
 
         <Form {...form}>
           <form 
             onSubmit={form.handleSubmit(() => {}, () => scrollToFirstError())} 
-            className="flex-1 overflow-y-auto"
+            className="flex-1 flex flex-col overflow-hidden"
           >
-            <div className="p-6 space-y-8 bg-muted/5">
-              <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField control={form.control} name="projectId" render={({ field }) => (
-                          <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                      )} />
-                      <FormField control={form.control} name="templateId" render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Permit Template</FormLabel>
-                              <Select onValueChange={(val) => { field.onChange(val); handleApplyTemplate(val); }} value={field.value}>
-                                  <FormControl><SelectTrigger className="border-primary/20 bg-primary/5"><SelectValue placeholder="Select standard template" /></SelectTrigger></FormControl>
-                                  <SelectContent>
-                                      {permitTemplates?.map(t => (
-                                          <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-                                      ))}
-                                      {(!permitTemplates || permitTemplates.length === 0) && (
-                                          <SelectItem value="none" disabled>No templates defined in Form Editor</SelectItem>
-                                      )}
-                                  </SelectContent>
-                              </Select>
-                              <FormMessage />
-                          </FormItem>
-                      )} />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField control={form.control} name="contractorId" render={({ field }) => (
-                          <FormItem><FormLabel>Trade Partner</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="Select contractor" /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                      )} />
-                      <div className="space-y-4">
-                          <FormField control={form.control} name="areaId" render={({ field }) => (
-                              <FormItem>
-                                  <FormLabel>Location / Plot</FormLabel>
-                                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
-                                      <FormControl><SelectTrigger><SelectValue placeholder="General Site" /></SelectTrigger></FormControl>
-                                      <SelectContent>
-                                          <SelectItem value="site-wide">General Site</SelectItem>
-                                          {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                                          <Separator className="my-1" />
-                                          <SelectItem value="other">Other / Not Listed</SelectItem>
-                                      </SelectContent>
-                                  </Select>
-                              </FormItem>
-                          )} />
-                          {selectedAreaId === 'other' && (
-                              <FormField control={form.control} name="customAreaName" render={({ field }) => (
-                                  <FormItem className="animate-in fade-in slide-in-from-top-1">
-                                      <FormLabel className="text-primary font-bold">Specify Custom Location</FormLabel>
-                                      <FormControl><Input placeholder="e.g. Roof Plant Room Area B" {...field} className="bg-background" /></FormControl>
-                                      <FormMessage />
-                                  </FormItem>
-                              )} />
-                          )}
-                      </div>
-                  </div>
-              </div>
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6 space-y-8 bg-muted/5">
+                <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="projectId" render={({ field }) => (
+                            <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                        )} />
+                        <FormField control={form.control} name="templateId" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Permit Template</FormLabel>
+                                <Select onValueChange={(val) => { field.onChange(val); handleApplyTemplate(val); }} value={field.value}>
+                                    <FormControl><SelectTrigger className="border-primary/20 bg-primary/5"><SelectValue placeholder="Select standard template" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        {permitTemplates?.map(t => (
+                                            <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                                        ))}
+                                        {(!permitTemplates || permitTemplates.length === 0) && (
+                                            <SelectItem value="none" disabled>No templates defined in Form Editor</SelectItem>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="contractorId" render={({ field }) => (
+                            <FormItem><FormLabel>Trade Partner</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="Select contractor" /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                        )} />
+                        <div className="space-y-4">
+                            <FormField control={form.control} name="areaId" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Location / Plot</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="General Site" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="site-wide">General Site</SelectItem>
+                                            {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                            <Separator className="my-1" />
+                                            <SelectItem value="other">Other / Not Listed</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </FormItem>
+                            )} />
+                            {selectedAreaId === 'other' && (
+                                <FormField control={form.control} name="customAreaName" render={({ field }) => (
+                                    <FormItem className="animate-in fade-in slide-in-from-top-1">
+                                        <FormLabel className="text-primary font-bold">Specify Custom Location</FormLabel>
+                                        <FormControl><Input placeholder="e.g. Roof Plant Room Area B" {...field} className="bg-background" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            )}
+                        </div>
+                    </div>
+                </div>
 
-              <Accordion type="multiple" defaultValue={dynamicSections.map(s => s.id)} className="space-y-4">
-                  {dynamicSections.map((section) => (
-                      <AccordionItem key={section.id} value={section.id} className="border bg-background rounded-xl overflow-hidden shadow-sm">
-                          <div className="flex items-center justify-between pr-4 bg-background">
-                              <AccordionTrigger className="flex-1 px-6 py-3 hover:no-underline hover:bg-muted/5 group border-none">
-                                  <div className="flex items-center gap-2">
-                                      <Layout className="h-4 w-4 text-primary" />
-                                      <span className="font-bold text-xs uppercase tracking-widest text-primary">{section.title}</span>
-                                  </div>
-                              </AccordionTrigger>
-                              <div className="flex items-center gap-1 shrink-0">
-                                  <Button type="button" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); addField(section.id); }} className="h-8 text-[10px] uppercase font-bold text-primary">
-                                      <Plus className="h-3 w-3 mr-1" /> Add Field
-                                  </Button>
-                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setDynamicSections(dynamicSections.filter(s => s.id !== section.id)); }}>
-                                      <Trash2 className="h-4 w-4" />
-                                  </Button>
-                              </div>
-                          </div>
-                          <AccordionContent className="px-6 py-4">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {section.fields.map((field) => (
-                                      <div key={field.id} className={cn(
-                                          "bg-background p-4 rounded-xl border shadow-sm relative group/field",
-                                          field.width === 'full' ? 'col-span-1 md:col-span-2' : 'col-span-1'
-                                      )}>
-                                          <div className="space-y-3">
-                                              <div className="flex justify-between items-start">
-                                                  <Label className="text-xs font-bold leading-relaxed">{field.label}</Label>
-                                                  <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setDynamicSections(dynamicSections.map(s => s.id === section.id ? { ...s, fields: s.fields.filter(f => f.id !== field.id) } : s))}><X className="h-3 w-3" /></Button>
-                                              </div>
-                                              
-                                              <div className="pt-1">
-                                                  {field.type === 'checkbox' && (
-                                                      <div className="flex items-center space-x-2">
-                                                          <Checkbox checked={!!field.value} onCheckedChange={(val) => updateDynamicValue(section.id, field.id, !!val)} />
-                                                          <span className="text-[10px] text-muted-foreground uppercase font-bold">Verified</span>
-                                                      </div>
-                                                  )}
-                                                  {field.type === 'yes-no-na' && (
-                                                      <RadioGroup value={field.value || ""} onValueChange={(val) => updateDynamicValue(section.id, field.id, val)} className="flex items-center gap-4">
-                                                          <div className="flex items-center space-x-1.5"><RadioGroupItem value="yes" id={`y-${field.id}`} /><Label htmlFor={`y-${field.id}`} className="text-[10px]">Yes</Label></div>
-                                                          <div className="flex items-center space-x-1.5"><RadioGroupItem value="no" id={`n-${field.id}`} /><Label htmlFor={`n-${field.id}`} className="text-[10px]">No</Label></div>
-                                                          <div className="flex items-center space-x-1.5"><RadioGroupItem value="na" id={`na-${field.id}`} /><Label htmlFor={`na-${field.id}`} className="text-[10px]">N/A</Label></div>
-                                                      </RadioGroup>
-                                                  )}
-                                                  {field.type === 'text' && (
-                                                      <Input className="h-9 text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
-                                                  )}
-                                                  {field.type === 'textarea' && (
-                                                      <Textarea className="min-h-[60px] text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
-                                                  )}
-                                                  {field.type === 'date' && (
-                                                      <div className="flex items-center gap-2">
-                                                          <CalendarIcon className="h-4 w-4 text-primary" />
-                                                          <Input type="date" className="h-9 text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
-                                                      </div>
-                                                  )}
-                                                  {field.type === 'photo' && (
-                                                      <div className="space-y-2">
-                                                          <div className="flex gap-2">
-                                                              <Button type="button" variant="outline" size="sm" className="h-8 gap-2 text-[10px] font-bold" onClick={() => { setActivePhotoFieldId({ sectionId: section.id, fieldId: field.id }); setIsCameraOpen(true); }}>
-                                                                  <Camera className="h-3.5 w-3.5" /> Capture Photo
-                                                              </Button>
-                                                              {field.value && (
-                                                                  <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive" onClick={() => updateDynamicValue(section.id, field.id, null)}>
-                                                                      <X className="h-3.5 w-3.5" />
-                                                                  </Button>
-                                                              )}
-                                                          </div>
-                                                          {field.value && (
-                                                              <div className="relative w-20 h-16 rounded border overflow-hidden">
-                                                                  <Image src={field.value.url} alt="Field verification" fill className="object-cover" />
-                                                              </div>
-                                                          )}
-                                                      </div>
-                                                  )}
-                                              </div>
-                                          </div>
-                                      </div>
-                                  ))}
-                              </div>
-                          </AccordionContent>
-                      </AccordionItem>
-                  ))}
-              </Accordion>
+                <Accordion type="multiple" defaultValue={dynamicSections.map(s => s.id)} className="space-y-4">
+                    {dynamicSections.map((section) => (
+                        <AccordionItem key={section.id} value={section.id} className="border bg-background rounded-xl overflow-hidden shadow-sm">
+                            <AccordionTrigger className="px-6 py-3 hover:no-underline hover:bg-muted/5 group border-none">
+                                <div className="flex items-center gap-2">
+                                    <Layout className="h-4 w-4 text-primary" />
+                                    <span className="font-bold text-xs uppercase tracking-widest text-primary">{section.title}</span>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-6 py-4 border-t">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {section.fields.map((field) => (
+                                        <div key={field.id} className={cn(
+                                            "bg-background p-4 rounded-xl border shadow-sm relative group/field",
+                                            field.width === 'full' ? 'col-span-1 md:col-span-2' : 'col-span-1'
+                                        )}>
+                                            <div className="space-y-3">
+                                                <Label className="text-xs font-bold leading-relaxed">{field.label}</Label>
+                                                
+                                                <div className="pt-1">
+                                                    {field.type === 'checkbox' && (
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox checked={!!field.value} onCheckedChange={(val) => updateDynamicValue(section.id, field.id, !!val)} />
+                                                            <span className="text-[10px] text-muted-foreground uppercase font-bold">Verified</span>
+                                                        </div>
+                                                    )}
+                                                    {field.type === 'yes-no-na' && (
+                                                        <RadioGroup value={field.value || ""} onValueChange={(val) => updateDynamicValue(section.id, field.id, val)} className="flex items-center gap-4">
+                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="yes" id={`y-${field.id}`} /><Label htmlFor={`y-${field.id}`} className="text-[10px]">Yes</Label></div>
+                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="no" id={`n-${field.id}`} /><Label htmlFor={`n-${field.id}`} className="text-[10px]">No</Label></div>
+                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="na" id={`na-${field.id}`} /><Label htmlFor={`na-${field.id}`} className="text-[10px]">N/A</Label></div>
+                                                        </RadioGroup>
+                                                    )}
+                                                    {field.type === 'text' && (
+                                                        <Input className="h-9 text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
+                                                    )}
+                                                    {field.type === 'textarea' && (
+                                                        <Textarea className="min-h-[60px] text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
+                                                    )}
+                                                    {field.type === 'date' && (
+                                                        <div className="flex items-center gap-2">
+                                                            <CalendarIcon className="h-4 w-4 text-primary" />
+                                                            <Input type="date" className="h-9 text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
+                                                        </div>
+                                                    )}
+                                                    {field.type === 'photo' && (
+                                                        <div className="space-y-2">
+                                                            <div className="flex gap-2">
+                                                                <Button type="button" variant="outline" size="sm" className="h-8 gap-2 text-[10px] font-bold" onClick={() => { setActivePhotoFieldId({ sectionId: section.id, fieldId: field.id }); setIsCameraOpen(true); }}>
+                                                                    <Camera className="h-3.5 w-3.5" /> Capture Photo
+                                                                </Button>
+                                                                {field.value && (
+                                                                    <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive" onClick={() => updateDynamicValue(section.id, field.id, null)}>
+                                                                        <X className="h-3.5 w-3.5" />
+                                                                    </Button>
+                                                                )}
+                                                            </div>
+                                                            {field.value && (
+                                                                <div className="relative w-20 h-16 rounded border overflow-hidden">
+                                                                    <Image src={field.value.url} alt="Field verification" fill className="object-cover" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    ))}
+                </Accordion>
 
-              <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-10">
-                  <Button variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
-                  <div className="hidden sm:block flex-1" />
-                  <Button variant="outline" className="w-full sm:w-auto h-12 font-bold gap-2" disabled={isPending} onClick={form.handleSubmit(v => onSubmit(v, 'draft'), () => scrollToFirstError())}><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
-                  <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" disabled={isPending || !selectedTemplateId} onClick={form.handleSubmit(v => onSubmit(v, 'issued'), () => scrollToFirstError())}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}Issue Electronic Permit</Button>
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-10">
+                    <Button variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
+                    <div className="hidden sm:block flex-1" />
+                    <Button variant="outline" className="w-full sm:w-auto h-12 font-bold gap-2" disabled={isPending} onClick={form.handleSubmit(v => onSubmit(v, 'draft'), () => scrollToFirstError())}><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
+                    <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" disabled={isPending || !selectedTemplateId} onClick={form.handleSubmit(v => onSubmit(v, 'issued'), () => scrollToFirstError())}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}Issue Electronic Permit</Button>
+                </div>
               </div>
             </div>
           </form>
