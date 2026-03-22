@@ -54,6 +54,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useRouter } from 'next/navigation';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 type Step = 'type' | 'info' | 'structure' | 'review';
 
@@ -398,100 +399,114 @@ export function FormWizard({
 
                 {type === 'permit' ? (
                     <div className="space-y-8">
-                        {sections.map((section) => (
-                            <div 
-                                key={section.id} 
-                                draggable
-                                onDragStart={() => handleSectionDragStart(section.id)}
-                                onDragOver={(e) => e.preventDefault()}
-                                onDrop={() => handleSectionDrop(section.id)}
-                                className={cn("space-y-4 transition-all", draggedSectionId === section.id && "opacity-20")}
-                            >
-                                <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg group/sec">
-                                    <div className="flex items-center gap-2 flex-1 mr-4">
-                                        <div className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground"><GripVertical className="h-4 w-4" /></div>
-                                        <Input 
-                                            value={section.title} 
-                                            onChange={(e) => setSections(sections.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))} 
-                                            className="bg-transparent border-transparent hover:border-border font-bold text-xs uppercase tracking-widest text-primary h-8" 
-                                        />
+                        <Accordion type="multiple" defaultValue={sections.map(s => s.id)} className="space-y-4">
+                            {sections.map((section) => (
+                                <AccordionItem 
+                                    key={section.id} 
+                                    value={section.id}
+                                    draggable
+                                    onDragStart={() => handleSectionDragStart(section.id)}
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onDrop={() => handleSectionDrop(section.id)}
+                                    className={cn("border bg-white rounded-xl overflow-hidden shadow-sm transition-all", draggedSectionId === section.id && "opacity-20")}
+                                >
+                                    <div className="flex items-center justify-between bg-muted/20 p-2 group/sec">
+                                        <div className="flex items-center gap-2 flex-1 mr-4">
+                                            <div className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground"><GripVertical className="h-4 w-4" /></div>
+                                            <Input 
+                                                value={section.title} 
+                                                onChange={(e) => setSections(sections.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))} 
+                                                className="bg-transparent border-transparent hover:border-border font-bold text-xs uppercase tracking-widest text-primary h-8" 
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <Button type="button" variant="ghost" size="sm" onClick={() => addField(section.id)} className="h-8 text-[10px] uppercase font-bold text-primary">
+                                                <Plus className="h-3 w-3 mr-1" /> Add Field
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setSections(sections.filter(s => s.id !== section.id))}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                            <AccordionTrigger className="flex-none w-8 h-8 p-0 flex items-center justify-center border-none shadow-none hover:bg-transparent">
+                                                <span className="sr-only">Toggle Section</span>
+                                            </AccordionTrigger>
+                                        </div>
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setSections(sections.filter(s => s.id !== section.id))}><Trash2 className="h-3 w-3" /></Button>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {section.fields.map((field) => (
-                                        <div 
-                                            key={field.id} 
-                                            draggable
-                                            onDragStart={() => handleFieldDragStart(section.id, field.id)}
-                                            onDragOver={(e) => e.preventDefault()}
-                                            onDrop={() => handleFieldDrop(section.id, field.id)}
-                                            className={cn(
-                                                "p-3 bg-white border rounded-lg shadow-sm space-y-3 transition-all relative group",
-                                                field.width === 'half' ? "col-span-1" : "col-span-1 md:col-span-2",
-                                                draggedFieldInfo?.fieldId === field.id && "opacity-40"
-                                            )}
-                                        >
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                    <div className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded text-muted-foreground">
-                                                        <GripVertical className="h-3.5 w-3.5" />
-                                                    </div>
-                                                    <div className="flex-1 space-y-1">
-                                                        <Input 
-                                                            value={field.label} 
-                                                            onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
-                                                            className="h-7 text-xs font-bold leading-tight bg-transparent border-transparent p-0 focus-visible:ring-0 placeholder:text-muted-foreground/30" 
-                                                            placeholder="Label..."
-                                                        />
-                                                        <div className="flex items-center gap-2">
-                                                            <Select 
-                                                                value={field.type} 
-                                                                onValueChange={(v: TemplateFieldType) => updateFieldType(section.id, field.id, v)}
-                                                            >
-                                                                <SelectTrigger className="h-5 text-[8px] w-24 bg-muted/30 border-none px-1.5 font-black uppercase tracking-tighter">
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        {getFieldTypeIcon(field.type)}
-                                                                        <SelectValue />
-                                                                    </div>
-                                                                </SelectTrigger>
-                                                                <SelectContent>
-                                                                    <SelectItem value="checkbox" className="text-[10px]">Checkbox</SelectItem>
-                                                                    <SelectItem value="date" className="text-[10px]">Date Field</SelectItem>
-                                                                    <SelectItem value="text" className="text-[10px]">Short Text</SelectItem>
-                                                                    <SelectItem value="textarea" className="text-[10px]">Long Text</SelectItem>
-                                                                    <SelectItem value="photo" className="text-[10px]">Photo Upload</SelectItem>
-                                                                    <SelectItem value="yes-no-na" className="text-[10px]">Yes/No/NA</SelectItem>
-                                                                </SelectContent>
-                                                            </Select>
+                                    <AccordionContent className="p-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {section.fields.map((field) => (
+                                                <div 
+                                                    key={field.id} 
+                                                    draggable
+                                                    onDragStart={() => handleFieldDragStart(section.id, field.id)}
+                                                    onDragOver={(e) => e.preventDefault()}
+                                                    onDrop={() => handleFieldDrop(section.id, field.id)}
+                                                    className={cn(
+                                                        "p-3 bg-white border rounded-lg shadow-sm space-y-3 transition-all relative group",
+                                                        field.width === 'half' ? "col-span-1" : "col-span-1 md:col-span-2",
+                                                        draggedFieldInfo?.fieldId === field.id && "opacity-40"
+                                                    )}
+                                                >
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                            <div className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded text-muted-foreground">
+                                                                <GripVertical className="h-3.5 w-3.5" />
+                                                            </div>
+                                                            <div className="flex-1 space-y-1">
+                                                                <Input 
+                                                                    value={field.label} 
+                                                                    onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
+                                                                    className="h-7 text-xs font-bold leading-tight bg-transparent border-transparent p-0 focus-visible:ring-0 placeholder:text-muted-foreground/30" 
+                                                                    placeholder="Label..."
+                                                                />
+                                                                <div className="flex items-center gap-2">
+                                                                    <Select 
+                                                                        value={field.type} 
+                                                                        onValueChange={(v: TemplateFieldType) => updateFieldType(section.id, field.id, v)}
+                                                                    >
+                                                                        <SelectTrigger className="h-5 text-[8px] w-24 bg-muted/30 border-none px-1.5 font-black uppercase tracking-tighter">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                {getFieldTypeIcon(field.type)}
+                                                                                <SelectValue />
+                                                                            </div>
+                                                                        </SelectTrigger>
+                                                                        <SelectContent>
+                                                                            <SelectItem value="checkbox" className="text-[10px]">Checkbox</SelectItem>
+                                                                            <SelectItem value="date" className="text-[10px]">Date Field</SelectItem>
+                                                                            <SelectItem value="text" className="text-[10px]">Short Text</SelectItem>
+                                                                            <SelectItem value="textarea" className="text-[10px]">Long Text</SelectItem>
+                                                                            <SelectItem value="photo" className="text-[10px]">Photo Upload</SelectItem>
+                                                                            <SelectItem value="yes-no-na" className="text-[10px]">Yes/No/NA</SelectItem>
+                                                                        </SelectContent>
+                                                                    </Select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <TooltipProvider>
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button 
+                                                                            variant="ghost" 
+                                                                            size="icon" 
+                                                                            className={cn("h-6 w-6", field.width === 'half' ? "text-primary bg-primary/10" : "text-muted-foreground")}
+                                                                            onClick={() => updateFieldWidth(section.id, field.id, field.width === 'half' ? 'full' : 'half')}
+                                                                        >
+                                                                            {field.width === 'half' ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>{field.width === 'half' ? 'Set to Full Width' : 'Set to Half Width'}</p></TooltipContent>
+                                                                </Tooltip>
+                                                            </TooltipProvider>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeField(section.id, field.id)}><X className="h-3 w-3" /></Button>
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-1 shrink-0">
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Button 
-                                                                    variant="ghost" 
-                                                                    size="icon" 
-                                                                    className={cn("h-6 w-6", field.width === 'half' ? "text-primary bg-primary/10" : "text-muted-foreground")}
-                                                                    onClick={() => updateFieldWidth(section.id, field.id, field.width === 'half' ? 'full' : 'half')}
-                                                                >
-                                                                    {field.width === 'half' ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
-                                                                </Button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent><p>{field.width === 'half' ? 'Set to Full Width' : 'Set to Half Width'}</p></TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeField(section.id, field.id)}><X className="h-3 w-3" /></Button>
-                                                </div>
-                                            </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                    <Button variant="outline" className="h-10 border-dashed border-2 text-[10px] font-bold text-muted-foreground col-span-1 md:col-span-2" onClick={() => addField(section.id)}><Plus className="h-3 w-3 mr-1" /> Add Verification Point</Button>
-                                </div>
-                            </div>
-                        ))}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
                         <Button variant="outline" className="w-full border-dashed h-12 gap-2" onClick={() => setSections([...sections, { id: `sec-${Date.now()}`, title: 'New Safety Section', fields: [] }])}>
                             <Layout className="h-4 w-4" /> Add Section
                         </Button>
