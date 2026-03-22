@@ -58,7 +58,7 @@ import {
 import { Logo } from '@/components/logo';
 
 const DASHBOARD_CARDS = [
-  { id: 'form-creator', href: '/form-creator', label: 'Form Creator', icon: Wand2, desc: 'AI-assisted template wizard for safety and quality forms.', permission: 'hasFullVisibility' },
+  { id: 'form-creator', href: '/form-creator', label: 'Form Editor', icon: Wand2, desc: 'Master template library and high-fidelity form designer.', permission: 'hasFullVisibility' },
   { id: 'insights', href: '/insights', label: 'Project Insights', icon: BarChart3, desc: 'Project performance, procurement tracking, and RFI analytics.', permission: 'hasFullVisibility' },
   { id: 'documents', href: '/documents', label: 'Drawing Register', icon: FolderOpen, desc: 'Manage project drawings with authorised SharePoint backups.', permission: 'accessDocuments' },
   { id: 'site-diary', href: '/site-diary', label: 'Site Diary', icon: BookOpen, desc: 'Daily records of weather, labour resources, and site activities.', permission: 'accessSiteDiary' },
@@ -266,12 +266,12 @@ export default function Dashboard() {
                     <div className="absolute top-2 left-2 z-30 p-1.5 opacity-0 md:group-hover:opacity-40 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-background/90 rounded border border-border shadow-sm hidden md:block" onMouseEnter={() => setCanDragId(card.id)} onMouseLeave={() => setCanDragId(null)}><GripVertical className="h-3.5 w-3.5 text-primary" /></div>
                     <Link href={card.href} className="block h-full" onClick={() => { if (!draggedId) setLoadingModule(card.id); }}>
                         <Card className={cn(
-                          "flex flex-col items-center transition-all hover:bg-muted/50 hover:border-primary hover:shadow-[0_4px_20px_rgba(242,101,34,0.1)] h-full relative overflow-hidden", 
+                          "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary hover:shadow-[0_4px_20px_rgba(242,101,34,0.1)] h-full relative overflow-hidden", 
                           isCompact ? "p-4" : "p-6 md:p-8", 
                           loadingModule === card.id && "ring-2 ring-primary ring-offset-2"
                         )}>
-                            {loadingModule === card.id && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>)}
-                            <div className="relative flex flex-col items-center justify-center w-full">
+                            {loadingModule === card.id && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200"><Loader2 className="h-4 w-4 animate-spin text-primary" /></div>)}
+                            <div className="relative flex flex-col items-center justify-center w-full h-full">
                                 <div className="relative mb-4 flex items-center justify-center shrink-0">
                                     <div className={cn("flex items-center justify-center", isCompact ? "h-10 w-10" : "h-16 w-16")}>
                                         <card.icon className={cn(

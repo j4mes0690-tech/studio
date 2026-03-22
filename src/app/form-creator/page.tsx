@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Suspense, useEffect, useState, useMemo } from 'react';
@@ -20,7 +19,7 @@ import {
 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy } from 'firebase/firestore';
-import type { DistributionUser, QualityChecklist, PermitTemplate, ToolboxTalkTemplate } from '@/lib/types';
+import { DistributionUser, QualityChecklist, PermitTemplate, ToolboxTalkTemplate } from '@/lib/types';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -143,27 +142,6 @@ function FormCreatorContent() {
                     Centrally manage your project's digital documentation standards.
                 </p>
             </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card className="bg-primary/5 border-primary/10 hover:bg-primary/10 transition-colors cursor-pointer group" onClick={() => router.push('/form-creator?type=permit')}>
-                <CardContent className="p-6 text-center space-y-3">
-                    <div className="bg-background h-12 w-12 rounded-xl flex items-center justify-center mx-auto shadow-sm group-hover:scale-110 transition-transform"><FileCheck className="h-6 w-6 text-primary" /></div>
-                    <h3 className="font-bold uppercase text-[10px] tracking-widest">Create Permit</h3>
-                </CardContent>
-            </Card>
-            <Card className="bg-primary/5 border-primary/10 hover:bg-primary/10 transition-colors cursor-pointer group" onClick={() => router.push('/form-creator?type=qc')}>
-                <CardContent className="p-6 text-center space-y-3">
-                    <div className="bg-background h-12 w-12 rounded-xl flex items-center justify-center mx-auto shadow-sm group-hover:scale-110 transition-transform"><ClipboardCheck className="h-6 w-6 text-primary" /></div>
-                    <h3 className="font-bold uppercase text-[10px] tracking-widest">Create QC List</h3>
-                </CardContent>
-            </Card>
-            <Card className="bg-primary/5 border-primary/10 hover:bg-primary/10 transition-colors cursor-pointer group" onClick={() => router.push('/form-creator?type=toolbox')}>
-                <CardContent className="p-6 text-center space-y-3">
-                    <div className="bg-background h-12 w-12 rounded-xl flex items-center justify-center mx-auto shadow-sm group-hover:scale-110 transition-transform"><BookOpen className="h-6 w-6 text-primary" /></div>
-                    <h3 className="font-bold uppercase text-[10px] tracking-widest">Create Toolbox Talk</h3>
-                </CardContent>
-            </Card>
         </div>
 
         <div className="space-y-6">

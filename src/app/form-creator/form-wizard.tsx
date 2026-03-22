@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -72,8 +71,8 @@ export function FormWizard({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // Wizard State
-  const [step, setStep] = useState<Step>(initialTemplate ? 'info' : 'type');
+  // Wizard State - Skip 'type' if initialType or template is provided
+  const [step, setStep] = useState<Step>((initialTemplate || initialType) ? 'info' : 'type');
   const [type, setType] = useState<FormWizardType | null>(initialType || null);
   
   // Data State
@@ -340,7 +339,7 @@ export function FormWizard({
               </div>
             </CardContent>
             <CardFooter className="bg-muted/10 border-t justify-between p-6">
-              <Button variant="ghost" onClick={() => setStep('type')} disabled={!!initialTemplate}>Back</Button>
+              <Button variant="ghost" onClick={() => setStep('type')} disabled={!!initialTemplate || !!initialType}>Back</Button>
               <Button onClick={() => setStep('structure')} disabled={!title || (type !== 'permit' && !trade)}>
                 Next: Build Structure <ChevronRight className="ml-2 h-4 w-4" />
               </Button>

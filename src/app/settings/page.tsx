@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -16,13 +15,11 @@ import { AddSubcontractorForm } from './add-subcontractor-form';
 import { SubcontractorsList } from './subcontractors-list';
 import { AddProjectForm } from './add-project-form';
 import { ProjectsList } from './projects-list';
-import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, query, where, orderBy, deleteDoc } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation, ToolboxTalkTemplate } from '@/lib/types';
-import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck, BookOpen, Pencil, Trash2 } from 'lucide-react';
-import { NewPermitTemplate } from './new-permit-template';
+import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck, BookOpen, Pencil, Trash2, Plus } from 'lucide-react';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
 import { Separator } from '@/components/ui/separator';
@@ -34,7 +31,6 @@ import { BrandingSettings } from './branding-settings';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -276,7 +272,7 @@ function SettingsContent() {
                             <div className="space-y-4">
                                 <div className="flex flex-col gap-2">
                                     <h3 className="text-lg font-medium">Publish in Studio</h3>
-                                    <p className="text-xs text-muted-foreground">Use the Form Creator Studio to build advanced interactive templates.</p>
+                                    <p className="text-xs text-muted-foreground">Use the Form Editor to build advanced interactive templates.</p>
                                 </div>
                                 <Button asChild className="gap-2 w-full h-12 text-lg font-bold">
                                     <Link href="/form-creator">
@@ -287,12 +283,26 @@ function SettingsContent() {
                             </div>
                             <div className="space-y-8">
                                 <div className="space-y-4">
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Trade QC Library</h3>
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Trade QC Library</h3>
+                                        <Button asChild variant="outline" size="sm" className="h-7 gap-1.5 font-bold border-primary/20 text-primary">
+                                            <Link href="/form-creator?type=qc">
+                                                <Plus className="h-3.5 w-3.5" /> New QC Template
+                                            </Link>
+                                        </Button>
+                                    </div>
                                     <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
                                 </div>
                                 <Separator />
                                 <div className="space-y-4">
-                                    <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Toolbox Talk Library</h3>
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Toolbox Talk Library</h3>
+                                        <Button asChild variant="outline" size="sm" className="h-7 gap-1.5 font-bold border-primary/20 text-primary">
+                                            <Link href="/form-creator?type=toolbox">
+                                                <Plus className="h-3.5 w-3.5" /> New Talk
+                                            </Link>
+                                        </Button>
+                                    </div>
                                     <div className="space-y-2">
                                         {toolboxTemplates?.map(t => (
                                             <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/5 group">
@@ -350,14 +360,19 @@ function SettingsContent() {
                     <AccordionContent className="px-6 pb-6 pt-0 border-t">
                         <div className="grid gap-8 lg:grid-cols-2 pt-6">
                             <div className="space-y-4">
-                                <div className="flex items-center gap-2 text-primary font-bold">
-                                    <FileCheck className="h-5 w-5" />
-                                    <h3>Permit Replicator</h3>
+                                <div className="flex flex-col gap-2">
+                                    <h3 className="text-lg font-medium">Permit Designer</h3>
+                                    <p className="text-xs text-muted-foreground">Create specialized electronic permits with custom verification sections.</p>
                                 </div>
-                                <NewPermitTemplate />
+                                <Button asChild className="gap-2 w-full h-12 text-lg font-bold">
+                                    <Link href="/form-creator?type=permit">
+                                        <PlusCircle className="h-5 w-5" />
+                                        Create New Permit Template
+                                    </Link>
+                                </Button>
                             </div>
                             <div className="space-y-4">
-                                <h3 className="text-lg font-medium">System Library</h3>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">System Library</h3>
                                 <PermitTemplatesList templates={permitTemplates || []} />
                             </div>
                         </div>
