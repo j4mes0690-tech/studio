@@ -96,7 +96,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
       });
       
       if (result) {
-        setTitle(result.title || '');
+        setTitle(result.title || title || '');
         if (result.description) setDescription(result.description);
         if (result.topic) setTopic(result.topic);
         if (result.content) setContent(result.content);
@@ -122,14 +122,14 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         
         toast({ 
           title: isRefining ? "Refinement Applied" : "AI Draft Ready", 
-          description: isRefining ? "The structure has been updated based on your instructions." : "The template structure has been generated." 
+          description: isRefining ? "Structure updated per your instruction." : "The template draft has been generated." 
         });
         
         if (!isRefining) setStep('structure');
         setRefinePrompt('');
       }
     } catch (err) {
-      toast({ title: "Generation Failed", description: "The AI was unable to structure your request. Please try a more specific prompt.", variant: "destructive" });
+      toast({ title: "Generation Failed", description: "The AI was unable to parse your request. Try more specific instructions.", variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
@@ -158,10 +158,13 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         }
 
         await addDoc(collection(db, collName), data);
-        toast({ title: 'Success', description: 'Template published to master library.' });
-        window.location.href = '/settings';
+        toast({ title: 'Success', description: 'Template published successfully.' });
+        setStep('type');
+        setType(null);
+        setTitle('');
+        setAiPrompt('');
       } catch (err) {
-        toast({ title: 'Save Error', description: 'Failed to persist template.', variant: 'destructive' });
+        toast({ title: 'Save Error', description: 'Failed to publish template.', variant: 'destructive' });
       }
     });
   };
@@ -169,7 +172,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
   return (
     <div className="space-y-8">
       {/* Progress HUD */}
-      <div className="flex items-center justify-between px-2">
+      <div className="flex items-center justify-between px-2 max-w-2xl mx-auto">
         {(['type', 'info', 'structure', 'review'] as Step[]).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             <div className={cn(
@@ -210,7 +213,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         )}
 
         {step === 'info' && (
-          <Card className="animate-in slide-in-from-right-4 duration-300">
+          <Card className="animate-in slide-in-from-right-4 duration-300 max-w-2xl mx-auto w-full">
             <CardHeader className="bg-muted/30 border-b">
               <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> AI Assistant</CardTitle>
               <CardDescription>Describe what this form should cover, and Gemini will draft the structure for you.</CardDescription>
@@ -284,7 +287,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                               newSections[sIdx].fields[fIdx].label = e.target.value;
                               setSections(newSections);
                             }} className="flex-1 h-8 text-xs" />
-                            <Select value={field.type} onValueChange={(v: any) => {
+                            <Select value={field.type as any} onValueChange={(v: any) => {
                               const newSections = [...sections];
                               newSections[sIdx].fields[fIdx].type = v;
                               setSections(newSections);
@@ -299,9 +302,15 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                             </Select>
                           </div>
                         ))}
+                        <Button variant="ghost" size="sm" className="text-[10px] h-7 gap-1 text-primary" onClick={() => addField(section.id)}>
+                            <Plus className="h-3 w-3" /> Add Field
+                        </Button>
                       </CardContent>
                     </Card>
                   ))}
+                  <Button variant="outline" className="w-full border-dashed" onClick={() => setSections([...sections, { id: `sec-${Date.now()}`, title: 'New Section', fields: [] }])}>
+                      <Plus className="h-4 w-4 mr-2" /> Add Section
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -362,7 +371,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                     <Badge variant="secondary" className="h-5 text-[9px] uppercase">{type}</Badge>
                   </div>
                 </CardContent>
-                <CardFooter className="bg-muted/10">
+                <CardFooter className="bg-muted/10 pt-4">
                   <Button className="w-full h-11 font-bold gap-2" onClick={() => setStep('review')}>
                     <CheckCircle2 className="h-4 w-4" /> Final Review
                   </Button>
@@ -405,4 +414,16 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
       </div>
     </div>
   );
+
+  function addField(sectionId: string) {
+    setSections(prev => prev.map(s => {
+        if (s.id === sectionId) {
+            return {
+                ...s,
+                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Field', type: 'checkbox' }]
+            };
+        }
+        return s;
+    }));
+  }
 }

@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dialog';
 import { VoiceInput } from '@/components/voice-input';
 import { ImageLightbox } from '@/components/image-lightbox';
-import { ClientDate } from '@/components/client-date';
+import { ClientDate } from '../../components/client-date';
 import { CameraOverlay } from '@/components/camera-overlay';
 
 function EditSnaggingContent() {
@@ -444,7 +444,7 @@ function EditSnaggingContent() {
                                                     onClick={(e) => handleToggleStatus(e, listItem.id)}
                                                     className="mt-1 flex-shrink-0 transition-transform active:scale-90 hover:scale-110"
                                                 >
-                                                    {listItem.status === 'closed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+                                                    {listItem.status === 'closed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
                                                 </button>
                                                 <div className="min-w-0 flex-1">
                                                     <p className={cn(
@@ -579,7 +579,7 @@ function EditSnaggingContent() {
         isOpen={isCameraOpen} 
         onClose={() => setIsCameraOpen(false)} 
         onCapture={onCaptureGeneral}
-        title="Audit Evidence"
+        title="Area Documentation"
       />
 
       <CameraOverlay 

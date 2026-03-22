@@ -26,7 +26,7 @@ const FormStructureOutputSchema = z.object({
       label: z.string(),
       type: z.enum(['checkbox', 'text', 'textarea', 'yes-no-na']),
     }))
-  })).optional().describe('Dynamic sections and fields (for Permits).'),
+  })).optional().describe('Dynamic sections and fields (primarily for Permits).'),
   items: z.array(z.object({
     text: z.string()
   })).optional().describe('Checklist verification points (for QC or Toolbox Talks).'),
@@ -40,12 +40,15 @@ export async function generateFormStructure(
 
 const prompt = ai.definePrompt({
   name: 'generateFormStructurePrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: { schema: GenerateFormStructureInputSchema },
   output: { schema: FormStructureOutputSchema },
   prompt: `You are an expert site safety and quality manager. 
 
 {{#if currentStructure}}
-You are REFINING an existing form structure based on the user's feedback.
+You are REFINING an existing form structure based on the user's feedback. 
+Maintain the existing professional tone.
+
 Current Structure:
 {{{currentStructure}}}
 
@@ -73,7 +76,7 @@ const generateFormStructureFlow = ai.defineFlow(
   },
   async (input) => {
     const { output } = await prompt(input);
-    if (!output) throw new Error("AI failed to generate form structure.");
+    if (!output) throw new Error("AI failed to generate a valid form structure.");
     return output;
   }
 );

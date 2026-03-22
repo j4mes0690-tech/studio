@@ -79,6 +79,18 @@ function QualityControlContent() {
   }, [db]);
   const { data: allChecklists, isLoading: checklistsLoading } = useCollection<QualityChecklist>(checklistsQuery);
 
+  // Filter checklist instances (not templates)
+  const checklistInstances = useMemo(() => {
+    if (!allChecklists) return [];
+    return allChecklists.filter(c => !c.isTemplate);
+  }, [allChecklists]);
+
+  // Filter checklist templates
+  const checklistTemplates = useMemo(() => {
+    if (!allChecklists) return [];
+    return allChecklists.filter(c => !!c.isTemplate);
+  }, [allChecklists]);
+
   // Visibility logic
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
@@ -90,16 +102,6 @@ function QualityControlContent() {
         return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
     });
   }, [allProjects, profile]);
-
-  const checklistInstances = useMemo(() => {
-    if (!allChecklists) return [];
-    return allChecklists.filter(c => !c.isTemplate);
-  }, [allChecklists]);
-
-  const checklistTemplates = useMemo(() => {
-    if (!allChecklists) return [];
-    return allChecklists.filter(c => !!c.isTemplate);
-  }, [allChecklists]);
 
   // Derived Data: Project Progress
   const projectProgress = useMemo(() => {

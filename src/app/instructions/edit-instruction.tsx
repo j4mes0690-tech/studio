@@ -162,7 +162,7 @@ export function EditInstruction({
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
               const blob = await dataUriToBlob(p.url);
-              const url = await uploadFile(storage, `internal-instructions/photos/${Date.now()}-${i}.jpg`, blob);
+              const url = await uploadFile(storage, `internal-instructions/photos/${item.id}-${Date.now()}-${i}.jpg`, blob);
               return { ...p, url };
             }
             return p;
@@ -173,7 +173,7 @@ export function EditInstruction({
           files.map(async (f, i) => {
             if (f.url.startsWith('data:')) {
               const blob = await dataUriToBlob(f.url);
-              const url = await uploadFile(storage, `internal-instructions/files/${Date.now()}-${i}-${f.name}`, blob);
+              const url = await uploadFile(storage, `internal-instructions/files/${item.id}-${Date.now()}-${i}-${f.name}`, blob);
               return { ...f, url };
             }
             return f;
