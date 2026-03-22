@@ -86,6 +86,10 @@ export function FormWizard({
   const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
 
+  // Drag and Drop State
+  const [draggedFieldInfo, setDraggedFieldId] = useState<{ sectionId: string, fieldId: string } | null>(null);
+  const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
+
   // Sync initial data if editing
   useEffect(() => {
     if (initialTemplate) {
@@ -105,9 +109,6 @@ export function FormWizard({
         }
     }
   }, [initialTemplate, initialType]);
-
-  // Drag and Drop State
-  const [draggedFieldInfo, setDraggedFieldId] = useState<{ sectionId: string, fieldId: string } | null>(null);
 
   const tradesQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -147,7 +148,7 @@ export function FormWizard({
             toast({ title: 'Success', description: 'Master template published.' });
         }
 
-        router.push('/settings');
+        router.push('/form-creator');
       } catch (err) {
         toast({ title: 'Save Error', description: 'Failed to publish template.', variant: 'destructive' });
       }
@@ -236,6 +237,20 @@ export function FormWizard({
       return section;
     }));
     setDraggedFieldId(null);
+  };
+
+  const handleSectionDragStart = (id: string) => setDraggedSectionId(id);
+  const handleSectionDrop = (targetId: string) => {
+    if (!draggedSectionId || draggedSectionId === targetId) return;
+    const newSections = [...sections];
+    const draggedIdx = newSections.findIndex(s => s.id === draggedSectionId);
+    const targetIdx = newSections.findIndex(s => s.id === targetId);
+    if (draggedIdx > -1 && targetIdx > -1) {
+        const [draggedSection] = newSections.splice(draggedIdx, 1);
+        newSections.splice(targetIdx, 0, draggedSection);
+        setSections(newSections);
+    }
+    setDraggedSectionId(null);
   };
 
   const getFieldTypeIcon = (type: TemplateFieldType) => {
@@ -361,17 +376,24 @@ export function FormWizard({
                 {type === 'permit' ? (
                     <div className="space-y-8">
                         {sections.map((section) => (
-                            <div key={section.id} className="space-y-4">
-                                <div className="flex items-center justify-between">
+                            <div 
+                                key={section.id} 
+                                draggable
+                                onDragStart={() => handleSectionDragStart(section.id)}
+                                onDragOver={(e) => e.preventDefault()}
+                                onDrop={() => handleSectionDrop(section.id)}
+                                className={cn("space-y-4 transition-all", draggedSectionId === section.id && "opacity-20")}
+                            >
+                                <div className="flex items-center justify-between bg-muted/20 p-2 rounded-lg group/sec">
                                     <div className="flex items-center gap-2 flex-1 mr-4">
-                                        <Layout className="h-4 w-4 text-primary" />
+                                        <div className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground"><GripVertical className="h-4 w-4" /></div>
                                         <Input 
                                             value={section.title} 
                                             onChange={(e) => setSections(sections.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))} 
                                             className="bg-transparent border-transparent hover:border-border font-bold text-xs uppercase tracking-widest text-primary h-8" 
                                         />
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setSections(sections.filter(s => s.id !== section.id))}><Trash2 className="h-3 w-3" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive opacity-0 group-hover/sec:opacity-100" onClick={() => setSections(sections.filter(s => s.id !== section.id))}><Trash2 className="h-3 w-3" /></Button>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {section.fields.map((field) => (
