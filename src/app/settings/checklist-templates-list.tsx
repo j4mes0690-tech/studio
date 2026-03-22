@@ -3,7 +3,7 @@
 
 import type { QualityChecklist } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Pencil } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -16,13 +16,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { EditChecklistTemplateForm } from './edit-checklist-template-form';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import Link from 'next/link';
 
 type ChecklistTemplatesListProps = {
   checklistTemplates: QualityChecklist[];
@@ -53,20 +53,26 @@ export function ChecklistTemplatesList({ checklistTemplates }: ChecklistTemplate
   return (
     <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
       {checklistTemplates.map((checklist) => (
-        <div key={checklist.id} className="flex items-start justify-between p-3 rounded-lg border">
+        <div key={checklist.id} className="flex items-start justify-between p-3 rounded-lg border bg-muted/5 group">
           <div>
-            <p className="font-medium">{checklist.title}</p>
-            <p className="text-sm text-muted-foreground">{checklist.trade}</p>
+            <p className="font-bold text-sm">{checklist.title}</p>
+            <p className="text-xs text-muted-foreground">{checklist.trade}</p>
             <div className="flex flex-wrap gap-1 mt-2">
-                <Badge variant="secondary">{checklist.items.length} items</Badge>
+                <Badge variant="outline" className="text-[10px] h-4 bg-background font-bold">{checklist.items.length} items</Badge>
             </div>
           </div>
-          <div className="flex items-center flex-shrink-0">
-            <EditChecklistTemplateForm checklist={checklist} />
+          <div className="flex items-center flex-shrink-0 gap-1">
+            <Button variant="ghost" size="icon" asChild className="h-8 w-8 text-primary">
+                <Link href={`/form-creator?type=qc&id=${checklist.id}`}>
+                    <Pencil className="h-4 w-4" />
+                    <span className="sr-only">Edit in Studio</span>
+                </Link>
+            </Button>
+            
             <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" disabled={isPending}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                    <Button variant="ghost" size="icon" disabled={isPending} className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Trash2 className="h-4 w-4" />
                     </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -88,7 +94,7 @@ export function ChecklistTemplatesList({ checklistTemplates }: ChecklistTemplate
         </div>
       ))}
       {checklistTemplates.length === 0 && (
-          <p className="text-muted-foreground text-center py-4">No checklist templates found.</p>
+          <p className="text-muted-foreground text-center py-8 text-sm italic border-2 border-dashed rounded-lg">No checklist templates found.</p>
       )}
     </div>
   );

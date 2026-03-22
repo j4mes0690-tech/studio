@@ -3,7 +3,7 @@
 
 import type { PermitTemplate } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { Trash2, FileCheck } from 'lucide-react';
+import { Trash2, FileCheck, Pencil } from 'lucide-react';
 import { useTransition } from 'react';
 import {
   AlertDialog,
@@ -16,13 +16,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { EditPermitTemplateForm } from './edit-permit-template-form';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import Link from 'next/link';
 
 type PermitTemplatesListProps = {
   templates: PermitTemplate[];
@@ -61,16 +61,22 @@ export function PermitTemplatesList({ templates }: PermitTemplatesListProps) {
             <div>
                 <p className="font-bold text-sm">{template.title}</p>
                 <div className="flex flex-wrap gap-1 mt-1">
-                    <Badge variant="secondary" className="text-[10px] h-4">{template.type}</Badge>
+                    <Badge variant="secondary" className="text-[10px] h-4 font-black uppercase tracking-tighter bg-primary/5 text-primary border-primary/10">{template.type}</Badge>
                 </div>
             </div>
           </div>
-          <div className="flex items-center flex-shrink-0">
-            <EditPermitTemplateForm template={template} />
+          <div className="flex items-center flex-shrink-0 gap-1">
+            <Button variant="ghost" size="icon" asChild className="h-8 w-8 text-primary">
+                <Link href={`/form-creator?type=permit&id=${template.id}`}>
+                    <Pencil className="h-4 w-4" />
+                    <span className="sr-only">Edit in Studio</span>
+                </Link>
+            </Button>
+
             <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" disabled={isPending}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                    <Button variant="ghost" size="icon" disabled={isPending} className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Trash2 className="h-4 w-4" />
                     </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -19,8 +20,8 @@ import { NewChecklist } from '../quality-control/new-checklist';
 import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy } from 'firebase/firestore';
-import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation } from '@/lib/types';
-import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck } from 'lucide-react';
+import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation, ToolboxTalkTemplate } from '@/lib/types';
+import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck, BookOpen, Pencil, Trash2 } from 'lucide-react';
 import { NewPermitTemplate } from './new-permit-template';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
@@ -28,11 +29,29 @@ import { Separator } from '@/components/ui/separator';
 import { AddUserDialog } from './add-user-dialog';
 import { InviteCollaboratorDialog } from './invite-collaborator-dialog';
 import { InvitationsList } from './invitations-list';
-import { Suspense } from 'react';
+import { Suspense, useTransition } from 'react';
 import { BrandingSettings } from './branding-settings';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { deleteDoc } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 function SettingsContent() {
   const db = useFirestore();
+  const { toast } = useToast();
+  const [isPending, startTransition] = useTransition();
   const { user: sessionUser } = useUser();
   
   const currentUserRef = useMemoFirebase(() => {
@@ -74,11 +93,17 @@ function SettingsContent() {
 
   const permitTemplatesQuery = useMemoFirebase(() => {
     if (!db) return null;
-    return collection(db, 'permit-templates');
+    return query(collection(db, 'permit-templates'));
   }, [db]);
   const { data: permitTemplates, isLoading: permitTemplatesLoading } = useCollection<PermitTemplate>(permitTemplatesQuery);
 
-  const isLoading = profileLoading || usersLoading || subsLoading || projectsLoading || templatesLoading || permitTemplatesLoading || invitesLoading;
+  const toolboxTemplatesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, 'toolbox-talk-templates'));
+  }, [db]);
+  const { data: toolboxTemplates, isLoading: toolboxLoading } = useCollection<ToolboxTalkTemplate>(toolboxTemplatesQuery);
+
+  const isLoading = profileLoading || usersLoading || subsLoading || projectsLoading || templatesLoading || permitTemplatesLoading || invitesLoading || toolboxLoading;
 
   if (isLoading) {
     return (
@@ -97,9 +122,8 @@ function SettingsContent() {
   const canManageProjects = !!permissions?.canManageProjects || isAdmin;
   const canManageChecklists = !!permissions?.canManageChecklists || isAdmin;
   const canManagePermitTemplates = !!permissions?.canManagePermitTemplates || isAdmin;
-  const canManageTraining = !!permissions?.canManageTraining || isAdmin;
 
-  const hasAnyAdminPermission = canManageBranding || canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManagePermitTemplates || canManageTraining;
+  const hasAnyAdminPermission = canManageBranding || canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManagePermitTemplates;
 
   if (!hasAnyAdminPermission) {
     return (
@@ -121,13 +145,18 @@ function SettingsContent() {
     );
   }
 
+  const handleDeleteToolbox = (id: string) => {
+    startTransition(async () => {
+        await deleteDoc(doc(db, 'toolbox-talk-templates', id));
+        toast({ title: 'Template Removed' });
+    });
+  };
+
   return (
     <main className="flex-1 p-4 md:p-8 space-y-4">
         <Accordion type="single" collapsible className="w-full space-y-4">
           
-          {canManageBranding && (
-            <BrandingSettings />
-          )}
+          {canManageBranding && <BrandingSettings />}
 
           {canManageUsers && (
             <>
@@ -239,18 +268,61 @@ function SettingsContent() {
                     <AccordionTrigger className="px-6 py-4 hover:no-underline group">
                         <div className="flex items-center gap-3 text-left w-full">
                             <ClipboardCheck className="h-5 w-5 text-primary shrink-0" />
-                            <span className="text-base font-bold">Manage Checklist Templates</span>
+                            <span className="text-base font-bold">Master Templates (QC & Toolbox)</span>
                         </div>
                     </AccordionTrigger>
                     <AccordionContent className="px-6 pb-6 pt-0 border-t">
                         <div className="grid gap-8 lg:grid-cols-2 pt-6">
                             <div className="space-y-4">
-                                <h3 className="text-lg font-medium">Add New Template</h3>
-                                <NewChecklist />
+                                <div className="flex flex-col gap-2">
+                                    <h3 className="text-lg font-medium">Publish in Studio</h3>
+                                    <p className="text-xs text-muted-foreground">Use the Form Creator Studio to build advanced interactive templates.</p>
+                                </div>
+                                <Button asChild className="gap-2 w-full h-12 text-lg font-bold">
+                                    <Link href="/form-creator">
+                                        <Sparkles className="h-5 w-5" />
+                                        Launch Form Studio
+                                    </Link>
+                                </Button>
                             </div>
-                            <div className="space-y-4">
-                                <h3 className="text-lg font-medium">Existing Templates</h3>
-                                <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
+                            <div className="space-y-8">
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Trade QC Library</h3>
+                                    <ChecklistTemplatesList checklistTemplates={checklistTemplates || []} />
+                                </div>
+                                <Separator />
+                                <div className="space-y-4">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Toolbox Talk Library</h3>
+                                    <div className="space-y-2">
+                                        {toolboxTemplates?.map(t => (
+                                            <div key={t.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/5 group">
+                                                <div>
+                                                    <p className="font-bold text-sm">{t.title}</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold">{t.trade}</p>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <Button variant="ghost" size="icon" asChild className="h-8 w-8 text-primary">
+                                                        <Link href={`/form-creator?type=toolbox&id=${t.id}`}>
+                                                            <Pencil className="h-4 w-4" />
+                                                        </Link>
+                                                    </Button>
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="h-4 w-4" /></Button>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                            <AlertDialogHeader><AlertDialogTitle>Remove Toolbox Talk?</AlertDialogTitle><AlertDialogDescription>Delete the template "{t.title}".</AlertDialogDescription></AlertDialogHeader>
+                                                            <AlertDialogFooter>
+                                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                                <AlertDialogAction onClick={() => handleDeleteToolbox(t.id)} className="bg-destructive">Delete</AlertDialogAction>
+                                                            </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <Separator className="my-8" />
@@ -280,7 +352,7 @@ function SettingsContent() {
                             <div className="space-y-4">
                                 <div className="flex items-center gap-2 text-primary font-bold">
                                     <FileCheck className="h-5 w-5" />
-                                    <h3>Create Master Template</h3>
+                                    <h3>Permit Replicator</h3>
                                 </div>
                                 <NewPermitTemplate />
                             </div>

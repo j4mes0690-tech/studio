@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
+import { useState, useTransition, useMemo, useEffect } from 'react';
 import { 
   FileCheck, 
   ClipboardCheck, 
@@ -33,7 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import type { 
   FormWizardType, 
   TemplateSection, 
@@ -53,17 +54,27 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useRouter } from 'next/navigation';
 
 type Step = 'type' | 'info' | 'structure' | 'review';
 
-export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
+export function FormWizard({ 
+    currentUser, 
+    initialTemplate, 
+    initialType 
+}: { 
+    currentUser: DistributionUser, 
+    initialTemplate?: any, 
+    initialType?: FormWizardType | null 
+}) {
   const { toast } = useToast();
   const db = useFirestore();
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
   // Wizard State
-  const [step, setStep] = useState<Step>('type');
-  const [type, setType] = useState<FormWizardType | null>(null);
+  const [step, setStep] = useState<Step>(initialTemplate ? 'info' : 'type');
+  const [type, setType] = useState<FormWizardType | null>(initialType || null);
   
   // Data State
   const [title, setTitle] = useState('');
@@ -74,6 +85,26 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
   const [checklistItems, setChecklistItems] = useState<{ id: string, text: string }[]>([]);
   const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
+
+  // Sync initial data if editing
+  useEffect(() => {
+    if (initialTemplate) {
+        setTitle(initialTemplate.title || '');
+        setDescription(initialTemplate.description || '');
+        setTrade(initialTemplate.trade || '');
+        
+        if (initialType === 'permit') {
+            setSections(initialTemplate.sections || []);
+            setPermitType(initialTemplate.type || 'General');
+        } else if (initialType === 'qc') {
+            setChecklistItems(initialTemplate.items || []);
+        } else if (initialType === 'toolbox') {
+            setTopic(initialTemplate.topic || '');
+            setContent(initialTemplate.content || '');
+            setChecklistItems(initialTemplate.verificationItems || []);
+        }
+    }
+  }, [initialTemplate, initialType]);
 
   // Drag and Drop State
   const [draggedFieldInfo, setDraggedFieldId] = useState<{ sectionId: string, fieldId: string } | null>(null);
@@ -91,13 +122,13 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         let data: any = {
           title,
           trade: type === 'permit' ? 'Health & Safety' : trade,
-          createdAt: new Date().toISOString(),
-          createdByEmail: currentUser.email
+          description,
+          updatedAt: new Date().toISOString(),
         };
 
         if (type === 'permit') {
           collName = 'permit-templates';
-          data = { ...data, type: permitType, description, sections };
+          data = { ...data, type: permitType, sections };
         } else if (type === 'qc') {
           collName = 'quality-checklists';
           data = { ...data, isTemplate: true, items: checklistItems.map(i => ({ ...i, status: 'pending' })) };
@@ -106,13 +137,17 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
           data = { ...data, topic, content, verificationItems: checklistItems };
         }
 
-        await addDoc(collection(db, collName), data);
-        toast({ title: 'Success', description: 'Master template published.' });
-        setStep('type');
-        setType(null);
-        setTitle('');
-        setSections([]);
-        setChecklistItems([]);
+        if (initialTemplate?.id) {
+            await updateDoc(doc(db, collName, initialTemplate.id), data);
+            toast({ title: 'Template Updated', description: 'Changes saved to the master registry.' });
+        } else {
+            data.createdAt = new Date().toISOString();
+            data.createdByEmail = currentUser.email;
+            await addDoc(collection(db, collName), data);
+            toast({ title: 'Success', description: 'Master template published.' });
+        }
+
+        router.push('/settings');
       } catch (err) {
         toast({ title: 'Save Error', description: 'Failed to publish template.', variant: 'destructive' });
       }
@@ -179,7 +214,6 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
     }));
   };
 
-  // Reordering Logic
   const handleFieldDragStart = (sectionId: string, fieldId: string) => {
     setDraggedFieldId({ sectionId, fieldId });
   };
@@ -263,14 +297,14 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
           <Card className="animate-in slide-in-from-right-4 duration-300 max-w-2xl mx-auto w-full">
             <CardHeader className="bg-muted/10 border-b">
               <CardTitle className="flex items-center gap-2">Template Identity</CardTitle>
-              <CardDescription>Define the base properties of your new digital template.</CardDescription>
+              <CardDescription>Define the base properties of your master template.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label>Template Title</Label>
-                    <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Roof Work Permit or Groundworks Inspection" />
+                    <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Roof Work Permit" />
                   </div>
                   
                   {type !== 'permit' && (
@@ -284,14 +318,14 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                   )}
 
                   <div className="space-y-2">
-                    <Label>Short Description / Use Case</Label>
-                    <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief purpose or instructions for using this form..." className="min-h-[100px]" />
+                    <Label>Short Description / Scope</Label>
+                    <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief purpose or instructions..." className="min-h-[100px]" />
                   </div>
                 </div>
               </div>
             </CardContent>
             <CardFooter className="bg-muted/10 border-t justify-between p-6">
-              <Button variant="ghost" onClick={() => setStep('type')}>Back</Button>
+              <Button variant="ghost" onClick={() => setStep('type')} disabled={!!initialTemplate}>Back</Button>
               <Button onClick={() => setStep('structure')} disabled={!title || (type !== 'permit' && !trade)}>
                 Next: Build Structure <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
@@ -407,17 +441,6 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeField(section.id, field.id)}><X className="h-3 w-3" /></Button>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center justify-between pt-2 border-t border-dashed">
-                                                <div className="flex items-center gap-2">
-                                                    {field.type === 'checkbox' && <div className="h-4 w-4 rounded border-2 border-primary/20" />}
-                                                    {field.type === 'date' && <CalendarIcon className="h-4 w-4 text-muted-foreground/30" />}
-                                                    {field.type === 'photo' && <ImageIcon className="h-4 w-4 text-muted-foreground/30" />}
-                                                    {field.type === 'text' && <div className="h-4 w-24 rounded bg-muted/20" />}
-                                                    {field.type === 'textarea' && <div className="h-8 w-32 rounded bg-muted/20" />}
-                                                    {field.type === 'yes-no-na' && <div className="flex gap-1"><div className="h-4 w-8 rounded bg-muted/20" /><div className="h-4 w-8 rounded bg-muted/20" /></div>}
-                                                </div>
-                                                <span className="text-[8px] font-black uppercase text-muted-foreground/40">{field.type}</span>
-                                            </div>
                                         </div>
                                     ))}
                                     <Button variant="outline" className="h-10 border-dashed border-2 text-[10px] font-bold text-muted-foreground col-span-1 md:col-span-2" onClick={() => addField(section.id)}><Plus className="h-3 w-3 mr-1" /> Add Verification Point</Button>
@@ -461,7 +484,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                 </CardContent>
                 <CardFooter className="bg-muted/10 pt-4 px-4 pb-4">
                   <Button className="w-full h-11 font-black uppercase text-[10px] tracking-widest gap-2" onClick={() => setStep('review')}>
-                    Review & Publish <ChevronRight className="h-3 w-3" />
+                    Review & Save <ChevronRight className="h-3 w-3" />
                   </Button>
                 </CardFooter>
               </Card>
@@ -475,7 +498,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
               <div className="bg-primary/10 h-20 w-20 rounded-full flex items-center justify-center mx-auto mb-4 text-primary shadow-inner">
                 <CheckCircle2 className="h-12 w-12" />
               </div>
-              <CardTitle className="text-3xl font-black">Publish Template</CardTitle>
+              <CardTitle className="text-3xl font-black">{initialTemplate ? 'Update Template' : 'Publish Template'}</CardTitle>
               <CardDescription className="text-base">This form will be available immediately for all site users.</CardDescription>
             </CardHeader>
             <CardContent className="p-10 space-y-10">
@@ -500,7 +523,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                     ) : (
                         <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> {checklistItems.length} Compliance Points defined</li>
                     )}
-                    <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> Automated audit logic initialized</li>
+                    <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> Form logic updated for real-time mobile use</li>
                 </ul>
               </div>
             </CardContent>
@@ -508,7 +531,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
               <Button variant="ghost" onClick={() => setStep('structure')} className="flex-1 h-14 font-bold">Back to Editor</Button>
               <Button onClick={handleSaveTemplate} disabled={isPending} className="flex-[2] h-14 font-black text-lg shadow-lg shadow-primary/20 gap-3">
                 {isPending ? <Loader2 className="h-6 w-6 animate-spin" /> : <Save className="h-6 w-6" />}
-                Publish Master Template
+                {initialTemplate ? 'Save Template Changes' : 'Publish Master Template'}
               </Button>
             </CardFooter>
           </Card>
