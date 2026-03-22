@@ -61,6 +61,9 @@ function EditSnaggingContent() {
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
+  const usersQuery = useMemoFirebase(() => (db ? collection(db, 'users') : null), [db]);
+  const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
+
   const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
@@ -434,7 +437,7 @@ function EditSnaggingContent() {
                                                             <Image src={p.url} alt="Defect" fill className="object-cover" />
                                                             <button 
                                                                 type="button" 
-                                                                className="absolute top-0 right-0 bg-destructive text-white p-1 shadow-md opacity-100 transition-opacity"
+                                                                className="absolute top-0 right-0 bg-destructive text-white p-1 shadow-md transition-opacity"
                                                                 onClick={(e) => handleRemovePhoto(e, listItem.id, pIdx)}
                                                             >
                                                                 <X className="h-3 w-3" />

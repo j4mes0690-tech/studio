@@ -467,7 +467,7 @@ export function FormWizard({
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-1 shrink-0 transition-opacity">
+                                                <div className="flex items-center gap-1 shrink-0">
                                                     <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
