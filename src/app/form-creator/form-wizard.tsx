@@ -18,7 +18,7 @@ import {
   X,
   Calendar as CalendarIcon,
   Type,
-  Image as ImageIcon,
+  ImageIcon,
   CheckSquare,
   AlignLeft,
   ListTodo,
@@ -90,6 +90,9 @@ export function FormWizard({
   const [checklistItems, setChecklistItems] = useState<{ id: string, text: string }[]>([]);
   const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
+
+  // Drag and Drop State
+  const [draggedItemId, setDraggedItemId] = useState<string | null>(null);
 
   // Open Accordion States - Expand all by default
   const [openSections, setOpenSections] = useState<string[]>([]);
@@ -203,7 +206,7 @@ export function FormWizard({
         if (s.id === sectionId) {
             return {
                 ...s,
-                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Point', type: 'checkbox', width: 'full', required: false }]
+                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Point', type: 'checkbox' as const, width: 'full' as const, required: false }]
             };
         }
         return s;
@@ -215,7 +218,7 @@ export function FormWizard({
         if (s.id === sectionId) {
             return {
                 ...s,
-                items: [...s.items, { id: `i-${Date.now()}`, text: 'New verification question...', status: 'pending' }]
+                items: [...s.items, { id: `i-${Date.now()}`, text: 'New verification question...', status: 'pending' as const }]
             };
         }
         return s;
@@ -277,6 +280,59 @@ export function FormWizard({
         case 'yes-no-na': return <ListTodo className="h-3 w-3" />;
         default: return <CheckSquare className="h-3 w-3" />;
     }
+  };
+
+  // Reordering Logic
+  const handleFieldDragStart = (e: React.DragEvent, fieldId: string) => {
+    setDraggedItemId(fieldId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleFieldDrop = (e: React.DragEvent, sectionId: string, targetFieldId: string) => {
+    e.preventDefault();
+    if (!draggedItemId || draggedItemId === targetFieldId) return;
+
+    setSections(prev => prev.map(s => {
+        if (s.id === sectionId) {
+            const newFields = [...s.fields];
+            const draggedIdx = newFields.findIndex(f => f.id === draggedItemId);
+            const targetIdx = newFields.findIndex(f => f.id === targetFieldId);
+            
+            if (draggedIdx > -1 && targetIdx > -1) {
+                const [item] = newFields.splice(draggedIdx, 1);
+                newFields.splice(targetIdx, 0, item);
+                return { ...s, fields: newFields };
+            }
+        }
+        return s;
+    }));
+    setDraggedItemId(null);
+  };
+
+  const handleQCItemDragStart = (e: React.DragEvent, itemId: string) => {
+    setDraggedItemId(itemId);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleQCItemDrop = (e: React.DragEvent, sectionId: string, targetItemId: string) => {
+    e.preventDefault();
+    if (!draggedItemId || draggedItemId === targetItemId) return;
+
+    setQCSections(prev => prev.map(s => {
+        if (s.id === sectionId) {
+            const newItems = [...s.items];
+            const draggedIdx = newItems.findIndex(i => i.id === draggedItemId);
+            const targetIdx = newItems.findIndex(i => i.id === targetItemId);
+            
+            if (draggedIdx > -1 && targetIdx > -1) {
+                const [item] = newItems.splice(draggedIdx, 1);
+                newItems.splice(targetIdx, 0, item);
+                return { ...s, items: newItems };
+            }
+        }
+        return s;
+    }));
+    setDraggedItemId(null);
   };
 
   // Auto-delete placeholder logic
@@ -447,14 +503,19 @@ export function FormWizard({
                                             {section.fields.map((field) => (
                                                 <div 
                                                     key={field.id} 
+                                                    draggable
+                                                    onDragStart={(e) => handleFieldDragStart(e, field.id)}
+                                                    onDragOver={(e) => e.preventDefault()}
+                                                    onDrop={(e) => handleFieldDrop(e, section.id, field.id)}
                                                     className={cn(
-                                                        "p-3 bg-white border rounded-lg shadow-sm space-y-3 transition-all relative group",
-                                                        field.width === 'half' ? "col-span-1" : "col-span-1 md:col-span-2"
+                                                        "p-3 bg-white border rounded-lg shadow-sm space-y-3 transition-all relative group cursor-default",
+                                                        field.width === 'half' ? "col-span-1" : "col-span-1 md:col-span-2",
+                                                        draggedItemId === field.id && "opacity-40"
                                                     )}
                                                 >
                                                     <div className="flex items-start justify-between gap-4">
                                                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                            <div className="p-1 hover:bg-muted rounded text-muted-foreground">
+                                                            <div className="p-1 hover:bg-muted rounded text-muted-foreground cursor-grab active:cursor-grabbing">
                                                                 <GripVertical className="h-3.5 w-3.5" />
                                                             </div>
                                                             <div className="flex-1 space-y-1">
@@ -522,7 +583,7 @@ export function FormWizard({
                                                                     <TooltipContent><p>{field.width === 'half' ? 'Set to Full Width' : 'Set to Half Width'}</p></TooltipContent>
                                                                 </Tooltip>
                                                             </TooltipProvider>
-                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeField(section.id, field.id)}><X className="h-3 w-3" /></Button>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeField(section.id, field.id)}><Trash2 className="h-3 w-3" /></Button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -564,7 +625,20 @@ export function FormWizard({
                                     </div>
                                     <AccordionContent className="p-4 space-y-3">
                                         {section.items.map((item, qIdx) => (
-                                            <div key={item.id} className="flex gap-3 bg-white p-3 rounded-lg border shadow-sm items-center group/q">
+                                            <div 
+                                                key={item.id} 
+                                                draggable
+                                                onDragStart={(e) => handleQCItemDragStart(e, item.id)}
+                                                onDragOver={(e) => e.preventDefault()}
+                                                onDrop={(e) => handleQCItemDrop(e, section.id, item.id)}
+                                                className={cn(
+                                                    "flex gap-3 bg-white p-3 rounded-lg border shadow-sm items-center group/q cursor-default transition-opacity",
+                                                    draggedItemId === item.id && "opacity-40"
+                                                )}
+                                            >
+                                                <div className="p-1 hover:bg-muted rounded text-muted-foreground cursor-grab active:cursor-grabbing">
+                                                    <GripVertical className="h-3.5 w-3.5" />
+                                                </div>
                                                 <span className="text-[10px] font-black text-muted-foreground w-4">{qIdx + 1}.</span>
                                                 <Input 
                                                     value={item.text} 
@@ -578,10 +652,10 @@ export function FormWizard({
                                                     className="border-none shadow-none h-8 text-sm p-0 focus-visible:ring-0 font-medium" 
                                                     placeholder="Enter verification question..." 
                                                 />
-                                                <Badge variant="outline" className="hidden sm:flex text-[8px] uppercase font-bold text-muted-foreground gap-1">
+                                                <Badge variant="outline" className="hidden sm:flex text-[8px] uppercase font-bold text-muted-foreground gap-1 shrink-0">
                                                     <ListTodo className="h-2 w-2" /> Yes/No/NA + Photo
                                                 </Badge>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover/q:opacity-100 transition-opacity" onClick={() => {
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0" onClick={() => {
                                                     const newSections = [...qcSections];
                                                     const sIdx = newSections.findIndex(s => s.id === section.id);
                                                     newSections[sIdx].items = newSections[sIdx].items.filter(i => i.id !== item.id);
