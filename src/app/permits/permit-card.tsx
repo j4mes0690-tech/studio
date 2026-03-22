@@ -47,7 +47,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { EditPermitDialog } from './edit-permit';
 import { ImageLightbox } from '@/components/image-lightbox';
-import { sendPermitEmailAction } from './actions';
 import { generatePermitPDF } from '@/lib/pdf-utils';
 
 export function PermitCard({ 
@@ -124,7 +123,7 @@ export function PermitCard({
     try {
       const pdf = await generatePermitPDF(permit, project, subContractor);
       pdf.save(`Permit-${permit.reference}.pdf`);
-      toast({ title: 'PDF Ready', description: 'Formal permit with photo appendix generated.' });
+      toast({ title: 'PDF Ready', description: 'Formal permit document generated.' });
     } catch (err) {
       console.error(err);
       toast({ title: 'Error', description: 'Failed to generate document.', variant: 'destructive' });
@@ -202,7 +201,7 @@ export function PermitCard({
                       {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>Export & Email PDF</p></TooltipContent>
+                  <TooltipContent><p>Download PDF Document</p></TooltipContent>
                 </Tooltip>
 
                 <div className="flex items-center gap-1">

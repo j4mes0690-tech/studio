@@ -382,7 +382,7 @@ export function EditPermitDialog({
                                                                     <Image src={p.url} alt="Verification" fill className="object-cover" />
                                                                     <button 
                                                                       type="button" 
-                                                                      className="absolute top-0 right-0 bg-destructive text-white p-0.5 shadow-sm transition-opacity" 
+                                                                      className="absolute top-0 right-0 bg-destructive text-white p-0.5 shadow-sm" 
                                                                       onClick={() => {
                                                                         const updatedPhotos = field.value.filter((_: any, i: number) => i !== pIdx);
                                                                         updateDynamicValue(section.id, field.id, updatedPhotos);
