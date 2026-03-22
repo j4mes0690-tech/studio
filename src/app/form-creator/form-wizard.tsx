@@ -137,7 +137,7 @@ export function FormWizard({
             toast({ title: 'Success', description: 'Master template published.' });
         }
 
-        router.push('/form-editor');
+        router.push('/form-creator');
       } catch (err) {
         toast({ title: 'Save Error', description: 'Failed to publish template.', variant: 'destructive' });
       }
@@ -284,7 +284,7 @@ export function FormWizard({
               <CardHeader className="text-center">
                 <div className="bg-primary/10 p-4 rounded-2xl w-fit mx-auto mb-4 text-primary"><ClipboardCheck className="h-10 w-10" /></div>
                 <CardTitle>QC Checklist</CardTitle>
-                <CardDescription>Standardised trade quality assurance inspection forms.</CardDescription>
+                <CardDescription>Standardised quality assurance inspection forms.</CardDescription>
               </CardHeader>
             </Card>
             <Card className={cn("cursor-pointer transition-all hover:scale-[1.02] border-2", type === 'toolbox' ? "border-primary bg-primary/5 shadow-md" : "hover:border-primary/30")} onClick={() => { setType('toolbox'); setStep('info'); }}>
