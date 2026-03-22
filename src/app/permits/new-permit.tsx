@@ -10,7 +10,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -49,8 +48,6 @@ import type {
 } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
@@ -60,7 +57,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -469,7 +465,7 @@ export function NewPermitDialog({
                         variant="outline" 
                         className="w-full sm:w-auto h-12 gap-2" 
                         disabled={isPending} 
-                        onClick={() => onSubmit(form.getValues(), 'draft')}
+                        onClick={form.handleSubmit(v => onSubmit(v, 'draft'), () => scrollToFirstError())}
                     >
                         <Save className="h-4 w-4" /> Save as Draft
                     </Button>
@@ -477,7 +473,7 @@ export function NewPermitDialog({
                         type="button"
                         className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
                         disabled={isPending || !selectedTemplateId} 
-                        onClick={() => onSubmit(form.getValues(), 'issued')}
+                        onClick={form.handleSubmit(v => onSubmit(v, 'issued'), () => scrollToFirstError())}
                     >
                         {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
                         Save

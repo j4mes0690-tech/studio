@@ -1,6 +1,6 @@
 'use client';
 
-import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation, ClientInstruction } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation, ClientInstruction, Permit } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
@@ -34,6 +34,149 @@ async function getSystemBranding(): Promise<{ logoUri: string | null, address: s
     console.error("Failed to fetch branding for PDF:", e);
   }
   return { logoUri: null, address: null };
+}
+
+/**
+ * generatePermitPDF - Creates a formal professional Permit to Work document with photo appendix.
+ */
+export async function generatePermitPDF(
+  permit: Permit,
+  project?: Project,
+  subContractor?: SubContractor
+) {
+  const { jsPDF } = await import('jspdf');
+  const html2canvas = (await import('html2canvas')).default;
+  const branding = await getSystemBranding();
+
+  const reportElement = document.createElement('div');
+  reportElement.style.padding = '50px';
+  reportElement.style.width = '800px';
+  reportElement.style.background = 'white';
+  reportElement.style.color = 'black';
+  reportElement.style.fontFamily = 'sans-serif';
+
+  const areaName = permit.customAreaName || project?.areas?.find(a => a.id === permit.areaId)?.name || 'General Site';
+
+  let sectionsHtml = '';
+  (permit.sections || []).forEach(section => {
+    let fieldsHtml = '';
+    section.fields.forEach(f => {
+      let valueDisplay = '';
+      if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
+      else if (f.type === 'yes-no-na') valueDisplay = String(f.value || '---').toUpperCase();
+      else if (f.type === 'photo') valueDisplay = Array.isArray(f.value) ? `${f.value.length} Photo(s) Attached` : 'No Photos';
+      else if (f.type === 'date' && f.value) valueDisplay = new Date(f.value).toLocaleDateString();
+      else valueDisplay = String(f.value || '---');
+
+      fieldsHtml += `
+        <div style="margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 5px;">
+          <p style="margin: 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">${f.label}</p>
+          <p style="margin: 2px 0 0 0; font-size: 12px; font-weight: bold; color: #1e293b;">${valueDisplay}</p>
+        </div>
+      `;
+    });
+
+    sectionsHtml += `
+      <div style="margin-bottom: 25px; page-break-inside: avoid;">
+        <h3 style="font-size: 11px; color: #1e40af; background: #f8fafc; padding: 6px 10px; margin-bottom: 12px; font-weight: bold; text-transform: uppercase; border-left: 3px solid #1e40af;">${section.title}</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          ${fieldsHtml}
+        </div>
+      </div>
+    `;
+  });
+
+  reportElement.innerHTML = `
+    <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <h1 style="margin: 0; color: #1e40af; font-size: 28px; letter-spacing: -1px;">PERMIT TO WORK</h1>
+        <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold;">${permit.description}</p>
+        <p style="margin: 2px 0 0 0; color: #dc2626; font-size: 14px; font-weight: bold;">Ref: ${permit.reference}</p>
+      </div>
+      <div style="text-align: right; max-width: 300px;">
+        ${branding.logoUri ? `<img src="${branding.logoUri}" style="max-height: 60px; max-width: 200px; margin-bottom: 10px;" />` : ''}
+        ${branding.address ? `<p style="margin: 0; font-size: 9px; color: #475569; line-height: 1.4; white-space: pre-wrap;">${branding.address}</p>` : ''}
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px;">
+      <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <p style="margin: 0 0 5px 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">Instructed Party</p>
+        <p style="margin: 0; font-size: 14px; font-weight: bold;">${permit.contractorName}</p>
+        <p style="margin: 2px 0 0 0; font-size: 11px; color: #475569;">${subContractor?.email || ''}</p>
+      </div>
+      <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <p style="margin: 0 0 5px 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">Location & Validity</p>
+        <p style="margin: 0; font-size: 14px; font-weight: bold;">${project?.name || 'Project'} - ${areaName}</p>
+        <p style="margin: 2px 0 0 0; font-size: 11px; color: #475569;">Valid Until: ${new Date(permit.validTo).toLocaleString()}</p>
+      </div>
+    </div>
+
+    ${sectionsHtml}
+
+    <div style="margin-top: 40px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+      <p style="font-size: 9px; color: #94a3b8; text-align: center;">Printed: ${new Date().toLocaleString()} | Issued by: ${permit.createdByEmail}</p>
+    </div>
+  `;
+
+  document.body.appendChild(reportElement);
+  const headerCanvas = await html2canvas(reportElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+  document.body.removeChild(reportElement);
+
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  const canvasHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
+  
+  pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, canvasHeightInPdf);
+
+  // Add Appendix for Photos
+  const allPhotos: { label: string, photo: Photo }[] = [];
+  (permit.sections || []).forEach(s => {
+    s.fields.forEach(f => {
+      if (f.type === 'photo' && Array.isArray(f.value)) {
+        f.value.forEach(p => allPhotos.push({ label: f.label, photo: p }));
+      }
+    });
+  });
+
+  if (allPhotos.length > 0) {
+    pdf.addPage();
+    pdf.setFontSize(16);
+    pdf.setTextColor(30, 64, 175);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Verification Evidence Appendix", 10, 20);
+    
+    let currentY = 30;
+    for (const item of allPhotos) {
+      if (currentY + 110 > pdfHeight) {
+        pdf.addPage();
+        currentY = 20;
+      }
+      
+      const dataUri = await safeLoadImage(item.photo.url);
+      if (dataUri) {
+        pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 100);
+      } else {
+        pdf.setFillColor(245, 245, 245);
+        pdf.rect(10, currentY, 190, 100, 'F');
+        pdf.setFontSize(10);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text("Photo evidence failed to load.", 105, currentY + 50, { align: 'center' });
+      }
+      
+      pdf.setFontSize(9);
+      pdf.setTextColor(100, 116, 139);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Control: ${item.label}`, 10, currentY + 105);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Captured: ${new Date(item.photo.takenAt).toLocaleString()}`, 10, currentY + 110);
+      
+      currentY += 120;
+    }
+  }
+
+  return pdf;
 }
 
 /**
@@ -137,7 +280,7 @@ export async function generateVariationPDF(
         </div>
     </div>
 
-    <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
+    <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
       <p style="font-size: 10px; color: #94a3b8;">Issued by: ${variation.createdByEmail}</p>
       <p style="font-size: 10px; color: #94a3b8;">Printed: ${new Date().toLocaleString()}</p>
     </div>
@@ -228,7 +371,7 @@ export async function generateSubContractOrdersPDF(
   `;
 
   document.body.appendChild(reportElement);
-  const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+  const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
   document.body.removeChild(reportElement);
 
   const pdf = new jsPDF('l', 'mm', 'a4');
@@ -314,7 +457,7 @@ export async function generateProcurementPDF(
   `;
 
   document.body.appendChild(reportElement);
-  const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, logging: false });
+  const canvas = await html2canvas(reportElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
   document.body.removeChild(reportElement);
 
   const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape for schedule
@@ -457,7 +600,7 @@ export async function generateSiteDiaryAuditPDF(
           pdf.setFillColor(245, 245, 245);
           pdf.rect(imgX, currentY, imgWidth, imgHeight, 'F');
           pdf.setFontSize(8);
-          pdf.setTextColor(150);
+          pdf.setTextColor(150, 150, 150);
           pdf.text("Image loading error", imgX + 5, currentY + 10);
         }
 

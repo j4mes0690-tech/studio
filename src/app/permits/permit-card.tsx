@@ -48,7 +48,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { EditPermitDialog } from './edit-permit';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { sendPermitEmailAction } from './actions';
-import { differenceInDays, parseISO, startOfDay } from 'date-fns';
+import { generatePermitPDF } from '@/lib/pdf-utils';
 
 export function PermitCard({ 
   permit, 
@@ -118,103 +118,16 @@ export function PermitCard({
     });
   };
 
-  const generatePDFAndEmail = async (e: React.MouseEvent) => {
+  const handleExportPDF = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsGenerating(true);
     try {
-      const { jsPDF } = await import('jspdf');
-      const html2canvas = (await import('html2canvas')).default;
-
-      const reportElement = document.createElement('div');
-      reportElement.style.padding = '50px';
-      reportElement.style.width = '800px';
-      reportElement.style.background = 'white';
-      reportElement.style.color = 'black';
-      reportElement.style.fontFamily = 'sans-serif';
-
-      const areaName = permit.customAreaName || project?.areas?.find(a => a.id === permit.areaId)?.name || 'General Site';
-
-      let sectionsHtml = '';
-      (permit.sections || []).forEach(section => {
-        let fieldsHtml = '';
-        section.fields.forEach(f => {
-          let valueDisplay = String(f.value || '---');
-          if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
-          if (f.type === 'yes-no-na') valueDisplay = String(f.value || '---').toUpperCase();
-          if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = `[${f.value.length} Photo(s) Captured]`;
-
-          fieldsHtml += `
-            <div style="display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f1f5f9; padding: 8px; border-radius: 4px;">
-              <div style="flex: 1;">
-                <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">${f.label}</p>
-                <p style="margin: 2px 0 0 0; font-size: 12px; font-weight: bold;">${valueDisplay}</p>
-              </div>
-            </div>
-          `;
-        });
-
-        sectionsHtml += `
-          <div style="margin-bottom: 30px;">
-            <h3 style="font-size: 12px; color: #334155; background: #f1f5f9; padding: 8px; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">${section.title}</h3>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-              ${fieldsHtml}
-            </div>
-          </div>
-        `;
-      });
-
-      reportElement.innerHTML = `
-        <div style="border: 4px solid #1e40af; padding: 30px; border-radius: 8px;">
-          <h1 style="margin: 0; color: #1e40af; font-size: 28px;">PERMIT TO WORK</h1>
-          <p style="margin: 5px 0 30px 0; font-weight: bold; color: #dc2626;">Ref: ${permit.reference}</p>
-
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
-            <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
-              <p style="margin: 0 0 5px 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Instructed Party</p>
-              <p style="margin: 0; font-size: 16px; font-weight: bold;">${permit.contractorName}</p>
-            </div>
-            <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
-              <p style="margin: 0 0 5px 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Project / Location</p>
-              <p style="margin: 0; font-size: 16px; font-weight: bold;">${project?.name || 'Project'} - ${areaName}</p>
-            </div>
-          </div>
-
-          ${sectionsHtml}
-
-          <div style="margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between;">
-            <p style="font-size: 10px; color: #94a3b8;">Printed: ${new Date().toLocaleString()}</p>
-          </div>
-        </div>
-      `;
-
-      document.body.appendChild(reportElement);
-      const canvas = await html2canvas(reportElement, { scale: 3, useCORS: true, logging: false });
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-      document.body.removeChild(reportElement);
-
-      const pdfBase64 = pdf.output('datauristring').split(',')[1];
-      
-      if (subContractor?.email) {
-        await sendPermitEmailAction({
-          email: subContractor.email,
-          name: subContractor.name,
-          projectName: project?.name || 'Project',
-          permitRef: permit.reference,
-          permitType: permit.type,
-          pdfBase64,
-          fileName: `Permit-${permit.reference}.pdf`
-        });
-      }
-
+      const pdf = await generatePermitPDF(permit, project, subContractor);
       pdf.save(`Permit-${permit.reference}.pdf`);
-      toast({ title: 'PDF Ready', description: 'Digital permit generated and shared.' });
+      toast({ title: 'PDF Ready', description: 'Formal permit with photo appendix generated.' });
     } catch (err) {
       console.error(err);
-      toast({ title: 'Error', description: 'Failed to generate PDF.', variant: 'destructive' });
+      toast({ title: 'Error', description: 'Failed to generate document.', variant: 'destructive' });
     } finally {
       setIsGenerating(false);
     }
@@ -285,7 +198,7 @@ export function PermitCard({
                 
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={generatePDFAndEmail} disabled={isGenerating}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={handleExportPDF} disabled={isGenerating}>
                       {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                     </Button>
                   </TooltipTrigger>
