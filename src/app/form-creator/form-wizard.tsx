@@ -13,7 +13,9 @@ import {
   Layout, 
   Save,
   Eye,
-  Settings2
+  Settings2,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,7 +73,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         let collName = '';
         let data: any = {
           title,
-          trade,
+          trade: type === 'permit' ? 'Health & Safety' : trade,
           createdAt: new Date().toISOString(),
           createdByEmail: currentUser.email
         };
@@ -103,29 +105,23 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         if (s.id === sectionId) {
             return {
                 ...s,
-                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Requirement', type: 'checkbox' }]
+                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Requirement', type: 'checkbox', width: 'full' }]
             };
         }
         return s;
     }));
   };
 
-  const updateDynamicValue = (sectionId: string, fieldId: string, value: any) => {
-    setDynamicSections(prev => prev.map(s => {
+  const updateFieldWidth = (sectionId: string, fieldId: string, width: 'half' | 'full') => {
+    setSections(prev => prev.map(s => {
         if (s.id === sectionId) {
-            return { ...s, fields: s.fields.map(f => f.id === fieldId ? { ...f, value } : f) };
+            return {
+                ...s,
+                fields: s.fields.map(f => f.id === fieldId ? { ...f, width } : f)
+            };
         }
         return s;
     }));
-  };
-
-  // Helper to manage dynamic sections state (needed for the field update logic)
-  const setDynamicSections = (newSections: TemplateSection[] | ((prev: TemplateSection[]) => TemplateSection[])) => {
-    if (typeof newSections === 'function') {
-        setSections(newSections(sections));
-    } else {
-        setSections(newSections);
-    }
   };
 
   return (
@@ -182,32 +178,21 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label>Template Title</Label>
-                    <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Groundworks Permit..." />
+                    <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Fit-out Quality Check..." />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Trade Discipline</Label>
-                    <Select value={trade} onValueChange={setTrade}>
-                      <SelectTrigger><SelectValue placeholder="Select trade" /></SelectTrigger>
-                      <SelectContent>{trades?.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                  {type === 'permit' && (
+                  
+                  {type !== 'permit' && (
                     <div className="space-y-2">
-                        <Label>Permit Classification</Label>
-                        <Select value={permitType} onValueChange={(v: any) => setPermitType(v)}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="General">General</SelectItem>
-                                <SelectItem value="Hot Work">Hot Work</SelectItem>
-                                <SelectItem value="Confined Space">Confined Space</SelectItem>
-                                <SelectItem value="Excavation">Excavation</SelectItem>
-                                <SelectItem value="Lifting">Lifting</SelectItem>
-                            </SelectContent>
-                        </Select>
+                      <Label>Trade Discipline</Label>
+                      <Select value={trade} onValueChange={setTrade}>
+                        <SelectTrigger><SelectValue placeholder="Select trade" /></SelectTrigger>
+                        <SelectContent>{trades?.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
                   )}
+
                   <div className="space-y-2">
-                    <Label>Short Description</Label>
+                    <Label>Short Scope / Description</Label>
                     <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief purpose of this form..." />
                   </div>
                 </div>
@@ -215,8 +200,8 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
             </CardContent>
             <CardFooter className="bg-muted/10 border-t justify-between p-6">
               <Button variant="ghost" onClick={() => setStep('type')}>Back</Button>
-              <Button onClick={() => setStep('structure')} disabled={!title || !trade}>
-                Manual Build <ChevronRight className="ml-2 h-4 w-4" />
+              <Button onClick={() => setStep('structure')} disabled={!title || (type !== 'permit' && !trade)}>
+                Next: Structure <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
           </Card>
@@ -229,9 +214,9 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                 <div className="space-y-1">
                     <h3 className="text-xl font-bold flex items-center gap-2">
                         <Eye className="h-5 w-5 text-primary" />
-                        Live Form Preview
+                        Live Layout Preview
                     </h3>
-                    <p className="text-xs text-muted-foreground">This is how the digital form will appear to site users.</p>
+                    <p className="text-xs text-muted-foreground">Adjust field widths to customize the grid appearance.</p>
                 </div>
                 {type !== 'permit' && (
                     <Button variant="outline" size="sm" onClick={() => setChecklistItems([...checklistItems, { id: `ci-${Date.now()}`, text: '' }])} className="gap-2">
@@ -249,26 +234,52 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
 
                 {type === 'permit' ? (
                     <div className="space-y-8">
-                        {sections.map((section, sIdx) => (
+                        {sections.map((section) => (
                             <div key={section.id} className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <h4 className="font-black text-xs uppercase tracking-widest text-primary">{section.title}</h4>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive opacity-0 group-hover:opacity-100" onClick={() => setSections(sections.filter(s => s.id !== section.id))}><Trash2 className="h-3 w-3" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setSections(sections.filter(s => s.id !== section.id))}><Trash2 className="h-3 w-3" /></Button>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {section.fields.map((field) => (
-                                        <div key={field.id} className="p-3 bg-white border rounded-lg shadow-sm flex items-center justify-between gap-4">
-                                            <span className="text-xs font-bold leading-tight">{field.label}</span>
-                                            {field.type === 'checkbox' ? (
-                                                <div className="h-5 w-5 rounded border-2 border-primary/20" />
-                                            ) : field.type === 'yes-no-na' ? (
-                                                <Badge variant="outline" className="text-[8px] font-black">Y / N / NA</Badge>
-                                            ) : (
-                                                <div className="h-6 w-24 bg-muted/30 rounded border border-dashed" />
+                                        <div 
+                                            key={field.id} 
+                                            className={cn(
+                                                "p-3 bg-white border rounded-lg shadow-sm space-y-2 transition-all",
+                                                field.width === 'half' ? "col-span-1" : "col-span-1 md:col-span-2"
                                             )}
+                                        >
+                                            <div className="flex items-center justify-between gap-4">
+                                                <span className="text-xs font-bold leading-tight">{field.label}</span>
+                                                <div className="flex items-center gap-1">
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    size="icon" 
+                                                                    className={cn("h-6 w-6", field.width === 'half' ? "text-primary bg-primary/10" : "text-muted-foreground")}
+                                                                    onClick={() => updateFieldWidth(section.id, field.id, field.width === 'half' ? 'full' : 'half')}
+                                                                >
+                                                                    {field.width === 'half' ? <Minimize2 className="h-3 w-3" /> : <Maximize2 className="h-3 w-3" />}
+                                                                </Button>
+                                                            </TooltipTrigger>
+                                                            <TooltipContent><p>{field.width === 'half' ? 'Set to Full Width' : 'Set to Half Width'}</p></TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setSections(sections.map(s => s.id === section.id ? { ...s, fields: s.fields.filter(f => f.id !== field.id) } : s))}><X className="h-3 w-3" /></Button>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center justify-between pt-2 border-t border-dashed">
+                                                {field.type === 'checkbox' ? (
+                                                    <div className="h-5 w-5 rounded border-2 border-primary/20" />
+                                                ) : (
+                                                    <div className="h-6 w-full bg-muted/30 rounded border border-dashed" />
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
-                                    <Button variant="ghost" className="h-10 border-dashed border-2 text-[10px] font-bold text-muted-foreground" onClick={() => addField(section.id)}><Plus className="h-3 w-3 mr-1" /> Field</Button>
+                                    <Button variant="outline" className="h-10 border-dashed border-2 text-[10px] font-bold text-muted-foreground col-span-1 md:col-span-2" onClick={() => addField(section.id)}><Plus className="h-3 w-3 mr-1" /> Add Verification Point</Button>
                                 </div>
                             </div>
                         ))}
@@ -286,7 +297,6 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                     newItems[idx].text = e.target.value;
                                     setChecklistItems(newItems);
                                 }} className="border-none shadow-none h-8 text-sm p-0 focus-visible:ring-0" />
-                                <Badge variant="outline" className="text-[8px] opacity-40">Compliance Item</Badge>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => setChecklistItems(checklistItems.filter(i => i.id !== item.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
                         ))}
@@ -297,10 +307,10 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
 
             <div className="space-y-6">
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Configuration</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Settings</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-1">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Template Title</Label>
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Title</Label>
                     <Input value={title} onChange={e => setTitle(e.target.value)} className="h-8 text-sm" />
                   </div>
                   <div className="space-y-1">
@@ -310,7 +320,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                 </CardContent>
                 <CardFooter className="bg-muted/10 pt-4 px-4 pb-4">
                   <Button className="w-full h-11 font-black uppercase text-[10px] tracking-widest gap-2" onClick={() => setStep('review')}>
-                    Final Review <ChevronRight className="h-3 w-3" />
+                    Review & Publish <ChevronRight className="h-3 w-3" />
                   </Button>
                 </CardFooter>
               </Card>
@@ -366,3 +376,6 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
     </div>
   );
 }
+
+import { X } from 'lucide-react';
+import { TooltipProvider } from '@/components/ui/tooltip';

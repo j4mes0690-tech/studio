@@ -425,6 +425,7 @@ export type TemplateField = {
   label: string;
   type: TemplateFieldType;
   value?: string | boolean | null;
+  width?: 'half' | 'full';
 };
 
 export type TemplateSection = {
