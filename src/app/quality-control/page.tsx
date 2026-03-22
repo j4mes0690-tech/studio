@@ -79,7 +79,7 @@ function QualityControlContent() {
   }, [db]);
   const { data: allChecklists, isLoading: checklistsLoading } = useCollection<QualityChecklist>(checklistsQuery);
 
-  // Define checklistInstances correctly to fix ReferenceError
+  // Define checklistInstances properly
   const checklistInstances = useMemo(() => {
     if (!allChecklists) return [];
     return allChecklists.filter(c => !c.isTemplate);
