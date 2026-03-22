@@ -40,7 +40,6 @@ export async function generateFormStructure(
 
 const prompt = ai.definePrompt({
   name: 'generateFormStructurePrompt',
-  model: 'googleai/gemini-1.5-flash',
   input: { schema: GenerateFormStructureInputSchema },
   output: { schema: FormStructureOutputSchema },
   prompt: `You are an expert site safety and quality manager. 
@@ -58,21 +57,12 @@ Description:
 {{{prompt}}}
 {{/if}}
 
-For a "permit": 
-Generate a Permit to Work. 
-Provide a clear title, description, and multiple sections (e.g., "Personal Protective Equipment", "Safety Controls", "Authorisation").
-Each section should have specific fields with appropriate types (checkbox for yes/no, text for names/times, textarea for descriptions, or yes-no-na).
+Output rules based on type:
+- "permit": Provide a clear title, description, and multiple sections (e.g., "Personal Protective Equipment", "Safety Controls"). Each section should have specific fields with appropriate types.
+- "qc": Provide a professional title and a list of specific "items" (verification points) that must be checked for compliance.
+- "toolbox": Provide a title, a high-level "topic", and a "content" field with a bulleted educational briefing in Markdown. Also provide a list of "items" which are verification questions to check staff understanding.
 
-For a "qc":
-Generate a Trade Quality Checklist.
-Provide a professional title and a list of specific "items" (verification points) that must be checked for compliance.
-
-For a "toolbox":
-Generate a Toolbox Talk Briefing.
-Provide a title, a high-level "topic", and a "content" field with a bulleted educational briefing in Markdown.
-Also provide a list of "items" which are verification questions to check staff understanding.
-
-Ensure the output is strictly structured according to the requested type and maintains high professional standards for construction site documentation.`,
+Ensure the output is strictly structured and maintains high professional standards for construction site documentation.`,
 });
 
 const generateFormStructureFlow = ai.defineFlow(

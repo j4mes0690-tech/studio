@@ -4,8 +4,8 @@ import { Header } from '@/components/layout/header';
 import { ChecklistCard } from './checklist-card';
 import { AddChecklistToProject } from './add-checklist-to-project';
 import { useMemo, useState, useEffect, Suspense } from 'react';
-import type { QualityChecklist, Project, SubContractor, DistributionUser, Area } from '@/lib/types';
-import { Loader2, ChevronRight, LayoutGrid, ClipboardCheck, Building2, MapPin, ArrowLeft, CheckCircle2, List, FileCheck, ShieldCheck } from 'lucide-react';
+import type { QualityChecklist, Project, SubContractor, DistributionUser } from '@/lib/types';
+import { Loader2, ChevronRight, LayoutGrid, Building2, MapPin, ArrowLeft, List, FileCheck, ShieldCheck } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,9 +44,7 @@ function QualityControlContent() {
   // Load persistence
   useEffect(() => {
     const saved = localStorage.getItem('sitecommand_view_quality_control');
-    if (saved !== null) {
-      setIsCompact(saved === 'true');
-    }
+    if (saved !== null) setIsCompact(saved === 'true');
   }, []);
 
   const toggleView = () => {
@@ -93,7 +91,6 @@ function QualityControlContent() {
     });
   }, [allProjects, profile]);
 
-  // FIX: Define checklistInstances for the template assigner and progress calculations
   const checklistInstances = useMemo(() => {
     if (!allChecklists) return [];
     return allChecklists.filter(c => !c.isTemplate);

@@ -4,9 +4,8 @@ import {googleAI} from '@genkit-ai/google-genai';
 /**
  * Genkit Instance Configuration
  * 
- * We explicitly use 'gemini-1.5-flash' as the default model. 
- * This model is optimized for speed and high throughput, making it the 
- * quickest stable model for production-ready site documentation tasks.
+ * We explicitly use 'gemini-1.5-flash' as it provides the best balance 
+ * of reasoning capability and speed for structured data generation tasks.
  */
 export const ai = genkit({
   plugins: [googleAI()],

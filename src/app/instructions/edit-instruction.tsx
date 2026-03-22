@@ -351,7 +351,9 @@ export function EditInstruction({
                         <FileText className="h-3 w-3 text-primary shrink-0" />
                         <span className="truncate">{f.name}</span>
                     </div>
-                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setFiles(files.filter((_, idx) => idx !== i))}>
+                        <X className="h-3 w-3" />
+                    </Button>
                   </div>
                 ))}
               </div>

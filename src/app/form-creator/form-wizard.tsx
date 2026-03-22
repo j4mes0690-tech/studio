@@ -122,14 +122,14 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         
         toast({ 
           title: isRefining ? "Refinement Applied" : "AI Draft Ready", 
-          description: isRefining ? "The structure has been updated based on your instructions." : "The template structure has been generated. You can now refine it." 
+          description: isRefining ? "The structure has been updated based on your instructions." : "The template structure has been generated." 
         });
         
         if (!isRefining) setStep('structure');
         setRefinePrompt('');
       }
     } catch (err) {
-      toast({ title: "Generation Failed", description: "Could not design form. Please try again.", variant: "destructive" });
+      toast({ title: "Generation Failed", description: "The AI was unable to structure your request. Please try a more specific prompt.", variant: "destructive" });
     } finally {
       setIsGenerating(false);
     }
@@ -164,18 +164,6 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         toast({ title: 'Save Error', description: 'Failed to persist template.', variant: 'destructive' });
       }
     });
-  };
-
-  const addSection = () => {
-    setSections([...sections, { id: `sec-${Date.now()}`, title: 'New Section', fields: [] }]);
-  };
-
-  const addField = (secId: string) => {
-    setSections(prev => prev.map(s => s.id === secId ? { ...s, fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Field', type: 'checkbox' }] } : s));
-  };
-
-  const addChecklistItem = () => {
-    setChecklistItems([...checklistItems, { id: `ci-${Date.now()}`, text: '' }]);
   };
 
   return (
@@ -225,7 +213,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
           <Card className="animate-in slide-in-from-right-4 duration-300">
             <CardHeader className="bg-muted/30 border-b">
               <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> AI Assistant</CardTitle>
-              <CardDescription>Describe what this form should cover, and the AI will draft the structure for you.</CardDescription>
+              <CardDescription>Describe what this form should cover, and Gemini will draft the structure for you.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="space-y-3">
@@ -257,21 +245,6 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                     </Select>
                   </div>
                 </div>
-                {type === 'permit' && (
-                  <div className="space-y-2">
-                    <Label>Permit Classification</Label>
-                    <Select value={permitType} onValueChange={(v: any) => setPermitType(v)}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="General">General</SelectItem>
-                        <SelectItem value="Hot Work">Hot Work</SelectItem>
-                        <SelectItem value="Confined Space">Confined Space</SelectItem>
-                        <SelectItem value="Excavation">Excavation</SelectItem>
-                        <SelectItem value="Lifting">Lifting</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
               </div>
             </CardContent>
             <CardFooter className="bg-muted/10 border-t justify-between p-6">
@@ -286,7 +259,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
             <div className="lg:col-span-2 space-y-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold">Structure Builder</h3>
-                <Button variant="outline" size="sm" onClick={type === 'permit' ? addSection : addChecklistItem} className="gap-2">
+                <Button variant="outline" size="sm" onClick={() => setChecklistItems([...checklistItems, { id: `ci-${Date.now()}`, text: '' }])} className="gap-2">
                   <Plus className="h-4 w-4" /> Add Item
                 </Button>
               </div>
@@ -296,14 +269,11 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                   {sections.map((section, sIdx) => (
                     <Card key={section.id}>
                       <CardHeader className="py-3 bg-muted/30 flex flex-row items-center justify-between">
-                        <div className="flex items-center gap-2 flex-1 mr-4">
-                          <Layout className="h-4 w-4 text-primary" />
-                          <Input 
-                            value={section.title} 
-                            onChange={e => setSections(prev => prev.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))}
-                            className="bg-transparent border-transparent font-bold h-8 text-xs uppercase"
-                          />
-                        </div>
+                        <Input 
+                          value={section.title} 
+                          onChange={e => setSections(prev => prev.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))}
+                          className="bg-transparent border-transparent font-bold h-8 text-xs uppercase"
+                        />
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setSections(sections.filter(s => s.id !== section.id))}><Trash2 className="h-4 w-4" /></Button>
                       </CardHeader>
                       <CardContent className="p-4 space-y-3">
@@ -327,14 +297,8 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                 <SelectItem value="yes-no-na">Yes/No/NA</SelectItem>
                               </SelectContent>
                             </Select>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
-                              const newSections = [...sections];
-                              newSections[sIdx].fields = newSections[sIdx].fields.filter(f => f.id !== field.id);
-                              setSections(newSections);
-                            }}><X className="h-3 w-3" /></Button>
                           </div>
                         ))}
-                        <Button variant="ghost" size="sm" className="w-full text-[10px] font-bold uppercase tracking-widest text-primary h-8 border-dashed border-2" onClick={() => addField(section.id)}>+ Add Field</Button>
                       </CardContent>
                     </Card>
                   ))}
@@ -381,26 +345,21 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                     disabled={isGenerating || !refinePrompt.trim()}
                   >
                     {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                    Update Structure with AI
+                    Update with AI
                   </Button>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader><CardTitle className="text-sm">Template Summary</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm">Summary</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-1">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Title</Label>
-                    <p className="font-bold text-sm">{title || 'Untitled Template'}</p>
+                    <p className="font-bold text-sm">{title || 'Untitled'}</p>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Category</Label>
-                    <Badge variant="secondary" className="h-5 text-[9px] font-black uppercase tracking-widest">{type}</Badge>
-                  </div>
-                  <Separator />
-                  <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Scope</Label>
-                    <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-4">{description || topic || 'No summary provided.'}</p>
+                    <Badge variant="secondary" className="h-5 text-[9px] uppercase">{type}</Badge>
                   </div>
                 </CardContent>
                 <CardFooter className="bg-muted/10">
@@ -420,7 +379,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                 <CheckCircle2 className="h-10 w-10" />
               </div>
               <CardTitle>Ready to Publish?</CardTitle>
-              <CardDescription>Confirm your template structure before saving to the system library.</CardDescription>
+              <CardDescription>Confirm your template structure before saving.</CardDescription>
             </CardHeader>
             <CardContent className="p-8 space-y-8">
               <div className="grid grid-cols-2 gap-8">
@@ -433,25 +392,9 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                   <Badge variant="outline" className="h-6 font-bold text-primary">{trade || 'General'}</Badge>
                 </div>
               </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b pb-2">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Content Audit</p>
-                  {type === 'permit' ? (
-                    <span className="text-[10px] font-bold text-primary">{sections.length} Sections Defined</span>
-                  ) : (
-                    <span className="text-[10px] font-bold text-primary">{checklistItems.length} Checklist Points</span>
-                  )}
-                </div>
-                <ScrollArea className="h-40 p-4 rounded-lg bg-muted/20 border border-dashed">
-                  {type === 'toolbox' && <div className="text-xs leading-relaxed whitespace-pre-wrap">{content}</div>}
-                  {type === 'qc' && checklistItems.map((i, idx) => <div key={idx} className="text-xs py-1 border-b last:border-0">• {i.text}</div>)}
-                  {type === 'permit' && sections.map((s, idx) => <div key={idx} className="text-xs py-1 font-bold text-primary uppercase tracking-tighter">&rsaquo; {s.title} ({s.fields.length} fields)</div>)}
-                </ScrollArea>
-              </div>
             </CardContent>
             <CardFooter className="p-8 pt-0 gap-4">
-              <Button variant="ghost" onClick={() => setStep('structure')} className="flex-1 h-12 font-bold">Refine Structure</Button>
+              <Button variant="ghost" onClick={() => setStep('structure')} className="flex-1 h-12 font-bold">Refine</Button>
               <Button onClick={handleSaveTemplate} disabled={isPending} className="flex-[2] h-12 font-black text-lg shadow-lg shadow-primary/20 gap-2">
                 {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                 Publish Template
