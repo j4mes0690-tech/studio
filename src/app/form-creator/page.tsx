@@ -115,7 +115,7 @@ function FormCreatorContent() {
                         {templateId ? `Refining "${existingTemplate?.title || '...'}"` : 'Construct a master digital form for site use.'}
                     </p>
                 </div>
-                <Button variant="ghost" onClick={() => router.push('/form-creator')} className="gap-2">
+                <Button variant="ghost" onClick={() => router.push('/form-editor')} className="gap-2">
                     <ArrowLeft className="h-4 w-4" /> Exit Editor
                 </Button>
             </div>
@@ -144,9 +144,9 @@ function FormCreatorContent() {
                     Centrally manage your project's digital documentation standards and build interactive forms.
                 </p>
             </div>
-            <Button onClick={() => router.push('/form-creator?new=true')} className="gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20">
+            <Button onClick={() => router.push('/form-editor?new=true')} className="gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20">
                 <PlusCircle className="h-5 w-5" />
-                New Master Template
+                New Template
             </Button>
         </div>
 
@@ -172,7 +172,7 @@ function FormCreatorContent() {
                 permits={permitTemplates || []}
                 qc={qcTemplates || []}
                 toolbox={toolboxTemplates || []}
-                onEdit={(type, id) => router.push(`/form-creator?type=${type}&id=${id}`)}
+                onEdit={(type, id) => router.push(`/form-editor?type=${type}&id=${id}`)}
             />
         </div>
     </main>
@@ -192,7 +192,7 @@ function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], 
             ...permits.map(p => ({ ...p, studioType: 'permit' as const, icon: FileCheck, typeLabel: 'Permit to Work' })),
             ...qc.map(q => ({ ...q, studioType: 'qc' as const, icon: ClipboardCheck, typeLabel: 'Quality Control' })),
             ...toolbox.map(t => ({ ...t, studioType: 'toolbox' as const, icon: BookOpen, typeLabel: 'Toolbox Talk' })),
-        ].filter(t => t.title.toLowerCase().includes(s) || (t.trade && t.trade.toLowerCase().includes(s)))
+        ].filter(t => t.title.toLowerCase().includes(s))
          .sort((a, b) => a.title.localeCompare(b.title));
     }, [permits, qc, toolbox, s]);
 
@@ -209,9 +209,8 @@ function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], 
             <Table>
                 <TableHeader className="bg-muted/30">
                     <TableRow>
-                        <TableHead className="w-[40%]">Reference Title</TableHead>
-                        <TableHead>Category</TableHead>
-                        <TableHead>Trade Discipline</TableHead>
+                        <TableHead className="w-[60%]">Reference Title</TableHead>
+                        <TableHead className="text-right">Category</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -229,13 +228,10 @@ function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], 
                                     <span className="group-hover:text-primary transition-colors">{item.title}</span>
                                 </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-right">
                                 <Badge variant="secondary" className="uppercase text-[9px] font-black tracking-widest bg-muted/50 border-none px-2 h-5">
                                     {item.typeLabel}
                                 </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs font-semibold text-muted-foreground uppercase">
-                                {item.trade || 'General Standard'}
                             </TableCell>
                         </TableRow>
                     ))}

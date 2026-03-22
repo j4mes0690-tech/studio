@@ -32,14 +32,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore } from '@/firebase';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import type { 
   FormWizardType, 
   TemplateSection, 
   TemplateFieldType,
   PermitType, 
-  Trade,
   DistributionUser,
   TemplateField
 } from '@/lib/types';
@@ -78,7 +77,6 @@ export function FormWizard({
   // Data State
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [trade, setTrade] = useState('');
   const [permitType, setPermitType] = useState<PermitType>('General');
   const [sections, setSections] = useState<TemplateSection[]>([]);
   const [checklistItems, setChecklistItems] = useState<{ id: string, text: string }[]>([]);
@@ -94,14 +92,13 @@ export function FormWizard({
     if (initialTemplate) {
         setTitle(initialTemplate.title || '');
         setDescription(initialTemplate.description || '');
-        setTrade(initialTemplate.trade || '');
         
-        if (initialType === 'permit') {
+        if (initialType === 'permit' || initialTemplate.sections) {
             setSections(initialTemplate.sections || []);
             setPermitType(initialTemplate.type || 'General');
-        } else if (initialType === 'qc') {
+        } else if (initialType === 'qc' || (initialTemplate.items && !initialTemplate.content)) {
             setChecklistItems(initialTemplate.items || []);
-        } else if (initialType === 'toolbox') {
+        } else if (initialType === 'toolbox' || initialTemplate.content) {
             setTopic(initialTemplate.topic || '');
             setContent(initialTemplate.content || '');
             setChecklistItems(initialTemplate.verificationItems || []);
@@ -109,19 +106,12 @@ export function FormWizard({
     }
   }, [initialTemplate, initialType]);
 
-  const tradesQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return collection(db, 'trades');
-  }, [db]);
-  const { data: trades } = useCollection<Trade>(tradesQuery);
-
   const handleSaveTemplate = () => {
     startTransition(async () => {
       try {
         let collName = '';
         let data: any = {
           title,
-          trade: type === 'permit' ? 'Health & Safety' : trade,
           description,
           updatedAt: new Date().toISOString(),
         };
@@ -131,10 +121,10 @@ export function FormWizard({
           data = { ...data, type: permitType, sections };
         } else if (type === 'qc') {
           collName = 'quality-checklists';
-          data = { ...data, isTemplate: true, items: checklistItems.map(i => ({ ...i, status: 'pending' })) };
+          data = { ...data, isTemplate: true, items: checklistItems.map(i => ({ ...i, status: 'pending' })), trade: 'General' };
         } else {
           collName = 'toolbox-talk-templates';
-          data = { ...data, topic, content, verificationItems: checklistItems };
+          data = { ...data, topic, content, verificationItems: checklistItems, trade: 'General' };
         }
 
         if (initialTemplate?.id) {
@@ -147,7 +137,7 @@ export function FormWizard({
             toast({ title: 'Success', description: 'Master template published.' });
         }
 
-        router.push('/form-creator');
+        router.push('/form-editor');
       } catch (err) {
         toast({ title: 'Save Error', description: 'Failed to publish template.', variant: 'destructive' });
       }
@@ -321,16 +311,6 @@ export function FormWizard({
                     <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Roof Work Permit" />
                   </div>
                   
-                  {type !== 'permit' && (
-                    <div className="space-y-2">
-                      <Label>Primary Trade Discipline</Label>
-                      <Select value={trade} onValueChange={setTrade}>
-                        <SelectTrigger><SelectValue placeholder="Select trade" /></SelectTrigger>
-                        <SelectContent>{trades?.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
                   <div className="space-y-2">
                     <Label>Short Description / Scope</Label>
                     <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief purpose or instructions..." className="min-h-[100px]" />
@@ -340,7 +320,7 @@ export function FormWizard({
             </CardContent>
             <CardFooter className="bg-muted/10 border-t justify-between p-6">
               <Button variant="ghost" onClick={() => setStep('type')} disabled={!!initialTemplate || !!initialType}>Back</Button>
-              <Button onClick={() => setStep('structure')} disabled={!title || (type !== 'permit' && !trade)}>
+              <Button onClick={() => setStep('structure')} disabled={!title}>
                 Next: Build Structure <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
