@@ -91,13 +91,9 @@ export function FormWizard({
   const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
 
-  // Open Accordion States
+  // Open Accordion States - Expand all by default
   const [openSections, setOpenSections] = useState<string[]>([]);
   const [openQCSections, setOpenQCSections] = useState<string[]>([]);
-
-  // Drag and Drop State
-  const [draggedFieldInfo, setDraggedFieldId] = useState<{ sectionId: string, fieldId: string } | null>(null);
-  const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null);
 
   // Sync initial data if editing
   useEffect(() => {
@@ -271,55 +267,6 @@ export function FormWizard({
     }));
   };
 
-  const handleFieldDragStart = (sectionId: string, fieldId: string) => {
-    setDraggedFieldId({ sectionId, fieldId });
-  };
-
-  const handleFieldDrop = (targetSectionId: string, targetFieldId: string) => {
-    if (!draggedFieldInfo || draggedFieldInfo.fieldId === targetFieldId) return;
-
-    setSections(prev => prev.map(section => {
-      if (section.id === targetSectionId) {
-        const newFields = [...section.fields];
-        const draggedIdx = newFields.findIndex(f => f.id === draggedFieldInfo.fieldId);
-        const targetIdx = newFields.findIndex(f => f.id === targetFieldId);
-
-        if (draggedIdx > -1 && targetIdx > -1) {
-          const [draggedField] = newFields.splice(draggedIdx, 1);
-          newFields.splice(targetIdx, 0, draggedField);
-          return { ...section, fields: newFields };
-        }
-      }
-      return section;
-    }));
-    setDraggedFieldId(null);
-  };
-
-  const handleSectionDragStart = (id: string) => setDraggedSectionId(id);
-  const handleSectionDrop = (targetId: string) => {
-    if (!draggedSectionId || draggedSectionId === targetId) return;
-    if (type === 'permit') {
-        const newSections = [...sections];
-        const draggedIdx = newSections.findIndex(s => s.id === draggedSectionId);
-        const targetIdx = newSections.findIndex(s => s.id === targetId);
-        if (draggedIdx > -1 && targetIdx > -1) {
-            const [draggedSection] = newSections.splice(draggedIdx, 1);
-            newSections.splice(targetIdx, 0, draggedSection);
-            setSections(newSections);
-        }
-    } else if (type === 'qc') {
-        const newSections = [...qcSections];
-        const draggedIdx = newSections.findIndex(s => s.id === draggedSectionId);
-        const targetIdx = newSections.findIndex(s => s.id === targetId);
-        if (draggedIdx > -1 && targetIdx > -1) {
-            const [draggedSection] = newSections.splice(draggedIdx, 1);
-            newSections.splice(targetIdx, 0, draggedSection);
-            setQCSections(newSections);
-        }
-    }
-    setDraggedSectionId(null);
-  };
-
   const getFieldTypeIcon = (fieldType: TemplateFieldType) => {
     switch (fieldType) {
         case 'checkbox': return <CheckSquare className="h-3 w-3" />;
@@ -329,6 +276,13 @@ export function FormWizard({
         case 'photo': return <ImageIcon className="h-3 w-3" />;
         case 'yes-no-na': return <ListTodo className="h-3 w-3" />;
         default: return <CheckSquare className="h-3 w-3" />;
+    }
+  };
+
+  // Auto-delete placeholder logic
+  const handleInputFocus = (e: React.FocusEvent<HTMLInputElement>, defaultValue: string) => {
+    if (e.target.value === defaultValue) {
+        e.target.value = '';
     }
   };
 
@@ -427,24 +381,24 @@ export function FormWizard({
                     <p className="text-xs text-muted-foreground">Adjust layout widths and data types for each capture point.</p>
                 </div>
                 {type === 'permit' ? (
-                    <Button variant="outline" size="sm" onClick={() => {
+                    <Button variant="outline" size="icon" onClick={() => {
                         const newId = `sec-${Date.now()}`;
                         setSections([...sections, { id: newId, title: 'New Section', fields: [] }]);
                         setOpenSections(prev => [...prev, newId]);
-                    }} className="gap-2">
-                        <Plus className="h-4 w-4" /> Add Section
+                    }} className="h-9 w-9">
+                        <Plus className="h-4 w-4" />
                     </Button>
                 ) : type === 'qc' ? (
-                    <Button variant="outline" size="sm" onClick={() => {
+                    <Button variant="outline" size="icon" onClick={() => {
                         const newId = `sec-qc-${Date.now()}`;
                         setQCSections([...qcSections, { id: newId, title: 'New Category', items: [] }]);
                         setOpenQCSections(prev => [...prev, newId]);
-                    }} className="gap-2">
-                        <Plus className="h-4 w-4" /> Add Section
+                    }} className="h-9 w-9">
+                        <Plus className="h-4 w-4" />
                     </Button>
                 ) : (
-                    <Button variant="outline" size="sm" onClick={() => setChecklistItems([...checklistItems, { id: `ci-${Date.now()}`, text: '' }])} className="gap-2">
-                        <Plus className="h-4 w-4" /> Add Item
+                    <Button variant="outline" size="icon" onClick={() => setChecklistItems([...checklistItems, { id: `ci-${Date.now()}`, text: '' }])} className="h-9 w-9">
+                        <Plus className="h-4 w-4" />
                     </Button>
                 )}
               </div>
@@ -466,18 +420,15 @@ export function FormWizard({
                                 <AccordionItem 
                                     key={section.id} 
                                     value={section.id}
-                                    draggable
-                                    onDragStart={() => handleSectionDragStart(section.id)}
-                                    onDragOver={(e) => e.preventDefault()}
-                                    onDrop={() => handleSectionDrop(section.id)}
-                                    className={cn("border bg-white rounded-xl overflow-hidden shadow-sm transition-all", draggedSectionId === section.id && "opacity-20")}
+                                    className={cn("border bg-white rounded-xl overflow-hidden shadow-sm transition-all")}
                                 >
                                     <div className="flex items-center justify-between bg-muted/20 p-2 group/sec">
                                         <div className="flex items-center gap-2 flex-1 mr-4">
-                                            <div className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground"><GripVertical className="h-4 w-4" /></div>
+                                            <div className="p-1 text-muted-foreground"><GripVertical className="h-4 w-4" /></div>
                                             <Input 
                                                 value={section.title} 
-                                                onChange={(e) => setSections(sections.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))} 
+                                                onChange={(e) => setSections(sections.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))}
+                                                onFocus={(e) => handleInputFocus(e, 'New Section')}
                                                 className="bg-transparent border-transparent hover:border-border font-bold text-xs uppercase tracking-widest text-primary h-8" 
                                             />
                                         </div>
@@ -496,19 +447,14 @@ export function FormWizard({
                                             {section.fields.map((field) => (
                                                 <div 
                                                     key={field.id} 
-                                                    draggable
-                                                    onDragStart={() => handleFieldDragStart(section.id, field.id)}
-                                                    onDragOver={(e) => e.preventDefault()}
-                                                    onDrop={() => handleFieldDrop(section.id, field.id)}
                                                     className={cn(
                                                         "p-3 bg-white border rounded-lg shadow-sm space-y-3 transition-all relative group",
-                                                        field.width === 'half' ? "col-span-1" : "col-span-1 md:col-span-2",
-                                                        draggedFieldInfo?.fieldId === field.id && "opacity-40"
+                                                        field.width === 'half' ? "col-span-1" : "col-span-1 md:col-span-2"
                                                     )}
                                                 >
                                                     <div className="flex items-start justify-between gap-4">
                                                         <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                            <div className="cursor-grab active:cursor-grabbing p-1 hover:bg-muted rounded text-muted-foreground">
+                                                            <div className="p-1 hover:bg-muted rounded text-muted-foreground">
                                                                 <GripVertical className="h-3.5 w-3.5" />
                                                             </div>
                                                             <div className="flex-1 space-y-1">
@@ -516,6 +462,7 @@ export function FormWizard({
                                                                     <Input 
                                                                         value={field.label} 
                                                                         onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
+                                                                        onFocus={(e) => handleInputFocus(e, 'New Point')}
                                                                         className="h-7 text-xs font-bold leading-tight bg-transparent border-transparent p-0 focus-visible:ring-0 placeholder:text-muted-foreground/30" 
                                                                         placeholder="Label..."
                                                                     />
@@ -593,18 +540,15 @@ export function FormWizard({
                                 <AccordionItem 
                                     key={section.id} 
                                     value={section.id}
-                                    draggable
-                                    onDragStart={() => handleSectionDragStart(section.id)}
-                                    onDragOver={(e) => e.preventDefault()}
-                                    onDrop={() => handleSectionDrop(section.id)}
-                                    className={cn("border bg-white rounded-xl overflow-hidden shadow-sm transition-all", draggedSectionId === section.id && "opacity-20")}
+                                    className={cn("border bg-white rounded-xl overflow-hidden shadow-sm transition-all")}
                                 >
                                     <div className="flex items-center justify-between bg-muted/20 p-2">
                                         <div className="flex items-center gap-2 flex-1 mr-4">
-                                            <div className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground"><GripVertical className="h-4 w-4" /></div>
+                                            <div className="p-1 text-muted-foreground"><GripVertical className="h-4 w-4" /></div>
                                             <Input 
                                                 value={section.title} 
-                                                onChange={(e) => setQCSections(qcSections.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))} 
+                                                onChange={(e) => setQCSections(qcSections.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))}
+                                                onFocus={(e) => handleInputFocus(e, 'New Category')}
                                                 className="bg-transparent border-transparent hover:border-border font-bold text-xs uppercase tracking-widest text-primary h-8" 
                                             />
                                         </div>
@@ -630,6 +574,7 @@ export function FormWizard({
                                                         newSections[sIdx].items[qIdx].text = e.target.value;
                                                         setQCSections(newSections);
                                                     }} 
+                                                    onFocus={(e) => handleInputFocus(e, 'New verification question...')}
                                                     className="border-none shadow-none h-8 text-sm p-0 focus-visible:ring-0 font-medium" 
                                                     placeholder="Enter verification question..." 
                                                 />
