@@ -41,7 +41,7 @@ function QualityControlContent() {
 
   const [isCompact, setIsCompact] = useState(false);
 
-  // Load persistence
+  // Load persistence for view mode
   useEffect(() => {
     const saved = localStorage.getItem('sitecommand_view_quality_control');
     if (saved !== null) setIsCompact(saved === 'true');

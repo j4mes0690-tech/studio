@@ -40,14 +40,13 @@ export async function generateFormStructure(
 
 const prompt = ai.definePrompt({
   name: 'generateFormStructurePrompt',
-  model: 'googleai/gemini-1.5-flash',
   input: { schema: GenerateFormStructureInputSchema },
   output: { schema: FormStructureOutputSchema },
   prompt: `You are an expert site safety and quality manager. 
 
 {{#if currentStructure}}
 You are REFINING an existing form structure based on the user's feedback. 
-Maintain the existing professional tone.
+Maintain the existing professional tone and only modify what is requested.
 
 Current Structure:
 {{{currentStructure}}}
