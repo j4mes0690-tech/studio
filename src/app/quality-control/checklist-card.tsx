@@ -24,7 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { Users, Trash2, Loader2, Camera, Upload, X, RefreshCw, Maximize2, FileCheck } from 'lucide-react';
+import { Users, Trash2, Loader2, Camera, Upload, X, Maximize2, FileCheck } from 'lucide-react';
 import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -252,20 +252,40 @@ export function ChecklistCard({
   const hasFailure = flatItems.some((i) => i.status === 'no');
 
   const renderItem = (item: ChecklistItem, sectionId?: string) => (
-    <div key={item.id} className={cn("space-y-3 p-4 rounded-xl border transition-all", item.status === 'no' ? 'border-destructive bg-destructive/5' : 'bg-background hover:border-primary/30 shadow-sm')}>
+    <div key={item.id} className={cn("space-y-4 p-4 rounded-xl border transition-all", item.status === 'no' ? 'border-destructive bg-destructive/5' : 'bg-background hover:border-primary/30 shadow-sm')}>
       <Label className="font-bold text-foreground text-sm leading-relaxed block">{item.text}</Label>
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <RadioGroup value={item.status} onValueChange={(status) => handleStatusChange(item.id, status as ChecklistItemStatus, sectionId)} className="flex items-center space-x-6">
-            <div className="flex items-center space-x-2"><RadioGroupItem value="yes" id={`${item.id}-yes`} /><Label htmlFor={`${item.id}-yes`} className="text-xs font-bold uppercase text-green-700 cursor-pointer">Pass</Label></div>
-            <div className="flex items-center space-x-2"><RadioGroupItem value="no" id={`${item.id}-no`} /><Label htmlFor={`${item.id}-no`} className="text-xs font-bold uppercase text-red-700 cursor-pointer">Fail</Label></div>
-            <div className="flex items-center space-x-2"><RadioGroupItem value="na" id={`${item.id}-na`} /><Label htmlFor={`${item.id}-na`} className="text-xs font-bold uppercase text-muted-foreground cursor-pointer">N/A</Label></div>
+      
+      <div className="flex flex-col gap-4">
+        <RadioGroup 
+            value={item.status} 
+            onValueChange={(status) => handleStatusChange(item.id, status as ChecklistItemStatus, sectionId)} 
+            className="grid grid-cols-3 gap-2"
+        >
+            <div className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/20 border border-transparent has-[[data-state=checked]]:border-green-500 has-[[data-state=checked]]:bg-green-50 transition-all cursor-pointer">
+                <RadioGroupItem value="yes" id={`${item.id}-yes`} className="h-5 w-5" />
+                <Label htmlFor={`${item.id}-yes`} className="text-[10px] font-black uppercase text-green-700 cursor-pointer">Pass</Label>
+            </div>
+            <div className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/20 border border-transparent has-[[data-state=checked]]:border-red-500 has-[[data-state=checked]]:bg-red-50 transition-all cursor-pointer">
+                <RadioGroupItem value="no" id={`${item.id}-no`} className="h-5 w-5" />
+                <Label htmlFor={`${item.id}-no`} className="text-[10px] font-black uppercase text-red-700 cursor-pointer">Fail</Label>
+            </div>
+            <div className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/20 border border-transparent has-[[data-state=checked]]:border-slate-400 has-[[data-state=checked]]:bg-slate-50 transition-all cursor-pointer">
+                <RadioGroupItem value="na" id={`${item.id}-na`} className="h-5 w-5" />
+                <Label htmlFor={`${item.id}-na`} className="text-[10px] font-black uppercase text-muted-foreground cursor-pointer">N/A</Label>
+            </div>
         </RadioGroup>
-        <div className="flex gap-1.5">
-          <Button type="button" variant="outline" size="sm" className="h-8 gap-2 font-bold" onClick={() => { setActiveItemForPhoto({ itemId: item.id, sectionId }); setIsCapturingGeneral(false); }}><Camera className="h-4 w-4" /> Camera</Button>
-          <Button type="button" variant="outline" size="sm" className="h-8 gap-2 font-bold" onClick={() => { setActiveItemForPhoto({ itemId: item.id, sectionId }); setIsCapturingGeneral(false); fileInputRef.current?.click(); }}><Upload className="h-4 w-4" /> Upload</Button>
+
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" size="sm" className="flex-1 h-10 gap-2 font-bold" onClick={() => { setActiveItemForPhoto({ itemId: item.id, sectionId }); setIsCapturingGeneral(false); }}><Camera className="h-4 w-4" /> Camera</Button>
+          <Button type="button" variant="outline" size="sm" className="flex-1 h-10 gap-2 font-bold" onClick={() => { setActiveItemForPhoto({ itemId: item.id, sectionId }); setIsCapturingGeneral(false); fileInputRef.current?.click(); }}><Upload className="h-4 w-4" /> Upload</Button>
         </div>
       </div>
-      <Input placeholder="Verification comments..." value={item.comment || ''} onChange={(e) => handleCommentChange(item.id, e.target.value, sectionId)} onBlur={() => handleCommentBlur(item.id, sectionId)} className="text-xs bg-muted/5 border-dashed" />
+
+      <div className="space-y-1.5">
+          <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Comments</Label>
+          <Input placeholder="Note any observations..." value={item.comment || ''} onChange={(e) => handleCommentChange(item.id, e.target.value, sectionId)} onBlur={() => handleCommentBlur(item.id, sectionId)} className="h-9 text-xs bg-muted/5 border-dashed" />
+      </div>
+
       {item.photos && item.photos.length > 0 && (
         <div className="flex flex-wrap gap-2 pt-2 border-t border-dashed">
           {item.photos.map((p, idx) => (
@@ -284,7 +304,7 @@ export function ChecklistCard({
       <Card className={cn("transition-all", hasFailure && 'border-destructive border-2 shadow-destructive/10')}>
         <CardHeader className="p-4 md:p-6 bg-muted/5">
           <div className="flex justify-between items-start">
-            <div className="space-y-1">
+            <div className="space-y-1 flex-1 min-w-0">
               <CardTitle className="text-xl">{checklist.title}</CardTitle>
               <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
                 <span className="font-bold text-foreground text-xs">{project?.name}</span>
@@ -295,15 +315,18 @@ export function ChecklistCard({
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={hasFailure ? 'destructive' : 'secondary'} className="h-6 font-black uppercase">{checklist.trade}</Badge>
+              <Badge variant={hasFailure ? 'destructive' : 'secondary'} className="h-6 font-black uppercase text-[10px]">{checklist.trade}</Badge>
               <DistributeChecklistButton checklist={checklist} project={project} />
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" className="text-destructive h-8 w-8"><Trash2 className="h-4 w-4" /></Button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
+                <AlertDialogContent className="w-[95vw] max-w-md rounded-xl">
                   <AlertDialogHeader><AlertDialogTitle>Delete Assigned Checklist?</AlertDialogTitle><AlertDialogDescription>This will remove verification records for this area.</AlertDialogDescription></AlertDialogHeader>
-                  <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction></AlertDialogFooter>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction>
+                  </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </div>
@@ -318,11 +341,11 @@ export function ChecklistCard({
             <Progress value={progress} className="h-2" indicatorClassName={hasFailure ? 'bg-destructive' : ''} />
           </div>
 
-          <div className="space-y-8">
+          <div className="space-y-10">
             {sections.length > 0 ? (
                 sections.map((section) => (
                     <div key={section.id} className="space-y-4">
-                        <div className="flex items-center gap-2 border-b pb-2">
+                        <div className="flex items-center gap-2 border-b-2 border-primary/10 pb-2">
                             <FileCheck className="h-4 w-4 text-primary" />
                             <h3 className="font-black text-xs uppercase tracking-widest text-primary">{section.title}</h3>
                         </div>
@@ -340,15 +363,15 @@ export function ChecklistCard({
 
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="general-photos" className="border-b-0">
-              <AccordionTrigger className="text-sm font-bold uppercase tracking-widest hover:no-underline">General Documentation</AccordionTrigger>
-              <AccordionContent className="pt-4 space-y-4">
+              <AccordionTrigger className="text-xs font-black uppercase tracking-[0.2em] hover:no-underline py-4 bg-muted/5 px-4 rounded-lg">General Documentation</AccordionTrigger>
+              <AccordionContent className="pt-6 space-y-4">
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" size="sm" className="gap-2 font-bold" onClick={() => { setIsCapturingGeneral(true); setActiveItemForPhoto(null); }}><Camera className="h-4 w-4" /> Take Photo</Button>
-                  <Button type="button" variant="outline" size="sm" className="gap-2 font-bold" onClick={() => { setIsCapturingGeneral(true); setActiveItemForPhoto(null); generalFileInputRef.current?.click(); }}><Upload className="h-4 w-4" /> Upload</Button>
+                  <Button type="button" variant="outline" size="sm" className="flex-1 h-10 gap-2 font-bold" onClick={() => { setIsCapturingGeneral(true); setActiveItemForPhoto(null); }}><Camera className="h-4 w-4" /> Take Photo</Button>
+                  <Button type="button" variant="outline" size="sm" className="flex-1 h-10 gap-2 font-bold" onClick={() => { setIsCapturingGeneral(true); setActiveItemForPhoto(null); generalFileInputRef.current?.click(); }}><Upload className="h-4 w-4" /> Upload</Button>
                 </div>
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                   {generalPhotos.map((p, idx) => (
-                    <div key={idx} className="relative aspect-video rounded-lg border-2 border-muted overflow-hidden group shadow-sm bg-muted">
+                    <div key={idx} className="relative aspect-video rounded-xl border-2 border-muted overflow-hidden group shadow-sm bg-muted">
                         <Image src={p.url} alt="Gen" fill className="object-cover cursor-pointer" onClick={() => setViewingPhoto(p)}/>
                         <button type="button" className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 shadow-md" onClick={() => removeGeneralPhoto(idx)}><X className="h-3 w-3" /></button>
                     </div>
@@ -364,7 +387,7 @@ export function ChecklistCard({
         isOpen={isCapturingGeneral || activeItemContext !== null} 
         onClose={() => { setIsCapturingGeneral(false); setActiveItemForPhoto(null); }} 
         onCapture={onCapture}
-        title="Quality Verification documentation"
+        title="Quality Documentation"
       />
 
       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {

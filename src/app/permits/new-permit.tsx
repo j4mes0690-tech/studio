@@ -36,7 +36,8 @@ import {
   Calendar as CalendarIcon,
   Upload,
   Check,
-  Clock
+  Clock,
+  ChevronDown
 } from 'lucide-react';
 import type { 
   Project, 
@@ -119,7 +120,7 @@ export function NewPermitDialog({
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const handleApplyTemplate = (templateId: string) => {
@@ -291,8 +292,8 @@ export function NewPermitDialog({
           Issue Permit
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
-        <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
+      <DialogContent className="w-[95vw] sm:max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0 shadow-2xl rounded-xl">
+        <DialogHeader className="p-4 md:p-6 bg-primary/5 border-b shrink-0">
           <DialogTitle>Issue Electronic Permit</DialogTitle>
           <DialogDescription>Apply a master safety template to a contractor and work area.</DialogDescription>
         </DialogHeader>
@@ -300,8 +301,8 @@ export function NewPermitDialog({
         <Form {...form}>
           <form className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto">
-              <div className="p-6 space-y-8 bg-muted/5 pb-20">
-                <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
+              <div className="p-4 md:p-6 space-y-6 md:space-y-8 bg-muted/5 pb-24">
+                <div className="bg-background p-4 md:p-6 rounded-xl border shadow-sm space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField control={form.control} name="projectId" render={({ field }) => (
                             <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
@@ -347,7 +348,7 @@ export function NewPermitDialog({
                                     <Clock className="h-4 w-4 text-primary" />
                                     Permit Expiry
                                 </FormLabel>
-                                <FormControl><Input type="datetime-local" {...field} className="bg-background" /></FormControl>
+                                <FormControl><Input type="datetime-local" {...field} className="bg-background h-11" /></FormControl>
                                 <FormDescription className="text-[10px]">Authorization automatically expires at this time.</FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -358,50 +359,59 @@ export function NewPermitDialog({
                 <Accordion type="multiple" defaultValue={dynamicSections.map(s => s.id)} className="space-y-4">
                     {dynamicSections.map((section) => (
                         <AccordionItem key={section.id} value={section.id} className="border bg-background rounded-xl overflow-hidden shadow-sm">
-                            <div className="flex items-center justify-between px-6 bg-muted/5 group">
+                            <div className="flex items-center justify-between px-4 md:px-6 bg-muted/5 group">
                                 <div className="flex items-center gap-2 py-3">
                                     <Layout className="h-4 w-4 text-primary" />
                                     <span className="font-bold text-xs uppercase tracking-widest text-primary">{section.title}</span>
                                 </div>
                                 <AccordionTrigger className="w-10 h-10 p-0 hover:no-underline border-none shadow-none" />
                             </div>
-                            <AccordionContent className="px-6 py-4 border-t">
+                            <AccordionContent className="px-4 md:px-6 py-4 border-t">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {section.fields.map((field) => (
                                         <div key={field.id} className={cn(
                                             "bg-background p-4 rounded-xl border shadow-sm relative group/field",
                                             field.width === 'full' ? 'col-span-1 md:col-span-2' : 'col-span-1'
                                         )}>
-                                            <div className="space-y-3">
-                                                <Label className="text-xs font-bold leading-relaxed">
+                                            <div className="space-y-4">
+                                                <Label className="text-xs font-bold leading-relaxed block">
                                                     {field.label}
                                                     {field.required && <span className="text-red-500 ml-1 font-black">*</span>}
                                                 </Label>
                                                 
                                                 <div className="pt-1">
                                                     {field.type === 'checkbox' && (
-                                                        <div className="flex items-center space-x-2">
-                                                            <Checkbox checked={!!field.value} onCheckedChange={(val) => updateDynamicValue(section.id, field.id, !!val)} />
-                                                            <span className="text-[10px] text-muted-foreground uppercase font-bold">Verified</span>
+                                                        <div className="flex items-center space-x-3 bg-muted/20 p-3 rounded-lg border border-transparent has-[:checked]:border-green-500 has-[:checked]:bg-green-50 transition-all cursor-pointer">
+                                                            <Checkbox id={`check-${field.id}`} checked={!!field.value} onCheckedChange={(val) => updateDynamicValue(section.id, field.id, !!val)} className="h-5 w-5" />
+                                                            <Label htmlFor={`check-${field.id}`} className="text-[10px] text-muted-foreground uppercase font-black cursor-pointer">Verified Compliance</Label>
                                                         </div>
                                                     )}
                                                     {field.type === 'yes-no-na' && (
-                                                        <RadioGroup value={field.value || ""} onValueChange={(val) => updateDynamicValue(section.id, field.id, val)} className="flex items-center gap-4">
-                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="yes" id={`y-${field.id}`} /><Label htmlFor={`y-${field.id}`} className="text-[10px]">Yes</Label></div>
-                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="no" id={`n-${field.id}`} /><Label htmlFor={`n-${field.id}`} className="text-[10px]">No</Label></div>
-                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="na" id={`na-${field.id}`} /><Label htmlFor={`na-${field.id}`} className="text-[10px]">N/A</Label></div>
+                                                        <RadioGroup value={field.value || ""} onValueChange={(val) => updateDynamicValue(section.id, field.id, val)} className="grid grid-cols-3 gap-2">
+                                                            <div className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/20 border border-transparent has-[[data-state=checked]]:border-green-500 has-[[data-state=checked]]:bg-green-50 transition-all cursor-pointer">
+                                                                <RadioGroupItem value="yes" id={`y-${field.id}`} className="h-5 w-5" />
+                                                                <Label htmlFor={`y-${field.id}`} className="text-[10px] font-black uppercase text-green-700">Yes</Label>
+                                                            </div>
+                                                            <div className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/20 border border-transparent has-[[data-state=checked]]:border-red-500 has-[[data-state=checked]]:bg-red-50 transition-all cursor-pointer">
+                                                                <RadioGroupItem value="no" id={`n-${field.id}`} className="h-5 w-5" />
+                                                                <Label htmlFor={`n-${field.id}`} className="text-[10px] font-black uppercase text-red-700">No</Label>
+                                                            </div>
+                                                            <div className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/20 border border-transparent has-[[data-state=checked]]:border-slate-400 has-[[data-state=checked]]:bg-slate-50 transition-all cursor-pointer">
+                                                                <RadioGroupItem value="na" id={`na-${field.id}`} className="h-5 w-5" />
+                                                                <Label htmlFor={`na-${field.id}`} className="text-[10px] font-black uppercase text-muted-foreground">N/A</Label>
+                                                            </div>
                                                         </RadioGroup>
                                                     )}
                                                     {field.type === 'text' && (
-                                                        <Input className="h-9 text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
+                                                        <Input className="h-11 text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
                                                     )}
                                                     {field.type === 'textarea' && (
-                                                        <Textarea className="min-h-[60px] text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
+                                                        <Textarea className="min-h-[80px] text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
                                                     )}
                                                     {field.type === 'date' && (
                                                         <div className="flex items-center gap-2">
                                                             <CalendarIcon className="h-4 w-4 text-primary" />
-                                                            <Input type="date" className="h-9 text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
+                                                            <Input type="date" className="h-11 text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
                                                         </div>
                                                     )}
                                                     {field.type === 'photo' && (
@@ -411,19 +421,19 @@ export function NewPermitDialog({
                                                                     type="button" 
                                                                     variant="outline" 
                                                                     size="sm" 
-                                                                    className="h-8 gap-2 text-[10px] font-bold" 
+                                                                    className="flex-1 h-10 gap-2 font-bold" 
                                                                     onClick={() => { setActivePhotoFieldId({ sectionId: section.id, fieldId: field.id }); setIsCameraOpen(true); }}
                                                                 >
-                                                                    <Camera className="h-3.5 w-3.5" /> Camera
+                                                                    <Camera className="h-4 w-4" /> Camera
                                                                 </Button>
                                                                 <Button 
                                                                     type="button" 
                                                                     variant="outline" 
                                                                     size="sm" 
-                                                                    className="h-8 gap-2 text-[10px] font-bold" 
+                                                                    className="flex-1 h-10 gap-2 font-bold" 
                                                                     onClick={() => { setActivePhotoFieldId({ sectionId: section.id, fieldId: field.id }); fieldFileInputRef.current?.click(); }}
                                                                 >
-                                                                    <Upload className="h-3.5 w-3.5" /> Upload
+                                                                    <Upload className="h-4 w-4" /> Upload
                                                                 </Button>
                                                             </div>
                                                             
@@ -458,27 +468,28 @@ export function NewPermitDialog({
                     ))}
                 </Accordion>
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-10">
-                    <Button variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
-                    <div className="hidden sm:block flex-1" />
-                    <Button 
-                        type="button"
-                        variant="outline" 
-                        className="w-full sm:w-auto h-12 gap-2" 
-                        disabled={isPending} 
-                        onClick={form.handleSubmit(v => onSubmit(v, 'draft'), () => scrollToFirstError())}
-                    >
-                        <Save className="h-4 w-4" /> Save as Draft
-                    </Button>
-                    <Button 
-                        type="button"
-                        className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
-                        disabled={isPending || !selectedTemplateId} 
-                        onClick={form.handleSubmit(v => onSubmit(v, 'issued'), () => scrollToFirstError())}
-                    >
-                        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
-                        Save
-                    </Button>
+                <div className="flex flex-col gap-3 pt-6 border-t pb-12">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Button 
+                            type="button"
+                            variant="outline" 
+                            className="w-full h-12 gap-2 font-bold" 
+                            disabled={isPending} 
+                            onClick={form.handleSubmit(v => onSubmit(v, 'draft'), () => scrollToFirstError())}
+                        >
+                            <Save className="h-4 w-4" /> Save as Draft
+                        </Button>
+                        <Button 
+                            type="button"
+                            className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
+                            disabled={isPending || !selectedTemplateId} 
+                            onClick={form.handleSubmit(v => onSubmit(v, 'issued'), () => scrollToFirstError())}
+                        >
+                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                            Issue Permit
+                        </Button>
+                    </div>
+                    <Button variant="ghost" className="w-full h-12 font-bold text-muted-foreground" onClick={() => setOpen(false)} disabled={isPending}>Discard & Close</Button>
                 </div>
               </div>
             </div>

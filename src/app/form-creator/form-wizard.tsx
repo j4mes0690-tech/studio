@@ -335,7 +335,7 @@ export function FormWizard({
               step === s ? "bg-primary text-white scale-110 shadow-lg" : "bg-muted text-muted-foreground"
             )}>{i + 1}</div>
             <span className={cn("text-[10px] font-black uppercase tracking-widest hidden sm:block", step === s ? "text-primary" : "text-muted-foreground")}>{s}</span>
-            {i < 3 && <Separator className="w-8 sm:w-16" />}
+            {i < 3 && <Separator className="w-4 sm:w-16" />}
           </div>
         ))}
       </div>
@@ -433,7 +433,7 @@ export function FormWizard({
                 )}
               </div>
 
-              <div className="space-y-6 bg-muted/5 p-6 rounded-xl border border-dashed min-h-[400px]">
+              <div className="space-y-6 bg-muted/5 p-4 md:p-6 rounded-xl border border-dashed min-h-[400px]">
                 <div className="text-center mb-8 border-b pb-4">
                     <div className="flex items-center justify-center gap-2 mb-2">
                         <Badge variant="secondary" className="uppercase text-[10px] font-black tracking-widest">{type}</Badge>
@@ -718,9 +718,9 @@ export function FormWizard({
                 </ul>
               </div>
             </CardContent>
-            <CardFooter className="p-10 pt-0 gap-4">
-              <Button variant="ghost" onClick={() => setStep('structure')} className="flex-1 h-14 font-bold">Back to Editor</Button>
-              <Button onClick={handleSaveTemplate} disabled={isPending} className="flex-[2] h-14 font-black text-lg shadow-lg shadow-primary/20 gap-3">
+            <CardFooter className="p-10 pt-0 flex flex-col sm:flex-row gap-4">
+              <Button variant="ghost" onClick={() => setStep('structure')} className="w-full sm:flex-1 h-14 font-bold">Back to Editor</Button>
+              <Button onClick={handleSaveTemplate} disabled={isPending} className="w-full sm:flex-[2] h-14 font-black text-lg shadow-lg shadow-primary/20 gap-3">
                 {isPending ? <Loader2 className="h-6 w-6 animate-spin" /> : <Save className="h-6 w-6" />}
                 {initialTemplate ? 'Confirm Revision' : 'Publish Master Template'}
               </Button>
