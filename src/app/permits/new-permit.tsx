@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -20,6 +19,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,7 +30,6 @@ import {
   PlusCircle, 
   Loader2, 
   Save, 
-  Send, 
   Camera, 
   X, 
   Layout,
@@ -46,8 +45,7 @@ import type {
   Permit, 
   Photo, 
   PermitTemplate, 
-  TemplateSection, 
-  TemplateField 
+  TemplateSection 
 } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -298,10 +296,8 @@ export function NewPermitDialog({
       </DialogTrigger>
       <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
         <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
-          <div>
-            <DialogTitle>Issue Electronic Permit</DialogTitle>
-            <DialogDescription>Apply a master safety template to a contractor and work area.</DialogDescription>
-          </div>
+          <DialogTitle>Issue Electronic Permit</DialogTitle>
+          <DialogDescription>Apply a master safety template to a contractor and work area.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>

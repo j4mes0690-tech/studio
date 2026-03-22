@@ -251,7 +251,7 @@ export function PermitCard({
                 </span>
               </CardDescription>
             </div>
-            <div className="flex items-center gap-1.5 shrink-0">
+            <div className="flex items-center gap-1.5 shrink-0 flex-wrap sm:flex-nowrap">
               <TooltipProvider>
                 {isDraft ? (
                   <>
