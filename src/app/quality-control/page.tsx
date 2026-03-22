@@ -5,7 +5,7 @@ import { ChecklistCard } from './checklist-card';
 import { AddChecklistToProject } from './add-checklist-to-project';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { QualityChecklist, Project, SubContractor, DistributionUser } from '@/lib/types';
-import { Loader2, ChevronRight, LayoutGrid, Building2, MapPin, ArrowLeft, List, FileCheck, ShieldCheck } from 'lucide-react';
+import { Loader2, ChevronRight, LayoutGrid, Building2, MapPin, ArrowLeft, List, FileCheck, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -79,13 +79,11 @@ function QualityControlContent() {
   }, [db]);
   const { data: allChecklists, isLoading: checklistsLoading } = useCollection<QualityChecklist>(checklistsQuery);
 
-  // Define checklistInstances correctly to avoid ReferenceError
   const checklistInstances = useMemo(() => {
     if (!allChecklists) return [];
     return allChecklists.filter(c => !c.isTemplate);
   }, [allChecklists]);
 
-  // Filter checklist templates
   const checklistTemplates = useMemo(() => {
     if (!allChecklists) return [];
     return allChecklists.filter(c => !!c.isTemplate);
@@ -110,8 +108,9 @@ function QualityControlContent() {
     checklistInstances.forEach(c => {
         if (!c.projectId) return;
         const current = map.get(c.projectId) || { total: 0, closed: 0 };
-        const totalItems = c.items?.length || 0;
-        const closedItems = c.items?.filter(i => i.status !== 'pending' && i.status !== 'no').length || 0;
+        const items = c.sections?.flatMap(s => s.items) || c.items || [];
+        const totalItems = items.length;
+        const closedItems = items.filter(i => i.status !== 'pending' && i.status !== 'no').length;
         map.set(c.projectId, { total: current.total + totalItems, closed: current.closed + closedItems });
     });
     return map;
@@ -124,8 +123,9 @@ function QualityControlContent() {
     checklistInstances.forEach(c => {
         if (c.projectId !== activeProjectId || !c.areaId) return;
         const current = map.get(c.areaId) || { total: 0, closed: 0, count: 0 };
-        const totalItems = c.items?.length || 0;
-        const closedItems = c.items?.filter(i => i.status !== 'pending' && i.status !== 'no').length || 0;
+        const items = c.sections?.flatMap(s => s.items) || c.items || [];
+        const totalItems = items.length;
+        const closedItems = items.filter(i => i.status !== 'pending' && i.status !== 'no').length;
         map.set(c.areaId, { 
             total: current.total + totalItems, 
             closed: current.closed + closedItems,
@@ -245,10 +245,11 @@ function QualityControlContent() {
                         </TableHeader>
                         <TableBody>
                             {filteredChecklists.length > 0 ? filteredChecklists.map((checklist) => {
-                                const completed = checklist.items.filter(i => i.status !== 'pending').length;
-                                const total = checklist.items.length;
+                                const items = checklist.sections?.flatMap(s => s.items) || checklist.items || [];
+                                const completed = items.filter(i => i.status !== 'pending').length;
+                                const total = items.length;
                                 const progress = total > 0 ? (completed / total) * 100 : 0;
-                                const hasFail = checklist.items.some(i => i.status === 'no');
+                                const hasFail = items.some(i => i.status === 'no');
                                 return (
                                     <TableRow 
                                         key={checklist.id} 
