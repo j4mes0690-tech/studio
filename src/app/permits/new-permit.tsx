@@ -8,7 +8,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -33,11 +32,9 @@ import {
   Send, 
   Camera, 
   X, 
-  CheckSquare, 
   Plus, 
   Trash2, 
   Layout,
-  MapPin,
   Calendar as CalendarIcon
 } from 'lucide-react';
 import type { 
@@ -55,13 +52,13 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
-import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -69,10 +66,6 @@ const NewPermitSchema = z.object({
   customAreaName: z.string().optional(),
   templateId: z.string().min(1, 'Selecting a permit template is required.'),
   contractorId: z.string().min(1, 'Contractor is required.'),
-  description: z.string().min(10, 'Details must be at least 10 characters.'),
-  validFrom: z.string().min(1, 'Start time is required.'),
-  validTo: z.string().min(1, 'Expiry time is required.'),
-  status: z.enum(['draft', 'issued']).default('issued'),
 });
 
 type NewPermitFormValues = z.infer<typeof NewPermitSchema>;
@@ -94,7 +87,6 @@ export function NewPermitDialog({
   const storage = useStorage();
   const [isPending, startTransition] = useTransition();
 
-  const [photos, setPhotos] = useState<Photo[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [dynamicSections, setDynamicSections] = useState<TemplateSection[]>([]);
   
@@ -115,10 +107,6 @@ export function NewPermitDialog({
       customAreaName: '',
       templateId: '',
       contractorId: '',
-      description: '',
-      validFrom: new Date().toISOString().slice(0, 16),
-      validTo: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 16),
-      status: 'issued',
     },
   });
 
@@ -137,7 +125,6 @@ export function NewPermitDialog({
   const handleApplyTemplate = (templateId: string) => {
     const template = permitTemplates?.find(t => t.id === templateId);
     if (template) {
-        form.setValue('description', template.description);
         setDynamicSections(JSON.parse(JSON.stringify(template.sections)));
     }
   };
@@ -161,24 +148,12 @@ export function NewPermitDialog({
     }));
   };
 
-  const onSubmit = (values: NewPermitFormValues) => {
+  const onSubmit = (values: NewPermitFormValues, status: 'draft' | 'issued') => {
     const template = permitTemplates?.find(t => t.id === values.templateId);
     if (!template) return;
 
     startTransition(async () => {
       try {
-        // Upload global photos
-        const uploadedPhotos = await Promise.all(
-          photos.map(async (p, i) => {
-            if (p.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(p.url);
-              const url = await uploadFile(storage, `permits/photos/${Date.now()}-${i}.jpg`, blob);
-              return { ...p, url };
-            }
-            return p;
-          })
-        );
-
         // Upload field-specific photos
         const processedSections = await Promise.all(dynamicSections.map(async (section) => {
             const processedFields = await Promise.all(section.fields.map(async (field) => {
@@ -198,6 +173,9 @@ export function NewPermitDialog({
         const reference = getNextReference(existingRefs, values.projectId, typeMap[template.type] || 'PRM', initials);
         const contractor = subContractors.find(s => s.id === values.contractorId);
 
+        const now = new Date();
+        const expiry = new Date(now.getTime() + 8 * 60 * 60 * 1000); // Default 8 hours
+
         const permitData: Omit<Permit, 'id'> = {
           reference,
           projectId: values.projectId,
@@ -206,18 +184,18 @@ export function NewPermitDialog({
           type: template.type,
           contractorId: values.contractorId,
           contractorName: contractor?.name || 'Unknown',
-          description: values.description,
+          description: template.title, // Use template title as description
           sections: processedSections,
-          validFrom: new Date(values.validFrom).toISOString(),
-          validTo: new Date(values.validTo).toISOString(),
-          status: values.status,
-          createdAt: new Date().toISOString(),
+          validFrom: now.toISOString(),
+          validTo: expiry.toISOString(),
+          status: status,
+          createdAt: now.toISOString(),
           createdByEmail: currentUser.email.toLowerCase().trim(),
-          photos: uploadedPhotos,
+          photos: [],
         };
 
         await addDoc(collection(db, 'permits'), permitData);
-        toast({ title: 'Success', description: values.status === 'draft' ? 'Permit saved as draft.' : 'Permit issued successfully.' });
+        toast({ title: 'Success', description: status === 'draft' ? 'Permit saved as draft.' : 'Permit issued successfully.' });
         setOpen(false);
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to issue permit.', variant: 'destructive' });
@@ -229,22 +207,17 @@ export function NewPermitDialog({
     if (activePhotoFieldId) {
         updateDynamicValue(activePhotoFieldId.sectionId, activePhotoFieldId.fieldId, photo);
         setActivePhotoFieldId(null);
-    } else {
-        setPhotos(prev => [...prev, photo]);
     }
     setIsCameraOpen(false);
   };
 
   useEffect(() => {
     if (!open) {
-      setPhotos([]);
       setDynamicSections([]);
       setActivePhotoFieldId(null);
       form.reset();
     }
   }, [open, form]);
-
-  const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -259,7 +232,7 @@ export function NewPermitDialog({
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <DialogTitle>Issue Electronic Permit</DialogTitle>
-              <DialogDescription>Select a standard template to initialize the safety controls for this task.</DialogDescription>
+              <DialogDescription>Assign a master template to a contractor and area.</DialogDescription>
             </div>
             <div className="flex items-center gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={addSection} className="gap-2 border-primary/20 text-primary h-9">
@@ -279,15 +252,15 @@ export function NewPermitDialog({
                             )} />
                             <FormField control={form.control} name="templateId" render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Permit Type (Template)</FormLabel>
+                                    <FormLabel>Permit Template</FormLabel>
                                     <Select onValueChange={(val) => { field.onChange(val); handleApplyTemplate(val); }} value={field.value}>
                                         <FormControl><SelectTrigger className="border-primary/20 bg-primary/5"><SelectValue placeholder="Select standard template" /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             {permitTemplates?.map(t => (
-                                                <SelectItem key={t.id} value={t.id}>{t.title} ({t.type})</SelectItem>
+                                                <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
                                             ))}
                                             {(!permitTemplates || permitTemplates.length === 0) && (
-                                                <SelectItem value="none" disabled>No templates defined in Settings</SelectItem>
+                                                <SelectItem value="none" disabled>No templates defined in Form Editor</SelectItem>
                                             )}
                                         </SelectContent>
                                     </Select>
@@ -325,9 +298,6 @@ export function NewPermitDialog({
                                 )}
                             </div>
                         </div>
-                        <FormField control={form.control} name="description" render={({ field }) => (
-                            <FormItem><div className="flex justify-between items-center"><FormLabel>Work Description</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="Specific task details..." className="min-h-[80px]" {...field} /></FormControl></FormItem>
-                        )} />
                     </div>
 
                     <Accordion type="multiple" defaultValue={dynamicSections.map(s => s.id)} className="space-y-4">
@@ -341,7 +311,7 @@ export function NewPermitDialog({
                                         </div>
                                         <div className="flex items-center gap-1">
                                             <Button type="button" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); addField(section.id); }} className="h-8 text-[10px] uppercase font-bold text-primary"><Plus className="h-3 w-3 mr-1" /> Add Field</Button>
-                                            <Button type="button" variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setDynamicSections(dynamicSections.filter(s => s.id !== section.id)); }} className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setDynamicSections(dynamicSections.filter(s => s.id !== section.id)); }}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
                                     </div>
                                 </AccordionTrigger>
@@ -413,40 +383,22 @@ export function NewPermitDialog({
                         ))}
                     </Accordion>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-background p-6 rounded-xl border shadow-sm">
-                        <FormField control={form.control} name="validFrom" render={({ field }) => (
-                            <FormItem><FormLabel>Activity Start</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl></FormItem>
-                        )} />
-                        <FormField control={form.control} name="validTo" render={({ field }) => (
-                            <FormItem><FormLabel>Activity Expiry</FormLabel><FormControl><Input type="datetime-local" {...field} /></FormControl></FormItem>
-                        )} />
-                    </div>
-
-                    <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
-                        <FormLabel>Visual Verification Photos (General)</FormLabel>
-                        <div className="flex flex-wrap gap-3">
-                            {photos.map((p, i) => (
-                                <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Permit" fill className="rounded-xl object-cover border-2" /><Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button></div>
-                            ))}
-                            <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => { setActivePhotoFieldId(null); setIsCameraOpen(true); }}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase">Capture</span></Button>
-                        </div>
+                    <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-10">
+                        <Button variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
+                        <div className="hidden sm:block flex-1" />
+                        <Button variant="outline" className="w-full sm:w-auto h-12 font-bold gap-2" disabled={isPending} onClick={form.handleSubmit(v => onSubmit(v, 'draft'), () => scrollToFirstError())}><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
+                        <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" disabled={isPending || !selectedTemplateId} onClick={form.handleSubmit(v => onSubmit(v, 'issued'), () => scrollToFirstError())}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}Issue Electronic Permit</Button>
                     </div>
                 </form>
             </Form>
         </div>
-
-        <DialogFooter className="p-6 bg-white border-t shrink-0 gap-3">
-            <Button variant="ghost" className="font-bold text-muted-foreground" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
-            <Button variant="outline" className="w-full sm:w-auto h-12 font-bold" disabled={isPending} onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}), () => scrollToFirstError())}><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
-            <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isPending || !selectedTemplateId} onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}), () => scrollToFirstError())}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}Issue Electronic Permit</Button>
-        </DialogFooter>
       </DialogContent>
 
       <CameraOverlay 
         isOpen={isCameraOpen} 
         onClose={() => setIsCameraOpen(false)} 
         onCapture={onCapture} 
-        title={activePhotoFieldId ? "Verification Field Documentation" : "General Permit Evidence"}
+        title="Verification Documentation"
       />
     </Dialog>
   );
