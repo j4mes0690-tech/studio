@@ -18,7 +18,8 @@ import {
   Tag,
   X,
   RefreshCw,
-  Eye
+  Eye,
+  MessageSquare
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

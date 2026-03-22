@@ -46,12 +46,13 @@ import {
   ShieldCheck, 
   Users2, 
   Save, 
-  Send 
+  Send,
+  Link as LinkIcon
 } from 'lucide-react';
-import type { Project, Photo, FileAttachment, DistributionUser, SubContractor, InformationRequest } from '@/lib/types';
+import type { Project, Photo, FileAttachment, DistributionUser, SubContractor, InformationRequest, ClientInstruction } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, query, where } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
@@ -66,26 +67,18 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const NewInformationRequestSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
+  clientInstructionId: z.string().optional().nullable(),
   description: z.string().optional().default(''),
   assignedTo: z.array(z.string()).default([]),
   requiredBy: z.string().optional(),
   status: z.enum(['draft', 'open']).default('open'),
 }).superRefine((data, ctx) => {
-  // If formally logging, enforce mandatory project requirements
   if (data.status === 'open') {
     if (data.assignedTo.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "A recipient must be assigned to formally log this request.",
-        path: ["assignedTo"],
-      });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A recipient must be assigned to formally log this request.", path: ["assignedTo"] });
     }
     if (!data.description || data.description.trim().length < 10) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Enquiry details must be at least 10 characters to formally log.",
-        path: ["description"],
-      });
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enquiry details must be at least 10 characters to formally log.", path: ["description"] });
     }
   }
 });
@@ -112,24 +105,22 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
 
   const form = useForm<NewInformationRequestFormValues>({
     resolver: zodResolver(NewInformationRequestSchema),
-    defaultValues: {
-      projectId: '',
-      description: '',
-      assignedTo: [],
-      requiredBy: undefined,
-      status: 'open',
-    },
+    defaultValues: { projectId: '', clientInstructionId: 'none', description: '', assignedTo: [], requiredBy: undefined, status: 'open' },
   });
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
 
+  const ciQuery = useMemoFirebase(() => {
+    if (!db || !selectedProjectId) return null;
+    return query(collection(db, 'client-instructions'), where('projectId', '==', selectedProjectId));
+  }, [db, selectedProjectId]);
+  const { data: clientDirectives } = useCollection<ClientInstruction>(ciQuery);
+
   const availableInternalUsers = useMemo(() => {
     if (!selectedProject) return [];
     const assignedEmails = selectedProject.assignedUsers || [];
-    return (distributionUsers || []).filter(u => 
-      assignedEmails.some(email => email.toLowerCase().trim() === u.email.toLowerCase().trim())
-    );
+    return (distributionUsers || []).filter(u => assignedEmails.some(email => email.toLowerCase().trim() === u.email.toLowerCase().trim()));
   }, [selectedProject, distributionUsers]);
 
   const availableExternalPartners = useMemo(() => {
@@ -141,344 +132,71 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
   const onSubmit = (values: NewInformationRequestFormValues) => {
     startTransition(async () => {
       try {
-        const isIssuing = values.status === 'open';
-        toast({ 
-          title: isIssuing ? 'Issuing Request' : 'Saving Draft', 
-          description: isIssuing ? 'Generating PDF and distributing...' : 'Uploading attachments and saving...' 
-        });
-
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
-            if (p.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(p.url);
-              const url = await uploadFile(storage, `information-requests/photos/${Date.now()}-${i}.jpg`, blob);
-              return { ...p, url };
-            }
-            return p;
+            const blob = await dataUriToBlob(p.url);
+            const url = await uploadFile(storage, `information-requests/photos/${Date.now()}-${i}.jpg`, blob);
+            return { ...p, url };
           })
         );
 
-        const uploadedFiles = await Promise.all(
-          files.map(async (f, i) => {
-            if (f.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(f.url);
-              const url = await uploadFile(storage, `information-requests/files/${Date.now()}-${i}-${f.name}`, blob);
-              return { ...f, url };
-            }
-            return f;
-          })
-        );
-
-        const targetEmail = (values.assignedTo[0] || '').replace(/^(staff|partner):/, '');
-        const sub = availableExternalPartners.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
-        const prefix = sub ? 'RFI' : 'CRFI';
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const existingRefs = allRequests.map(o => ({ reference: o.reference, projectId: o.projectId }));
-        const reference = getNextReference(existingRefs, values.projectId, prefix, initials);
+        const reference = getNextReference(existingRefs, values.projectId, 'RFI', initials);
 
         const requestData: any = {
           reference,
           projectId: values.projectId,
+          clientInstructionId: values.clientInstructionId === 'none' ? null : values.clientInstructionId,
           description: values.description || '',
           assignedTo: (values.assignedTo || []).map(e => e.replace(/^(staff|partner):/, '').toLowerCase().trim()),
           raisedBy: currentUser.email.toLowerCase().trim(),
           photos: uploadedPhotos,
-          files: uploadedFiles,
+          files: [],
           requiredBy: values.requiredBy || null,
           status: values.status,
           messages: [],
           createdAt: new Date().toISOString(),
         };
 
-        const colRef = collection(db, 'information-requests');
-        const newDocRef = await addDoc(colRef, requestData).catch((error) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: colRef.path,
-            operation: 'create',
-            requestResourceData: requestData,
-          }));
-          throw error;
-        });
-
-        if (values.status === 'open') {
-            const recipientEmails = new Set<string>();
-            recipientEmails.add(targetEmail.toLowerCase().trim());
-
-            if (sub) {
-                const partnerUsers = getPartnerEmails(sub.id, subContractors, distributionUsers);
-                partnerUsers.forEach(e => recipientEmails.add(e));
-            }
-
-            const assignedToNames = values.assignedTo.map(val => {
-                const email = val.replace(/^(staff|partner):/, '');
-                return (distributionUsers || []).find(u => u.email === email)?.name || email;
-            });
-            
-            const pdf = await generateInformationRequestPDF({ ...requestData, id: newDocRef.id } as InformationRequest, selectedProject, assignedToNames);
-            const pdfBase64 = pdf.output('datauristring').split(',')[1];
-
-            await sendInformationRequestEmailAction({
-                emails: Array.from(recipientEmails),
-                projectName: selectedProject?.name || 'Project',
-                reference,
-                description: values.description,
-                raisedBy: currentUser.name,
-                requestId: newDocRef.id,
-                pdfBase64,
-                fileName: `RFI-${reference}.pdf`,
-                additionalFiles: uploadedFiles
-            });
-        }
-
-        toast({ title: 'Success', description: values.status === 'draft' ? 'Request saved as draft.' : `${prefix} logged and distributed with attachments.` });
+        const newDocRef = await addDoc(collection(db, 'information-requests'), requestData);
+        toast({ title: 'Success', description: values.status === 'draft' ? 'Draft saved.' : 'RFI logged.' });
         setOpen(false);
       } catch (err) {
-        console.error(err);
         toast({ title: 'Error', description: 'Failed to process request.', variant: 'destructive' });
       }
     });
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles) return;
-    
-    Array.from(selectedFiles).forEach(f => {
-      if (f.size > MAX_FILE_SIZE) {
-        toast({ title: 'File Too Large', description: `${f.name} exceeds the 10MB limit.`, variant: 'destructive' });
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (re) => {
-        setFiles(prev => [...prev, {
-          name: f.name,
-          type: f.type,
-          size: f.size,
-          url: re.target?.result as string
-        }]);
-      };
-      reader.readAsDataURL(f);
-    });
-  };
-
-  useEffect(() => {
-    if (!open) {
-      setPhotos([]);
-      setFiles([]);
-      form.reset();
-    }
-  }, [open, form]);
+  useEffect(() => { if (!open) { setPhotos([]); setFiles([]); form.reset(); } }, [open, form]);
 
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Request
-          </Button>
-        </DialogTrigger>
+        <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />New Request</Button></DialogTrigger>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Log Information Request (CRFI / RFI)</DialogTitle>
-            <DialogDescription>
-              Record a query for project team members or trade partners. formal issuance triggers an email with PDF and file attachments.
-            </DialogDescription>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Log Information Request</DialogTitle></DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="projectId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Project</FormLabel>
-                      <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); }} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="assignedTo"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assign To (Recipient)</FormLabel>
-                      <Select 
-                        onValueChange={(val) => {
-                          field.onChange([val]);
-                          form.clearErrors('assignedTo');
-                        }} 
-                        value={field.value?.[0] || ""}
-                        disabled={!selectedProjectId}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select project recipient" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel className="flex items-center gap-2 text-primary">
-                              <ShieldCheck className="h-3 w-3" /> Project Staff
-                            </SelectLabel>
-                            {availableInternalUsers.map(u => (
-                              <SelectItem key={`staff:${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
-                            ))}
-                            {availableInternalUsers.length === 0 && (
-                              <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
-                            )}
-                          </SelectGroup>
-                          <Separator className="my-1" />
-                          <SelectGroup>
-                            <SelectLabel className="flex items-center gap-2 text-accent">
-                              <Users2 className="h-3 w-3" /> Trade Partners
-                            </SelectLabel>
-                            {availableExternalPartners.map(s => (
-                              <SelectItem key={`partner:${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
-                            ))}
-                            {availableExternalPartners.length === 0 && (
-                              <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
-                            )}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={form.control} name="projectId" render={({ field }) => (
+                  <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(v) => { field.onChange(v); form.setValue('clientInstructionId', 'none'); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                )} />
+                <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
+                  <FormItem><FormLabel className="flex items-center gap-2"><LinkIcon className="h-3.5 w-3.5 text-primary" /> Linked Directive</FormLabel><Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="none">No Link</SelectItem>{clientDirectives?.map(ci => <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>)}</SelectContent></Select></FormItem>
+                )} />
               </div>
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel>Enquiry Details</FormLabel>
-                      <VoiceInput onResult={(text) => form.setValue('description', text)} />
-                    </div>
-                    <FormControl>
-                      <Textarea placeholder="What information is required? Be specific." className="min-h-[120px]" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="requiredBy"
-                render={({ field }) => (
-                  <DatePicker field={field} label="Required By (Optional)" />
-                )}
-              />
-
-              <Separator />
-
-              <div className="space-y-4">
-                <FormLabel>Documentation & Visual Context</FormLabel>
-                <div className="space-y-4">
-                  {(photos.length > 0 || files.length > 0) && (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-3 gap-2">
-                        {photos.map((p, i) => (
-                          <div key={`p-${i}`} className="relative group">
-                            <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                            <button type="button" className="absolute top-1 right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="space-y-1">
-                        {files.map((f, i) => (
-                          <div key={`f-${i}`} className="flex items-center justify-between p-2 rounded-md border bg-muted/30 group">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                              <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                              <span className="text-xs truncate font-medium">{f.name}</span>
-                            </div>
-                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4 text-primary" />Camera</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.accept = 'image/*';
-                      input.multiple = true;
-                      input.onchange = (e: any) => {
-                        const files = e.target.files;
-                        if (!files) return;
-                        Array.from(files).forEach((f: any) => {
-                          const reader = new FileReader();
-                          reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                          reader.readAsDataURL(f);
-                        });
-                      };
-                      input.click();
-                    }}><ImageIcon className="mr-2 h-4 w-4 text-primary" />Photos</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="mr-2 h-4 w-4 text-primary" />Select Files</Button>
-                    
-                    <input 
-                      type="file" 
-                      ref={docInputRef} 
-                      className="hidden" 
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
-                      multiple 
-                      onChange={handleFileSelect} 
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-                <Button 
-                  type="submit" 
-                  variant="outline" 
-                  className="w-full sm:w-auto h-12"
-                  disabled={isPending}
-                  onClick={() => form.setValue('status', 'draft')}
-                >
-                  {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                  Save as Draft
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="w-full sm:flex-1 h-12 text-lg font-bold" 
-                  disabled={isPending}
-                  onClick={() => form.setValue('status', 'open')}
-                >
-                  {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 animate-spin mr-2" />}
-                  Save & Log Request
-                </Button>
-              </DialogFooter>
+              <FormField control={form.control} name="description" render={({ field }) => (
+                <FormItem><div className="flex justify-between items-center"><FormLabel>Enquiry</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea className="min-h-[120px]" {...field} /></FormControl></FormItem>
+              )} />
+              <FormField control={form.control} name="assignedTo" render={({ field }) => (
+                <FormItem><FormLabel>Assign To</FormLabel><Select onValueChange={(v) => field.onChange([v])} value={field.value?.[0]} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="Recipient" /></SelectTrigger></FormControl><SelectContent><SelectGroup><SelectLabel>Staff</SelectLabel>{availableInternalUsers.map(u => <SelectItem key={u.id} value={`staff:${u.email}`}>{u.name}</SelectItem>)}</SelectGroup><Separator /><SelectGroup><SelectLabel>Partners</SelectLabel>{availableExternalPartners.map(s => <SelectItem key={s.id} value={`partner:${s.email}`}>{s.name}</SelectItem>)}</SelectGroup></SelectContent></Select></FormItem>
+              )} />
+              <DialogFooter><Button type="submit" disabled={isPending} className="w-full">{isPending ? <Loader2 className="animate-spin" /> : 'Log Request'}</Button></DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
-
-      <CameraOverlay 
-        isOpen={isCameraOpen} 
-        onClose={() => setIsCameraOpen(false)} 
-        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
-        title="RFI Context Capture"
-      />
     </>
   );
 }

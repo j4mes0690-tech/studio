@@ -242,7 +242,7 @@ export default function Dashboard() {
                 <h1 className={cn("font-black tracking-tighter transition-all uppercase", isCompact ? "text-xl md:text-2xl" : "text-3xl md:text-6xl")}>
                   Site<span className="text-primary">Command</span>
                 </h1>
-                {!isCompact && <p className="text-muted-foreground text-xs md:text-sm mt-2 font-bold uppercase tracking-widest opacity-60">Intelligence Hub for Modern Construction</p>}
+                {!isCompact && <p className="text-muted-foreground text-sm mt-2 font-bold uppercase tracking-widest opacity-60">Intelligence Hub for Modern Construction</p>}
             </div>
             <div className="absolute top-0 right-0 hidden md:flex items-center gap-2">
                 <TooltipProvider>

@@ -42,29 +42,32 @@ const prompt = ai.definePrompt({
   name: 'generateFormStructurePrompt',
   input: { schema: GenerateFormStructureInputSchema },
   output: { schema: FormStructureOutputSchema },
-  prompt: `You are an expert site safety and quality manager. 
-
+  system: `You are an expert site safety and quality manager. Your goal is to produce highly professional, structured JSON data for construction site templates. 
+  
+  CRITICAL: You must return ONLY the structured data. Do not include conversational filler.
+  
+  For 'permit' type: Use 'sections' and 'fields'.
+  For 'qc' type: Use 'items' for verification points.
+  For 'toolbox' type: Use 'topic', 'content' (Markdown), and 'items' for verification questions.`,
+  prompt: `
 {{#if currentStructure}}
-You are REFINING an existing form structure based on the user's feedback. 
-Maintain the existing professional tone and only modify what is requested.
+REFINEMENT REQUEST:
+I have an existing form structure and I need you to modify it based on these instructions:
+{{{prompt}}}
 
-Current Structure:
+CURRENT STRUCTURE:
 {{{currentStructure}}}
 
-Refinement Instruction:
-{{{prompt}}}
+Please update the structure while maintaining the existing professional tone.
 {{else}}
-You are GENERATING a NEW structured template based on the following description:
-Description:
+GENERATION REQUEST:
+Create a new digital template for a construction site based on this description:
 {{{prompt}}}
+
+Form Category: {{type}}
 {{/if}}
 
-Output rules based on type:
-- "permit": Provide a clear title, description, and multiple sections (e.g., "Personal Protective Equipment", "Safety Controls"). Each section should have specific fields with appropriate types.
-- "qc": Provide a professional title and a list of specific "items" (verification points) that must be checked for compliance.
-- "toolbox": Provide a title, a high-level "topic", and a "content" field with a bulleted educational briefing in Markdown. Also provide a list of "items" which are verification questions to check staff understanding.
-
-Ensure the output is strictly structured and maintains high professional standards for construction site documentation.`,
+Please ensure the output follows the schema strictly.`,
 });
 
 const generateFormStructureFlow = ai.defineFlow(
