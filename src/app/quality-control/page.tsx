@@ -93,7 +93,7 @@ function QualityControlContent() {
     });
   }, [allProjects, profile]);
 
-  // FIX: Define checklistInstances for the template assigner
+  // FIX: Define checklistInstances for the template assigner and progress calculations
   const checklistInstances = useMemo(() => {
     if (!allChecklists) return [];
     return allChecklists.filter(c => !c.isTemplate);
@@ -429,7 +429,7 @@ function QualityControlContent() {
                 Quality Control Directory
             </h2>
             {profile?.permissions?.hasFullVisibility && (
-                <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1">
+                <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-[0.2em] pt-1 ml-1">
                     <ShieldCheck className="h-3.5 w-3.5" />
                     Administrative Oversight Active
                 </div>

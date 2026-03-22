@@ -275,7 +275,7 @@ export default function Dashboard() {
                         )}>
                             {loadingModule === card.id && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>)}
                             <CardHeader className="p-0 relative w-full flex flex-col items-center">
-                                <div className="relative flex items-center justify-center mb-2 md:mb-4 h-12 w-12">
+                                <div className="relative flex items-center justify-center mb-2 md:mb-4 h-12 w-12 shrink-0">
                                     <card.icon className={cn(
                                         "transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary", 
                                         isCompact ? "h-6 w-6" : "h-10 w-10 md:h-12 md:w-12", 
@@ -284,15 +284,15 @@ export default function Dashboard() {
                                     <FlashingBadge count={pendingCount} />
                                 </div>
                                 <CardTitle className={cn(
-                                    "transition-all font-bold text-center w-full", 
-                                    isCompact ? "text-xs md:text-sm" : "text-sm md:text-xl"
+                                    "transition-all font-bold text-center w-full truncate", 
+                                    isCompact ? "text-[10px] md:text-xs" : "text-sm md:text-xl"
                                 )}>
                                     {card.label}
                                 </CardTitle>
                             </CardHeader>
                             {!isCompact && card.desc && (
                                 <CardContent className="p-0 mt-3 hidden sm:block text-center w-full">
-                                    <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed">
+                                    <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed line-clamp-2">
                                         {card.desc}
                                     </p>
                                 </CardContent>

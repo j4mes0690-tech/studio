@@ -16,7 +16,8 @@ import {
   Sparkles,
   Save,
   Tag,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,16 +66,34 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
 
   // AI Prompt State
   const [aiPrompt, setAiPrompt] = useState('');
+  const [refinePrompt, setRefinePrompt] = useState('');
 
-  const tradesQuery = useMemoFirebase(() => collection(db, 'trades'), [db]);
+  const tradesQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'trades');
+  }, [db]);
   const { data: trades } = useCollection<Trade>(tradesQuery);
 
-  const handleAiGenerate = async () => {
-    if (!aiPrompt.trim() || !type) return;
+  const handleAiGenerate = async (isRefining = false) => {
+    const promptText = isRefining ? refinePrompt : aiPrompt;
+    if (!promptText.trim() || !type) return;
     
     setIsGenerating(true);
     try {
-      const result = await generateFormStructure({ type, prompt: aiPrompt });
+      const currentStructure = isRefining ? JSON.stringify({
+        title,
+        description,
+        topic,
+        content,
+        sections,
+        items: checklistItems
+      }) : undefined;
+
+      const result = await generateFormStructure({ 
+        type, 
+        prompt: promptText,
+        currentStructure
+      });
       
       if (result) {
         setTitle(result.title || '');
@@ -101,8 +120,13 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
             })));
         }
         
-        toast({ title: "AI Draft Ready", description: "The template structure has been generated. You can now refine it." });
-        setStep('structure');
+        toast({ 
+          title: isRefining ? "Refinement Applied" : "AI Draft Ready", 
+          description: isRefining ? "The structure has been updated based on your instructions." : "The template structure has been generated. You can now refine it." 
+        });
+        
+        if (!isRefining) setStep('structure');
+        setRefinePrompt('');
       }
     } catch (err) {
       toast({ title: "Generation Failed", description: "Could not design form. Please try again.", variant: "destructive" });
@@ -212,7 +236,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                   value={aiPrompt}
                   onChange={e => setAiPrompt(e.target.value)}
                 />
-                <Button className="w-full h-12 gap-2 font-bold" onClick={handleAiGenerate} disabled={isGenerating || !aiPrompt.trim()}>
+                <Button className="w-full h-12 gap-2 font-bold" onClick={() => handleAiGenerate(false)} disabled={isGenerating || !aiPrompt.trim()}>
                   {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wand2 className="h-5 w-5" />}
                   Generate Structure with AI
                 </Button>
@@ -300,6 +324,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                 <SelectItem value="checkbox">Checkbox</SelectItem>
                                 <SelectItem value="text">Text</SelectItem>
                                 <SelectItem value="textarea">Text Area</SelectItem>
+                                <SelectItem value="yes-no-na">Yes/No/NA</SelectItem>
                               </SelectContent>
                             </Select>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => {
@@ -334,8 +359,35 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
             </div>
 
             <div className="space-y-6">
+              <Card className="border-primary/20 bg-primary/5">
+                <CardHeader>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    AI Refine
+                  </CardTitle>
+                  <CardDescription className="text-[10px]">Describe changes to the current structure.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Textarea 
+                    placeholder="e.g. Add a section for Electrical Isolation..." 
+                    className="min-h-[80px] text-xs bg-background"
+                    value={refinePrompt}
+                    onChange={e => setRefinePrompt(e.target.value)}
+                  />
+                  <Button 
+                    variant="secondary" 
+                    className="w-full h-9 text-xs font-bold gap-2"
+                    onClick={() => handleAiGenerate(true)}
+                    disabled={isGenerating || !refinePrompt.trim()}
+                  >
+                    {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                    Update Structure with AI
+                  </Button>
+                </CardContent>
+              </Card>
+
               <Card>
-                <CardHeader><CardTitle className="text-sm">Template Preview</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm">Template Summary</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-1">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Title</Label>
@@ -347,7 +399,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                   </div>
                   <Separator />
                   <div className="space-y-2">
-                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Summary</Label>
+                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Scope</Label>
                     <p className="text-[11px] leading-relaxed text-muted-foreground line-clamp-4">{description || topic || 'No summary provided.'}</p>
                   </div>
                 </CardContent>
@@ -378,7 +430,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em]">Trade</p>
-                  <Badge variant="outline" className="h-6 font-bold text-primary">{trade}</Badge>
+                  <Badge variant="outline" className="h-6 font-bold text-primary">{trade || 'General'}</Badge>
                 </div>
               </div>
 

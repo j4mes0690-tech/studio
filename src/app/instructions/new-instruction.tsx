@@ -14,7 +14,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -364,30 +363,30 @@ export function NewInstruction({ projects, distributionUsers, subContractors, al
 
               <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t bg-background">
                 <Button 
-                  type="submit" 
+                  type="button" 
                   variant="outline" 
                   className="w-full sm:w-auto h-12 gap-2 font-bold" 
                   disabled={isPending} 
-                  onClick={() => setSubmitMode('draft')}
+                  onClick={() => { setSubmitMode('draft'); form.handleSubmit((v) => onSubmit(v))(); }}
                 >
                   <Save className="h-4 w-4" />
                   Save Draft
                 </Button>
                 <Button 
-                  type="submit" 
+                  type="button" 
                   variant="outline" 
                   className="w-full sm:flex-1 h-12 font-bold gap-2" 
                   disabled={isPending} 
-                  onClick={() => setSubmitMode('save')}
+                  onClick={() => { setSubmitMode('save'); form.handleSubmit((v) => onSubmit(v))(); }}
                 >
                   <CheckCircle2 className="h-4 w-4" />
                   Save
                 </Button>
                 <Button 
-                  type="submit" 
+                  type="button" 
                   className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
                   disabled={isPending} 
-                  onClick={() => setSubmitMode('issue')}
+                  onClick={() => { setSubmitMode('issue'); form.handleSubmit((v) => onSubmit(v))(); }}
                 >
                   {isPending && submitMode === 'issue' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Save & Issue

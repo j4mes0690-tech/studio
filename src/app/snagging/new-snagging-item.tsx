@@ -357,7 +357,9 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                           {pendingItemPhotos.length > 0 && (
                             <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed">
                               {pendingItemPhotos.map((p, idx) => (
-                                <div key={idx} className="relative w-16 h-12"><Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" /><button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-2 w-2" /></button></div>
+                                <div key={idx} className="relative w-16 h-12">
+                                  <Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" /><button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-2 w-2" /></button>
+                                </div>
                               ))}
                             </div>
                           )}
@@ -370,7 +372,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                               <Input value={editItemText} onChange={e => setEditItemText(e.target.value)} className="h-9" autoFocus />
                                               <div className="flex justify-between items-center">
                                                   <Select value={editItemSubId || 'unassigned'} onValueChange={v => setEditItemSubId(v === 'unassigned' ? undefined : v)}>
-                                                      <SelectTrigger className="w-40 h-8 text-[10px] uppercase font-bold"><SelectValue /></SelectTrigger>
+                                                      <SelectTrigger className="w-40 h-8 text-[10px] uppercase font-bold"><SelectValue placeholder="Assign" /></SelectTrigger>
                                                       <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                                   </Select>
                                                   <div className="flex gap-1">
@@ -419,16 +421,16 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                             variant="outline" 
                             className="w-full sm:w-auto h-12 gap-2" 
                             disabled={isPending} 
-                            onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}), () => scrollToFirstError())}
+                            onClick={() => { setSubmitMode('draft'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
-                            <Save className="h-4 w-4" /> Save as Draft
+                            <Save className="h-4 w-4" /> Save Draft
                         </Button>
                         <Button 
                             type="button" 
                             variant="outline" 
                             className="w-full sm:flex-1 h-12 font-bold gap-2" 
                             disabled={isPending} 
-                            onClick={form.handleSubmit(v => onSubmit(v, false), () => scrollToFirstError())}
+                            onClick={() => { setSubmitMode('save'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
                             <CheckCircle2 className="h-4 w-4" /> Save
                         </Button>
@@ -436,7 +438,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                             type="button" 
                             className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
                             disabled={isPending} 
-                            onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, true), () => scrollToFirstError())}
+                            onClick={() => { setSubmitMode('issue'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
                             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Save & Send
                         </Button>
