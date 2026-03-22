@@ -36,7 +36,8 @@ import {
   Plus, 
   Trash2, 
   Layout,
-  MapPin
+  MapPin,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 import type { 
   Project, 
@@ -58,6 +59,7 @@ import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CameraOverlay } from '@/components/camera-overlay';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const NewPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -93,6 +95,9 @@ export function NewPermitDialog({
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [dynamicSections, setDynamicSections] = useState<TemplateSection[]>([]);
+  
+  // Track which dynamic field is calling the camera
+  const [activePhotoFieldId, setActivePhotoFieldId] = useState<{ sectionId: string, fieldId: string } | null>(null);
 
   const templatesQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -160,6 +165,7 @@ export function NewPermitDialog({
 
     startTransition(async () => {
       try {
+        // Upload global photos
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -170,6 +176,19 @@ export function NewPermitDialog({
             return p;
           })
         );
+
+        // Upload field-specific photos
+        const processedSections = await Promise.all(dynamicSections.map(async (section) => {
+            const processedFields = await Promise.all(section.fields.map(async (field) => {
+                if (field.type === 'photo' && field.value && field.value.url?.startsWith('data:')) {
+                    const blob = await dataUriToBlob(field.value.url);
+                    const url = await uploadFile(storage, `permits/fields/${field.id}-${Date.now()}.jpg`, blob);
+                    return { ...field, value: { ...field.value, url } };
+                }
+                return field;
+            }));
+            return { ...section, fields: processedFields };
+        }));
 
         const typeMap: Record<string, string> = { 'Hot Work': 'HWP', 'Confined Space': 'CSP', 'Excavation': 'EXP', 'Lifting': 'LIP', 'General': 'GWP' };
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
@@ -186,7 +205,7 @@ export function NewPermitDialog({
           contractorId: values.contractorId,
           contractorName: contractor?.name || 'Unknown',
           description: values.description,
-          sections: dynamicSections,
+          sections: processedSections,
           validFrom: new Date(values.validFrom).toISOString(),
           validTo: new Date(values.validTo).toISOString(),
           status: values.status,
@@ -204,13 +223,26 @@ export function NewPermitDialog({
     });
   };
 
+  const onCapture = (photo: Photo) => {
+    if (activePhotoFieldId) {
+        updateDynamicValue(activePhotoFieldId.sectionId, activePhotoFieldId.fieldId, photo);
+        setActivePhotoFieldId(null);
+    } else {
+        setPhotos(prev => [...prev, photo]);
+    }
+    setIsCameraOpen(false);
+  };
+
   useEffect(() => {
     if (!open) {
       setPhotos([]);
       setDynamicSections([]);
+      setActivePhotoFieldId(null);
       form.reset();
     }
   }, [open, form]);
+
+  const submissionStatus = form.watch('status');
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -275,7 +307,7 @@ export function NewPermitDialog({
                                                 <SelectItem value="site-wide">General Site</SelectItem>
                                                 {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                                                 <Separator className="my-1" />
-                                                <SelectItem value="other">Other / Manual Entry</SelectItem>
+                                                <SelectItem value="other">Other / Not Listed</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </FormItem>
@@ -292,14 +324,17 @@ export function NewPermitDialog({
                             </div>
                         </div>
                         <FormField control={form.control} name="description" render={({ field }) => (
-                            <FormItem><div className="flex items-center justify-between"><FormLabel>Work Description</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="Specific task details..." className="min-h-[80px]" {...field} /></FormControl></FormItem>
+                            <FormItem><div className="flex justify-between items-center"><FormLabel>Work Description</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea placeholder="Specific task details..." className="min-h-[80px]" {...field} /></FormControl></FormItem>
                         )} />
                     </div>
 
                     {dynamicSections.map((section) => (
                         <div key={section.id} className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                            <div className="flex items-center justify-between group/header">
-                                <div className="flex items-center gap-2 flex-1 mr-4"><Layout className="h-4 w-4 text-primary" /><Input value={section.title} onChange={(e) => setDynamicSections(dynamicSections.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))} className="bg-transparent border-transparent hover:border-border font-bold text-xs uppercase tracking-widest text-primary h-8" /></div>
+                            <div className="flex items-center justify-between group/header border-b pb-2">
+                                <div className="flex items-center gap-2">
+                                    <Layout className="h-4 w-4 text-primary" />
+                                    <span className="font-bold text-xs uppercase tracking-widest text-primary">{section.title}</span>
+                                </div>
                                 <div className="flex items-center gap-1">
                                     <Button type="button" variant="ghost" size="sm" onClick={() => addField(section.id)} className="h-8 text-[10px] uppercase font-bold text-primary"><Plus className="h-3 w-3 mr-1" /> Add Field</Button>
                                     <Button type="button" variant="ghost" size="icon" onClick={() => setDynamicSections(dynamicSections.filter(s => s.id !== section.id))} className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
@@ -307,18 +342,60 @@ export function NewPermitDialog({
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {section.fields.map((field) => (
-                                    <div key={field.id} className="bg-background p-4 rounded-xl border shadow-sm relative group/field">
-                                        <Button type="button" variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 bg-background border shadow-sm opacity-0 group-hover/field:opacity-100 text-destructive" onClick={() => setDynamicSections(dynamicSections.map(s => s.id === section.id ? { ...s, fields: s.fields.filter(f => f.id !== field.id) } : s))}><X className="h-3 w-3" /></Button>
+                                    <div key={field.id} className={cn(
+                                        "bg-background p-4 rounded-xl border shadow-sm relative group/field",
+                                        field.width === 'full' ? 'col-span-1 md:col-span-2' : 'col-span-1'
+                                    )}>
                                         <div className="space-y-3">
-                                            <Input value={field.label} onChange={(e) => setDynamicSections(dynamicSections.map(s => s.id === section.id ? { ...s, fields: s.fields.map(f => f.id === field.id ? { ...f, label: e.target.value } : f) } : s))} className="h-7 text-xs font-semibold bg-muted/30 border-transparent" />
-                                            <div className="pt-2 border-t border-dashed">
-                                                {field.type === 'checkbox' ? (
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-[10px] text-muted-foreground font-bold">Verification Sign-off</span>
+                                            <div className="flex justify-between items-start">
+                                                <Label className="text-xs font-bold leading-relaxed">{field.label}</Label>
+                                                <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-destructive opacity-0 group-hover/field:opacity-100" onClick={() => setDynamicSections(dynamicSections.map(s => s.id === section.id ? { ...s, fields: s.fields.filter(f => f.id !== field.id) } : s))}><X className="h-3 w-3" /></Button>
+                                            </div>
+                                            
+                                            <div className="pt-1">
+                                                {field.type === 'checkbox' && (
+                                                    <div className="flex items-center space-x-2">
                                                         <Checkbox checked={!!field.value} onCheckedChange={(val) => updateDynamicValue(section.id, field.id, !!val)} />
+                                                        <span className="text-[10px] text-muted-foreground uppercase font-bold">Verified</span>
                                                     </div>
-                                                ) : (
-                                                    <span className="text-[10px] text-muted-foreground uppercase">{field.type} Field</span>
+                                                )}
+                                                {field.type === 'yes-no-na' && (
+                                                    <RadioGroup value={field.value || ""} onValueChange={(val) => updateDynamicValue(section.id, field.id, val)} className="flex items-center gap-4">
+                                                        <div className="flex items-center space-x-1.5"><RadioGroupItem value="yes" id={`y-${field.id}`} /><Label htmlFor={`y-${field.id}`} className="text-[10px]">Yes</Label></div>
+                                                        <div className="flex items-center space-x-1.5"><RadioGroupItem value="no" id={`n-${field.id}`} /><Label htmlFor={`n-${field.id}`} className="text-[10px]">No</Label></div>
+                                                        <div className="flex items-center space-x-1.5"><RadioGroupItem value="na" id={`na-${field.id}`} /><Label htmlFor={`na-${field.id}`} className="text-[10px]">N/A</Label></div>
+                                                    </RadioGroup>
+                                                )}
+                                                {field.type === 'text' && (
+                                                    <Input className="h-9 text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
+                                                )}
+                                                {field.type === 'textarea' && (
+                                                    <Textarea className="min-h-[60px] text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
+                                                )}
+                                                {field.type === 'date' && (
+                                                    <div className="flex items-center gap-2">
+                                                        <CalendarIcon className="h-4 w-4 text-primary" />
+                                                        <Input type="date" className="h-9 text-xs" value={field.value || ""} onChange={(e) => updateDynamicValue(section.id, field.id, e.target.value)} />
+                                                    </div>
+                                                )}
+                                                {field.type === 'photo' && (
+                                                    <div className="space-y-2">
+                                                        <div className="flex gap-2">
+                                                            <Button type="button" variant="outline" size="sm" className="h-8 gap-2 text-[10px] font-bold" onClick={() => { setActivePhotoFieldId({ sectionId: section.id, fieldId: field.id }); setIsCameraOpen(true); }}>
+                                                                <Camera className="h-3.5 w-3.5" /> Capture Photo
+                                                            </Button>
+                                                            {field.value && (
+                                                                <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive" onClick={() => updateDynamicValue(section.id, field.id, null)}>
+                                                                    <X className="h-3.5 w-3.5" />
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                        {field.value && (
+                                                            <div className="relative w-20 h-16 rounded border overflow-hidden">
+                                                                <Image src={field.value.url} alt="Field verification" fill className="object-cover" />
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
@@ -338,12 +415,12 @@ export function NewPermitDialog({
                     </div>
 
                     <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
-                        <FormLabel>Visual Verification Photos</FormLabel>
+                        <FormLabel>Visual Verification Photos (General)</FormLabel>
                         <div className="flex flex-wrap gap-3">
                             {photos.map((p, i) => (
                                 <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Permit" fill className="rounded-xl object-cover border-2" /><Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button></div>
                             ))}
-                            <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase">Capture</span></Button>
+                            <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => { setActivePhotoFieldId(null); setIsCameraOpen(true); }}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase">Capture</span></Button>
                         </div>
                     </div>
                 </form>
@@ -360,8 +437,8 @@ export function NewPermitDialog({
       <CameraOverlay 
         isOpen={isCameraOpen} 
         onClose={() => setIsCameraOpen(false)} 
-        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
-        title="Permit Site Evidence"
+        onCapture={onCapture} 
+        title={activePhotoFieldId ? "Verification Field Documentation" : "General Permit Evidence"}
       />
     </Dialog>
   );

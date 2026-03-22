@@ -15,7 +15,13 @@ import {
   Eye,
   Maximize2,
   Minimize2,
-  X
+  X,
+  Calendar as CalendarIcon,
+  Type,
+  Image as ImageIcon,
+  CheckSquare,
+  AlignLeft,
+  ListTodo
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,6 +36,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import type { 
   FormWizardType, 
   TemplateSection, 
+  TemplateFieldType,
   PermitType, 
   Trade,
   DistributionUser 
@@ -112,7 +119,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         if (s.id === sectionId) {
             return {
                 ...s,
-                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Requirement', type: 'checkbox', width: 'full' }]
+                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Verification Point', type: 'checkbox', width: 'full' }]
             };
         }
         return s;
@@ -125,6 +132,18 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
             return {
                 ...s,
                 fields: s.fields.map(f => f.id === fieldId ? { ...f, width } : f)
+            };
+        }
+        return s;
+    }));
+  };
+
+  const updateFieldType = (sectionId: string, fieldId: string, type: TemplateFieldType) => {
+    setSections(prev => prev.map(s => {
+        if (s.id === sectionId) {
+            return {
+                ...s,
+                fields: s.fields.map(f => f.id === fieldId ? { ...f, type } : f)
             };
         }
         return s;
@@ -155,6 +174,18 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
     }));
   };
 
+  const getFieldTypeIcon = (type: TemplateFieldType) => {
+    switch (type) {
+        case 'checkbox': return <CheckSquare className="h-3 w-3" />;
+        case 'date': return <CalendarIcon className="h-3 w-3" />;
+        case 'text': return <Type className="h-3 w-3" />;
+        case 'textarea': return <AlignLeft className="h-3 w-3" />;
+        case 'photo': return <ImageIcon className="h-3 w-3" />;
+        case 'yes-no-na': return <ListTodo className="h-3 w-3" />;
+        default: return <CheckSquare className="h-3 w-3" />;
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Progress HUD */}
@@ -178,21 +209,21 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
               <CardHeader className="text-center">
                 <div className="bg-primary/10 p-4 rounded-2xl w-fit mx-auto mb-4 text-primary"><FileCheck className="h-10 w-10" /></div>
                 <CardTitle>Permit to Work</CardTitle>
-                <CardDescription>High-risk authorization forms.</CardDescription>
+                <CardDescription>High-risk activity documentation with dynamic sections and data types.</CardDescription>
               </CardHeader>
             </Card>
             <Card className={cn("cursor-pointer transition-all hover:scale-[1.02] border-2", type === 'qc' ? "border-primary bg-primary/5 shadow-md" : "hover:border-primary/30")} onClick={() => { setType('qc'); setStep('info'); }}>
               <CardHeader className="text-center">
                 <div className="bg-primary/10 p-4 rounded-2xl w-fit mx-auto mb-4 text-primary"><ClipboardCheck className="h-10 w-10" /></div>
                 <CardTitle>QC Checklist</CardTitle>
-                <CardDescription>Quality assurance sign-offs.</CardDescription>
+                <CardDescription>Standardised trade quality assurance inspection forms.</CardDescription>
               </CardHeader>
             </Card>
             <Card className={cn("cursor-pointer transition-all hover:scale-[1.02] border-2", type === 'toolbox' ? "border-primary bg-primary/5 shadow-md" : "hover:border-primary/30")} onClick={() => { setType('toolbox'); setStep('info'); }}>
               <CardHeader className="text-center">
                 <div className="bg-primary/10 p-4 rounded-2xl w-fit mx-auto mb-4 text-primary"><BookOpen className="h-10 w-10" /></div>
                 <CardTitle>Toolbox Talk</CardTitle>
-                <CardDescription>Safety briefings & education.</CardDescription>
+                <CardDescription>Educational safety briefings with verification points.</CardDescription>
               </CardHeader>
             </Card>
           </div>
@@ -201,20 +232,20 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         {step === 'info' && (
           <Card className="animate-in slide-in-from-right-4 duration-300 max-w-2xl mx-auto w-full">
             <CardHeader className="bg-muted/10 border-b">
-              <CardTitle className="flex items-center gap-2">Template Configuration</CardTitle>
-              <CardDescription>Define the basic identity of your new site template.</CardDescription>
+              <CardTitle className="flex items-center gap-2">Template Identity</CardTitle>
+              <CardDescription>Define the base properties of your new digital template.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
                     <Label>Template Title</Label>
-                    <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Fit-out Quality Check..." />
+                    <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Roof Work Permit or Groundworks Inspection" />
                   </div>
                   
                   {type !== 'permit' && (
                     <div className="space-y-2">
-                      <Label>Trade Discipline</Label>
+                      <Label>Primary Trade Discipline</Label>
                       <Select value={trade} onValueChange={setTrade}>
                         <SelectTrigger><SelectValue placeholder="Select trade" /></SelectTrigger>
                         <SelectContent>{trades?.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent>
@@ -223,8 +254,8 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                   )}
 
                   <div className="space-y-2">
-                    <Label>Short Scope / Description</Label>
-                    <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief purpose of this form..." />
+                    <Label>Short Description / Use Case</Label>
+                    <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief purpose or instructions for using this form..." className="min-h-[100px]" />
                   </div>
                 </div>
               </div>
@@ -232,7 +263,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
             <CardFooter className="bg-muted/10 border-t justify-between p-6">
               <Button variant="ghost" onClick={() => setStep('type')}>Back</Button>
               <Button onClick={() => setStep('structure')} disabled={!title || (type !== 'permit' && !trade)}>
-                Next: Structure <ChevronRight className="ml-2 h-4 w-4" />
+                Next: Build Structure <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
           </Card>
@@ -245,22 +276,22 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                 <div className="space-y-1">
                     <h3 className="text-xl font-bold flex items-center gap-2">
                         <Eye className="h-5 w-5 text-primary" />
-                        Live Layout Preview
+                        Live Form Preview
                     </h3>
-                    <p className="text-xs text-muted-foreground">Adjust field widths to customize the grid appearance.</p>
+                    <p className="text-xs text-muted-foreground">Adjust layout widths and data types for each capture point.</p>
                 </div>
                 {type !== 'permit' && (
                     <Button variant="outline" size="sm" onClick={() => setChecklistItems([...checklistItems, { id: `ci-${Date.now()}`, text: '' }])} className="gap-2">
-                        <Plus className="h-4 w-4" /> Add Line
+                        <Plus className="h-4 w-4" /> Add Item
                     </Button>
                 )}
               </div>
 
               <div className="space-y-6 bg-muted/5 p-6 rounded-xl border border-dashed min-h-[400px]">
                 <div className="text-center mb-8 border-b pb-4">
-                    <Badge variant="secondary" className="mb-2 uppercase text-[10px] font-black">{type}</Badge>
-                    <h2 className="text-2xl font-black uppercase tracking-tight">{title || 'Untitled Form'}</h2>
-                    <p className="text-sm text-muted-foreground mt-1">{description}</p>
+                    <Badge variant="secondary" className="mb-2 uppercase text-[10px] font-black tracking-widest">{type}</Badge>
+                    <h2 className="text-2xl font-black uppercase tracking-tight">{title || 'Untitled Template'}</h2>
+                    <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">{description}</p>
                 </div>
 
                 {type === 'permit' ? (
@@ -283,17 +314,41 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                         <div 
                                             key={field.id} 
                                             className={cn(
-                                                "p-3 bg-white border rounded-lg shadow-sm space-y-2 transition-all",
+                                                "p-3 bg-white border rounded-lg shadow-sm space-y-3 transition-all relative group",
                                                 field.width === 'half' ? "col-span-1" : "col-span-1 md:col-span-2"
                                             )}
                                         >
-                                            <div className="flex items-center justify-between gap-4">
-                                                <Input 
-                                                    value={field.label} 
-                                                    onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
-                                                    className="h-7 text-xs font-bold leading-tight bg-transparent border-transparent p-0 focus-visible:ring-0" 
-                                                />
-                                                <div className="flex items-center gap-1">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-1 space-y-1">
+                                                    <Input 
+                                                        value={field.label} 
+                                                        onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
+                                                        className="h-7 text-xs font-bold leading-tight bg-transparent border-transparent p-0 focus-visible:ring-0 placeholder:text-muted-foreground/30" 
+                                                        placeholder="Label..."
+                                                    />
+                                                    <div className="flex items-center gap-2">
+                                                        <Select 
+                                                            value={field.type} 
+                                                            onValueChange={(v: TemplateFieldType) => updateFieldType(section.id, field.id, v)}
+                                                        >
+                                                            <SelectTrigger className="h-5 text-[8px] w-24 bg-muted/30 border-none px-1.5 font-black uppercase tracking-tighter">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    {getFieldTypeIcon(field.type)}
+                                                                    <SelectValue />
+                                                                </div>
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="checkbox" className="text-[10px]">Checkbox</SelectItem>
+                                                                <SelectItem value="date" className="text-[10px]">Date Field</SelectItem>
+                                                                <SelectItem value="text" className="text-[10px]">Short Text</SelectItem>
+                                                                <SelectItem value="textarea" className="text-[10px]">Long Text</SelectItem>
+                                                                <SelectItem value="photo" className="text-[10px]">Photo Upload</SelectItem>
+                                                                <SelectItem value="yes-no-na" className="text-[10px]">Yes/No/NA</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
@@ -313,7 +368,15 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                                 </div>
                                             </div>
                                             <div className="flex items-center justify-between pt-2 border-t border-dashed">
-                                                <div className="h-5 w-5 rounded border-2 border-primary/20" />
+                                                <div className="flex items-center gap-2">
+                                                    {field.type === 'checkbox' && <div className="h-4 w-4 rounded border-2 border-primary/20" />}
+                                                    {field.type === 'date' && <CalendarIcon className="h-4 w-4 text-muted-foreground/30" />}
+                                                    {field.type === 'photo' && <ImageIcon className="h-4 w-4 text-muted-foreground/30" />}
+                                                    {field.type === 'text' && <div className="h-4 w-24 rounded bg-muted/20" />}
+                                                    {field.type === 'textarea' && <div className="h-8 w-32 rounded bg-muted/20" />}
+                                                    {field.type === 'yes-no-na' && <div className="flex gap-1"><div className="h-4 w-8 rounded bg-muted/20" /><div className="h-4 w-8 rounded bg-muted/20" /></div>}
+                                                </div>
+                                                <span className="text-[8px] font-black uppercase text-muted-foreground/40">{field.type}</span>
                                             </div>
                                         </div>
                                     ))}
@@ -321,8 +384,8 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                 </div>
                             </div>
                         ))}
-                        <Button variant="outline" className="w-full border-dashed h-12" onClick={() => setSections([...sections, { id: `sec-${Date.now()}`, title: 'New Safety Section', fields: [] }])}>
-                            <Plus className="h-4 w-4 mr-2" /> Add Section
+                        <Button variant="outline" className="w-full border-dashed h-12 gap-2" onClick={() => setSections([...sections, { id: `sec-${Date.now()}`, title: 'New Safety Section', fields: [] }])}>
+                            <Layout className="h-4 w-4" /> Add Section
                         </Button>
                     </div>
                 ) : (
@@ -334,7 +397,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                     const newItems = [...checklistItems];
                                     newItems[idx].text = e.target.value;
                                     setChecklistItems(newItems);
-                                }} className="border-none shadow-none h-8 text-sm p-0 focus-visible:ring-0" />
+                                }} className="border-none shadow-none h-8 text-sm p-0 focus-visible:ring-0" placeholder="Verification criteria..." />
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => setChecklistItems(checklistItems.filter(i => i.id !== item.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
                         ))}
@@ -345,15 +408,15 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
 
             <div className="space-y-6">
               <Card>
-                <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Settings</CardTitle></CardHeader>
+                <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Metadata</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-1">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Title</Label>
-                    <Input value={title} onChange={e => setTitle(e.target.value)} className="h-8 text-sm" />
+                    <Input value={title} onChange={e => setTitle(e.target.value)} className="h-8 text-xs font-bold" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[9px] font-black uppercase text-muted-foreground">Category</Label>
-                    <Badge variant="secondary" className="h-5 text-[9px] uppercase px-2">{type}</Badge>
+                    <Badge variant="secondary" className="h-5 text-[9px] uppercase px-2 w-full justify-center">{type}</Badge>
                   </div>
                 </CardContent>
                 <CardFooter className="bg-muted/10 pt-4 px-4 pb-4">
@@ -382,7 +445,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                   <p className="text-xl font-bold border-l-4 border-primary pl-4">{title}</p>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Module</p>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">System Module</p>
                   <Badge variant="outline" className="h-8 px-4 font-bold text-primary border-primary/30 bg-primary/5 uppercase tracking-widest">
                     {type === 'permit' ? 'Permits' : type === 'qc' ? 'Quality Control' : 'Toolbox Talks'}
                   </Badge>
@@ -397,7 +460,7 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                     ) : (
                         <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> {checklistItems.length} Compliance Points defined</li>
                     )}
-                    <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> Automated PDF logic initialized</li>
+                    <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> Automated audit logic initialized</li>
                 </ul>
               </div>
             </CardContent>

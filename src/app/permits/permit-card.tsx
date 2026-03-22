@@ -21,7 +21,9 @@ import {
   Check,
   X as XIcon,
   Minus,
-  AlertTriangle
+  AlertTriangle,
+  FileText,
+  Camera
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -150,7 +152,6 @@ export function PermitCard({
             <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
               <p style="margin: 0 0 5px 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Project / Location</p>
               <p style="margin: 0; font-size: 16px; font-weight: bold;">${project?.name || 'Project'} - ${areaName}</p>
-              ${project?.address ? `<p style="margin: 5px 0 0 0; font-size: 11px; color: #475569; white-space: pre-wrap;">${project.address}</p>` : ''}
             </div>
           </div>
 
@@ -159,7 +160,6 @@ export function PermitCard({
             <p style="font-size: 13px; line-height: 1.6;">${permit.description}</p>
           </div>
 
-          <!-- Dynamic Sections Engine -->
           ${(permit.sections || []).map(section => `
             <div style="margin-bottom: 30px;">
               <h3 style="font-size: 12px; color: #334155; background: #f1f5f9; padding: 8px; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">${section.title}</h3>
@@ -167,7 +167,8 @@ export function PermitCard({
                 ${section.fields.map(f => {
                   let valueDisplay = f.value || '---';
                   if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
-                  if (f.type === 'yes-no-na') valueDisplay = String(f.value).toUpperCase();
+                  if (f.type === 'yes-no-na') valueDisplay = String(f.value || '---').toUpperCase();
+                  if (f.type === 'photo' && f.value) valueDisplay = '[Photo Documentation Captured]';
 
                   return `
                     <div style="display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f1f5f9; padding: 8px; border-radius: 4px;">
@@ -197,7 +198,6 @@ export function PermitCard({
             <div style="border-top: 1px solid #334155; padding-top: 10px;">
               <p style="margin: 0; font-size: 10px; font-weight: bold;">SITE AUTHORITY SIGNATURE</p>
               <p style="margin: 5px 0 0 0; font-size: 12px;">${project?.siteManager || permit.createdByEmail}</p>
-              ${project?.siteManagerPhone ? `<p style="margin: 2px 0 0 0; font-size: 10px;">Tel: ${project.siteManagerPhone}</p>` : ''}
             </div>
             <div style="border-top: 1px solid #334155; padding-top: 10px;">
               <p style="margin: 0; font-size: 10px; font-weight: bold;">RECIPIENT ACCEPTANCE</p>
@@ -341,7 +341,7 @@ export function PermitCard({
           
           <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
             <CollapsibleTrigger asChild onClick={e => e.stopPropagation()}>
-                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground">
+                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground h-8">
                     <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
                     {isExpanded ? "Hide Controls" : "View Safety Controls"}
                 </Button>
@@ -352,7 +352,10 @@ export function PermitCard({
                         <p className="text-[10px] font-black uppercase text-primary tracking-widest">{section.title}</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {section.fields.map((field) => (
-                                <div key={field.id} className="flex items-center justify-between p-2 rounded border bg-muted/5 gap-4">
+                                <div key={field.id} className={cn(
+                                    "flex items-center justify-between p-2 rounded border bg-muted/5 gap-4",
+                                    field.width === 'full' ? 'col-span-1 sm:col-span-2' : 'col-span-1'
+                                )}>
                                     <span className="text-[11px] font-medium truncate flex-1">{field.label}</span>
                                     <div className="flex shrink-0">
                                         {field.type === 'checkbox' ? (
@@ -363,8 +366,14 @@ export function PermitCard({
                                                 field.value === 'yes' ? 'bg-green-50 text-green-700' :
                                                 field.value === 'no' ? 'bg-red-50 text-red-700' : 'bg-muted text-muted-foreground'
                                             )}>
-                                                {String(field.value).toUpperCase()}
+                                                {String(field.value || '---').toUpperCase()}
                                             </Badge>
+                                        ) : field.type === 'photo' && field.value ? (
+                                            <div className="relative w-8 h-6 rounded overflow-hidden border cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(field.value); }}>
+                                                <Image src={field.value.url} alt="Verification" fill className="object-cover" />
+                                            </div>
+                                        ) : field.type === 'date' && field.value ? (
+                                            <span className="text-[10px] font-mono text-primary">{new Date(field.value).toLocaleDateString()}</span>
                                         ) : (
                                             <span className="text-[10px] font-bold text-primary truncate max-w-[100px]">{field.value || '---'}</span>
                                         )}
@@ -380,7 +389,7 @@ export function PermitCard({
           <div className="grid grid-cols-2 gap-4 bg-muted/20 p-3 rounded-lg border border-dashed text-[11px]">
               <div className="space-y-1">
                   <p className="font-bold text-muted-foreground uppercase tracking-widest">Valid From</p>
-                  <p className="font-medium flex items-center gap-1"><Calendar className="h-3 w-3" /> <ClientDate date={permit.validFrom} /></p>
+                  <p className="font-medium flex items-center gap-1"><Calendar className="h-3 w-3 text-primary" /> <ClientDate date={permit.validFrom} /></p>
               </div>
               <div className="space-y-1 text-right">
                   <p className="font-bold text-muted-foreground uppercase tracking-widest">Valid Until</p>
