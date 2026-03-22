@@ -82,7 +82,7 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   useEffect(() => { form.setValue('areaIds', []); }, [selectedProjectId, selectedTemplateId, form]);
@@ -92,8 +92,30 @@ export function AddChecklistToProject({ projects, checklistTemplates, subContrac
       try {
         if (!selectedTemplate) return;
         const recipientEmails = subContractors.filter(sub => values.recipients?.includes(sub.id)).map(sub => sub.email);
+        
         const promises = values.areaIds.map(areaId => {
-            const data = { projectId: values.projectId, areaId, title: selectedTemplate.title, trade: selectedTemplate.trade, items: selectedTemplate.items.map(item => ({ ...item, status: 'pending', comment: '', photos: [] })), recipients: recipientEmails, isTemplate: false, createdAt: new Date().toISOString(), photos: [] };
+            const data: any = { 
+                projectId: values.projectId, 
+                areaId, 
+                title: selectedTemplate.title, 
+                trade: selectedTemplate.trade, 
+                recipients: recipientEmails, 
+                isTemplate: false, 
+                createdAt: new Date().toISOString(), 
+                photos: [] 
+            };
+
+            // Handle both legacy and sectional templates
+            if (selectedTemplate.sections) {
+                data.sections = selectedTemplate.sections.map(sec => ({
+                    ...sec,
+                    items: sec.items.map(item => ({ ...item, status: 'pending', comment: '', photos: [] }))
+                }));
+                data.items = []; // Placeholder for legacy compat
+            } else {
+                data.items = selectedTemplate.items.map(item => ({ ...item, status: 'pending', comment: '', photos: [] }));
+            }
+
             return addDoc(collection(db, 'quality-checklists'), data);
         });
         await Promise.all(promises);

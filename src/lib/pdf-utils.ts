@@ -1,6 +1,6 @@
 'use client';
 
-import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation, ClientInstruction, Permit } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation, ClientInstruction, Permit, QualityChecklist } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
@@ -34,6 +34,179 @@ async function getSystemBranding(): Promise<{ logoUri: string | null, address: s
     console.error("Failed to fetch branding for PDF:", e);
   }
   return { logoUri: null, address: null };
+}
+
+/**
+ * generateQualityChecklistPDF - Creates a formal professional Quality Inspection document with per-item photo evidence.
+ */
+export async function generateQualityChecklistPDF(
+  checklist: QualityChecklist,
+  project?: Project
+) {
+  const { jsPDF } = await import('jspdf');
+  const html2canvas = (await import('html2canvas')).default;
+  const branding = await getSystemBranding();
+
+  const reportElement = document.createElement('div');
+  reportElement.style.padding = '50px';
+  reportElement.style.width = '800px';
+  reportElement.style.background = 'white';
+  reportElement.style.color = 'black';
+  reportElement.style.fontFamily = 'sans-serif';
+
+  const area = project?.areas?.find(a => a.id === checklist.areaId);
+  const flatItems = checklist.sections?.flatMap(s => s.items) || checklist.items;
+  const completed = flatItems.filter(i => i.status !== 'pending').length;
+  const progress = flatItems.length > 0 ? Math.round((completed / flatItems.length) * 100) : 0;
+
+  let bodyHtml = '';
+  
+  if (checklist.sections && checklist.sections.length > 0) {
+    checklist.sections.forEach(section => {
+        bodyHtml += `
+            <div style="margin-bottom: 30px; page-break-inside: avoid;">
+                <h3 style="font-size: 12px; color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 5px; margin-bottom: 15px; text-transform: uppercase; font-weight: bold;">
+                    ${section.title}
+                </h3>
+                ${section.items.map(item => `
+                    <div style="margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                        <div style="background: #f8fafc; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0;">
+                            <span style="font-size: 12px; font-weight: bold; color: #1e293b;">${item.text}</span>
+                            <span style="background: ${item.status === 'yes' ? '#dcfce7' : item.status === 'no' ? '#fee2e2' : '#f1f5f9'}; color: ${item.status === 'yes' ? '#166534' : item.status === 'no' ? '#991b1b' : '#475569'}; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase;">
+                                ${item.status.toUpperCase()}
+                            </span>
+                        </div>
+                        ${item.comment ? `<div style="padding: 10px; font-size: 11px; color: #475569; font-style: italic; background: white;">"${item.comment}"</div>` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    });
+  } else {
+    bodyHtml += `
+        <div style="margin-bottom: 30px;">
+            ${checklist.items.map(item => `
+                <div style="margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden;">
+                    <div style="background: #f8fafc; padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e2e8f0;">
+                        <span style="font-size: 12px; font-weight: bold; color: #1e293b;">${item.text}</span>
+                        <span style="background: ${item.status === 'yes' ? '#dcfce7' : item.status === 'no' ? '#fee2e2' : '#f1f5f9'}; color: ${item.status === 'yes' ? '#166534' : item.status === 'no' ? '#991b1b' : '#475569'}; padding: 2px 8px; border-radius: 4px; font-size: 9px; font-weight: bold; text-transform: uppercase;">
+                            ${item.status.toUpperCase()}
+                        </span>
+                    </div>
+                    ${item.comment ? `<div style="padding: 10px; font-size: 11px; color: #475569; font-style: italic; background: white;">"${item.comment}"</div>` : ''}
+                </div>
+            `).join('')}
+        </div>
+    `;
+  }
+
+  reportElement.innerHTML = `
+    <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <h1 style="margin: 0; color: #1e40af; font-size: 28px; letter-spacing: -1px;">QUALITY INSPECTION</h1>
+        <p style="margin: 5px 0 0 0; font-size: 16px; font-weight: bold;">${checklist.title}</p>
+        <p style="margin: 2px 0 0 0; color: #64748b; font-size: 12px; font-weight: bold;">Trade: ${checklist.trade}</p>
+      </div>
+      <div style="text-align: right; max-width: 300px;">
+        ${branding.logoUri ? `<img src="${branding.logoUri}" style="max-height: 60px; max-width: 200px; margin-bottom: 10px;" />` : ''}
+        ${branding.address ? `<p style="margin: 0; font-size: 9px; color: #475569; line-height: 1.4; white-space: pre-wrap;">${branding.address}</p>` : ''}
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
+      <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <p style="margin: 0 0 5px 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">Location Context</p>
+        <p style="margin: 0; font-size: 14px; font-weight: bold;">Project: ${project?.name || '---'}</p>
+        <p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">Area: ${area?.name || 'General Site'}</p>
+      </div>
+      <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <p style="margin: 0 0 5px 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">Audit Summary</p>
+        <p style="margin: 0; font-size: 14px; font-weight: bold;">Progress: ${progress}%</p>
+        <p style="margin: 2px 0 0 0; font-size: 14px; font-weight: bold;">Compliance: ${completed} of ${flatItems.length} points</p>
+      </div>
+    </div>
+
+    ${bodyHtml}
+
+    <div style="margin-top: 40px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+      <p style="font-size: 9px; color: #94a3b8; text-align: center;">Generated via SiteCommand Intelligence Hub on ${new Date().toLocaleString()}</p>
+    </div>
+  `;
+
+  document.body.appendChild(reportElement);
+  const headerCanvas = await html2canvas(reportElement, { scale: 2, useCORS: true, backgroundColor: '#ffffff', logging: false });
+  document.body.removeChild(reportElement);
+
+  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  const canvasHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
+  
+  pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfWidth, canvasHeightInPdf);
+
+  // Add Appendix for Photos
+  const allItemPhotos: { label: string, photo: Photo }[] = [];
+  flatItems.forEach(item => {
+    if (item.photos) {
+        item.photos.forEach(p => allItemPhotos.push({ label: item.text, photo: p }));
+    }
+  });
+
+  const generalPhotos = checklist.photos || [];
+
+  if (allItemPhotos.length > 0 || generalPhotos.length > 0) {
+    pdf.addPage();
+    pdf.setFontSize(16);
+    pdf.setTextColor(30, 64, 175);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("Verification Documentation Appendix", 10, 20);
+    
+    let currentY = 30;
+
+    // Process item-level photos
+    for (const item of allItemPhotos) {
+      if (currentY + 115 > pdfHeight) { pdf.addPage(); currentY = 20; }
+      
+      const dataUri = await safeLoadImage(item.photo.url);
+      if (dataUri) {
+        pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 100);
+      } else {
+        pdf.setFillColor(245, 245, 245);
+        pdf.rect(10, currentY, 190, 100, 'F');
+        pdf.setFontSize(10);
+        pdf.setTextColor(150, 150, 150);
+        pdf.text("Photo evidence failed to load.", 105, currentY + 50, { align: 'center' });
+      }
+      
+      pdf.setFontSize(9);
+      pdf.setTextColor(100, 116, 139);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(`Point: ${item.label}`, 10, currentY + 105, { maxWidth: 180 });
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Captured: ${new Date(item.photo.takenAt).toLocaleString()}`, 10, currentY + 110);
+      currentY += 125;
+    }
+
+    // Process general photos
+    for (const p of generalPhotos) {
+      if (currentY + 115 > pdfHeight) { pdf.addPage(); currentY = 20; }
+      
+      const dataUri = await safeLoadImage(p.url);
+      if (dataUri) {
+        pdf.addImage(dataUri, 'JPEG', 10, currentY, 190, 100);
+      }
+      
+      pdf.setFontSize(9);
+      pdf.setTextColor(100, 116, 139);
+      pdf.setFont("helvetica", "bold");
+      pdf.text("General Site Observation", 10, currentY + 105);
+      pdf.setFont("helvetica", "normal");
+      pdf.text(`Captured: ${new Date(p.takenAt).toLocaleString()}`, 10, currentY + 110);
+      currentY += 125;
+    }
+  }
+
+  return pdf;
 }
 
 /**
@@ -103,7 +276,7 @@ export async function generatePermitPDF(
       <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
         <p style="margin: 0 0 5px 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">Instructed Party</p>
         <p style="margin: 0; font-size: 14px; font-weight: bold;">${permit.contractorName}</p>
-        <p style="margin: 2px 0 0 0; font-size: 11px; color: #475569;">${subContractor?.email || ''}</p>
+        <p style="margin: 4px 0 0 0; font-size: 12px; color: #475569;">${subContractor?.email || ''}</p>
       </div>
       <div style="background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0;">
         <p style="margin: 0 0 5px 0; font-size: 9px; font-weight: bold; color: #64748b; text-transform: uppercase;">Location & Validity</p>

@@ -24,7 +24,8 @@ import {
   ListTodo,
   GripVertical,
   Fingerprint,
-  Asterisk
+  Asterisk,
+  HelpCircle
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,9 @@ import type {
   TemplateFieldType,
   PermitType, 
   DistributionUser,
-  TemplateField
+  TemplateField,
+  ChecklistItem,
+  QCSection
 } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
@@ -83,6 +86,7 @@ export function FormWizard({
   const [description, setDescription] = useState('');
   const [permitType, setPermitType] = useState<PermitType>('General');
   const [sections, setSections] = useState<TemplateSection[]>([]);
+  const [qcSections, setQCSections] = useState<QCSection[]>([]);
   const [checklistItems, setChecklistItems] = useState<{ id: string, text: string }[]>([]);
   const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
@@ -98,18 +102,26 @@ export function FormWizard({
         setReference(initialTemplate.reference || '');
         setDescription(initialTemplate.description || '');
         
-        if (initialType === 'permit' || initialTemplate.sections) {
+        if (initialType === 'permit') {
             setSections(initialTemplate.sections || []);
             setPermitType(initialTemplate.type || 'General');
-        } else if (initialType === 'qc' || (initialTemplate.items && !initialTemplate.content)) {
-            setChecklistItems(initialTemplate.items || []);
-        } else if (initialType === 'toolbox' || initialTemplate.content) {
+        } else if (initialType === 'qc') {
+            // Support legacy conversion
+            if (initialTemplate.sections) {
+                setQCSections(initialTemplate.sections);
+            } else {
+                setQCSections([{ 
+                    id: 'default-sec', 
+                    title: 'Verification Points', 
+                    items: initialTemplate.items || [] 
+                }]);
+            }
+        } else if (initialType === 'toolbox') {
             setTopic(initialTemplate.topic || '');
             setContent(initialTemplate.content || '');
             setChecklistItems(initialTemplate.verificationItems || []);
         }
     } else {
-        // Auto-generate reference for new template
         generateNextRef();
     }
   }, [initialTemplate, initialType]);
@@ -154,7 +166,12 @@ export function FormWizard({
           data = { ...data, type: permitType, sections };
         } else if (type === 'qc') {
           collName = 'quality-checklists';
-          data = { ...data, isTemplate: true, items: checklistItems.map(i => ({ ...i, status: 'pending' })) };
+          data = { 
+            ...data, 
+            isTemplate: true, 
+            sections: qcSections,
+            items: [] // Keep legacy flat array empty for new sectional checklists
+          };
         } else {
           collName = 'toolbox-talk-templates';
           data = { ...data, topic, content, verificationItems: checklistItems };
@@ -189,13 +206,22 @@ export function FormWizard({
     }));
   };
 
-  const updateFieldWidth = (sectionId: string, fieldId: string, width: 'half' | 'full') => {
-    setSections(prev => prev.map(s => {
+  const addQCItem = (sectionId: string) => {
+    setQCSections(prev => prev.map(s => {
         if (s.id === sectionId) {
             return {
                 ...s,
-                fields: s.fields.map(f => f.id === fieldId ? { ...f, width } : f)
+                items: [...s.items, { id: `i-${Date.now()}`, text: 'New verification question...', status: 'pending' }]
             };
+        }
+        return s;
+    }));
+  };
+
+  const updateFieldWidth = (sectionId: string, fieldId: string, width: 'half' | 'full') => {
+    setSections(prev => prev.map(s => {
+        if (s.id === sectionId) {
+            return { ...s, fields: s.fields.map(f => f.id === fieldId ? { ...f, width } : f) };
         }
         return s;
     }));
@@ -204,10 +230,7 @@ export function FormWizard({
   const updateFieldType = (sectionId: string, fieldId: string, fieldType: TemplateFieldType) => {
     setSections(prev => prev.map(s => {
         if (s.id === sectionId) {
-            return {
-                ...s,
-                fields: s.fields.map(f => f.id === fieldId ? { ...f, type: fieldType } : f)
-            };
+            return { ...s, fields: s.fields.map(f => f.id === fieldId ? { ...f, type: fieldType } : f) };
         }
         return s;
     }));
@@ -216,10 +239,7 @@ export function FormWizard({
   const updateFieldLabel = (sectionId: string, fieldId: string, label: string) => {
     setSections(prev => prev.map(s => {
         if (s.id === sectionId) {
-            return {
-                ...s,
-                fields: s.fields.map(f => f.id === fieldId ? { ...f, label } : f)
-            };
+            return { ...s, fields: s.fields.map(f => f.id === fieldId ? { ...f, label } : f) };
         }
         return s;
     }));
@@ -228,10 +248,7 @@ export function FormWizard({
   const toggleFieldRequired = (sectionId: string, fieldId: string) => {
     setSections(prev => prev.map(s => {
         if (s.id === sectionId) {
-            return {
-                ...s,
-                fields: s.fields.map(f => f.id === fieldId ? { ...f, required: !f.required } : f)
-            };
+            return { ...s, fields: s.fields.map(f => f.id === fieldId ? { ...f, required: !f.required } : f) };
         }
         return s;
     }));
@@ -240,10 +257,7 @@ export function FormWizard({
   const removeField = (sectionId: string, fieldId: string) => {
     setSections(prev => prev.map(s => {
         if (s.id === sectionId) {
-            return {
-                ...s,
-                fields: s.fields.filter(f => f.id !== fieldId)
-            };
+            return { ...s, fields: s.fields.filter(f => f.id !== fieldId) };
         }
         return s;
     }));
@@ -276,13 +290,24 @@ export function FormWizard({
   const handleSectionDragStart = (id: string) => setDraggedSectionId(id);
   const handleSectionDrop = (targetId: string) => {
     if (!draggedSectionId || draggedSectionId === targetId) return;
-    const newSections = [...sections];
-    const draggedIdx = newSections.findIndex(s => s.id === draggedSectionId);
-    const targetIdx = newSections.findIndex(s => s.id === targetId);
-    if (draggedIdx > -1 && targetIdx > -1) {
-        const [draggedSection] = newSections.splice(draggedIdx, 1);
-        newSections.splice(targetIdx, 0, draggedSection);
-        setSections(newSections);
+    if (type === 'permit') {
+        const newSections = [...sections];
+        const draggedIdx = newSections.findIndex(s => s.id === draggedSectionId);
+        const targetIdx = newSections.findIndex(s => s.id === targetId);
+        if (draggedIdx > -1 && targetIdx > -1) {
+            const [draggedSection] = newSections.splice(draggedIdx, 1);
+            newSections.splice(targetIdx, 0, draggedSection);
+            setSections(newSections);
+        }
+    } else if (type === 'qc') {
+        const newSections = [...qcSections];
+        const draggedIdx = newSections.findIndex(s => s.id === draggedSectionId);
+        const targetIdx = newSections.findIndex(s => s.id === targetId);
+        if (draggedIdx > -1 && targetIdx > -1) {
+            const [draggedSection] = newSections.splice(draggedIdx, 1);
+            newSections.splice(targetIdx, 0, draggedSection);
+            setQCSections(newSections);
+        }
     }
     setDraggedSectionId(null);
   };
@@ -329,7 +354,7 @@ export function FormWizard({
               <CardHeader className="text-center">
                 <div className="bg-primary/10 p-4 rounded-2xl w-fit mx-auto mb-4 text-primary"><ClipboardCheck className="h-10 w-10" /></div>
                 <CardTitle>QC Checklist</CardTitle>
-                <CardDescription>Standardised quality assurance inspection forms.</CardDescription>
+                <CardDescription>Standardised quality assurance inspection forms with sectional verification.</CardDescription>
               </CardHeader>
             </Card>
             <Card className={cn("cursor-pointer transition-all hover:scale-[1.02] border-2", type === 'toolbox' ? "border-primary bg-primary/5 shadow-md" : "hover:border-primary/30")} onClick={() => { setType('toolbox'); setStep('info'); }}>
@@ -395,6 +420,10 @@ export function FormWizard({
                 </div>
                 {type === 'permit' ? (
                     <Button variant="outline" size="sm" onClick={() => setSections([...sections, { id: `sec-${Date.now()}`, title: 'New Section', fields: [] }])} className="gap-2">
+                        <Plus className="h-4 w-4" /> Add Section
+                    </Button>
+                ) : type === 'qc' ? (
+                    <Button variant="outline" size="sm" onClick={() => setQCSections([...qcSections, { id: `sec-qc-${Date.now()}`, title: 'New Category', items: [] }])} className="gap-2">
                         <Plus className="h-4 w-4" /> Add Section
                     </Button>
                 ) : (
@@ -541,6 +570,76 @@ export function FormWizard({
                             ))}
                         </Accordion>
                     </div>
+                ) : type === 'qc' ? (
+                    <div className="space-y-8">
+                        <Accordion type="multiple" defaultValue={qcSections.map(s => s.id)} className="space-y-4">
+                            {qcSections.map((section) => (
+                                <AccordionItem 
+                                    key={section.id} 
+                                    value={section.id}
+                                    draggable
+                                    onDragStart={() => handleSectionDragStart(section.id)}
+                                    onDragOver={(e) => e.preventDefault()}
+                                    onDrop={() => handleSectionDrop(section.id)}
+                                    className={cn("border bg-white rounded-xl overflow-hidden shadow-sm transition-all", draggedSectionId === section.id && "opacity-20")}
+                                >
+                                    <div className="flex items-center justify-between bg-muted/20 p-2">
+                                        <div className="flex items-center gap-2 flex-1 mr-4">
+                                            <div className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground"><GripVertical className="h-4 w-4" /></div>
+                                            <Input 
+                                                value={section.title} 
+                                                onChange={(e) => setQCSections(qcSections.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))} 
+                                                className="bg-transparent border-transparent hover:border-border font-bold text-xs uppercase tracking-widest text-primary h-8" 
+                                            />
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <Button type="button" variant="ghost" size="sm" onClick={() => addQCItem(section.id)} className="h-8 text-[10px] uppercase font-bold text-primary">
+                                                <Plus className="h-3 w-3 mr-1" /> Add Question
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setQCSections(qcSections.filter(s => s.id !== section.id))}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                            <AccordionTrigger className="flex-none w-8 h-8 p-0 flex items-center justify-center border-none shadow-none hover:bg-transparent" />
+                                        </div>
+                                    </div>
+                                    <AccordionContent className="p-4 space-y-3">
+                                        {section.items.map((item, qIdx) => (
+                                            <div key={item.id} className="flex gap-3 bg-white p-3 rounded-lg border shadow-sm items-center group/q">
+                                                <span className="text-[10px] font-black text-muted-foreground w-4">{qIdx + 1}.</span>
+                                                <Input 
+                                                    value={item.text} 
+                                                    onChange={e => {
+                                                        const newSections = [...qcSections];
+                                                        const sIdx = newSections.findIndex(s => s.id === section.id);
+                                                        newSections[sIdx].items[qIdx].text = e.target.value;
+                                                        setQCSections(newSections);
+                                                    }} 
+                                                    className="border-none shadow-none h-8 text-sm p-0 focus-visible:ring-0 font-medium" 
+                                                    placeholder="Enter verification question..." 
+                                                />
+                                                <Badge variant="outline" className="hidden sm:flex text-[8px] uppercase font-bold text-muted-foreground gap-1">
+                                                    <ListTodo className="h-2 w-2" /> Yes/No/NA + Photo
+                                                </Badge>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover/q:opacity-100 transition-opacity" onClick={() => {
+                                                    const newSections = [...qcSections];
+                                                    const sIdx = newSections.findIndex(s => s.id === section.id);
+                                                    newSections[sIdx].items = newSections[sIdx].items.filter(i => i.id !== item.id);
+                                                    setQCSections(newSections);
+                                                }}>
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                        {section.items.length === 0 && (
+                                            <div className="py-8 text-center text-[10px] text-muted-foreground italic border-2 border-dashed rounded-lg">
+                                                No questions added to this section.
+                                            </div>
+                                        )}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    </div>
                 ) : (
                     <div className="space-y-3">
                         {checklistItems.map((item, idx) => (
@@ -610,6 +709,8 @@ export function FormWizard({
                 <ul className="text-sm space-y-2">
                     {type === 'permit' ? (
                         <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> {sections.length} Safety Sections defined</li>
+                    ) : type === 'qc' ? (
+                        <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> {qcSections.length} Categorised Verification Sections</li>
                     ) : (
                         <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> {checklistItems.length} Compliance Points defined</li>
                     )}

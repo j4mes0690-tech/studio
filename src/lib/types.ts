@@ -271,6 +271,12 @@ export type ChecklistItem = {
   photos?: Photo[];
 };
 
+export type QCSection = {
+  id: string;
+  title: string;
+  items: ChecklistItem[];
+};
+
 export type QualityChecklist = {
   id: string;
   projectId?: string;
@@ -279,7 +285,8 @@ export type QualityChecklist = {
   reference?: string;
   revision?: number;
   createdAt: string;
-  items: ChecklistItem[];
+  items: ChecklistItem[]; // Keep for legacy
+  sections?: QCSection[]; // New sectional structure
   areaId?: string;
   recipients?: string[];
   isTemplate?: boolean;
