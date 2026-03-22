@@ -15,7 +15,8 @@ import {
     ChevronRight,
     Search,
     Plus,
-    Layout
+    Layout,
+    ListFilter
 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy } from 'firebase/firestore';
@@ -26,6 +27,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 function FormCreatorContent() {
   const db = useFirestore();
@@ -87,7 +96,7 @@ function FormCreatorContent() {
     );
   }
 
-  // If we have an ID, we are in Edit/Create Mode
+  // If we have an ID or type, we are in Editor View
   if (templateId || templateType) {
     return (
         <main className="flex-1 p-4 md:p-8 lg:p-10 max-w-5xl mx-auto w-full">
@@ -98,7 +107,7 @@ function FormCreatorContent() {
                             <Wand2 className="h-8 w-8 text-primary" />
                         </div>
                         <h2 className="text-3xl font-black tracking-tight">
-                            {templateId ? 'Edit Template' : 'Template Designer'}
+                            {templateId ? 'Template Editor' : 'Template Designer'}
                         </h2>
                     </div>
                     <p className="text-muted-foreground font-medium">
@@ -106,7 +115,7 @@ function FormCreatorContent() {
                     </p>
                 </div>
                 <Button variant="ghost" onClick={() => router.push('/form-creator')} className="gap-2">
-                    <ArrowLeft className="h-4 w-4" /> Cancel & Return
+                    <ArrowLeft className="h-4 w-4" /> Exit Editor
                 </Button>
             </div>
 
@@ -119,7 +128,7 @@ function FormCreatorContent() {
     );
   }
 
-  // ELSE: Show Library Explorer
+  // ELSE: Show Library Explorer (List View)
   return (
     <main className="flex-1 p-4 md:p-8 lg:p-10 max-w-7xl mx-auto w-full space-y-10 pb-32">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -131,13 +140,8 @@ function FormCreatorContent() {
                     <h2 className="text-4xl font-black tracking-tighter uppercase">Form Studio</h2>
                 </div>
                 <p className="text-muted-foreground font-medium max-w-xl leading-relaxed">
-                    Centrally manage your project's digital documentation standards. Create, refine, and reorder master templates.
+                    Centrally manage your project's digital documentation standards.
                 </p>
-            </div>
-            <div className="flex gap-2">
-                <Button onClick={() => router.push('/form-creator?type=permit')} className="h-12 px-6 font-bold shadow-lg shadow-primary/20">
-                    <Plus className="mr-2 h-5 w-5" /> Create New
-                </Button>
             </div>
         </div>
 
@@ -145,35 +149,33 @@ function FormCreatorContent() {
             <Card className="bg-primary/5 border-primary/10 hover:bg-primary/10 transition-colors cursor-pointer group" onClick={() => router.push('/form-creator?type=permit')}>
                 <CardContent className="p-6 text-center space-y-3">
                     <div className="bg-background h-12 w-12 rounded-xl flex items-center justify-center mx-auto shadow-sm group-hover:scale-110 transition-transform"><FileCheck className="h-6 w-6 text-primary" /></div>
-                    <h3 className="font-bold uppercase text-[10px] tracking-widest">New Permit</h3>
+                    <h3 className="font-bold uppercase text-[10px] tracking-widest">Create Permit</h3>
                 </CardContent>
             </Card>
             <Card className="bg-primary/5 border-primary/10 hover:bg-primary/10 transition-colors cursor-pointer group" onClick={() => router.push('/form-creator?type=qc')}>
                 <CardContent className="p-6 text-center space-y-3">
                     <div className="bg-background h-12 w-12 rounded-xl flex items-center justify-center mx-auto shadow-sm group-hover:scale-110 transition-transform"><ClipboardCheck className="h-6 w-6 text-primary" /></div>
-                    <h3 className="font-bold uppercase text-[10px] tracking-widest">New QC Checklist</h3>
+                    <h3 className="font-bold uppercase text-[10px] tracking-widest">Create QC List</h3>
                 </CardContent>
             </Card>
             <Card className="bg-primary/5 border-primary/10 hover:bg-primary/10 transition-colors cursor-pointer group" onClick={() => router.push('/form-creator?type=toolbox')}>
                 <CardContent className="p-6 text-center space-y-3">
                     <div className="bg-background h-12 w-12 rounded-xl flex items-center justify-center mx-auto shadow-sm group-hover:scale-110 transition-transform"><BookOpen className="h-6 w-6 text-primary" /></div>
-                    <h3 className="font-bold uppercase text-[10px] tracking-widest">New Toolbox Talk</h3>
+                    <h3 className="font-bold uppercase text-[10px] tracking-widest">Create Toolbox Talk</h3>
                 </CardContent>
             </Card>
         </div>
 
-        <Tabs defaultValue="all" className="space-y-6">
+        <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
-                <TabsList className="h-10 p-1 bg-muted/50">
-                    <TabsTrigger value="all" className="text-xs font-bold uppercase tracking-tight">All Templates</TabsTrigger>
-                    <TabsTrigger value="permit" className="text-xs font-bold uppercase tracking-tight">Permits</TabsTrigger>
-                    <TabsTrigger value="qc" className="text-xs font-bold uppercase tracking-tight">QC Lists</TabsTrigger>
-                    <TabsTrigger value="toolbox" className="text-xs font-bold uppercase tracking-tight">Talks</TabsTrigger>
-                </TabsList>
+                <div className="flex items-center gap-3">
+                    <ListFilter className="h-5 w-5 text-muted-foreground" />
+                    <h3 className="font-black uppercase text-sm tracking-widest">Master Template Library</h3>
+                </div>
                 <div className="relative w-full sm:w-72">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        placeholder="Search your library..." 
+                        placeholder="Search templates..." 
                         className="pl-10 h-10 bg-muted/20 border-none shadow-none"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -181,42 +183,19 @@ function FormCreatorContent() {
                 </div>
             </div>
 
-            <TabsContent value="all" className="mt-0">
-                <TemplateLibraryGrid 
-                    searchTerm={searchTerm}
-                    permits={permitTemplates || []}
-                    qc={qcTemplates || []}
-                    toolbox={toolboxTemplates || []}
-                    onEdit={(type, id) => router.push(`/form-creator?type=${type}&id=${id}`)}
-                />
-            </TabsContent>
-            <TabsContent value="permit" className="mt-0">
-                <TemplateLibraryGrid 
-                    searchTerm={searchTerm}
-                    permits={permitTemplates || []}
-                    onEdit={(type, id) => router.push(`/form-creator?type=${type}&id=${id}`)}
-                />
-            </TabsContent>
-            <TabsContent value="qc" className="mt-0">
-                <TemplateLibraryGrid 
-                    searchTerm={searchTerm}
-                    qc={qcTemplates || []}
-                    onEdit={(type, id) => router.push(`/form-creator?type=${type}&id=${id}`)}
-                />
-            </TabsContent>
-            <TabsContent value="toolbox" className="mt-0">
-                <TemplateLibraryGrid 
-                    searchTerm={searchTerm}
-                    toolbox={toolboxTemplates || []}
-                    onEdit={(type, id) => router.push(`/form-creator?type=${type}&id=${id}`)}
-                />
-            </TabsContent>
-        </Tabs>
+            <TemplateLibraryList 
+                searchTerm={searchTerm}
+                permits={permitTemplates || []}
+                qc={qcTemplates || []}
+                toolbox={toolboxTemplates || []}
+                onEdit={(type, id) => router.push(`/form-creator?type=${type}&id=${id}`)}
+            />
+        </div>
     </main>
   );
 }
 
-function TemplateLibraryGrid({ searchTerm, permits = [], qc = [], toolbox = [], onEdit }: { 
+function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], onEdit }: { 
     searchTerm: string, 
     permits?: PermitTemplate[], 
     qc?: QualityChecklist[], 
@@ -224,13 +203,16 @@ function TemplateLibraryGrid({ searchTerm, permits = [], qc = [], toolbox = [], 
     onEdit: (type: 'permit' | 'qc' | 'toolbox', id: string) => void
 }) {
     const s = searchTerm.toLowerCase();
-    const filtered = [
-        ...permits.map(p => ({ ...p, studioType: 'permit' as const, icon: FileCheck })),
-        ...qc.map(q => ({ ...q, studioType: 'qc' as const, icon: ClipboardCheck })),
-        ...toolbox.map(t => ({ ...t, studioType: 'toolbox' as const, icon: BookOpen })),
-    ].filter(t => t.title.toLowerCase().includes(s) || (t.trade && t.trade.toLowerCase().includes(s)));
+    const allItems = useMemo(() => {
+        return [
+            ...permits.map(p => ({ ...p, studioType: 'permit' as const, icon: FileCheck, typeLabel: 'Permit to Work' })),
+            ...qc.map(q => ({ ...q, studioType: 'qc' as const, icon: ClipboardCheck, typeLabel: 'Quality Control' })),
+            ...toolbox.map(t => ({ ...t, studioType: 'toolbox' as const, icon: BookOpen, typeLabel: 'Toolbox Talk' })),
+        ].filter(t => t.title.toLowerCase().includes(s) || (t.trade && t.trade.toLowerCase().includes(s)))
+         .sort((a, b) => a.title.localeCompare(b.title));
+    }, [permits, qc, toolbox, s]);
 
-    if (filtered.length === 0) {
+    if (allItems.length === 0) {
         return (
             <div className="py-20 text-center border-2 border-dashed rounded-2xl bg-muted/5 opacity-40">
                 <p className="font-bold">No templates found matching your search.</p>
@@ -239,35 +221,48 @@ function TemplateLibraryGrid({ searchTerm, permits = [], qc = [], toolbox = [], 
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map((item) => (
-                <Card key={item.id} className="group hover:border-primary transition-all shadow-sm">
-                    <CardHeader className="pb-3">
-                        <div className="flex justify-between items-start">
-                            <Badge variant="secondary" className="uppercase text-[8px] font-black tracking-widest h-5 px-2 bg-muted/50 border-none">
-                                {item.studioType}
-                            </Badge>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => onEdit(item.studioType, item.id)}>
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        <CardTitle className="text-base line-clamp-1 group-hover:text-primary transition-colors">{item.title}</CardTitle>
-                        <CardDescription className="text-[10px] font-bold uppercase tracking-tight flex items-center gap-1.5">
-                            <item.icon className="h-3 w-3 text-muted-foreground" />
-                            {item.trade || 'General Site Standard'}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-4">
-                        <Button 
-                            variant="outline" 
-                            className="w-full h-9 font-bold text-xs uppercase tracking-tight border-primary/20 text-primary hover:bg-primary/5"
+        <div className="rounded-md border bg-card">
+            <Table>
+                <TableHeader className="bg-muted/30">
+                    <TableRow>
+                        <TableHead className="w-[40%]">Reference Title</TableHead>
+                        <TableHead>Category</TableHead>
+                        <TableHead>Trade Discipline</TableHead>
+                        <TableHead className="text-right">Action</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {allItems.map((item) => (
+                        <TableRow 
+                            key={item.id} 
+                            className="group cursor-pointer hover:bg-muted/50"
                             onClick={() => onEdit(item.studioType, item.id)}
                         >
-                            Open in Designer
-                        </Button>
-                    </CardContent>
-                </Card>
-            ))}
+                            <TableCell className="font-bold py-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-muted p-2 rounded group-hover:bg-background transition-colors">
+                                        <item.icon className="h-4 w-4 text-primary" />
+                                    </div>
+                                    <span className="group-hover:text-primary transition-colors">{item.title}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <Badge variant="secondary" className="uppercase text-[9px] font-black tracking-widest bg-muted/50 border-none px-2 h-5">
+                                    {item.typeLabel}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs font-semibold text-muted-foreground uppercase">
+                                {item.trade || 'General Standard'}
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <Button variant="ghost" size="sm" className="h-8 gap-2 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+                                    Edit Template <ChevronRight className="h-3.5 w-3.5" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
         </div>
     );
 }
