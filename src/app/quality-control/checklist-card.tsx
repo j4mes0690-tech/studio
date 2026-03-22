@@ -284,7 +284,16 @@ export function ChecklistCard({
                       {item.photos && item.photos.length > 0 && (
                         <div className="flex flex-wrap gap-2 pt-2">
                           {item.photos.map((p, idx) => (
-                            <div key={idx} className="relative w-16 h-12 rounded border bg-background overflow-hidden group"><Image src={p.url} alt="Ins" fill className="object-cover cursor-pointer" onClick={() => setViewingPhoto(p)}/><button type="button" className="absolute top-0 right-0 bg-destructive text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removePhoto(item.id, idx)}><X className="h-2.5 w-2.5" /></button></div>
+                            <div key={idx} className="relative w-16 h-12 rounded border bg-background overflow-hidden group shadow-sm">
+                                <Image src={p.url} alt="Ins" fill className="object-cover cursor-pointer" onClick={() => setViewingPhoto(p)}/>
+                                <button 
+                                    type="button" 
+                                    className="absolute top-0 right-0 bg-destructive text-white p-0.5 shadow-md transition-opacity" 
+                                    onClick={() => removePhoto(item.id, idx)}
+                                >
+                                    <X className="h-2.5 w-2.5" />
+                                </button>
+                            </div>
                           ))}
                         </div>
                       )}
@@ -303,7 +312,16 @@ export function ChecklistCard({
                 </div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                   {generalPhotos.map((p, idx) => (
-                    <div key={idx} className="relative aspect-video rounded-md border overflow-hidden group bg-muted"><Image src={p.url} alt="Gen" fill className="object-cover cursor-pointer" onClick={() => setViewingPhoto(p)}/><button type="button" className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeGeneralPhoto(idx)}><X className="h-3 w-3" /></button></div>
+                    <div key={idx} className="relative aspect-video rounded-md border overflow-hidden group bg-muted shadow-sm">
+                        <Image src={p.url} alt="Gen" fill className="object-cover cursor-pointer" onClick={() => setViewingPhoto(p)}/>
+                        <button 
+                            type="button" 
+                            className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 shadow-md transition-opacity" 
+                            onClick={() => removeGeneralPhoto(idx)}
+                        >
+                            <X className="h-3 w-3" />
+                        </button>
+                    </div>
                   ))}
                 </div>
               </AccordionContent>

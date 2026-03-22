@@ -416,7 +416,7 @@ export function FormWizard({
                                             className="bg-transparent border-transparent hover:border-border font-bold text-xs uppercase tracking-widest text-primary h-8" 
                                         />
                                     </div>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive opacity-0 group-hover/sec:opacity-100" onClick={() => setSections(sections.filter(s => s.id !== section.id))}><Trash2 className="h-3 w-3" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setSections(sections.filter(s => s.id !== section.id))}><Trash2 className="h-3 w-3" /></Button>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {section.fields.map((field) => (
@@ -467,7 +467,7 @@ export function FormWizard({
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex items-center gap-1 shrink-0 transition-opacity">
                                                     <TooltipProvider>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
@@ -499,14 +499,14 @@ export function FormWizard({
                 ) : (
                     <div className="space-y-3">
                         {checklistItems.map((item, idx) => (
-                            <div key={item.id} className="flex gap-3 group bg-white p-3 rounded-lg border shadow-sm items-center">
+                            <div key={item.id} className="flex gap-3 bg-white p-3 rounded-lg border shadow-sm items-center">
                                 <span className="text-[10px] font-black text-muted-foreground w-4">{idx + 1}.</span>
                                 <Input value={item.text} onChange={e => {
                                     const newItems = [...checklistItems];
                                     newItems[idx].text = e.target.value;
                                     setChecklistItems(newItems);
                                 }} className="border-none shadow-none h-8 text-sm p-0 focus-visible:ring-0" placeholder="Verification criteria..." />
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100" onClick={() => setChecklistItems(checklistItems.filter(i => i.id !== item.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setChecklistItems(checklistItems.filter(i => i.id !== item.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
                             </div>
                         ))}
                     </div>

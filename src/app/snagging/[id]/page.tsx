@@ -434,7 +434,7 @@ function EditSnaggingContent() {
                                                             <Image src={p.url} alt="Defect" fill className="object-cover" />
                                                             <button 
                                                                 type="button" 
-                                                                className="absolute top-0 right-0 bg-destructive text-white p-1 shadow-md opacity-0 group-hover/img:opacity-100 transition-opacity"
+                                                                className="absolute top-0 right-0 bg-destructive text-white p-1 shadow-md opacity-100 transition-opacity"
                                                                 onClick={(e) => handleRemovePhoto(e, listItem.id, pIdx)}
                                                             >
                                                                 <X className="h-3 w-3" />
@@ -479,7 +479,7 @@ function EditSnaggingContent() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center gap-1">
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => handleRemoveItem(e, listItem.id)}><Trash2 className="h-4 w-4" /></Button>
                                             </div>
                                         </div>
@@ -505,12 +505,12 @@ function EditSnaggingContent() {
                         {photos.map((p, i) => (
                             <div key={i} className="relative aspect-video rounded-lg border-2 border-muted overflow-hidden group cursor-pointer" onClick={() => setViewingPhoto(p)}>
                                 <Image src={p.url} alt="Context" fill className="object-cover" />
-                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
                                     <Maximize2 className="h-4 w-4 text-white" />
                                 </div>
                                 <button 
                                     type="button" 
-                                    className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-md" 
+                                    className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center shadow-md" 
                                     onClick={(e) => { e.stopPropagation(); handleMetadataChange('photos', photos.filter((_, idx) => idx !== i)); }}
                                 >
                                     <X className="h-2.5 w-2.5" />

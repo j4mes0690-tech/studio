@@ -334,7 +334,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                   <SelectTrigger className="w-40 bg-background"><SelectValue placeholder="Assign" /></SelectTrigger>
                                   <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                               </Select>
-                              <Button type="button" variant="ghost" className="h-10" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
+                              <Button type="button" variant="outline" className="h-10" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
                               <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim() && pendingItemPhotos.length === 0} size="icon" className="h-10 w-10"><Plus className="h-4 w-4" /></Button>
                           </div>
                       </div>
@@ -343,8 +343,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                         <div className="flex gap-2 p-3 bg-muted/20 rounded-xl border border-dashed">
                           {pendingItemPhotos.map((p, idx) => (
                             <div key={idx} className="relative w-16 h-12">
-                              <Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" />
-                              <button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-2 w-2" /></button>
+                              <Image src={p.url} alt="Pre" fill className="rounded-md object-cover border" /><button type="button" className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full p-0.5" onClick={() => setPendingItemPhotos(prev => prev.filter((_, i) => i !== idx))}><X className="h-2 w-2" /></button>
                             </div>
                           ))}
                         </div>
@@ -394,7 +393,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                                   )}
                                               </div>
                                           </div>
-                                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <div className="flex gap-1">
                                               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleStartEditItem(idx)}><Pencil className="h-4 w-4" /></Button>
                                               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
                                               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}><Trash2 className="h-4 w-4" /></Button>
@@ -407,34 +406,34 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                     </div>
 
                     <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
-                      <FormLabel className="text-xs font-black uppercase text-muted-foreground tracking-widest">Site Photos (Area Context)</FormLabel>
-                      <div className="flex flex-wrap gap-3">
-                          {photos.map((p, i) => (
-                              <div key={i} className="relative w-24 h-24 group">
-                                  <Image src={p.url} alt="Context" fill className="rounded-xl object-cover border-2" />
-                                  <button type="button" className="absolute -top-2 -right-2 bg-destructive text-white h-6 w-6 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-lg" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3.5 w-3.5" /></button>
-                              </div>
-                          ))}
-                          <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase">Capture</span></Button>
+                          <FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Area Photos</FormLabel>
+                          <div className="flex flex-wrap gap-3">
+                              {photos.map((p, i) => (
+                                  <div key={i} className="relative w-24 h-24 group">
+                                      <Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" />
+                                      <button type="button" className="absolute -top-2 -right-2 bg-destructive text-white h-6 w-6 rounded-full flex items-center justify-center shadow-lg" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3.5 w-3.5" /></button>
+                                  </div>
+                              ))}
+                              <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase">Photo</span></Button>
+                          </div>
                       </div>
-                    </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-2">
+                      <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-2">
                         <Button 
                             type="button" 
                             variant="outline" 
                             className="w-full sm:w-auto h-12 gap-2" 
                             disabled={isPending} 
-                            onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}), () => scrollToFirstError())}
+                            onClick={() => { setSubmitMode('draft'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
-                            <Save className="h-4 w-4" /> Save as Draft
+                            <Save className="h-4 w-4" /> Save Draft
                         </Button>
                         <Button 
                             type="button" 
                             variant="outline" 
                             className="w-full sm:flex-1 h-12 font-bold gap-2" 
                             disabled={isPending} 
-                            onClick={form.handleSubmit(v => onSubmit(v, false), () => scrollToFirstError())}
+                            onClick={() => { setSubmitMode('save'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
                             <CheckCircle2 className="h-4 w-4" /> Save
                         </Button>
@@ -442,7 +441,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                             type="button" 
                             className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
                             disabled={isPending} 
-                            onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}, true), () => scrollToFirstError())}
+                            onClick={() => { setSubmitMode('issue'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
                             {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Save & Send
                         </Button>
@@ -457,14 +456,14 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
         isOpen={isCameraOpen} 
         onClose={() => setIsCameraOpen(false)} 
         onCapture={onCaptureGeneral}
-        title="Area Documentation"
+        title="Snag List Evidence"
       />
 
       <CameraOverlay 
         isOpen={isItemCameraOpen || itemPhotoTargetId !== null} 
         onClose={() => { setIsItemCameraOpen(false); setItemPhotoTargetId(null); }} 
         onCapture={onCaptureItem}
-        title="Defect Documentation"
+        title="Specific Defect Documentation"
       />
     </>
   );

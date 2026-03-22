@@ -392,7 +392,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                                       {item.photos && item.photos.length > 0 && <span className="text-[9px] text-muted-foreground flex items-center gap-1"><Camera className="h-2 w-2" /> {item.photos.length} Photo evidence</span>}
                                                   </div>
                                               </div>
-                                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                              <div className="flex gap-1">
                                                   <button type="button" onClick={() => handleToggleStatus(idx)} className="mt-1 flex-shrink-0 transition-transform active:scale-90">
                                                       {item.status === 'closed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
                                                   </button>
