@@ -79,7 +79,7 @@ function QualityControlContent() {
   }, [db]);
   const { data: allChecklists, isLoading: checklistsLoading } = useCollection<QualityChecklist>(checklistsQuery);
 
-  // Define checklistInstances properly
+  // Define checklistInstances correctly to avoid ReferenceError
   const checklistInstances = useMemo(() => {
     if (!allChecklists) return [];
     return allChecklists.filter(c => !c.isTemplate);
@@ -319,7 +319,7 @@ function QualityControlContent() {
                     <Button variant="ghost" size="sm" onClick={clearSelection} className="mb-2 -ml-2 text-muted-foreground h-8 gap-1.5">
                         <ArrowLeft className="h-4 w-4" /> Back to All Projects
                     </Button>
-                    <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                    <h2 className="text-2xl font-bold tracking-tight flex items-gap-2">
                         <Building2 className="h-6 w-6 text-primary" />
                         {project?.name || 'Project Overview'}
                     </h2>

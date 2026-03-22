@@ -2,24 +2,18 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import { 
-  Wand2, 
   FileCheck, 
   ClipboardCheck, 
   BookOpen, 
   ChevronRight, 
-  ChevronLeft, 
   CheckCircle2, 
   Loader2, 
   Plus, 
   Trash2, 
   Layout, 
-  Sparkles,
   Save,
-  Tag,
-  X,
-  RefreshCw,
   Eye,
-  MessageSquare
+  Settings2
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,7 +33,6 @@ import type {
   Trade,
   DistributionUser 
 } from '@/lib/types';
-import { generateFormStructure } from '@/ai/flows/generate-form-structure';
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -51,7 +44,6 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
   const { toast } = useToast();
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
-  const [isGenerating, setIsGenerating] = useState(false);
 
   // Wizard State
   const [step, setStep] = useState<Step>('type');
@@ -67,76 +59,11 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
   const [topic, setTopic] = useState('');
   const [content, setContent] = useState('');
 
-  // AI Prompt State
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [refinePrompt, setRefinePrompt] = useState('');
-
   const tradesQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'trades');
   }, [db]);
   const { data: trades } = useCollection<Trade>(tradesQuery);
-
-  const handleAiGenerate = async (isRefining = false) => {
-    const promptText = isRefining ? refinePrompt : aiPrompt;
-    if (!promptText.trim() || !type) return;
-    
-    setIsGenerating(true);
-    try {
-      const currentStructure = isRefining ? JSON.stringify({
-        title,
-        description,
-        topic,
-        content,
-        sections,
-        items: checklistItems
-      }) : undefined;
-
-      const result = await generateFormStructure({ 
-        type, 
-        prompt: promptText,
-        currentStructure
-      });
-      
-      if (result) {
-        if (result.title) setTitle(result.title);
-        if (result.description) setDescription(result.description);
-        if (result.topic) setTopic(result.topic);
-        if (result.content) setContent(result.content);
-        
-        if (result.sections) {
-            setSections(result.sections.map((s: any, i: number) => ({
-                id: `sec-${Date.now()}-${i}`,
-                title: s.title,
-                fields: s.fields.map((f: any, fi: number) => ({
-                    id: `f-${Date.now()}-${i}-${fi}`,
-                    label: f.label,
-                    type: f.type
-                }))
-            })));
-        }
-
-        if (result.items) {
-            setChecklistItems(result.items.map((it: any, i: number) => ({ 
-                id: `it-${Date.now()}-${i}`, 
-                text: it.text 
-            })));
-        }
-        
-        toast({ 
-          title: isRefining ? "Design Refined" : "Initial Draft Ready", 
-          description: isRefining ? "Gemini has updated the structure." : "Review the generated preview." 
-        });
-        
-        if (!isRefining) setStep('structure');
-        setRefinePrompt('');
-      }
-    } catch (err) {
-      toast({ title: "Generation Failed", description: "AI could not parse your request. Try being more specific.", variant: "destructive" });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
 
   const handleSaveTemplate = () => {
     startTransition(async () => {
@@ -165,11 +92,40 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         setStep('type');
         setType(null);
         setTitle('');
-        setAiPrompt('');
       } catch (err) {
         toast({ title: 'Save Error', description: 'Failed to publish template.', variant: 'destructive' });
       }
     });
+  };
+
+  const addField = (sectionId: string) => {
+    setSections(prev => prev.map(s => {
+        if (s.id === sectionId) {
+            return {
+                ...s,
+                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Requirement', type: 'checkbox' }]
+            };
+        }
+        return s;
+    }));
+  };
+
+  const updateDynamicValue = (sectionId: string, fieldId: string, value: any) => {
+    setDynamicSections(prev => prev.map(s => {
+        if (s.id === sectionId) {
+            return { ...s, fields: s.fields.map(f => f.id === fieldId ? { ...f, value } : f) };
+        }
+        return s;
+    }));
+  };
+
+  // Helper to manage dynamic sections state (needed for the field update logic)
+  const setDynamicSections = (newSections: TemplateSection[] | ((prev: TemplateSection[]) => TemplateSection[])) => {
+    if (typeof newSections === 'function') {
+        setSections(newSections(sections));
+    } else {
+        setSections(newSections);
+    }
   };
 
   return (
@@ -217,45 +173,51 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
 
         {step === 'info' && (
           <Card className="animate-in slide-in-from-right-4 duration-300 max-w-2xl mx-auto w-full">
-            <CardHeader className="bg-primary/5 border-b">
-              <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" /> AI Design Studio</CardTitle>
-              <CardDescription>Describe the activity, and Gemini will draft the sections and verification logic.</CardDescription>
+            <CardHeader className="bg-muted/10 border-b">
+              <CardTitle className="flex items-center gap-2">Template Configuration</CardTitle>
+              <CardDescription>Define the basic identity of your new site template.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
-              <div className="space-y-3">
-                <Label className="font-bold text-xs uppercase tracking-widest text-muted-foreground">Describe your requirements</Label>
-                <Textarea 
-                  placeholder={`e.g. Create a permit for ${type === 'permit' ? 'hot work welding' : type === 'qc' ? 'second fix plumbing' : 'using ladders safely'} including standard checks and PPE...`}
-                  className="min-h-[150px] text-base"
-                  value={aiPrompt}
-                  onChange={e => setAiPrompt(e.target.value)}
-                />
-                <Button className="w-full h-12 gap-2 font-bold text-lg shadow-lg shadow-primary/20" onClick={() => handleAiGenerate(false)} disabled={isGenerating || !aiPrompt.trim()}>
-                  {isGenerating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Wand2 className="h-5 w-5" />}
-                  Generate Form Draft
-                </Button>
-              </div>
-              <Separator />
               <div className="space-y-4">
-                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest text-center">Or Manual Configuration</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div className="space-y-2">
-                    <Label>Title</Label>
-                    <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Template Name..." />
+                    <Label>Template Title</Label>
+                    <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Groundworks Permit..." />
                   </div>
                   <div className="space-y-2">
-                    <Label>Discipline</Label>
+                    <Label>Trade Discipline</Label>
                     <Select value={trade} onValueChange={setTrade}>
                       <SelectTrigger><SelectValue placeholder="Select trade" /></SelectTrigger>
                       <SelectContent>{trades?.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent>
                     </Select>
+                  </div>
+                  {type === 'permit' && (
+                    <div className="space-y-2">
+                        <Label>Permit Classification</Label>
+                        <Select value={permitType} onValueChange={(v: any) => setPermitType(v)}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="General">General</SelectItem>
+                                <SelectItem value="Hot Work">Hot Work</SelectItem>
+                                <SelectItem value="Confined Space">Confined Space</SelectItem>
+                                <SelectItem value="Excavation">Excavation</SelectItem>
+                                <SelectItem value="Lifting">Lifting</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                  )}
+                  <div className="space-y-2">
+                    <Label>Short Description</Label>
+                    <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Brief purpose of this form..." />
                   </div>
                 </div>
               </div>
             </CardContent>
             <CardFooter className="bg-muted/10 border-t justify-between p-6">
               <Button variant="ghost" onClick={() => setStep('type')}>Back</Button>
-              <Button onClick={() => setStep('structure')} disabled={!title}>Next Step <ChevronRight className="ml-2 h-4 w-4" /></Button>
+              <Button onClick={() => setStep('structure')} disabled={!title || !trade}>
+                Manual Build <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
             </CardFooter>
           </Card>
         )}
@@ -334,32 +296,6 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
             </div>
 
             <div className="space-y-6">
-              <Card className="border-primary/20 bg-primary/5 shadow-lg">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
-                    Modify with Gemini
-                  </CardTitle>
-                  <CardDescription className="text-[10px]">Iterative editing: Tell the AI what to change.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Textarea 
-                    placeholder="e.g. Add a section for Electrical Isolation..." 
-                    className="min-h-[100px] text-xs bg-background"
-                    value={refinePrompt}
-                    onChange={e => setRefinePrompt(e.target.value)}
-                  />
-                  <Button 
-                    className="w-full h-10 text-xs font-bold gap-2"
-                    onClick={() => handleAiGenerate(true)}
-                    disabled={isGenerating || !refinePrompt.trim()}
-                  >
-                    {isGenerating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                    Refine Form Structure
-                  </Button>
-                </CardContent>
-              </Card>
-
               <Card>
                 <CardHeader className="pb-2"><CardTitle className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Configuration</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
@@ -429,16 +365,4 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
       </div>
     </div>
   );
-
-  function addField(sectionId: string) {
-    setSections(prev => prev.map(s => {
-        if (s.id === sectionId) {
-            return {
-                ...s,
-                fields: [...s.fields, { id: `f-${Date.now()}`, label: 'New Requirement', type: 'checkbox' }]
-            };
-        }
-        return s;
-    }));
-  }
 }
