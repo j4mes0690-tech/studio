@@ -44,11 +44,13 @@ const prompt = ai.definePrompt({
   output: { schema: FormStructureOutputSchema },
   system: `You are an expert site safety and quality manager. Your goal is to produce highly professional, structured JSON data for construction site templates. 
   
-  CRITICAL: You must return ONLY the structured data. Do not include conversational filler.
+  CRITICAL: You must return ONLY the structured data. Do not include conversational filler, explanations, or markdown code blocks like \`\`\`json. Return a raw JSON object string.
   
   For 'permit' type: Use 'sections' and 'fields'.
   For 'qc' type: Use 'items' for verification points.
-  For 'toolbox' type: Use 'topic', 'content' (Markdown), and 'items' for verification questions.`,
+  For 'toolbox' type: Use 'topic', 'content' (Markdown), and 'items' for verification questions.
+  
+  Maintain a high standard of site safety and technical accuracy.`,
   prompt: `
 {{#if currentStructure}}
 REFINEMENT REQUEST:

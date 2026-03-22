@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useDoc, useCollection, useUser, useStorage, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection, query, orderBy, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, orderBy, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord } from '@/lib/types';
@@ -29,6 +29,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { VoiceInput } from '@/components/voice-input';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ClientDate } from '../../components/client-date';
@@ -262,7 +273,7 @@ function EditSnaggingContent() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-20">
+    <div className="max-w-6xl mx-auto space-y-6 pb-20 px-4 md:px-0">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => router.push('/snagging')} className="gap-2">
@@ -364,7 +375,7 @@ function EditSnaggingContent() {
                         )}
                     </div>
 
-                    <div className="divide-y">
+                    <div className="divide-y overflow-hidden">
                         {items.length === 0 ? (
                             <div className="py-20 text-center text-muted-foreground opacity-40">
                                 <ListChecks className="h-12 w-12 mx-auto mb-2" />

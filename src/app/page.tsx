@@ -84,9 +84,9 @@ const DASHBOARD_CARDS = [
 function FlashingBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <div className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center z-40">
-      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-      <span className="relative inline-flex rounded-full h-5 w-5 bg-accent text-[10px] font-black text-white items-center justify-center shadow-lg border border-white/20">
+    <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center z-40">
+      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+      <span className="relative inline-flex rounded-full h-4 w-4 bg-primary text-[8px] font-black text-white items-center justify-center shadow-lg border border-white/20">
         {count}
       </span>
     </div>
@@ -233,13 +233,10 @@ export default function Dashboard() {
 
         <div className="flex flex-col items-center text-center gap-3 mt-4 md:mt-8 relative w-full max-w-6xl">
             <div className={cn("p-4 bg-primary/10 rounded-2xl transition-all shadow-[0_0_30px_rgba(242,101,34,0.15)]", isCompact && "p-2")}>
-                <Logo 
-                  hideText 
-                  iconClassName={cn("transition-all", isCompact ? "h-10 w-10" : "h-16 w-16 md:h-24 md:w-24")} 
-                />
+                <Logo hideText iconClassName={cn("transition-all", isCompact ? "h-10 w-10" : "h-16 w-16 md:h-24 md:w-24")} />
             </div>
-            <div className="px-4 mt-2">
-                <h1 className={cn("font-black tracking-tighter transition-all uppercase", isCompact ? "text-xl md:text-2xl" : "text-3xl md:text-6xl")}>
+            <div className="px-4 mt-2 text-center">
+                <h1 className={cn("font-black tracking-tighter transition-all uppercase inline-flex items-center gap-2", isCompact ? "text-xl md:text-2xl" : "text-3xl md:text-6xl")}>
                   Site<span className="text-primary">Command</span>
                 </h1>
                 {!isCompact && <p className="text-muted-foreground text-sm mt-2 font-bold uppercase tracking-widest opacity-60">Intelligence Hub for Modern Construction</p>}
@@ -260,7 +257,7 @@ export default function Dashboard() {
 
         <div className={cn(
             "grid w-full pb-12 transition-all mt-8",
-            isCompact ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-3" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 max-w-6xl"
+            isCompact ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8 max-w-6xl"
         )}>
           {allowedCards.map((card) => {
             const pendingCount = pendingCounts[card.id as keyof typeof pendingCounts] || 0;
@@ -269,34 +266,36 @@ export default function Dashboard() {
                     <div className="absolute top-2 left-2 z-30 p-1.5 opacity-0 md:group-hover:opacity-40 hover:!opacity-100 transition-opacity cursor-grab active:cursor-grabbing bg-background/90 rounded border border-border shadow-sm hidden md:block" onMouseEnter={() => setCanDragId(card.id)} onMouseLeave={() => setCanDragId(null)}><GripVertical className="h-3.5 w-3.5 text-primary" /></div>
                     <Link href={card.href} className="block h-full" onClick={() => { if (!draggedId) setLoadingModule(card.id); }}>
                         <Card className={cn(
-                          "flex flex-col items-center justify-center transition-all hover:bg-muted/50 hover:border-primary hover:shadow-[0_4px_20px_rgba(242,101,34,0.1)] h-full relative overflow-hidden", 
-                          isCompact ? "p-3 md:p-4 text-center" : "p-5 md:p-8 text-center", 
+                          "flex flex-col items-center transition-all hover:bg-muted/50 hover:border-primary hover:shadow-[0_4px_20px_rgba(242,101,34,0.1)] h-full relative overflow-hidden", 
+                          isCompact ? "p-4" : "p-6 md:p-8", 
                           loadingModule === card.id && "ring-2 ring-primary ring-offset-2"
                         )}>
                             {loadingModule === card.id && (<div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-[1px] animate-in fade-in duration-200"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>)}
-                            <CardHeader className="p-0 relative w-full flex flex-col items-center">
-                                <div className="relative flex items-center justify-center mb-2 md:mb-4 h-12 w-12 shrink-0">
-                                    <card.icon className={cn(
-                                        "transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary", 
-                                        isCompact ? "h-6 w-6" : "h-10 w-10 md:h-12 md:w-12", 
-                                        loadingModule === card.id && "opacity-20"
-                                    )} />
+                            <div className="relative flex flex-col items-center justify-center w-full">
+                                <div className="relative mb-4 flex items-center justify-center shrink-0">
+                                    <div className={cn("flex items-center justify-center", isCompact ? "h-10 w-10" : "h-16 w-16")}>
+                                        <card.icon className={cn(
+                                            "transition-transform group-hover:scale-110 text-muted-foreground group-hover:text-primary", 
+                                            isCompact ? "h-7 w-7" : "h-12 w-12 md:h-14 md:w-14", 
+                                            loadingModule === card.id && "opacity-20"
+                                        )} />
+                                    </div>
                                     <FlashingBadge count={pendingCount} />
                                 </div>
                                 <CardTitle className={cn(
-                                    "transition-all font-bold text-center w-full truncate", 
-                                    isCompact ? "text-[10px] md:text-xs" : "text-sm md:text-xl"
+                                    "transition-all font-bold text-center w-full leading-tight", 
+                                    isCompact ? "text-xs px-1" : "text-lg md:text-xl"
                                 )}>
                                     {card.label}
                                 </CardTitle>
-                            </CardHeader>
-                            {!isCompact && card.desc && (
-                                <CardContent className="p-0 mt-3 hidden sm:block text-center w-full">
-                                    <p className="text-[10px] md:text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                                        {card.desc}
-                                    </p>
-                                </CardContent>
-                            )}
+                                {!isCompact && card.desc && (
+                                    <div className="mt-3 hidden sm:block text-center w-full">
+                                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                                            {card.desc}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </Card>
                     </Link>
                 </div>

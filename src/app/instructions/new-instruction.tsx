@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, FileIcon, FileText, Loader2, Link as LinkIcon } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, FileIcon, FileText, Loader2, Link as LinkIcon, Save, Send } from 'lucide-react';
 import type { Project, Photo, FileAttachment, ClientInstruction, Instruction } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
@@ -42,7 +42,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
-import { getProjectInitials, getNextReference } from '@/lib/utils';
+import { getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
 import { sendSiteInstructionEmailAction } from './actions';
 import { CameraOverlay } from '@/components/camera-overlay';
 
@@ -53,6 +53,7 @@ const NewInstructionSchema = z.object({
     .string()
     .min(10, 'Site instructions must be at least 10 characters.'),
   externalRecipient: z.string().optional().default(''),
+  status: z.enum(['draft', 'issued']).default('draft'),
 });
 
 type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
@@ -82,6 +83,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
       clientInstructionId: 'none',
       originalText: '',
       externalRecipient: '',
+      status: 'draft',
     },
   });
 
@@ -93,12 +95,6 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
     return query(collection(db, 'client-instructions'), where('projectId', '==', selectedProjectId));
   }, [db, selectedProjectId]);
   const { data: clientDirectives } = useCollection<ClientInstruction>(ciQuery);
-
-  const availableSubs = useMemo(() => {
-    if (!selectedProject || !selectedProjectId) return [];
-    // Normally we'd fetch actual sub names, here we'll assume they are emails for the dropdown
-    return selectedProject.assignedSubContractors || [];
-  }, [selectedProject, selectedProjectId]);
 
   const onCapture = (photo: Photo) => {
     setPhotos(prev => [...prev, photo]);
@@ -122,13 +118,31 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
   };
 
   const onSubmit = (values: NewInstructionFormValues) => {
+    const isIssuing = values.status === 'issued';
+    
     startTransition(async () => {
       try {
+        toast({ title: isIssuing ? 'Issuing Instruction' : 'Saving Draft', description: 'Processing documentation...' });
+
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
-            const blob = await dataUriToBlob(p.url);
-            const url = await uploadFile(storage, `instructions/photos/${Date.now()}-${i}.jpg`, blob);
-            return { ...p, url };
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `instructions/photos/${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
+
+        const uploadedFiles = await Promise.all(
+          files.map(async (f, i) => {
+            if (f.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(f.url);
+              const url = await uploadFile(storage, `instructions/files/${Date.now()}-${i}-${f.name}`, blob);
+              return { ...f, url };
+            }
+            return f;
           })
         );
 
@@ -145,12 +159,13 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
           recipients: values.externalRecipient ? [values.externalRecipient] : [],
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
-          files: [],
-          status: 'draft',
+          files: uploadedFiles,
+          status: values.status,
+          distributedAt: isIssuing ? new Date().toISOString() : null,
         };
 
         await addDoc(collection(db, 'instructions'), instructionData);
-        toast({ title: 'Success', description: 'Site instruction recorded.' });
+        toast({ title: 'Success', description: isIssuing ? 'Instruction issued and distributed.' : 'Instruction saved as draft.' });
         setOpen(false);
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to record instruction.', variant: 'destructive' });
@@ -166,6 +181,8 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
     }
   }, [open, form]);
 
+  const submissionStatus = form.watch('status');
+
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -175,84 +192,108 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
             New Instruction
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+          <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
             <DialogTitle>Issue Site Instruction</DialogTitle>
-            <DialogDescription>
-              Record a formal instruction for trade partners.
-            </DialogDescription>
+            <DialogDescription>Record a formal instruction for trade partners. Link to client directives for traceability.</DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                    control={form.control}
-                    name="projectId"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Project</FormLabel>
-                        <Select onValueChange={(v) => { field.onChange(v); form.setValue('clientInstructionId', 'none'); }} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
-                        <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                        </Select>
-                    </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="clientInstructionId"
-                    render={({ field }) => (
-                    <FormItem>
-                        <FormLabel className="flex items-center gap-2">
-                            <LinkIcon className="h-3.5 w-3.5 text-primary" /> Linked Directive
-                        </FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="No link" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                            <SelectItem value="none">Standalone Instruction</SelectItem>
-                            {clientDirectives?.map(ci => (
-                                <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
-                    </FormItem>
-                    )}
-                />
-              </div>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <ScrollArea className="flex-1 px-6 py-6">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="projectId"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Project</FormLabel>
+                            <Select onValueChange={(v) => { field.onChange(v); form.setValue('clientInstructionId', 'none'); }} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
+                            <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="clientInstructionId"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel className="flex items-center gap-2">
+                                <LinkIcon className="h-3.5 w-3.5 text-primary" /> Linked Directive
+                            </FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="No link" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="none">Standalone Instruction</SelectItem>
+                                {clientDirectives?.map(ci => (
+                                    <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>
+                                ))}
+                            </SelectContent>
+                            </Select>
+                        </FormItem>
+                        )}
+                    />
+                  </div>
 
-              <FormField
-                control={form.control}
-                name="originalText"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel>Instruction Details</FormLabel>
-                      <VoiceInput onResult={field.onChange} />
-                    </div>
-                    <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="originalText"
+                    render={({ field }) => (
+                      <FormItem>
+                        <div className="flex items-center justify-between">
+                          <FormLabel>Instruction Details</FormLabel>
+                          <VoiceInput onResult={field.onChange} />
+                        </div>
+                        <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <div className="space-y-4">
-                <FormLabel>Evidence & Photos</FormLabel>
-                <div className="flex flex-wrap gap-2">
-                  {photos.map((p, i) => (
-                    <div key={i} className="relative w-20 h-20 group">
-                      <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
-                      <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                  <div className="space-y-4">
+                    <FormLabel>Evidence & Photos</FormLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {photos.map((p, i) => (
+                        <div key={i} className="relative w-20 h-20 group">
+                          <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
+                          <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                        </div>
+                      ))}
+                      <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
                     </div>
-                  ))}
-                  <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
+                  </div>
                 </div>
-              </div>
+              </ScrollArea>
 
-              <DialogFooter className="pt-4 border-t">
-                <Button type="submit" disabled={isPending} className="w-full h-12 text-lg font-bold">
-                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Save Instruction
+              <DialogFooter className="p-6 border-t bg-muted/10 gap-3">
+                <Button 
+                    type="submit" 
+                    variant="outline" 
+                    className="w-full sm:w-auto h-12" 
+                    disabled={isPending} 
+                    onClick={() => form.setValue('status', 'draft')}
+                >
+                    <Save className="mr-2 h-4 w-4" /> Save as Draft
+                </Button>
+                <Button 
+                    type="submit" 
+                    variant="outline" 
+                    className="w-full sm:flex-1 h-12 font-bold" 
+                    disabled={isPending} 
+                    onClick={() => form.setValue('status', 'issued')}
+                >
+                    <Save className="mr-2 h-4 w-4" /> Save
+                </Button>
+                <Button 
+                    type="submit" 
+                    className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" 
+                    disabled={isPending} 
+                    onClick={() => form.setValue('status', 'issued')}
+                >
+                    {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />} Save & Issue
                 </Button>
               </DialogFooter>
               <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
