@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo } from 'react';
 import type { Permit, Project, SubContractor, DistributionUser, Photo } from '@/lib/types';
+import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,6 @@ import {
   Pencil,
   Check,
   Minus,
-  ExternalLink,
   AlertTriangle
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
@@ -47,7 +47,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { EditPermitDialog } from './edit-permit';
 import { ImageLightbox } from '@/components/image-lightbox';
-import Image from 'next/image';
 import { sendPermitEmailAction } from './actions';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 
@@ -142,7 +141,7 @@ export function PermitCard({
           let valueDisplay = String(f.value || '---');
           if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
           if (f.type === 'yes-no-na') valueDisplay = String(f.value || '---').toUpperCase();
-          if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = `[${f.value.length} Photos]`;
+          if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = `[${f.value.length} Photo(s) Captured]`;
 
           fieldsHtml += `
             <div style="display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f1f5f9; padding: 8px; border-radius: 4px;">
@@ -227,12 +226,11 @@ export function PermitCard({
     <>
       <Card 
         className={cn(
-          "transition-all shadow-sm group cursor-pointer border-l-4 overflow-hidden",
+          "transition-all shadow-sm group border-l-4 overflow-hidden",
           isDraft ? "border-orange-200 border-l-orange-400 bg-orange-50/5" :
           isClosed ? "border-l-muted opacity-75" :
           isExpired ? "border-l-destructive bg-destructive/5" : "border-l-primary"
         )}
-        onClick={() => setIsEditDialogOpen(true)}
       >
         <CardHeader className="p-4 md:p-6 pb-3">
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
@@ -253,7 +251,7 @@ export function PermitCard({
                 </span>
               </CardDescription>
             </div>
-            <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap shrink-0" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-1.5 shrink-0">
               <TooltipProvider>
                 {isDraft ? (
                   <>
@@ -295,15 +293,9 @@ export function PermitCard({
                 </Tooltip>
 
                 <div className="flex items-center gap-1">
-                    <EditPermitDialog 
-                        permit={permit} 
-                        projects={projects} 
-                        subContractors={subContractors} 
-                        allPermits={allPermits}
-                        currentUser={currentUser}
-                        open={isEditDialogOpen}
-                        onOpenChange={setIsEditDialogOpen}
-                    />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setIsEditDialogOpen(true)}>
+                        <Pencil className="h-4 w-4" />
+                    </Button>
 
                     <AlertDialog>
                         <Tooltip>
@@ -406,6 +398,16 @@ export function PermitCard({
           </div>
         </CardContent>
       </Card>
+
+      <EditPermitDialog 
+        permit={permit} 
+        projects={projects} 
+        subContractors={subContractors} 
+        allPermits={allPermits}
+        currentUser={currentUser}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+      />
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>

@@ -19,6 +19,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,6 +46,7 @@ const EditPermitSchema = z.object({
   customAreaName: z.string().optional(),
   contractorId: z.string().min(1, 'Contractor is required.'),
   status: z.enum(['draft', 'issued', 'closed', 'cancelled']).default('issued'),
+  validTo: z.string().min(1, 'Expiry date/time is required.'),
 });
 
 type EditPermitFormValues = z.infer<typeof EditPermitSchema>;
@@ -84,6 +86,7 @@ export function EditPermitDialog({
       customAreaName: permit.customAreaName || '',
       contractorId: permit.contractorId,
       status: permit.status,
+      validTo: new Date(permit.validTo).toISOString().slice(0, 16),
     },
   });
 
@@ -95,6 +98,7 @@ export function EditPermitDialog({
         customAreaName: permit.customAreaName || '',
         contractorId: permit.contractorId,
         status: permit.status,
+        validTo: new Date(permit.validTo).toISOString().slice(0, 16),
       });
       setDynamicSections(permit.sections || []);
     }
@@ -231,6 +235,7 @@ export function EditPermitDialog({
           contractorName: contractor?.name || permit.contractorName,
           status: targetStatus,
           sections: processedSections,
+          validTo: new Date(values.validTo).toISOString(),
         };
 
         if (targetStatus === 'closed' && permit.status !== 'closed') {
@@ -284,6 +289,16 @@ export function EditPermitDialog({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField control={form.control} name="contractorId" render={({ field }) => (
                             <FormItem><FormLabel>Contractor / Party</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder={projectSubs.length > 0 ? "Select contractor" : "No partners assigned to project"} /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                        )} />
+                        <FormField control={form.control} name="validTo" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-primary" />
+                                    Permit Expiry
+                                </FormLabel>
+                                <FormControl><Input type="datetime-local" {...field} className="bg-background" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
                         )} />
                     </div>
                 </div>

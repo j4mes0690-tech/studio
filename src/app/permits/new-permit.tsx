@@ -36,7 +36,8 @@ import {
   Layout,
   Calendar as CalendarIcon,
   Upload,
-  Check
+  Check,
+  Clock
 } from 'lucide-react';
 import type { 
   Project, 
@@ -50,6 +51,8 @@ import type {
 } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { cn, getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
@@ -67,6 +70,7 @@ const NewPermitSchema = z.object({
   customAreaName: z.string().optional(),
   templateId: z.string().min(1, 'Selecting a permit template is required.'),
   contractorId: z.string().min(1, 'Contractor is required.'),
+  validTo: z.string().min(1, 'Expiry date/time is required.'),
 });
 
 type NewPermitFormValues = z.infer<typeof NewPermitSchema>;
@@ -107,6 +111,7 @@ export function NewPermitDialog({
       customAreaName: '',
       templateId: '',
       contractorId: '',
+      validTo: new Date(new Date().getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 16),
     },
   });
 
@@ -247,7 +252,6 @@ export function NewPermitDialog({
         const contractor = subContractors.find(s => s.id === values.contractorId);
 
         const now = new Date();
-        const expiry = new Date(now.getTime() + 8 * 60 * 60 * 1000);
 
         const permitData: Omit<Permit, 'id'> = {
           reference,
@@ -260,7 +264,7 @@ export function NewPermitDialog({
           description: template.title,
           sections: processedSections,
           validFrom: now.toISOString(),
-          validTo: expiry.toISOString(),
+          validTo: new Date(values.validTo).toISOString(),
           status: status,
           createdAt: now.toISOString(),
           createdByEmail: currentUser.email.toLowerCase().trim(),
@@ -343,6 +347,19 @@ export function NewPermitDialog({
                             )}
                         </div>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormField control={form.control} name="validTo" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="flex items-center gap-2">
+                                    <Clock className="h-4 w-4 text-primary" />
+                                    Permit Expiry
+                                </FormLabel>
+                                <FormControl><Input type="datetime-local" {...field} className="bg-background" /></FormControl>
+                                <FormDescription className="text-[10px]">Authorization automatically expires at this time.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                    </div>
                 </div>
 
                 <Accordion type="multiple" defaultValue={dynamicSections.map(s => s.id)} className="space-y-4">
@@ -424,7 +441,7 @@ export function NewPermitDialog({
                                                                     <Image src={p.url} alt="Verification" fill className="object-cover" />
                                                                     <button 
                                                                       type="button" 
-                                                                      className="absolute top-0 right-0 bg-destructive text-white p-0.5 shadow-sm transition-opacity" 
+                                                                      className="absolute top-0 right-0 bg-destructive text-white p-0.5 shadow-sm" 
                                                                       onClick={() => {
                                                                         const updatedPhotos = field.value.filter((_: any, i: number) => i !== pIdx);
                                                                         updateDynamicValue(section.id, field.id, updatedPhotos);
