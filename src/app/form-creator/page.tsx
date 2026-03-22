@@ -15,7 +15,8 @@ import {
     Search,
     Plus,
     Layout,
-    ListFilter
+    ListFilter,
+    PlusCircle
 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy } from 'firebase/firestore';
@@ -43,6 +44,7 @@ function FormCreatorContent() {
 
   const templateId = searchParams.get('id');
   const templateType = searchParams.get('type') as 'permit' | 'qc' | 'toolbox' | null;
+  const isCreatingNew = searchParams.get('new') === 'true';
   const [searchTerm, setSearchTerm] = useState('');
 
   // 1. Fetch Profile
@@ -96,7 +98,7 @@ function FormCreatorContent() {
   }
 
   // If we have an ID or type, we are in Editor View
-  if (templateId || templateType) {
+  if (templateId || templateType || isCreatingNew) {
     return (
         <main className="flex-1 p-4 md:p-8 lg:p-10 max-w-5xl mx-auto w-full">
             <div className="mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -136,12 +138,16 @@ function FormCreatorContent() {
                     <div className="bg-primary/10 p-3 rounded-2xl shadow-sm">
                         <Layout className="h-8 w-8 text-primary" />
                     </div>
-                    <h2 className="text-4xl font-black tracking-tighter uppercase">Form Studio</h2>
+                    <h2 className="text-4xl font-black tracking-tighter uppercase">Form Editor</h2>
                 </div>
                 <p className="text-muted-foreground font-medium max-w-xl leading-relaxed">
-                    Centrally manage your project's digital documentation standards.
+                    Centrally manage your project's digital documentation standards and build interactive forms.
                 </p>
             </div>
+            <Button onClick={() => router.push('/form-creator?new=true')} className="gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20">
+                <PlusCircle className="h-5 w-5" />
+                New Master Template
+            </Button>
         </div>
 
         <div className="space-y-6">
@@ -206,7 +212,6 @@ function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], 
                         <TableHead className="w-[40%]">Reference Title</TableHead>
                         <TableHead>Category</TableHead>
                         <TableHead>Trade Discipline</TableHead>
-                        <TableHead className="text-right">Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -232,11 +237,6 @@ function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], 
                             <TableCell className="text-xs font-semibold text-muted-foreground uppercase">
                                 {item.trade || 'General Standard'}
                             </TableCell>
-                            <TableCell className="text-right">
-                                <Button variant="ghost" size="sm" className="h-8 gap-2 font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                                    Edit Template <ChevronRight className="h-3.5 w-3.5" />
-                                </Button>
-                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
@@ -248,7 +248,7 @@ function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], 
 export default function FormCreatorPage() {
   return (
     <div className="flex flex-col w-full min-h-screen bg-background">
-      <Header title="Form Studio" />
+      <Header title="Form Editor" />
       <Suspense fallback={
         <div className="flex h-screen w-full items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
