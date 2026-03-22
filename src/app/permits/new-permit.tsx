@@ -59,6 +59,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -325,22 +326,11 @@ export function NewPermitDialog({
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField control={form.control} name="contractorId" render={({ field }) => (
-                            <FormItem><FormLabel>Trade Partner</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder={availablePartners.length > 0 ? "Select contractor" : "No partners assigned to project"} /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                            <FormItem><FormLabel>Trade Partner</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder={projectSubs.length > 0 ? "Select contractor" : "No partners assigned to project"} /></SelectTrigger></FormControl><SelectContent>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent></Select></FormItem>
                         )} />
                         <div className="space-y-4">
                             <FormField control={form.control} name="areaId" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Location / Plot</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="General Site" /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="site-wide">General Site</SelectItem>
-                                            {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                                            <Separator className="my-1" />
-                                            <SelectItem value="other">Other / Not Listed</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormItem>
+                                <FormItem><FormLabel>Location / Plot</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue placeholder="General Site" /></SelectTrigger></FormControl><SelectContent><SelectItem value="site-wide">General Site</SelectItem>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}<Separator className="my-1" /><SelectItem value="other">Other / Not Listed</SelectItem></SelectContent></Select></FormItem>
                             )} />
                             {selectedAreaId === 'other' && (
                                 <FormField control={form.control} name="customAreaName" render={({ field }) => (
