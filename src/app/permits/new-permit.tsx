@@ -35,7 +35,8 @@ import {
   X, 
   Layout,
   Calendar as CalendarIcon,
-  Upload
+  Upload,
+  Check
 } from 'lucide-react';
 import type { 
   Project, 
@@ -58,7 +59,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -144,7 +144,7 @@ export function NewPermitDialog({
                 return { 
                     ...s, 
                     fields: s.fields.map(f => {
-                        if (f.id === activePhotoFieldId.fieldId) {
+                        if (f.id === activePhotoPhotoFieldId.fieldId) {
                             const currentPhotos = Array.isArray(f.value) ? f.value : [];
                             return { ...f, value: [...currentPhotos, photo] };
                         }

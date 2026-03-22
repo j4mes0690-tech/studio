@@ -21,17 +21,17 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Save, Send, ShieldCheck, Clock, Camera, Upload, X, RefreshCw, Layout, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, Save, ShieldCheck, Clock, Camera, Upload, X, RefreshCw, Layout, Calendar as CalendarIcon, Check } from 'lucide-react';
 import type { Project, SubContractor, DistributionUser, Permit, Photo, TemplateSection } from '@/lib/types';
 import { useFirestore, useStorage, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { VoiceInput } from '@/components/voice-input';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { cn, scrollToFirstError } from '@/lib/utils';
@@ -290,9 +290,9 @@ export function EditPermitDialog({
                                                     )}
                                                     {field.type === 'yes-no-na' && (
                                                         <RadioGroup value={field.value || ""} onValueChange={(val) => updateDynamicValue(section.id, field.id, val)} className="flex items-center gap-4">
-                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="yes" id={`y-${field.id}`} /><Label htmlFor={`y-${field.id}`} className="text-[10px]">Yes</Label></div>
-                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="no" id={`n-${field.id}`} /><Label htmlFor={`n-${field.id}`} className="text-[10px]">No</Label></div>
-                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="na" id={`na-${field.id}`} /><Label htmlFor={`na-${field.id}`} className="text-[10px]">N/A</Label></div>
+                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="yes" id={`y-edit-${field.id}`} /><Label htmlFor={`y-edit-${field.id}`} className="text-[10px]">Yes</Label></div>
+                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="no" id={`n-edit-${field.id}`} /><Label htmlFor={`n-edit-${field.id}`} className="text-[10px]">No</Label></div>
+                                                            <div className="flex items-center space-x-1.5"><RadioGroupItem value="na" id={`na-edit-${field.id}`} /><Label htmlFor={`na-edit-${field.id}`} className="text-[10px]">N/A</Label></div>
                                                         </RadioGroup>
                                                     )}
                                                     {field.type === 'text' && (

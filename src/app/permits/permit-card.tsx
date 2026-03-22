@@ -30,6 +30,8 @@ import {
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -143,7 +145,7 @@ export function PermitCard({
           let valueDisplay = String(f.value || '---');
           if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
           if (f.type === 'yes-no-na') valueDisplay = String(f.value || '---').toUpperCase();
-          if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = '[' + f.value.length + ' Photo(s) Captured]';
+          if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = `[${f.value.length} Photo(s) Captured]`;
 
           fieldsHtml += `
             <div style="display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f1f5f9; padding: 8px; border-radius: 4px;">
