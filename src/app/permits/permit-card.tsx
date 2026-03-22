@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
-import type { Permit, Project, SubContractor, DistributionUser, Photo } from '@/lib/types';
+import type { Permit, Project, SubContractor, DistributionUser, Photo, TemplateField } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,8 @@ import {
   AlertTriangle,
   FileText,
   Camera,
-  Layout
+  Layout,
+  Pencil
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -134,6 +135,36 @@ export function PermitCard({
 
       const areaName = permit.customAreaName || project?.areas?.find(a => a.id === permit.areaId)?.name || 'General Site';
 
+      // Build fields HTML string first to avoid complex template literal nesting issues
+      let sectionsHtml = '';
+      (permit.sections || []).forEach(section => {
+        let fieldsHtml = '';
+        section.fields.forEach(f => {
+          let valueDisplay = f.value || '---';
+          if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
+          if (f.type === 'yes-no-na') valueDisplay = String(f.value || '---').toUpperCase();
+          if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = `[${f.value.length} Photo(s) Captured]`;
+
+          fieldsHtml += `
+            <div style="display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f1f5f9; padding: 8px; border-radius: 4px;">
+              <div style="flex: 1;">
+                <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">${f.label}</p>
+                <p style="margin: 2px 0 0 0; font-size: 12px; font-weight: bold; color: ${f.value === 'no' ? '#dc2626' : '#1e293b'};">${valueDisplay}</p>
+              </div>
+            </div>
+          `;
+        });
+
+        sectionsHtml += `
+          <div style="margin-bottom: 30px;">
+            <h3 style="font-size: 12px; color: #334155; background: #f1f5f9; padding: 8px; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">${section.title}</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              ${fieldsHtml}
+            </div>
+          </div>
+        `;
+      });
+
       reportElement.innerHTML = `
         <div style="border: 4px solid #1e40af; padding: 30px; border-radius: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px;">
@@ -162,28 +193,7 @@ export function PermitCard({
             <p style="font-size: 13px; line-height: 1.6;">${permit.description}</p>
           </div>
 
-          ${(permit.sections || []).map(section => `
-            <div style="margin-bottom: 30px;">
-              <h3 style="font-size: 12px; color: #334155; background: #f1f5f9; padding: 8px; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">${section.title}</h3>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                ${section.fields.map(f => {
-                  let valueDisplay = f.value || '---';
-                  if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
-                  if (f.type === 'yes-no-na') valueDisplay = String(f.value || '---').toUpperCase();
-                  if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = \`[\${f.value.length} Photo(s) Captured]\`;
-
-                  return `
-                    <div style="display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f1f5f9; padding: 8px; border-radius: 4px;">
-                      <div style="flex: 1;">
-                        <p style="margin: 0; font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">${f.label}</p>
-                        <p style="margin: 2px 0 0 0; font-size: 12px; font-weight: bold; color: ${f.value === 'no' ? '#dc2626' : '#1e293b'};">${valueDisplay}</p>
-                      </div>
-                    </div>
-                  `;
-                }).join('')}
-              </div>
-            </div>
-          `).join('')}
+          ${sectionsHtml}
 
           <div style="background: #fffbeb; border: 2px solid #fde68a; padding: 20px; border-radius: 8px; margin-bottom: 40px; display: flex; justify-content: space-between;">
             <div>
@@ -248,7 +258,7 @@ export function PermitCard({
     <>
       <Card 
         className={cn(
-          "hover:border-primary transition-all shadow-sm group cursor-pointer border-l-4",
+          "transition-all shadow-sm group cursor-pointer border-l-4",
           isDraft ? "border-orange-200 border-l-orange-400 bg-orange-50/5" :
           isClosed ? "border-l-muted opacity-75" :
           isExpired ? "border-l-destructive bg-destructive/5" : "border-l-primary"
@@ -319,7 +329,7 @@ export function PermitCard({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive transition-opacity">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </AlertDialogTrigger>
@@ -352,7 +362,7 @@ export function PermitCard({
                 <Accordion type="multiple" defaultValue={(permit.sections || []).map(s => s.id)} className="space-y-2">
                     {(permit.sections || []).map((section) => (
                         <AccordionItem key={section.id} value={section.id} className="border rounded-lg bg-muted/5 overflow-hidden">
-                            <AccordionTrigger className="px-4 py-2 hover:no-underline hover:bg-muted/10">
+                            <AccordionTrigger className="px-4 py-2 hover:no-underline hover:bg-muted/10 border-none">
                                 <div className="flex items-center gap-2">
                                     <Layout className="h-3.5 w-3.5 text-primary" />
                                     <span className="text-[10px] font-black uppercase text-primary tracking-widest">{section.title}</span>
@@ -413,7 +423,7 @@ export function PermitCard({
                   </p>
               </div>
           </div>
-        </CardContent>
+        </CardHeader>
       </Card>
 
       <EditPermitDialog 
@@ -421,7 +431,7 @@ export function PermitCard({
         projects={projects} 
         subContractors={subContractors} 
         allPermits={allPermits}
-        currentUser={profile}
+        currentUser={currentUser}
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
       />

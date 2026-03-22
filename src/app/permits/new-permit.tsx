@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -184,7 +185,6 @@ export function NewPermitDialog({
       };
       reader.readAsDataURL(f);
     });
-    // Clear the input so same file can be selected again if needed
     e.target.value = '';
   };
 
@@ -194,7 +194,6 @@ export function NewPermitDialog({
 
     startTransition(async () => {
       try {
-        // Upload field-specific photos
         const processedSections = await Promise.all(dynamicSections.map(async (section) => {
             const processedFields = await Promise.all(section.fields.map(async (field) => {
                 if (field.type === 'photo' && Array.isArray(field.value)) {
@@ -274,12 +273,9 @@ export function NewPermitDialog({
         </DialogHeader>
 
         <Form {...form}>
-          <form 
-            onSubmit={form.handleSubmit(() => {}, () => scrollToFirstError())} 
-            className="flex-1 flex flex-col overflow-hidden"
-          >
+          <form className="flex-1 flex flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto">
-              <div className="p-6 space-y-8 bg-muted/5">
+              <div className="p-6 space-y-8 bg-muted/5 pb-20">
                 <div className="bg-background p-6 rounded-xl border shadow-sm space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField control={form.control} name="projectId" render={({ field }) => (
@@ -294,9 +290,6 @@ export function NewPermitDialog({
                                         {permitTemplates?.map(t => (
                                             <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
                                         ))}
-                                        {(!permitTemplates || permitTemplates.length === 0) && (
-                                            <SelectItem value="none" disabled>No templates defined in Form Editor</SelectItem>
-                                        )}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -434,11 +427,27 @@ export function NewPermitDialog({
                     ))}
                 </Accordion>
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-10">
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
                     <Button variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
                     <div className="hidden sm:block flex-1" />
-                    <Button variant="outline" className="w-full sm:w-auto h-12 font-bold gap-2" disabled={isPending} onClick={form.handleSubmit(v => onSubmit(v, 'draft'), () => scrollToFirstError())}><Save className="mr-2 h-4 w-4" /> Save as Draft</Button>
-                    <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" disabled={isPending || !selectedTemplateId} onClick={form.handleSubmit(v => onSubmit(v, 'issued'), () => scrollToFirstError())}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}Save</Button>
+                    <Button 
+                        type="button"
+                        variant="outline" 
+                        className="w-full sm:w-auto h-12 gap-2" 
+                        disabled={isPending} 
+                        onClick={() => onSubmit(form.getValues(), 'draft')}
+                    >
+                        <Save className="h-4 w-4" /> Save as Draft
+                    </Button>
+                    <Button 
+                        type="button"
+                        className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
+                        disabled={isPending || !selectedTemplateId} 
+                        onClick={() => onSubmit(form.getValues(), 'issued')}
+                    >
+                        {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}
+                        Save
+                    </Button>
                 </div>
               </div>
             </div>
