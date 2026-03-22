@@ -275,7 +275,9 @@ export type QualityChecklist = {
   id: string;
   projectId?: string;
   title: string;
-  trade: string;
+  trade?: string;
+  reference?: string;
+  revision?: number;
   createdAt: string;
   items: ChecklistItem[];
   areaId?: string;
@@ -465,6 +467,8 @@ export type PermitTemplate = {
   id: string;
   title: string;
   type: PermitType;
+  reference?: string;
+  revision?: number;
   description: string;
   sections: TemplateSection[];
   createdAt: string;
@@ -668,9 +672,11 @@ export type SiteDiaryEntry = {
 export type ToolboxTalkTemplate = {
   id: string;
   title: string;
+  reference?: string;
+  revision?: number;
   topic: string;
   content: string;
-  trade: string;
+  trade?: string;
   verificationItems: { id: string; text: string }[];
   createdAt: string;
   createdByEmail: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, useMemo } from 'react';
+import { Suspense, useEffect, useState, useMemo, useTransition } from 'react';
 import { Header } from '@/components/layout/header';
 import { FormWizard } from './form-wizard';
 import { 
@@ -16,17 +16,19 @@ import {
     Plus,
     Layout,
     ListFilter,
-    PlusCircle
+    PlusCircle,
+    Trash2,
+    Fingerprint,
+    History
 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, query, where, orderBy, deleteDoc } from 'firebase/firestore';
 import { DistributionUser, QualityChecklist, PermitTemplate, ToolboxTalkTemplate } from '@/lib/types';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table,
   TableBody,
@@ -35,12 +37,26 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 function FormCreatorContent() {
   const db = useFirestore();
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user: sessionUser } = useUser();
+  const [isPendingDelete, startTransition] = useTransition();
 
   const templateId = searchParams.get('id');
   const templateType = searchParams.get('type') as 'permit' | 'qc' | 'toolbox' | null;
@@ -75,6 +91,22 @@ function FormCreatorContent() {
 
   const toolboxQuery = useMemoFirebase(() => db ? collection(db, 'toolbox-talk-templates') : null, [db]);
   const { data: toolboxTemplates } = useCollection<ToolboxTalkTemplate>(toolboxQuery);
+
+  const handleDeleteTemplate = (id: string, type: 'permit' | 'qc' | 'toolbox') => {
+    startTransition(async () => {
+        try {
+            const collectionName = 
+                type === 'permit' ? 'permit-templates' :
+                type === 'qc' ? 'quality-checklists' :
+                'toolbox-talk-templates';
+            
+            await deleteDoc(doc(db!, collectionName, id));
+            toast({ title: 'Template Deleted', description: 'Record removed from master library.' });
+        } catch (err) {
+            toast({ title: 'Error', variant: 'destructive', description: 'Failed to delete template.' });
+        }
+    });
+  };
 
   if (profileLoading || (templateId && templateLoading)) {
     return (
@@ -141,7 +173,7 @@ function FormCreatorContent() {
                     <h2 className="text-4xl font-black tracking-tighter uppercase">Form Editor</h2>
                 </div>
                 <p className="text-muted-foreground font-medium max-w-xl leading-relaxed">
-                    Centrally manage your project's digital documentation standards and build interactive forms.
+                    Centrally manage your project's digital documentation standards with automated revision control.
                 </p>
             </div>
             <Button onClick={() => router.push('/form-creator?new=true')} className="gap-2 h-12 px-6 font-bold shadow-lg shadow-primary/20">
@@ -173,23 +205,27 @@ function FormCreatorContent() {
                 qc={qcTemplates || []}
                 toolbox={toolboxTemplates || []}
                 onEdit={(type, id) => router.push(`/form-creator?type=${type}&id=${id}`)}
+                onDelete={handleDeleteTemplate}
+                isDeleting={isPendingDelete}
             />
         </div>
     </main>
   );
 }
 
-function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], onEdit }: { 
+function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], onEdit, onDelete, isDeleting }: { 
     searchTerm: string, 
     permits?: PermitTemplate[], 
     qc?: QualityChecklist[], 
     toolbox?: ToolboxTalkTemplate[],
-    onEdit: (type: 'permit' | 'qc' | 'toolbox', id: string) => void
+    onEdit: (type: 'permit' | 'qc' | 'toolbox', id: string) => void,
+    onDelete: (id: string, type: 'permit' | 'qc' | 'toolbox') => void,
+    isDeleting: boolean
 }) {
     const s = searchTerm.toLowerCase();
     const allItems = useMemo(() => {
         return [
-            ...permits.map(p => ({ ...p, studioType: 'permit' as const, icon: FileCheck, typeLabel: 'Permit to Work' })),
+            ...permits.map(p => ({ ...p, studioType: 'permit' as const, icon: FileCheck, typeLabel: 'Permit' })),
             ...qc.map(q => ({ ...q, studioType: 'qc' as const, icon: ClipboardCheck, typeLabel: 'Quality Control' })),
             ...toolbox.map(t => ({ ...t, studioType: 'toolbox' as const, icon: BookOpen, typeLabel: 'Toolbox Talk' })),
         ].filter(t => t.title.toLowerCase().includes(s))
@@ -205,12 +241,15 @@ function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], 
     }
 
     return (
-        <div className="rounded-md border bg-card">
+        <div className="rounded-md border bg-card overflow-hidden">
             <Table>
                 <TableHeader className="bg-muted/30">
                     <TableRow>
-                        <TableHead className="w-[70%]">Reference Title</TableHead>
-                        <TableHead className="text-right pr-6">Process Category</TableHead>
+                        <TableHead className="w-[120px]"><div className="flex items-center gap-2"><Fingerprint className="h-3 w-3" /> Ref</div></TableHead>
+                        <TableHead>Template Title</TableHead>
+                        <TableHead className="w-[150px]">Category</TableHead>
+                        <TableHead className="w-[100px] text-center"><div className="flex items-center justify-center gap-2"><History className="h-3 w-3" /> Rev</div></TableHead>
+                        <TableHead className="text-right pr-6">Action</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -220,18 +259,54 @@ function TemplateLibraryList({ searchTerm, permits = [], qc = [], toolbox = [], 
                             className="group cursor-pointer hover:bg-muted/50"
                             onClick={() => onEdit(item.studioType, item.id)}
                         >
+                            <TableCell className="font-mono text-[10px] font-bold text-primary">
+                                {item.reference || '---'}
+                            </TableCell>
                             <TableCell className="font-bold py-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="bg-muted p-2 rounded group-hover:bg-background transition-colors">
+                                    <div className="bg-muted p-2 rounded group-hover:bg-background transition-colors shrink-0">
                                         <item.icon className="h-4 w-4 text-primary" />
                                     </div>
-                                    <span className="group-hover:text-primary transition-colors">{item.title}</span>
+                                    <span className="group-hover:text-primary transition-colors truncate">{item.title}</span>
                                 </div>
                             </TableCell>
-                            <TableCell className="text-right pr-6">
+                            <TableCell>
                                 <Badge variant="secondary" className="uppercase text-[9px] font-black tracking-widest bg-muted/50 border-none px-2 h-5">
                                     {item.typeLabel}
                                 </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                                <Badge variant="outline" className="font-mono text-[10px] bg-background">
+                                    {item.revision ? item.revision.toString().padStart(2, '0') : '01'}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-right pr-6" onClick={e => e.stopPropagation()}>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Delete Master Template?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Permanently remove "<strong>{item.title}</strong>" from the library. This will not affect existing site forms already created from this template.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction 
+                                                className="bg-destructive" 
+                                                onClick={() => onDelete(item.id, item.studioType)}
+                                                disabled={isDeleting}
+                                            >
+                                                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                                Delete Template
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             </TableCell>
                         </TableRow>
                     ))}

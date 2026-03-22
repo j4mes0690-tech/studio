@@ -22,7 +22,8 @@ import {
   CheckSquare,
   AlignLeft,
   ListTodo,
-  GripVertical
+  GripVertical,
+  Fingerprint
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, getDocs } from 'firebase/firestore';
 import type { 
   FormWizardType, 
   TemplateSection, 
@@ -76,6 +77,7 @@ export function FormWizard({
   
   // Data State
   const [title, setTitle] = useState('');
+  const [reference, setReference] = useState('');
   const [description, setDescription] = useState('');
   const [permitType, setPermitType] = useState<PermitType>('General');
   const [sections, setSections] = useState<TemplateSection[]>([]);
@@ -91,6 +93,7 @@ export function FormWizard({
   useEffect(() => {
     if (initialTemplate) {
         setTitle(initialTemplate.title || '');
+        setReference(initialTemplate.reference || '');
         setDescription(initialTemplate.description || '');
         
         if (initialType === 'permit' || initialTemplate.sections) {
@@ -103,15 +106,43 @@ export function FormWizard({
             setContent(initialTemplate.content || '');
             setChecklistItems(initialTemplate.verificationItems || []);
         }
+    } else {
+        // Auto-generate reference for new template
+        generateNextRef();
     }
   }, [initialTemplate, initialType]);
+
+  const generateNextRef = async () => {
+    if (initialTemplate || !db) return;
+    try {
+        const collections = ['permit-templates', 'quality-checklists', 'toolbox-talk-templates'];
+        let maxNum = 0;
+        for (const colName of collections) {
+            const snap = await getDocs(collection(db, colName));
+            snap.docs.forEach(d => {
+                const ref = d.data().reference;
+                if (ref && ref.startsWith('TMP-')) {
+                    const num = parseInt(ref.split('-')[1]);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                }
+            });
+        }
+        const nextNum = (maxNum + 1).toString().padStart(4, '0');
+        setReference(`TMP-${nextNum}`);
+    } catch (e) {}
+  };
 
   const handleSaveTemplate = () => {
     startTransition(async () => {
       try {
         let collName = '';
+        const currentRevision = initialTemplate?.revision || 0;
+        const nextRevision = currentRevision + 1;
+
         let data: any = {
           title,
+          reference,
+          revision: nextRevision,
           description,
           updatedAt: new Date().toISOString(),
         };
@@ -121,20 +152,20 @@ export function FormWizard({
           data = { ...data, type: permitType, sections };
         } else if (type === 'qc') {
           collName = 'quality-checklists';
-          data = { ...data, isTemplate: true, items: checklistItems.map(i => ({ ...i, status: 'pending' })), trade: 'General' };
+          data = { ...data, isTemplate: true, items: checklistItems.map(i => ({ ...i, status: 'pending' })) };
         } else {
           collName = 'toolbox-talk-templates';
-          data = { ...data, topic, content, verificationItems: checklistItems, trade: 'General' };
+          data = { ...data, topic, content, verificationItems: checklistItems };
         }
 
         if (initialTemplate?.id) {
             await updateDoc(doc(db, collName, initialTemplate.id), data);
-            toast({ title: 'Template Updated', description: 'Changes saved to the master registry.' });
+            toast({ title: 'Template Revised', description: `Saved as Revision ${nextRevision}.` });
         } else {
             data.createdAt = new Date().toISOString();
             data.createdByEmail = currentUser.email;
             await addDoc(collection(db, collName), data);
-            toast({ title: 'Success', description: 'Master template published.' });
+            toast({ title: 'Success', description: `Master template published: ${reference}-Rev01.` });
         }
 
         router.push('/form-creator');
@@ -301,14 +332,24 @@ export function FormWizard({
           <Card className="animate-in slide-in-from-right-4 duration-300 max-w-2xl mx-auto w-full">
             <CardHeader className="bg-muted/10 border-b">
               <CardTitle className="flex items-center gap-2">Template Identity</CardTitle>
-              <CardDescription>Define the base properties of your master template.</CardDescription>
+              <CardDescription>Define the reference and basic properties of your template.</CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-6">
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <Label>Template Title</Label>
-                    <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Roof Work Permit" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                            <Fingerprint className="h-3.5 w-3.5 text-primary" />
+                            Unique Reference
+                        </Label>
+                        <Input value={reference} onChange={e => setReference(e.target.value.toUpperCase())} placeholder="e.g. TMP-0001" disabled={!!initialTemplate} className="font-mono" />
+                        <p className="text-[10px] text-muted-foreground">Revisions will be tracked as a suffix.</p>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Template Title</Label>
+                        <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Roof Work Permit" />
+                    </div>
                   </div>
                   
                   <div className="space-y-2">
@@ -320,7 +361,7 @@ export function FormWizard({
             </CardContent>
             <CardFooter className="bg-muted/10 border-t justify-between p-6">
               <Button variant="ghost" onClick={() => setStep('type')} disabled={!!initialTemplate || !!initialType}>Back</Button>
-              <Button onClick={() => setStep('structure')} disabled={!title}>
+              <Button onClick={() => setStep('structure')} disabled={!title || !reference}>
                 Next: Build Structure <ChevronRight className="ml-2 h-4 w-4" />
               </Button>
             </CardFooter>
@@ -347,7 +388,10 @@ export function FormWizard({
 
               <div className="space-y-6 bg-muted/5 p-6 rounded-xl border border-dashed min-h-[400px]">
                 <div className="text-center mb-8 border-b pb-4">
-                    <Badge variant="secondary" className="mb-2 uppercase text-[10px] font-black tracking-widest">{type}</Badge>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                        <Badge variant="secondary" className="uppercase text-[10px] font-black tracking-widest">{type}</Badge>
+                        <Badge variant="outline" className="font-mono text-[10px]">{reference}-Rev{(initialTemplate?.revision || 0) + 1}</Badge>
+                    </div>
                     <h2 className="text-2xl font-black uppercase tracking-tight">{title || 'Untitled Template'}</h2>
                     <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">{description}</p>
                 </div>
@@ -499,14 +543,14 @@ export function FormWizard({
               <div className="bg-primary/10 h-20 w-20 rounded-full flex items-center justify-center mx-auto mb-4 text-primary shadow-inner">
                 <CheckCircle2 className="h-12 w-12" />
               </div>
-              <CardTitle className="text-3xl font-black">{initialTemplate ? 'Update Template' : 'Publish Template'}</CardTitle>
-              <CardDescription className="text-base">This form will be available immediately for all site users.</CardDescription>
+              <CardTitle className="text-3xl font-black">{initialTemplate ? 'Publish Revision' : 'Publish Master Template'}</CardTitle>
+              <CardDescription className="text-base">Revision {(initialTemplate?.revision || 0) + 1} will be active immediately.</CardDescription>
             </CardHeader>
             <CardContent className="p-10 space-y-10">
               <div className="grid grid-cols-2 gap-12">
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Template Title</p>
-                  <p className="text-xl font-bold border-l-4 border-primary pl-4">{title}</p>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">Template Reference</p>
+                  <p className="text-xl font-bold border-l-4 border-primary pl-4">{reference}-Rev{(initialTemplate?.revision || 0) + 1}</p>
                 </div>
                 <div className="space-y-2">
                   <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em]">System Module</p>
@@ -524,7 +568,7 @@ export function FormWizard({
                     ) : (
                         <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> {checklistItems.length} Compliance Points defined</li>
                     )}
-                    <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> Form logic updated for real-time mobile use</li>
+                    <li className="flex items-center gap-2"><div className="h-1.5 w-1.5 rounded-full bg-primary" /> Real-time mobile logic updated</li>
                 </ul>
               </div>
             </CardContent>
@@ -532,7 +576,7 @@ export function FormWizard({
               <Button variant="ghost" onClick={() => setStep('structure')} className="flex-1 h-14 font-bold">Back to Editor</Button>
               <Button onClick={handleSaveTemplate} disabled={isPending} className="flex-[2] h-14 font-black text-lg shadow-lg shadow-primary/20 gap-3">
                 {isPending ? <Loader2 className="h-6 w-6 animate-spin" /> : <Save className="h-6 w-6" />}
-                {initialTemplate ? 'Save Template Changes' : 'Publish Master Template'}
+                {initialTemplate ? 'Confirm Revision' : 'Publish Master Template'}
               </Button>
             </CardFooter>
           </Card>
