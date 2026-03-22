@@ -20,7 +20,9 @@ import {
   Layout,
   Pencil,
   Check,
-  Minus
+  Minus,
+  ExternalLink,
+  AlertTriangle
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -47,6 +49,7 @@ import { EditPermitDialog } from './edit-permit';
 import { ImageLightbox } from '@/components/image-lightbox';
 import Image from 'next/image';
 import { sendPermitEmailAction } from './actions';
+import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 
 export function PermitCard({ 
   permit, 
@@ -224,37 +227,37 @@ export function PermitCard({
     <>
       <Card 
         className={cn(
-          "transition-all shadow-sm group cursor-pointer border-l-4",
+          "transition-all shadow-sm group cursor-pointer border-l-4 overflow-hidden",
           isDraft ? "border-orange-200 border-l-orange-400 bg-orange-50/5" :
           isClosed ? "border-l-muted opacity-75" :
           isExpired ? "border-l-destructive bg-destructive/5" : "border-l-primary"
         )}
         onClick={() => setIsEditDialogOpen(true)}
       >
-        <CardHeader className="pb-3">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
+        <CardHeader className="p-4 md:p-6 pb-3">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="space-y-1 flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className={cn(
-                  "font-mono text-[10px] bg-background",
+                  "font-mono text-[10px] bg-background shrink-0",
                   isDraft ? "border-orange-200 text-orange-600" : "text-primary border-primary/20"
                 )}>{permit.reference}</Badge>
-                <CardTitle className="text-lg group-hover:text-primary transition-colors truncate max-w-[200px]">{permit.description}</CardTitle>
+                <CardTitle className="text-lg group-hover:text-primary transition-colors truncate">{permit.description}</CardTitle>
               </div>
-              <CardDescription className="flex items-center gap-3 flex-wrap">
-                <span className="font-bold text-foreground uppercase tracking-tight text-[10px] bg-muted px-1.5 rounded flex items-center gap-1">
-                    <HardHat className="h-2 w-2" /> {permit.contractorName}
+              <CardDescription className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-foreground uppercase tracking-tight text-[10px] bg-muted px-1.5 rounded flex items-center gap-1 shrink-0">
+                    <HardHat className="h-2.5 w-2.5" /> {permit.contractorName}
                 </span>
-                <span className="font-semibold text-foreground flex items-center gap-1">
-                    <MapPin className="h-3 w-3 text-muted-foreground" /> {project?.name || 'Unknown'} - {displayArea}
+                <span className="font-semibold text-foreground flex items-center gap-1 truncate">
+                    <MapPin className="h-2.5 w-2.5 text-muted-foreground shrink-0" /> {project?.name || 'Unknown'} - {displayArea}
                 </span>
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap shrink-0" onClick={e => e.stopPropagation()}>
               <TooltipProvider>
                 {isDraft ? (
                   <>
-                    <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">DRAFT</Badge>
+                    <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 uppercase font-bold text-[9px]">DRAFT</Badge>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-orange-600 hover:bg-orange-50" onClick={handleIssue} disabled={isPending}>
@@ -265,10 +268,10 @@ export function PermitCard({
                     </Tooltip>
                   </>
                 ) : isClosed ? (
-                  <Badge variant="secondary" className="bg-slate-100 text-slate-600">CLOSED</Badge>
+                  <Badge variant="secondary" className="bg-slate-100 text-slate-600 uppercase font-bold text-[9px]">CLOSED</Badge>
                 ) : (
                   <>
-                    <Badge className={cn("capitalize text-[10px]", isExpired ? "bg-destructive" : "bg-green-600")}>
+                    <Badge className={cn("capitalize text-[10px] font-black tracking-widest px-2 h-5", isExpired ? "bg-destructive" : "bg-green-600")}>
                         {isExpired ? 'EXPIRED' : 'ACTIVE'}
                     </Badge>
                     <Tooltip>
@@ -291,35 +294,47 @@ export function PermitCard({
                   <TooltipContent><p>Export & Email PDF</p></TooltipContent>
                 </Tooltip>
 
-                <AlertDialog>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive transition-opacity">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent><p>Delete Record</p></TooltipContent>
-                  </Tooltip>
-                  <AlertDialogContent onClick={e => e.stopPropagation()}>
-                    <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove permit audit trail for {permit.reference}.</AlertDialogDescription></AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <div className="flex items-center gap-1">
+                    <EditPermitDialog 
+                        permit={permit} 
+                        projects={projects} 
+                        subContractors={subContractors} 
+                        allPermits={allPermits}
+                        currentUser={currentUser}
+                        open={isEditDialogOpen}
+                        onOpenChange={setIsEditDialogOpen}
+                    />
+
+                    <AlertDialog>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                                <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </AlertDialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Delete Record</p></TooltipContent>
+                        </Tooltip>
+                        <AlertDialogContent onClick={e => e.stopPropagation()}>
+                            <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>Permanently remove permit audit trail for {permit.reference}.</AlertDialogDescription></AlertDialogHeader>
+                            <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </div>
               </TooltipProvider>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <Badge variant="secondary" className="text-[10px] font-black uppercase tracking-widest">{permit.type}</Badge>
+        <CardContent className="p-4 md:p-6 pt-0 space-y-4">
+          <Badge variant="secondary" className="text-[10px] font-black uppercase tracking-widest bg-primary/5 text-primary border-primary/10">{permit.type}</Badge>
           
           <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
             <CollapsibleTrigger asChild onClick={e => e.stopPropagation()}>
-                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground h-8">
+                <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground h-8 border border-dashed border-muted-foreground/20">
                     <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
                     {isExpanded ? "Hide Controls" : "View Safety Controls"}
                 </Button>
@@ -391,16 +406,6 @@ export function PermitCard({
           </div>
         </CardContent>
       </Card>
-
-      <EditPermitDialog 
-        permit={permit} 
-        projects={projects} 
-        subContractors={subContractors} 
-        allPermits={allPermits}
-        currentUser={currentUser}
-        open={isEditDialogOpen}
-        onOpenChange={setIsEditDialogOpen}
-      />
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
