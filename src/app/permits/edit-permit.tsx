@@ -199,14 +199,14 @@ export function EditPermitDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="p-6 pb-0">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogHeader className="p-6 pb-4 bg-muted/10 border-b shrink-0">
           <DialogTitle>Edit Permit: {permit.reference}</DialogTitle>
           <DialogDescription>Modify hazard controls or validity periods.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 overflow-y-auto">
             <input type="hidden" {...form.register('status')} />
             
             <div className="p-6 space-y-6">
@@ -261,7 +261,7 @@ export function EditPermitDialog({
                                 <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
                             </div>
                         ))}
-                        <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-1 border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6" /><span className="text-[10px]">Photo</span></Button>
+                        <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-1 border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px]">Photo</span></Button>
                     </div>
                     {isCameraOpen && (
                         <div className="space-y-2 border rounded-md p-2 bg-muted/30">
@@ -274,18 +274,19 @@ export function EditPermitDialog({
                         </div>
                     )}
                 </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-10">
+                  <Button type="submit" variant="outline" className="w-full sm:w-auto h-12 gap-2" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
+                    {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Save Draft
+                  </Button>
+                  <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>
+                    {isPending && (submissionStatus === 'issued' || submissionStatus === 'closed') ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
+                    Commit Changes
+                  </Button>
+                </div>
             </div>
 
-            <DialogFooter className="p-6 bg-muted/30 border-t gap-3">
-              <Button type="submit" variant="outline" className="w-full sm:w-auto h-12" disabled={isPending} onClick={() => form.setValue('status', 'draft')}>
-                {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                Save Draft
-              </Button>
-              <Button type="submit" className="w-full sm:flex-1 h-12 text-lg font-bold" disabled={isPending} onClick={() => form.setValue('status', 'issued')}>
-                {isPending && (submissionStatus === 'issued' || submissionStatus === 'closed') ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                Commit Changes
-              </Button>
-            </DialogFooter>
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
                 const files = e.target.files;
                 if (!files) return;
