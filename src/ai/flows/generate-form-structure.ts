@@ -2,8 +2,7 @@
 /**
  * @fileOverview This file implements a Genkit flow for generating and refining form structures.
  * 
- * - generateFormStructure - Takes a natural language prompt and optional current structure
- *   to create or refine templates for Permits, QC, or Toolbox Talks.
+ * - generateFormStructure - Uses Gemini 1.5 Pro to create or refine templates for Permits, QC, or Toolbox Talks.
  */
 
 import { ai } from '@/ai/genkit';
@@ -40,15 +39,16 @@ export async function generateFormStructure(
 
 const prompt = ai.definePrompt({
   name: 'generateFormStructurePrompt',
+  model: 'googleai/gemini-1.5-pro',
   input: { schema: GenerateFormStructureInputSchema },
   output: { schema: FormStructureOutputSchema },
   system: `You are an expert site safety and quality manager. Your goal is to produce highly professional, structured JSON data for construction site templates. 
   
-  CRITICAL: You must return ONLY the structured data. Do not include conversational filler, explanations, or markdown code blocks like \`\`\`json. Return a raw JSON object string.
+  CRITICAL: You must return ONLY valid JSON. Do not include conversational filler, explanations, or markdown code blocks.
   
-  For 'permit' type: Use 'sections' and 'fields'.
-  For 'qc' type: Use 'items' for verification points.
-  For 'toolbox' type: Use 'topic', 'content' (Markdown), and 'items' for verification questions.
+  For 'permit' type: Focus on dynamic sections and varied field types (PPE, Isolation, Site Checks).
+  For 'qc' type: Focus on granular verification points using the 'items' array.
+  For 'toolbox' type: Provide educational 'content' in Markdown and verification questions in 'items'.
   
   Maintain a high standard of site safety and technical accuracy.`,
   prompt: `
@@ -69,7 +69,7 @@ Create a new digital template for a construction site based on this description:
 Form Category: {{type}}
 {{/if}}
 
-Please ensure the output follows the schema strictly.`,
+Ensure the output adheres strictly to the requested schema.`,
 });
 
 const generateFormStructureFlow = ai.defineFlow(

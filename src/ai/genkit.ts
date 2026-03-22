@@ -4,10 +4,10 @@ import {googleAI} from '@genkit-ai/google-genai';
 /**
  * Genkit Instance Configuration
  * 
- * We explicitly use 'gemini-1.5-flash' as it provides the best balance 
- * of reasoning capability and speed for structured data generation tasks.
+ * Upgraded to 'gemini-1.5-pro' for superior instruction following and 
+ * reliability in generating complex structured JSON data for forms.
  */
 export const ai = genkit({
   plugins: [googleAI()],
-  model: 'googleai/gemini-1.5-flash',
+  model: 'googleai/gemini-1.5-pro',
 });
