@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -33,7 +33,8 @@ import {
   Camera, 
   X, 
   Layout,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Upload
 } from 'lucide-react';
 import type { 
   Project, 
@@ -87,9 +88,8 @@ export function NewPermitDialog({
 
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [dynamicSections, setDynamicSections] = useState<TemplateSection[]>([]);
-  
-  // Track which dynamic field is calling the camera
   const [activePhotoFieldId, setActivePhotoFieldId] = useState<{ sectionId: string, fieldId: string } | null>(null);
+  const fieldFileInputRef = useRef<HTMLInputElement>(null);
 
   const templatesQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -136,6 +136,58 @@ export function NewPermitDialog({
     }));
   };
 
+  const onCapture = (photo: Photo) => {
+    if (activePhotoFieldId) {
+        setDynamicSections(prev => prev.map(s => {
+            if (s.id === activePhotoFieldId.sectionId) {
+                return { 
+                    ...s, 
+                    fields: s.fields.map(f => {
+                        if (f.id === activePhotoFieldId.fieldId) {
+                            const currentPhotos = Array.isArray(f.value) ? f.value : [];
+                            return { ...f, value: [...currentPhotos, photo] };
+                        }
+                        return f;
+                    }) 
+                };
+            }
+            return s;
+        }));
+        setActivePhotoFieldId(null);
+    }
+    setIsCameraOpen(false);
+  };
+
+  const handleFieldFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || !activePhotoFieldId) return;
+    
+    Array.from(files).forEach(f => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const photo = { url: event.target?.result as string, takenAt: new Date().toISOString() };
+        setDynamicSections(prev => prev.map(s => {
+            if (s.id === activePhotoFieldId!.sectionId) {
+                return { 
+                    ...s, 
+                    fields: s.fields.map(f => {
+                        if (f.id === activePhotoFieldId!.fieldId) {
+                            const currentPhotos = Array.isArray(f.value) ? f.value : [];
+                            return { ...f, value: [...currentPhotos, photo] };
+                        }
+                        return f;
+                    }) 
+                };
+            }
+            return s;
+        }));
+      };
+      reader.readAsDataURL(f);
+    });
+    // Clear the input so same file can be selected again if needed
+    e.target.value = '';
+  };
+
   const onSubmit = (values: NewPermitFormValues, status: 'draft' | 'issued') => {
     const template = permitTemplates?.find(t => t.id === values.templateId);
     if (!template) return;
@@ -145,10 +197,16 @@ export function NewPermitDialog({
         // Upload field-specific photos
         const processedSections = await Promise.all(dynamicSections.map(async (section) => {
             const processedFields = await Promise.all(section.fields.map(async (field) => {
-                if (field.type === 'photo' && field.value && field.value.url?.startsWith('data:')) {
-                    const blob = await dataUriToBlob(field.value.url);
-                    const url = await uploadFile(storage, `permits/fields/${field.id}-${Date.now()}.jpg`, blob);
-                    return { ...field, value: { ...field.value, url } };
+                if (field.type === 'photo' && Array.isArray(field.value)) {
+                    const uploadedPhotos = await Promise.all(field.value.map(async (p, pi) => {
+                        if (p.url.startsWith('data:')) {
+                            const blob = await dataUriToBlob(p.url);
+                            const url = await uploadFile(storage, `permits/fields/${field.id}-${Date.now()}-${pi}.jpg`, blob);
+                            return { ...p, url };
+                        }
+                        return p;
+                    }));
+                    return { ...field, value: uploadedPhotos };
                 }
                 return field;
             }));
@@ -162,7 +220,7 @@ export function NewPermitDialog({
         const contractor = subContractors.find(s => s.id === values.contractorId);
 
         const now = new Date();
-        const expiry = new Date(now.getTime() + 8 * 60 * 60 * 1000); // Default 8 hours
+        const expiry = new Date(now.getTime() + 8 * 60 * 60 * 1000);
 
         const permitData: Omit<Permit, 'id'> = {
           reference,
@@ -189,14 +247,6 @@ export function NewPermitDialog({
         toast({ title: 'Error', description: 'Failed to issue permit.', variant: 'destructive' });
       }
     });
-  };
-
-  const onCapture = (photo: Photo) => {
-    if (activePhotoFieldId) {
-        updateDynamicValue(activePhotoFieldId.sectionId, activePhotoFieldId.fieldId, photo);
-        setActivePhotoFieldId(null);
-    }
-    setIsCameraOpen(false);
   };
 
   useEffect(() => {
@@ -331,21 +381,46 @@ export function NewPermitDialog({
                                                         </div>
                                                     )}
                                                     {field.type === 'photo' && (
-                                                        <div className="space-y-2">
+                                                        <div className="space-y-3">
                                                             <div className="flex gap-2">
-                                                                <Button type="button" variant="outline" size="sm" className="h-8 gap-2 text-[10px] font-bold" onClick={() => { setActivePhotoFieldId({ sectionId: section.id, fieldId: field.id }); setIsCameraOpen(true); }}>
-                                                                    <Camera className="h-3.5 w-3.5" /> Capture Photo
+                                                                <Button 
+                                                                    type="button" 
+                                                                    variant="outline" 
+                                                                    size="sm" 
+                                                                    className="h-8 gap-2 text-[10px] font-bold" 
+                                                                    onClick={() => { setActivePhotoFieldId({ sectionId: section.id, fieldId: field.id }); setIsCameraOpen(true); }}
+                                                                >
+                                                                    <Camera className="h-3.5 w-3.5" /> Camera
                                                                 </Button>
-                                                                {field.value && (
-                                                                    <Button type="button" variant="ghost" size="sm" className="h-8 text-destructive" onClick={() => updateDynamicValue(section.id, field.id, null)}>
-                                                                        <X className="h-3.5 w-3.5" />
-                                                                    </Button>
-                                                                )}
+                                                                <Button 
+                                                                    type="button" 
+                                                                    variant="outline" 
+                                                                    size="sm" 
+                                                                    className="h-8 gap-2 text-[10px] font-bold" 
+                                                                    onClick={() => { setActivePhotoFieldId({ sectionId: section.id, fieldId: field.id }); fieldFileInputRef.current?.click(); }}
+                                                                >
+                                                                    <Upload className="h-3.5 w-3.5" /> Upload
+                                                                </Button>
                                                             </div>
-                                                            {field.value && (
-                                                                <div className="relative w-20 h-16 rounded border overflow-hidden">
-                                                                    <Image src={field.value.url} alt="Field verification" fill className="object-cover" />
-                                                                </div>
+                                                            
+                                                            {field.value && Array.isArray(field.value) && field.value.length > 0 && (
+                                                              <div className="flex flex-wrap gap-2 pt-1">
+                                                                {field.value.map((p: Photo, pIdx: number) => (
+                                                                  <div key={pIdx} className="relative w-16 h-12 rounded border bg-muted overflow-hidden group/thumb">
+                                                                    <Image src={p.url} alt="Verification" fill className="object-cover" />
+                                                                    <button 
+                                                                      type="button" 
+                                                                      className="absolute top-0 right-0 bg-destructive text-white p-0.5 shadow-sm transition-opacity" 
+                                                                      onClick={() => {
+                                                                        const updatedPhotos = field.value.filter((_: any, i: number) => i !== pIdx);
+                                                                        updateDynamicValue(section.id, field.id, updatedPhotos);
+                                                                      }}
+                                                                    >
+                                                                      <X className="h-3 w-3" />
+                                                                    </button>
+                                                                  </div>
+                                                                ))}
+                                                              </div>
                                                             )}
                                                         </div>
                                                     )}
@@ -362,11 +437,12 @@ export function NewPermitDialog({
                 <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t pb-10">
                     <Button variant="ghost" className="font-bold text-muted-foreground order-last sm:order-first" onClick={() => setOpen(false)} disabled={isPending}>Discard</Button>
                     <div className="hidden sm:block flex-1" />
-                    <Button variant="outline" className="w-full sm:w-auto h-12 font-bold gap-2" disabled={isPending} onClick={form.handleSubmit(v => onSubmit(v, 'draft'), () => scrollToFirstError())}><Save className="mr-2 h-4 w-4" /> Save Draft</Button>
-                    <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" disabled={isPending || !selectedTemplateId} onClick={form.handleSubmit(v => onSubmit(v, 'issued'), () => scrollToFirstError())}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}Issue Electronic Permit</Button>
+                    <Button variant="outline" className="w-full sm:w-auto h-12 font-bold gap-2" disabled={isPending} onClick={form.handleSubmit(v => onSubmit(v, 'draft'), () => scrollToFirstError())}><Save className="mr-2 h-4 w-4" /> Save as Draft</Button>
+                    <Button className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" disabled={isPending || !selectedTemplateId} onClick={form.handleSubmit(v => onSubmit(v, 'issued'), () => scrollToFirstError())}>{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-5 w-5" />}Save</Button>
                 </div>
               </div>
             </div>
+            <input type="file" ref={fieldFileInputRef} className="hidden" accept="image/*" multiple onChange={handleFieldFileSelect} />
           </form>
         </Form>
       </DialogContent>

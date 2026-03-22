@@ -170,7 +170,7 @@ export function PermitCard({
                   let valueDisplay = f.value || '---';
                   if (f.type === 'checkbox') valueDisplay = f.value ? 'YES' : 'NO';
                   if (f.type === 'yes-no-na') valueDisplay = String(f.value || '---').toUpperCase();
-                  if (f.type === 'photo' && f.value) valueDisplay = '[Photo Documentation Captured]';
+                  if (f.type === 'photo' && Array.isArray(f.value)) valueDisplay = \`[\${f.value.length} Photo(s) Captured]\`;
 
                   return `
                     <div style="display: flex; align-items: flex-start; gap: 10px; border: 1px solid #f1f5f9; padding: 8px; border-radius: 4px;">
@@ -263,7 +263,7 @@ export function PermitCard({
                   "font-mono text-[10px] bg-background",
                   isDraft ? "border-orange-200 text-orange-600" : "text-primary border-primary/20"
                 )}>{permit.reference}</Badge>
-                <CardTitle className="text-lg group-hover:text-primary transition-colors">{permit.type}</CardTitle>
+                <CardTitle className="text-lg group-hover:text-primary transition-colors truncate max-w-[200px]">{permit.description}</CardTitle>
               </div>
               <CardDescription className="flex items-center gap-3 flex-wrap">
                 <span className="font-bold text-foreground uppercase tracking-tight text-[10px] bg-muted px-1.5 rounded flex items-center gap-1">
@@ -339,7 +339,7 @@ export function PermitCard({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-foreground line-clamp-2 leading-relaxed">{permit.description}</p>
+          <Badge variant="secondary" className="text-[10px] font-black uppercase tracking-widest">{permit.type}</Badge>
           
           <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
             <CollapsibleTrigger asChild onClick={e => e.stopPropagation()}>
@@ -362,24 +362,28 @@ export function PermitCard({
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
                                     {section.fields.map((field) => (
                                         <div key={field.id} className={cn(
-                                            "flex items-center justify-between p-2 rounded border bg-background gap-4",
+                                            "flex flex-col p-2 rounded border bg-background gap-2",
                                             field.width === 'full' ? 'col-span-1 sm:col-span-2' : 'col-span-1'
                                         )}>
-                                            <span className="text-[11px] font-medium truncate flex-1">{field.label}</span>
+                                            <span className="text-[11px] font-bold truncate">{field.label}</span>
                                             <div className="flex shrink-0">
                                                 {field.type === 'checkbox' ? (
                                                     field.value === true ? <Check className="h-3 w-3 text-green-600" /> : <Minus className="h-3 w-3 text-muted-foreground/30" />
                                                 ) : field.type === 'yes-no-na' ? (
                                                     <Badge variant="outline" className={cn(
                                                         "text-[8px] h-4 px-1 leading-none font-bold border-transparent",
-                                                        field.value === 'yes' ? 'bg-green-50 text-green-700' :
-                                                        field.value === 'no' ? 'bg-red-50 text-red-700' : 'bg-muted text-muted-foreground'
+                                                        field.value === 'yes' ? "bg-green-50 text-green-700" :
+                                                        field.value === 'no' ? "bg-red-50 text-red-700" : "bg-muted text-muted-foreground"
                                                     )}>
                                                         {String(field.value || '---').toUpperCase()}
                                                     </Badge>
-                                                ) : field.type === 'photo' && field.value ? (
-                                                    <div className="relative w-8 h-6 rounded overflow-hidden border cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(field.value); }}>
-                                                        <Image src={field.value.url} alt="Verification" fill className="object-cover" />
+                                                ) : field.type === 'photo' && Array.isArray(field.value) ? (
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {field.value.map((p: Photo, pi: number) => (
+                                                            <div key={pi} className="relative w-8 h-6 rounded overflow-hidden border cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
+                                                                <Image src={p.url} alt="Verification" fill className="object-cover" />
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 ) : field.type === 'date' && field.value ? (
                                                     <span className="text-[10px] font-mono text-primary">{new Date(field.value).toLocaleDateString()}</span>
@@ -409,16 +413,6 @@ export function PermitCard({
                   </p>
               </div>
           </div>
-
-          {permit.photos && permit.photos.length > 0 && (
-              <div className="flex gap-1.5 flex-wrap pt-2">
-                  {permit.photos.map((p, i) => (
-                      <div key={i} className="relative w-10 h-10 rounded border overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
-                          <Image src={p.url} alt="Permit Attachment" fill className="object-cover" />
-                      </div>
-                  ))}
-              </div>
-          )}
         </CardContent>
       </Card>
 
