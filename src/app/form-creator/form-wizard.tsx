@@ -13,9 +13,9 @@ import {
   Layout, 
   Save,
   Eye,
-  Settings2,
   Maximize2,
-  Minimize2
+  Minimize2,
+  X
 } from 'lucide-react';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,6 @@ import { collection, addDoc } from 'firebase/firestore';
 import type { 
   FormWizardType, 
   TemplateSection, 
-  TemplateField, 
   PermitType, 
   Trade,
   DistributionUser 
@@ -39,6 +38,12 @@ import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 type Step = 'type' | 'info' | 'structure' | 'review';
 
@@ -94,6 +99,8 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
         setStep('type');
         setType(null);
         setTitle('');
+        setSections([]);
+        setChecklistItems([]);
       } catch (err) {
         toast({ title: 'Save Error', description: 'Failed to publish template.', variant: 'destructive' });
       }
@@ -118,6 +125,30 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
             return {
                 ...s,
                 fields: s.fields.map(f => f.id === fieldId ? { ...f, width } : f)
+            };
+        }
+        return s;
+    }));
+  };
+
+  const updateFieldLabel = (sectionId: string, fieldId: string, label: string) => {
+    setSections(prev => prev.map(s => {
+        if (s.id === sectionId) {
+            return {
+                ...s,
+                fields: s.fields.map(f => f.id === fieldId ? { ...f, label } : f)
+            };
+        }
+        return s;
+    }));
+  };
+
+  const removeField = (sectionId: string, fieldId: string) => {
+    setSections(prev => prev.map(s => {
+        if (s.id === sectionId) {
+            return {
+                ...s,
+                fields: s.fields.filter(f => f.id !== fieldId)
             };
         }
         return s;
@@ -237,7 +268,14 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                         {sections.map((section) => (
                             <div key={section.id} className="space-y-4">
                                 <div className="flex items-center justify-between">
-                                    <h4 className="font-black text-xs uppercase tracking-widest text-primary">{section.title}</h4>
+                                    <div className="flex items-center gap-2 flex-1 mr-4">
+                                        <Layout className="h-4 w-4 text-primary" />
+                                        <Input 
+                                            value={section.title} 
+                                            onChange={(e) => setSections(sections.map(s => s.id === section.id ? { ...s, title: e.target.value } : s))} 
+                                            className="bg-transparent border-transparent hover:border-border font-bold text-xs uppercase tracking-widest text-primary h-8" 
+                                        />
+                                    </div>
                                     <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setSections(sections.filter(s => s.id !== section.id))}><Trash2 className="h-3 w-3" /></Button>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -250,7 +288,11 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                             )}
                                         >
                                             <div className="flex items-center justify-between gap-4">
-                                                <span className="text-xs font-bold leading-tight">{field.label}</span>
+                                                <Input 
+                                                    value={field.label} 
+                                                    onChange={(e) => updateFieldLabel(section.id, field.id, e.target.value)}
+                                                    className="h-7 text-xs font-bold leading-tight bg-transparent border-transparent p-0 focus-visible:ring-0" 
+                                                />
                                                 <div className="flex items-center gap-1">
                                                     <TooltipProvider>
                                                         <Tooltip>
@@ -267,15 +309,11 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
                                                             <TooltipContent><p>{field.width === 'half' ? 'Set to Full Width' : 'Set to Half Width'}</p></TooltipContent>
                                                         </Tooltip>
                                                     </TooltipProvider>
-                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => setSections(sections.map(s => s.id === section.id ? { ...s, fields: s.fields.filter(f => f.id !== field.id) } : s))}><X className="h-3 w-3" /></Button>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeField(section.id, field.id)}><X className="h-3 w-3" /></Button>
                                                 </div>
                                             </div>
                                             <div className="flex items-center justify-between pt-2 border-t border-dashed">
-                                                {field.type === 'checkbox' ? (
-                                                    <div className="h-5 w-5 rounded border-2 border-primary/20" />
-                                                ) : (
-                                                    <div className="h-6 w-full bg-muted/30 rounded border border-dashed" />
-                                                )}
+                                                <div className="h-5 w-5 rounded border-2 border-primary/20" />
                                             </div>
                                         </div>
                                     ))}
@@ -376,6 +414,3 @@ export function FormWizard({ currentUser }: { currentUser: DistributionUser }) {
     </div>
   );
 }
-
-import { X } from 'lucide-react';
-import { TooltipProvider } from '@/components/ui/tooltip';
