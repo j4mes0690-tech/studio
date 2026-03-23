@@ -156,13 +156,20 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
   const isDraft = item.status === 'draft';
   const email = currentUser?.email.toLowerCase().trim();
 
+  // Attention Required refined logic
   const isAttentionRequired = useMemo(() => {
     if (!item || !email || item.status !== 'open') return false;
     if (item.dismissedBy?.includes(email)) return false;
+    
     const isAssignedToMe = item.assignedTo.some(e => e.toLowerCase().trim() === email);
-    const lastMessage = item.messages?.length > 0 ? [...item.messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
-    const isMyRaisedWithResponse = item.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
-    return isAssignedToMe || isMyRaisedWithResponse;
+    const messages = item.messages || [];
+    const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+    
+    // Ball in court logic
+    const assigneeAction = isAssignedToMe && (!lastMessage || lastMessage.senderEmail.toLowerCase().trim() !== email);
+    const raiserAction = item.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
+    
+    return assigneeAction || raiserAction;
   }, [item, email]);
 
   const handleDismissAlert = (e: React.MouseEvent) => {
@@ -433,15 +440,12 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>Delete Request</p></TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                </TooltipProvider>
+              </Tooltip>
               <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>

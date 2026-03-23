@@ -43,7 +43,7 @@ import {
 import Link from 'next/link';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where } from 'firebase/firestore';
-import type { DistributionUser, InformationRequest, ClientInstruction, HolidayRequest } from '@/lib/types';
+import type { DistributionUser, InformationRequest, ClientInstruction, HolidayRequest, Project } from '@/lib/types';
 import { useMemo, useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -103,6 +103,12 @@ export default function Dashboard() {
   const [canDragId, setCanDragId] = useState<string | null>(null);
   const [loadingModule, setLoadingModule] = useState<string | null>(null);
 
+  const projectsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'projects');
+  }, [db]);
+  const { data: allProjects } = useCollection<Project>(projectsQuery);
+
   const rfiQuery = useMemoFirebase(() => {
     if (!db || !user?.email) return null;
     return query(collection(db, 'information-requests'), where('status', '==', 'open'));
@@ -151,21 +157,49 @@ export default function Dashboard() {
 
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
+  const allowedProjectIds = useMemo(() => {
+    if (!allProjects || !profile) return [];
+    if (profile.permissions?.hasFullVisibility) return allProjects.map(p => p.id);
+    const email = profile.email.toLowerCase().trim();
+    return allProjects
+      .filter(p => (p.assignedUsers || []).some(uEmail => uEmail.toLowerCase().trim() === email))
+      .map(p => p.id);
+  }, [allProjects, profile]);
+
   const pendingCounts = useMemo(() => {
-    if (!profile || !user?.email) return {};
+    if (!profile || !user?.email || !allowedProjectIds) return {};
     const email = user.email.toLowerCase().trim();
     
     const rfiCount = (rawRequests || []).filter(req => {
+        if (!allowedProjectIds.includes(req.projectId)) return false;
         if (req.dismissedBy?.includes(email)) return false;
+        
         const isAssignedToMe = req.assignedTo.some(e => e.toLowerCase().trim() === email);
-        const lastMessage = req.messages?.length > 0 ? [...req.messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
-        const isMyRaisedWithResponse = req.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
-        return isAssignedToMe || isMyRaisedWithResponse;
+        const messages = req.messages || [];
+        const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+        
+        // Alert if:
+        // 1. Assigned to me AND (it's new OR someone else spoke last)
+        const assigneeNeedsAction = isAssignedToMe && (!lastMessage || lastMessage.senderEmail.toLowerCase().trim() !== email);
+        
+        // 2. Raised by me AND someone else spoke last
+        const raiserNeedsAction = req.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
+        
+        return assigneeNeedsAction || raiserAction;
     }).length;
 
     const ciCount = (rawClientInstructions || []).filter(ci => {
+        if (!allowedProjectIds.includes(ci.projectId)) return false;
         if (ci.dismissedBy?.includes(email)) return false;
-        return (ci.recipients || []).some(e => e.toLowerCase().trim() === email);
+        
+        const isRecipient = (ci.recipients || []).some(e => e.toLowerCase().trim() === email);
+        const messages = ci.messages || [];
+        const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+        
+        // Alert if I'm a recipient and someone else (the raiser/client) was the last to speak
+        const hasExternalUpdate = lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
+        
+        return isRecipient && (!lastMessage || hasExternalUpdate);
     }).length;
 
     const hCount = (rawHolidays || []).filter(req => {
@@ -179,7 +213,7 @@ export default function Dashboard() {
         'client-instructions': ciCount,
         'holidays': hCount
     };
-  }, [rawRequests, rawClientInstructions, rawHolidays, profile, user?.email]);
+  }, [rawRequests, rawClientInstructions, rawHolidays, profile, user?.email, allowedProjectIds]);
 
   const allowedCards = useMemo(() => {
     if (!profile || orderedCardIds.length === 0) return [];

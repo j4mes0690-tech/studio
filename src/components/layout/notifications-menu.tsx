@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -98,9 +97,12 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
         const isAssignedToMe = request.assignedTo.some(e => e.toLowerCase().trim() === normalizedEmail);
         const messages = request.messages || [];
         const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+        
+        // Refined attention check: is last speaker NOT me?
         const isMyRaisedWithResponse = request.raisedBy.toLowerCase().trim() === normalizedEmail && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== normalizedEmail;
+        const assigneeNeedsAction = isAssignedToMe && (!lastMessage || lastMessage.senderEmail.toLowerCase().trim() !== normalizedEmail);
 
-        if (isAssignedToMe || isMyRaisedWithResponse) {
+        if (assigneeNeedsAction || isMyRaisedWithResponse) {
           list.push({
             id: request.id,
             collection: 'information-requests',
@@ -124,9 +126,11 @@ export function NotificationsMenu({ userEmail }: { userEmail: string | null | un
         const isRecipient = (ci.recipients || []).some(e => e.toLowerCase().trim() === normalizedEmail);
         const messages = ci.messages || [];
         const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+        
+        // Ball in court check
         const hasExternalUpdate = lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== normalizedEmail;
 
-        if (isRecipient) {
+        if (isRecipient && (!lastMessage || hasExternalUpdate)) {
           list.push({
             id: ci.id,
             collection: 'client-instructions',

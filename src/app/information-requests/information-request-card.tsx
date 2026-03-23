@@ -199,10 +199,19 @@ export function InformationRequestCard({
   const isAttentionRequired = useMemo(() => {
     if (!item || !email || item.status !== 'open') return false;
     if (item.dismissedBy?.includes(email)) return false;
+    
     const isAssignedToMe = item.assignedTo.some(e => e.toLowerCase().trim() === email);
-    const lastMessage = item.messages?.length > 0 ? [...item.messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
-    const isMyRaisedWithResponse = item.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
-    return isAssignedToMe || isMyRaisedWithResponse;
+    const messages = item.messages || [];
+    const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+    
+    // Needs action if:
+    // 1. Assigned to me AND (new OR someone else spoke last)
+    const assigneeAction = isAssignedToMe && (!lastMessage || lastMessage.senderEmail.toLowerCase().trim() !== email);
+    
+    // 2. Raised by me AND someone else spoke last
+    const raiserAction = item.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
+    
+    return assigneeAction || raiserAction;
   }, [item, email]);
 
   const handleDismissAlert = (e: React.MouseEvent) => {
@@ -354,7 +363,7 @@ export function InformationRequestCard({
               </AccordionItem>
             )}
             {!isDraft && sortedMessages.length > 0 && (
-              <AccordionItem value="conversation">
+              <AccordionItem value="conversation" className="border-b-0">
                   <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><MessageSquareReply className="h-4 w-4" /><span>Thread ({sortedMessages.length})</span></div></AccordionTrigger>
                   <AccordionContent className="pt-4">
                       <div className="space-y-4">
@@ -386,7 +395,7 @@ export function InformationRequestCard({
               </AccordionItem>
             )}
             {item.photos && item.photos.length > 0 && (
-              <AccordionItem value="photo">
+              <AccordionItem value="photo" className="border-b-0">
                 <AccordionTrigger className="text-sm font-semibold"><div className="flex items-center gap-2"><Camera className="h-4 w-4" /><span>Visual Assets ({item.photos.length})</span></div></AccordionTrigger>
                 <AccordionContent>
                   <Carousel className="w-full max-w-sm mx-auto">

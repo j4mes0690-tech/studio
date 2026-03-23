@@ -115,7 +115,7 @@ function InfoRequestsContent() {
     }).filter(item => projectId ? item.projectId === projectId : true);
   }, [allItems, currentUser, allProjects, projectId, subContractors]);
 
-  // Sort for display (Attention Required first, then active/open status, then newest)
+  // Sort for display (Priority sorting: Attention Required first, then active/open status, then newest)
   const sortedItems = useMemo(() => {
     if (!filteredItems || !currentUser) return [];
     const email = currentUser.email.toLowerCase().trim();
@@ -123,10 +123,19 @@ function InfoRequestsContent() {
     const isAttentionRequired = (item: InformationRequest) => {
         if (item.status !== 'open') return false;
         if (item.dismissedBy?.includes(email)) return false;
+        
         const isAssignedToMe = item.assignedTo.some(e => e.toLowerCase().trim() === email);
-        const lastMessage = item.messages?.length > 0 ? [...item.messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
-        const isMyRaisedWithResponse = item.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
-        return isAssignedToMe || isMyRaisedWithResponse;
+        const messages = item.messages || [];
+        const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
+        
+        // Needs action if:
+        // 1. Assigned to me AND (new OR someone else spoke last)
+        const assigneeAction = isAssignedToMe && (!lastMessage || lastMessage.senderEmail.toLowerCase().trim() !== email);
+        
+        // 2. Raised by me AND someone else spoke last
+        const raiserAction = item.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
+        
+        return assigneeAction || raiserAction;
     };
 
     return [...filteredItems].sort((a, b) => {
