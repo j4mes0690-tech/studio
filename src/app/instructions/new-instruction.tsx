@@ -271,7 +271,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
                 <Button 
                     type="submit" 
                     variant="outline" 
-                    className="w-full sm:w-auto h-12" 
+                    className="w-full sm:w-auto h-12 gap-2" 
                     disabled={isPending} 
                     onClick={() => form.setValue('status', 'draft')}
                 >
@@ -280,7 +280,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
                 <Button 
                     type="submit" 
                     variant="outline" 
-                    className="w-full sm:flex-1 h-12 font-bold" 
+                    className="w-full sm:flex-1 h-12 font-bold gap-2" 
                     disabled={isPending} 
                     onClick={() => form.setValue('status', 'issued')}
                 >
@@ -288,7 +288,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
                 </Button>
                 <Button 
                     type="submit" 
-                    className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20" 
+                    className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
                     disabled={isPending} 
                     onClick={() => form.setValue('status', 'issued')}
                 >

@@ -31,7 +31,8 @@ import {
   EyeOff,
   ExternalLink,
   Link as LinkIcon,
-  Pencil
+  Pencil,
+  Circle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { ClientDate } from '../../components/client-date';
@@ -58,6 +59,9 @@ import { EditInstruction } from './edit-instruction';
 import { DistributeInstructionButton } from './distribute-instruction-button';
 import { DownloadInstructionButton } from './download-instruction-button';
 
+/**
+ * InstructionCard - Displays a site instruction record with its audit trail.
+ */
 export function InstructionCard({ 
     instruction, 
     projects, 

@@ -391,15 +391,15 @@ export function EditPermitDialog({
                                                         <RadioGroup value={field.value || ""} onValueChange={(val) => updateDynamicValue(section.id, field.id, val)} className="grid grid-cols-3 gap-2">
                                                             <div className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/20 border border-transparent has-[[data-state=checked]]:border-green-500 has-[[data-state=checked]]:bg-green-50 transition-all cursor-pointer">
                                                                 <RadioGroupItem value="yes" id={`edit-y-${field.id}`} className="h-5 w-5" />
-                                                                <Label htmlFor={`edit-y-${field.id}`} className="text-[10px] font-black uppercase text-green-700">Yes</Label>
+                                                                <Label htmlFor={`edit-y-${field.id}`} className="text-[10px] font-black uppercase text-green-700 cursor-pointer">Yes</Label>
                                                             </div>
                                                             <div className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/20 border border-transparent has-[[data-state=checked]]:border-red-500 has-[[data-state=checked]]:bg-red-50 transition-all cursor-pointer">
                                                                 <RadioGroupItem value="no" id={`edit-n-${field.id}`} className="h-5 w-5" />
-                                                                <Label htmlFor={`edit-n-${field.id}`} className="text-[10px] font-black uppercase text-red-700">No</Label>
+                                                                <Label htmlFor={`edit-n-${field.id}`} className="text-[10px] font-black uppercase text-red-700 cursor-pointer">No</Label>
                                                             </div>
                                                             <div className="flex flex-col items-center gap-1.5 p-2 rounded-lg bg-muted/20 border border-transparent has-[[data-state=checked]]:border-slate-400 has-[[data-state=checked]]:bg-slate-50 transition-all cursor-pointer">
                                                                 <RadioGroupItem value="na" id={`edit-na-${field.id}`} className="h-5 w-5" />
-                                                                <Label htmlFor={`edit-na-${field.id}`} className="text-[10px] font-black uppercase text-muted-foreground">N/A</Label>
+                                                                <Label htmlFor={`edit-na-${field.id}`} className="text-[10px] font-black uppercase text-muted-foreground cursor-pointer">N/A</Label>
                                                             </div>
                                                         </RadioGroup>
                                                     )}
