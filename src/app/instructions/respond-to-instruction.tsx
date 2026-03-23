@@ -1,12 +1,9 @@
 'use client';
 
-import { useState, useEffect, useTransition, useRef } from 'react';
+import { useState, useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import Image from 'next/image';
-
-import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -24,304 +21,92 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
-import { MessageSquareReply, Camera, Upload, FileIcon, X, RefreshCw, FileText, Download, Loader2 } from 'lucide-react';
-import type { Instruction, DistributionUser, ChatMessage, Photo, FileAttachment } from '@/lib/types';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { useFirestore, useStorage } from '@/firebase';
+import { Button } from '@/components/ui/button';
+import { MessageSquareReply, Loader2, Send } from 'lucide-react';
+import type { Instruction, DistributionUser, ChatMessage } from '@/lib/types';
+import { useFirestore } from '@/firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import { cn } from '@/lib/utils';
-import { ClientDate } from '@/components/client-date';
-import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import { VoiceInput } from '@/components/voice-input';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { CameraOverlay } from '@/components/camera-overlay';
 
-const AddChatMessageSchema = z.object({
+const RespondSchema = z.object({
   message: z.string().min(1, 'Message cannot be empty.'),
 });
 
-type AddChatMessageFormValues = z.infer<typeof AddChatMessageSchema>;
-
-type RespondToInstructionProps = {
-  instruction: Instruction;
-  currentUser: DistributionUser;
-};
-
-export function RespondToInstruction({ instruction, currentUser }: RespondToInstructionProps) {
+export function RespondToInstruction({ instruction, currentUser }: { instruction: Instruction, currentUser: DistributionUser }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
-  const storage = useStorage();
   const [isPending, startTransition] = useTransition();
 
-  // Media state
-  const [photos, setPhotos] = useState<Photo[]>([]);
-  const [files, setFiles] = useState<FileAttachment[]>([]);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [isReadingFiles, setIsReadingFiles] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const docInputRef = useRef<HTMLInputElement>(null);
-
-  const form = useForm<AddChatMessageFormValues>({
-    resolver: zodResolver(AddChatMessageSchema),
-    defaultValues: {
-      message: '',
-    },
+  const form = useForm({
+    resolver: zodResolver(RespondSchema),
+    defaultValues: { message: '' },
   });
 
-  useEffect(() => {
-    if (open) {
-      form.reset({ message: '' });
-      setPhotos([]);
-      setFiles([]);
-      setIsCameraOpen(false);
-      setIsReadingFiles(false);
-    }
-  }, [open, form]);
-
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles || selectedFiles.length === 0) return;
-    
-    setIsReadingFiles(true);
-    const readers = Array.from(selectedFiles).map(f => {
-      return new Promise<void>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (re) => {
-          setFiles(prev => [...prev, {
-            name: f.name,
-            type: f.type,
-            size: f.size,
-            url: re.target?.result as string
-          }]);
-          resolve();
-        };
-        reader.readAsDataURL(f);
-      });
-    });
-
-    await Promise.all(readers);
-    setIsReadingFiles(false);
-  };
-
-  const onSubmit = (values: AddChatMessageFormValues) => {
+  const onSubmit = (values: { message: string }) => {
     startTransition(async () => {
       try {
-        toast({ title: 'Uploading', description: 'Persisting media...' });
-
-        // 1. Upload Photos
-        const uploadedPhotos = await Promise.all(
-          photos.map(async (p, i) => {
-            if (p.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(p.url);
-              const url = await uploadFile(storage, `instruction-threads/photos/${Date.now()}-${i}.jpg`, blob);
-              return { ...p, url };
-            }
-            return p;
-          })
-        );
-
-        // 2. Upload Files
-        const uploadedFiles = await Promise.all(
-          files.map(async (f, i) => {
-            if (f.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(f.url);
-              const url = await uploadFile(storage, `instruction-threads/files/${Date.now()}-${i}-${f.name}`, blob);
-              return { ...f, url };
-            }
-            return f;
-          })
-        );
-
         const newMessage: ChatMessage = {
-          id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-          sender: currentUser.name,
-          senderEmail: currentUser.email.toLowerCase().trim(),
+          id: `msg-${Date.now()}`,
+          sender: currentUser.name || 'Site Manager',
+          senderEmail: currentUser.email,
           message: values.message,
           createdAt: new Date().toISOString(),
-          photos: uploadedPhotos,
-          files: uploadedFiles,
         };
 
-        const docRef = doc(db, 'instructions', instruction.id);
-        const updates = { 
-            messages: arrayUnion(newMessage)
-        };
+        await updateDoc(doc(db, 'instructions', instruction.id), {
+          messages: arrayUnion(newMessage)
+        });
 
-        await updateDoc(docRef, updates);
-        toast({ title: 'Success', description: 'Update posted.' });
+        toast({ title: 'Update Posted', description: 'The implementation thread has been updated.' });
         setOpen(false);
-
+        form.reset();
       } catch (err) {
-        console.error('Thread post error:', err);
-        toast({ title: 'Error', description: 'Failed to post update.', variant: 'destructive' });
+        toast({ title: 'Error', description: 'Failed to post message.', variant: 'destructive' });
       }
     });
   };
 
-  const sortedMessages = [...(instruction.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
   return (
-    <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <MessageSquareReply className="h-4 w-4" />
-                    <span className="sr-only">Respond to Instruction</span>
-                </Button>
-              </DialogTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Respond to Instruction</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Site Instruction Conversation</DialogTitle>
-            <DialogDescription>
-              Discuss implementation details or provide updates.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className='py-4 space-y-4'>
-              <div className='bg-muted/30 p-3 rounded-lg border-l-4 border-l-primary shadow-sm'>
-                  <p className='text-[10px] font-bold text-primary uppercase tracking-widest mb-1'>Original Details</p>
-                  <p className='text-sm text-foreground mb-2 line-clamp-3 font-medium'>{instruction.originalText}</p>
-              </div>
-
-              <div className='space-y-3 bg-muted/10 p-3 rounded-md border'>
-                  {sortedMessages.map(msg => {
-                      const normalizedCurrentEmail = (currentUser.email || '').toLowerCase().trim();
-                      const normalizedSenderEmail = (msg.senderEmail || '').toLowerCase().trim();
-                      const isMe = normalizedSenderEmail === normalizedCurrentEmail;
-                      const isSystem = msg.senderEmail === 'system@sitecommand.internal';
-
-                      if (isSystem) {
-                          return (
-                              <div key={msg.id} className="flex justify-center my-2">
-                                  <span className="bg-muted/50 text-[9px] uppercase font-bold px-3 py-1 rounded-full text-muted-foreground border">
-                                      {msg.message}
-                                  </span>
-                              </div>
-                          );
-                      }
-
-                      return (
-                          <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                              <div className={cn(
-                                  "px-3 py-1.5 rounded-2xl max-w-[90%] shadow-sm",
-                                  isMe 
-                                      ? "bg-primary text-primary-foreground rounded-tr-none" 
-                                      : "bg-muted text-foreground rounded-tl-none border"
-                              )}>
-                                  {!isMe && <p className="text-[9px] font-bold mb-0.5 text-primary">{msg.sender}</p>}
-                                  <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
-                                  
-                                  {(msg.photos?.length || 0) > 0 && (
-                                    <div className="grid grid-cols-2 gap-1 mt-2">
-                                      {msg.photos?.map((p, i) => (
-                                        <div key={i} className="relative aspect-video rounded overflow-hidden border bg-background min-w-[100px]">
-                                          <Image src={p.url} alt="Attached" fill className="object-cover" />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                  {(msg.files?.length || 0) > 0 && (
-                                    <div className="mt-2 space-y-1">
-                                      {msg.files?.map((f, i) => (
-                                        <div key={i} className={cn("flex items-center gap-1.5 p-1.5 rounded text-[10px] border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-background border-border text-primary")}>
-                                          <FileText className="h-3 w-3" />
-                                          <span className="truncate max-w-[120px]">{f.name}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-
-                                  <div className={cn("text-[8px] text-right mt-1 opacity-70")}>
-                                      <ClientDate date={msg.createdAt} />
-                                  </div>
-                              </div>
-                          </div>
-                      );
-                  })}
-                  {sortedMessages.length === 0 && (
-                      <p className='text-center text-xs text-muted-foreground py-4 italic'>No discussion yet.</p>
-                  )}
-              </div>
-          </div>
-
-          <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
-                  <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
-                          <span>Replying as:</span>
-                          <Badge variant="secondary" className="text-[10px] px-2 py-0 h-auto">{currentUser.name}</Badge>
-                      </div>
-                      <VoiceInput onResult={(text) => form.setValue('message', text)} />
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <MessageSquareReply className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Post Implementation Update</DialogTitle>
+          <DialogDescription>Add a note to the audit trail for this instruction.</DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="message"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Update Details</span>
+                    <VoiceInput onResult={field.onChange} />
                   </div>
-
-                  <FormField
-                  control={form.control}
-                  name="message"
-                  render={({ field }) => (
-                      <FormItem>
-                      <FormControl>
-                          <Textarea 
-                              placeholder="Post an update or clarification..." 
-                              className="min-h-[80px] resize-none" 
-                              {...field} 
-                          />
-                      </FormControl>
-                      <FormMessage />
-                      </FormItem>
-                  )}
-                  />
-
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1.5">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="h-3.5 w-3.5 mr-1" />Camera</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="h-3.5 w-3.5 mr-1" />Photos</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="h-3.5 w-3.5 mr-1" />Files</Button>
-                    </div>
-                    
-                    <Button type="submit" className="ml-auto" disabled={isReadingFiles || isPending}>
-                        {isPending ? 'Posting...' : 'Post Update'}
-                    </Button>
-                  </div>
-
-                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
-                    const selected = e.target.files;
-                    if (!selected) return;
-                    Array.from(selected).forEach(f => {
-                      const reader = new FileReader();
-                      reader.onload = (re) => {
-                          setPhotos(prev => [...prev, { 
-                              url: re.target?.result as string, 
-                              takenAt: new Date().toISOString() 
-                          }]);
-                      };
-                      reader.readAsDataURL(f);
-                    });
-                  }} />
-                  <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" />
-              </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      <CameraOverlay 
-        isOpen={isCameraOpen} 
-        onClose={() => setIsCameraOpen(false)} 
-        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
-        title="Implementation documentation"
-      />
-    </>
+                  <FormControl>
+                    <Textarea placeholder="Progress update or query..." className="min-h-[100px]" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="submit" disabled={isPending} className="w-full">
+                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Send className="h-4 w-4 mr-2" />}
+                Post Message
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

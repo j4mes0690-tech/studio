@@ -116,7 +116,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return (subContractors || []).filter(sub => assignedIds.includes(sub.id));
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   useEffect(() => {
@@ -156,14 +156,14 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   };
 
   const handleStartEditItem = (idx: number) => {
-    const item = items[idx];
+    const snagItem = items[idx];
     setEditingItemIdx(idx);
-    setEditItemText(item.description);
-    setEditItemSubId(item.subContractorId || undefined);
+    setEditItemText(snagItem.description);
+    setEditItemSubId(snagItem.subContractorId || 'unassigned');
   };
 
   const handleSaveEditItem = (idx: number) => {
-    setItems(items.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: editItemSubId || null } : it));
+    setItems(items.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: editItemSubId === 'unassigned' ? null : editItemSubId } : it));
     setEditingItemIdx(null);
   };
 
@@ -335,7 +335,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                       
                       <div className="flex gap-2 items-end bg-muted/20 p-4 rounded-xl border border-dashed">
                           <div className="flex-1 space-y-2">
-                              <div className="flex justify-between items-center"><Label className="text-[10px] font-bold">New Defect</Label><VoiceInput onResult={setNewItemText} /></div>
+                              <div className="flex justify-between items-center">
+                                  <Label className="text-[10px] font-bold">New Defect</Label>
+                                  <VoiceInput onResult={setNewItemText} />
+                              </div>
                               <Input placeholder="Describe the issue..." value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}} className="bg-background" />
                           </div>
                           <div className="flex gap-1">

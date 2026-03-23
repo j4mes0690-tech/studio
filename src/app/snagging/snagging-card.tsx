@@ -35,7 +35,8 @@ import {
   Send,
   Building2,
   ChevronRight,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Pencil
 } from 'lucide-react';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';
@@ -50,7 +51,7 @@ import { ClientDate } from '../../components/client-date';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, deleteDoc, collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
@@ -144,7 +145,6 @@ export function SnaggingItemCard({
 
   const handleAggregateClick = () => {
     if (item.isProjectAggregation) {
-        // Switch grouping off and filter by this project
         localStorage.setItem('sitecommand_grouping_snagging', 'false');
         router.push(`/snagging?project=${item.projectId}`);
     }

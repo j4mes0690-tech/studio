@@ -31,7 +31,6 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Loader2, 
   Save, 
-  ShieldCheck, 
   Clock, 
   Camera, 
   Upload, 
@@ -58,7 +57,7 @@ import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
-import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { cn, scrollToFirstError } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
