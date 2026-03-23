@@ -45,7 +45,6 @@ import { useMemo } from 'react';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
-  { href: '/insights', label: 'Project Insights', icon: BarChart3, permission: 'hasFullVisibility' },
   { href: '/documents', label: 'Drawing Register', icon: FolderOpen, permission: 'accessDocuments' },
   { href: '/site-diary', label: 'Site Diary', icon: BookOpen, permission: 'accessSiteDiary' },
   { href: '/planner', label: 'Work Planner', icon: CalendarRange, permission: 'accessPlanner' },
