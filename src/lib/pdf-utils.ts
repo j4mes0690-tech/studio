@@ -1,6 +1,6 @@
 'use client';
 
-import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation, ClientInstruction, Permit, QualityChecklist } from '@/lib/types';
+import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation, ClientInstruction, Permit, QualityChecklist, PermitSignature } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
@@ -210,7 +210,7 @@ export async function generateQualityChecklistPDF(
 }
 
 /**
- * generatePermitPDF - Creates a formal professional Permit to Work document with photo appendix.
+ * generatePermitPDF - Creates a formal professional Permit to Work document with photo and signature appendix.
  */
 export async function generatePermitPDF(
   permit: Permit,
@@ -259,6 +259,28 @@ export async function generatePermitPDF(
     `;
   });
 
+  // Render signatures summary
+  let signaturesHtml = '';
+  if (permit.signatures && permit.signatures.length > 0) {
+    signaturesHtml = `
+      <div style="margin-top: 30px; border-top: 2px solid #e2e8f0; padding-top: 20px; page-break-inside: avoid;">
+        <h3 style="font-size: 12px; color: #1e40af; margin-bottom: 15px; font-weight: bold; text-transform: uppercase;">Authorisation & Acknowledgment</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          ${permit.signatures.map(sig => `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px;">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 5px;">
+                <span style="font-size: 11px; font-weight: bold;">${sig.name}</span>
+                <span style="font-size: 8px; font-weight: bold; color: #64748b; text-transform: uppercase;">${sig.role === 'site-manager' ? 'Site Manager' : 'Operative'}</span>
+              </div>
+              <img src="${sig.signatureDataUri}" style="height: 40px; width: auto; max-width: 100%; display: block; margin: 5px auto;" />
+              <p style="margin: 5px 0 0 0; font-size: 8px; color: #94a3b8; text-align: center;">Signed: ${new Date(sig.signedAt).toLocaleString()}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   reportElement.innerHTML = `
     <div style="border-bottom: 3px solid #1e40af; padding-bottom: 20px; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-end;">
       <div>
@@ -286,6 +308,7 @@ export async function generatePermitPDF(
     </div>
 
     ${sectionsHtml}
+    ${signaturesHtml}
 
     <div style="margin-top: 40px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
       <p style="font-size: 9px; color: #94a3b8; text-align: center;">Printed: ${new Date().toLocaleString()} | Issued by: ${permit.createdByEmail}</p>

@@ -444,6 +444,16 @@ export type TemplateSection = {
   fields: TemplateField[];
 };
 
+export type PermitSignatureRole = 'site-manager' | 'sub-contractor-operative';
+
+export type PermitSignature = {
+  id: string;
+  role: PermitSignatureRole;
+  name: string;
+  signatureDataUri: string;
+  signedAt: string;
+};
+
 export type Permit = {
   id: string;
   reference: string;
@@ -456,6 +466,8 @@ export type Permit = {
   description: string;
   // AI-generated dynamic content
   sections: TemplateSection[];
+  // Signatures
+  signatures?: PermitSignature[];
   // Standard hazard/precaution fallbacks for non-templated permits
   hazards?: string | null;
   precautions?: string | null;

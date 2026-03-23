@@ -22,7 +22,8 @@ import {
   Pencil,
   Check,
   Minus,
-  AlertTriangle
+  AlertTriangle,
+  Signature as SignatureIcon
 } from 'lucide-react';
 import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
@@ -240,10 +241,10 @@ export function PermitCard({
             <CollapsibleTrigger asChild onClick={e => e.stopPropagation()}>
                 <Button variant="ghost" size="sm" className="w-full text-xs gap-2 text-muted-foreground h-10 border border-dashed border-muted-foreground/20 rounded-lg">
                     <ChevronDown className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-180")} />
-                    {isExpanded ? "Hide Controls" : "View Safety Controls"}
+                    {isExpanded ? "Hide Details" : "View Details & Sign-off"}
                 </Button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="pt-4">
+            <CollapsibleContent className="pt-4 space-y-6">
                 <Accordion type="multiple" defaultValue={(permit.sections || []).map(s => s.id)} className="space-y-3">
                     {(permit.sections || []).map((section) => (
                         <AccordionItem key={section.id} value={section.id} className="border rounded-xl bg-muted/5 overflow-hidden">
@@ -293,6 +294,32 @@ export function PermitCard({
                         </AccordionItem>
                     ))}
                 </Accordion>
+
+                <div className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                        <SignatureIcon className="h-4 w-4 text-primary" />
+                        <span className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sign-off Log</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {(permit.signatures || []).map((sig) => (
+                            <div key={sig.id} className="bg-muted/10 p-3 rounded-xl border flex flex-col gap-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-[10px] font-bold text-foreground">{sig.name}</span>
+                                    <Badge variant="outline" className="text-[8px] h-4 uppercase font-black tracking-tighter">
+                                        {sig.role === 'site-manager' ? 'Manager' : 'Operative'}
+                                    </Badge>
+                                </div>
+                                <div className="relative h-12 bg-white rounded border border-dashed flex items-center justify-center p-1">
+                                    <img src={sig.signatureDataUri} alt="Signature" className="max-h-full max-w-full object-contain" />
+                                </div>
+                                <span className="text-[8px] text-muted-foreground text-center">Signed <ClientDate date={sig.signedAt} /></span>
+                            </div>
+                        ))}
+                        {(!permit.signatures || permit.signatures.length === 0) && (
+                            <p className="col-span-full py-4 text-center text-[10px] text-muted-foreground italic border border-dashed rounded-lg bg-muted/5">No digital signatures recorded.</p>
+                        )}
+                    </div>
+                </div>
             </CollapsibleContent>
           </Collapsible>
 

@@ -26,8 +26,32 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Save, ShieldCheck, Clock, Camera, Upload, X, RefreshCw, Layout, Calendar as CalendarIcon, Check } from 'lucide-react';
-import type { Project, SubContractor, DistributionUser, Permit, Photo, TemplateSection } from '@/lib/types';
+import { 
+  Loader2, 
+  Save, 
+  ShieldCheck, 
+  Clock, 
+  Camera, 
+  Upload, 
+  X, 
+  RefreshCw, 
+  Layout, 
+  Calendar as CalendarIcon, 
+  Check,
+  Signature as SignatureIcon,
+  UserPlus,
+  Trash2
+} from 'lucide-react';
+import type { 
+  Project, 
+  SubContractor, 
+  DistributionUser, 
+  Permit, 
+  Photo, 
+  TemplateSection,
+  PermitSignature,
+  PermitSignatureRole
+} from '@/lib/types';
 import { useFirestore, useStorage, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +63,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { CameraOverlay } from '@/components/camera-overlay';
+import { SignaturePad } from '@/components/signature-pad';
 
 const EditPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -74,7 +99,13 @@ export function EditPermitDialog({
   const [isPending, startTransition] = useTransition();
 
   const [dynamicSections, setDynamicSections] = useState<TemplateSection[]>(permit.sections || []);
+  const [signatures, setSignatures] = useState<PermitSignature[]>(permit.signatures || []);
+  
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isSigning, setIsSigning] = useState(false);
+  const [pendingSignatoryRole, setPendingSignatoryRole] = useState<PermitSignatureRole>('site-manager');
+  const [pendingSignatoryName, setPendingSignatoryName] = useState('');
+  
   const [activePhotoFieldId, setActivePhotoFieldId] = useState<{ sectionId: string, fieldId: string } | null>(null);
   const fieldFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -101,6 +132,7 @@ export function EditPermitDialog({
         validTo: new Date(permit.validTo).toISOString().slice(0, 16),
       });
       setDynamicSections(permit.sections || []);
+      setSignatures(permit.signatures || []);
     }
   }, [open, permit, form]);
 
@@ -175,6 +207,20 @@ export function EditPermitDialog({
     e.target.value = '';
   };
 
+  const handleAddSignature = (dataUri: string) => {
+    if (!pendingSignatoryName.trim()) return;
+    const newSig: PermitSignature = {
+        id: `sig-${Date.now()}`,
+        role: pendingSignatoryRole,
+        name: pendingSignatoryName.trim(),
+        signatureDataUri: dataUri,
+        signedAt: new Date().toISOString()
+    };
+    setSignatures([...signatures, newSig]);
+    setIsSigning(false);
+    setPendingSignatoryName('');
+  };
+
   const validateRequiredFields = () => {
     let missing: string[] = [];
     dynamicSections.forEach(s => {
@@ -199,6 +245,10 @@ export function EditPermitDialog({
                 description: `Please complete: ${missing.slice(0, 2).join(', ')}${missing.length > 2 ? '...' : ''}`, 
                 variant: "destructive" 
             });
+            return;
+        }
+        if (signatures.length === 0) {
+            toast({ title: "Sign-off Required", description: "Formal issuance requires at least one digital signature.", variant: "destructive" });
             return;
         }
     }
@@ -235,6 +285,7 @@ export function EditPermitDialog({
           contractorName: contractor?.name || permit.contractorName,
           status: targetStatus,
           sections: processedSections,
+          signatures: signatures,
           validTo: new Date(values.validTo).toISOString(),
         };
 
@@ -414,6 +465,94 @@ export function EditPermitDialog({
                         </AccordionItem>
                     ))}
                 </Accordion>
+
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between border-b pb-2">
+                        <h3 className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                            <SignatureIcon className="h-4 w-4" />
+                            Digital Sign-off
+                        </h3>
+                        <Dialog open={isSigning} onOpenChange={setIsSigning}>
+                            <DialogTrigger asChild>
+                                <Button type="button" variant="outline" size="sm" className="h-8 gap-2 font-bold text-primary border-primary/20">
+                                    <UserPlus className="h-3.5 w-3.5" /> Add Signature
+                                </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-lg">
+                                <DialogHeader>
+                                    <DialogTitle>Capture Digital Signature</DialogTitle>
+                                    <DialogDescription>Sign on screen to formally authorize or acknowledge this permit.</DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-6 py-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Signatory Role</Label>
+                                            <Select value={pendingSignatoryRole} onValueChange={(v: any) => setPendingSignatoryRole(v)}>
+                                                <SelectTrigger className="h-11 bg-background"><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="site-manager">Site Manager (Authoriser)</SelectItem>
+                                                    <SelectItem value="sub-contractor-operative">Sub-contractor Operative</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] uppercase font-bold text-muted-foreground">Full Name</Label>
+                                            <Input 
+                                                placeholder="e.g. John Smith" 
+                                                value={pendingSignatoryName} 
+                                                onChange={e => setPendingSignatoryName(e.target.value)}
+                                                className="h-11 bg-background" 
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] uppercase font-bold text-muted-foreground">Manual Signature</Label>
+                                        <SignaturePad 
+                                            onSave={handleAddSignature} 
+                                            onCancel={() => setIsSigning(false)} 
+                                        />
+                                    </div>
+                                </div>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {signatures.map((sig) => (
+                            <div key={sig.id} className="bg-background p-4 rounded-xl border shadow-sm relative group/sig flex flex-col gap-3">
+                                <button 
+                                    type="button" 
+                                    className="absolute top-2 right-2 h-6 w-6 rounded-full bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive hover:text-white transition-colors"
+                                    onClick={() => setSignatures(signatures.filter(s => s.id !== sig.id))}
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                                <div className="flex items-center gap-3">
+                                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                                        <SignatureIcon className="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                    <div className="min-w-0">
+                                        <p className="text-xs font-bold truncate">{sig.name}</p>
+                                        <p className="text-[9px] text-muted-foreground uppercase font-black tracking-tighter">
+                                            {sig.role === 'site-manager' ? 'Site Manager' : 'Operative'}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="relative aspect-[3/1] bg-muted/10 rounded border border-dashed flex items-center justify-center p-2">
+                                    <img src={sig.signatureDataUri} alt="Signature" className="max-h-full max-w-full object-contain" />
+                                </div>
+                                <p className="text-[8px] text-muted-foreground text-center">Signed at: {new Date(sig.signedAt).toLocaleString()}</p>
+                            </div>
+                        ))}
+                        {signatures.length === 0 && (
+                            <div className="col-span-full py-8 text-center border-2 border-dashed rounded-xl bg-muted/5">
+                                <SignatureIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+                                <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">No Signatures Collected</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
 
                 <div className="flex flex-col gap-3 pt-6 border-t pb-12">
                     <div className="flex flex-col sm:flex-row gap-3">
