@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -27,515 +27,48 @@ import {
 import {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Pencil, 
   Camera, 
-  Image as ImageIcon, 
-  Paperclip, 
   X, 
-  ShieldCheck, 
-  FileText, 
-  Users2, 
+  Trash2, 
+  Plus, 
+  UserPlus, 
   Loader2, 
   Save, 
   Send,
-  Link as LinkIcon,
+  Check,
   Circle,
-  CheckCircle2,
-  Check
+  CheckCircle2
 } from 'lucide-react';
-import type { Project, InformationRequest, DistributionUser, Photo, SubContractor, FileAttachment, ClientInstruction, SnaggingListItem, SnaggingItem } from '@/lib/types';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { DatePicker } from '@/components/date-picker';
-import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection, query, where } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { useFirestore, useStorage, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, updateDoc, collection } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
-import { sendInformationRequestEmailAction } from './actions';
-import { getPartnerEmails, getProjectInitials, scrollToFirstError } from '@/lib/utils';
-import { generateInformationRequestPDF } from '@/lib/pdf-utils';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { getPartnerEmails, scrollToFirstError } from '@/lib/utils';
+import { generateSnaggingPDF } from '@/lib/pdf-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
+import { sendSubcontractorReportAction } from './actions';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-const EditInformationRequestSchema = z.object({
-  id: z.string().min(1),
+const EditSnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
-  clientInstructionId: z.string().optional().nullable(),
-  description: z.string().optional().default(''),
-  assignedTo: z.array(z.string()).default([]),
-  requiredBy: z.string().optional(),
-  status: z.enum(['draft', 'open', 'closed']).default('open'),
+  areaId: z.string().optional(),
+  title: z.string().min(3, 'List title is required.'),
+  description: z.string().optional(),
+  status: z.enum(['draft', 'issued']).default('issued'),
 });
 
-type EditInformationRequestFormValues = z.infer<typeof EditInformationRequestSchema>;
-
-export function EditInformationRequest({ item, projects, distributionUsers, open: externalOpen, onOpenChange: setExternalOpen }: { 
-  item: InformationRequest; 
-  projects: Project[]; 
-  distributionUsers: DistributionUser[]; 
-  open?: boolean; 
-  onOpenChange?: (open: boolean) => void;
-}) {
-  const [internalOpen, setInternalOpen] = useState(false);
-  const open = externalOpen !== undefined ? externalOpen : internalOpen;
-  const setOpen = setExternalOpen !== undefined ? setExternalOpen : setInternalOpen;
-
-  const { toast } = useToast();
-  const db = useFirestore();
-  const storage = useStorage();
-  const docInputRef = useRef<HTMLInputElement>(null);
-  const [isPending, startTransition] = useTransition();
-
-  const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
-  const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-
-  const subsQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return collection(db, 'sub-contractors');
-  }, [db]);
-  const { data: subContractors } = useCollection<SubContractor>(subsQuery);
-
-  const form = useForm<EditInformationRequestFormValues>({
-    resolver: zodResolver(EditInformationRequestSchema),
-    defaultValues: {
-      id: item.id,
-      projectId: item.projectId,
-      clientInstructionId: item.clientInstructionId || 'none',
-      description: item.description || '',
-      assignedTo: (item.assignedTo || []).map(email => {
-          const isStaff = (distributionUsers || []).some(u => u.email === email);
-          return isStaff ? `staff:${email}` : `partner:${email}`;
-      }),
-      requiredBy: item.requiredBy,
-      status: item.status,
-    },
-  });
-
-  const selectedProjectId = form.watch('projectId');
-  const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
-
-  const ciQuery = useMemoFirebase(() => {
-    if (!db || !selectedProjectId) return null;
-    return query(collection(db, 'client-instructions'), where('projectId', '==', selectedProjectId));
-  }, [db, selectedProjectId]);
-  const { data: clientDirectives } = useCollection<ClientInstruction>(ciQuery);
-
-  const availableInternalUsers = useMemo(() => {
-    if (!selectedProject) return [];
-    const assignedEmails = selectedProject.assignedUsers || [];
-    return (distributionUsers || []).filter(u => 
-      assignedEmails.some(email => email.toLowerCase().trim() === u.email.toLowerCase().trim())
-    );
-  }, [selectedProject, distributionUsers]);
-
-  const availableExternalPartners = useMemo(() => {
-    if (!selectedProject || !subContractors) return [];
-    const assignedSubIds = selectedProject.assignedSubContractors || [];
-    return subContractors.filter(sub => assignedSubIds.includes(sub.id));
-  }, [selectedProject, subContractors]);
-
-  const onSubmit = (values: EditInformationRequestFormValues) => {
-    if (values.status === 'open') {
-      let hasError = false;
-      if (!values.description || values.description.trim().length < 10) {
-        form.setError('description', { message: 'Enquiry details must be at least 10 characters to formally log.' }, { shouldFocus: true });
-        hasError = true;
-      }
-      if (!values.assignedTo || values.assignedTo.length === 0) {
-        form.setError('assignedTo', { message: 'A recipient must be assigned to formally log this request.' }, { shouldFocus: true });
-        hasError = true;
-      }
-      if (hasError) return;
-    }
-
-    startTransition(async () => {
-      try {
-        const isIssuingNow = values.status === 'open' && item.status === 'draft';
-        toast({ 
-          title: isIssuingNow ? 'Issuing Request' : 'Updating Record', 
-          description: isIssuingNow ? 'Generating PDF and distributing...' : 'Saving changes and media...' 
-        });
-
-        const uploadedPhotos = await Promise.all(
-          photos.map(async (p, i) => {
-            if (p.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(p.url);
-              const url = await uploadFile(storage, `information-requests/photos/${item.id}-${Date.now()}-${i}.jpg`, blob);
-              return { ...p, url };
-            }
-            return p;
-          })
-        );
-
-        const uploadedFiles = await Promise.all(
-          files.map(async (f, i) => {
-            if (f.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(f.url);
-              const url = await uploadFile(storage, `information-requests/files/${item.id}-${Date.now()}-${i}-${f.name}`, blob);
-              return { ...f, url };
-            }
-            return f;
-          })
-        );
-
-        const targetEmail = values.assignedTo[0]?.replace(/^(staff|partner):/, '') || '';
-        const updates: any = {
-          projectId: values.projectId,
-          clientInstructionId: (values.clientInstructionId && values.clientInstructionId !== 'none') ? values.clientInstructionId : null,
-          description: values.description || '',
-          assignedTo: (values.assignedTo || []).map(val => val.replace(/^(staff|partner):/, '').toLowerCase().trim()),
-          photos: uploadedPhotos,
-          files: uploadedFiles,
-          requiredBy: values.requiredBy || null,
-          status: values.status,
-        };
-
-        const docRef = doc(db, 'information-requests', values.id);
-        
-        await updateDoc(docRef, updates)
-          .then(async () => {
-            if (isIssuingNow) {
-                const sub = availableExternalPartners.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
-                const recipientEmails = new Set<string>();
-                recipientEmails.add(targetEmail.toLowerCase().trim());
-
-                if (sub) {
-                    const partnerUsers = getPartnerEmails(sub.id, subContractors || [], distributionUsers);
-                    partnerUsers.forEach(e => recipientEmails.add(e));
-                }
-
-                const assignedToNames = values.assignedTo.map(val => {
-                    const email = val.replace(/^(staff|partner):/, '');
-                    return (distributionUsers || []).find(u => u.email === email)?.name || email;
-                });
-                
-                const pdf = await generateInformationRequestPDF({ ...item, ...updates } as InformationRequest, selectedProject, assignedToNames);
-                const pdfBase64 = pdf.output('datauristring').split(',')[1];
-
-                await sendInformationRequestEmailAction({
-                    emails: Array.from(recipientEmails),
-                    projectName: selectedProject?.name || 'Project',
-                    reference: item.reference,
-                    description: values.description,
-                    raisedBy: (distributionUsers || []).find(u => u.email === item.raisedBy)?.name || item.raisedBy,
-                    requestId: item.id,
-                    pdfBase64,
-                    fileName: `RFI-${item.reference}.pdf`,
-                    additionalFiles: uploadedFiles
-                });
-            }
-
-            toast({ title: 'Success', description: 'Information request updated.' });
-            setOpen(false);
-          })
-          .catch((error) => {
-            const permissionError = new FirestorePermissionError({
-              path: docRef.path,
-              operation: 'update',
-              requestResourceData: updates,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-            throw error;
-          });
-      } catch (err) {
-        console.error(err);
-        toast({ title: 'Error', description: 'Failed to process request update.', variant: 'destructive' });
-      }
-    });
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles) return;
-    
-    Array.from(selectedFiles).forEach(f => {
-      if (f.size > MAX_FILE_SIZE) {
-        toast({ title: 'File Too Large', description: `${f.name} exceeds 10MB limit.`, variant: 'destructive' });
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (re) => {
-        setFiles(prev => [...prev, {
-          name: f.name,
-          type: f.type,
-          size: f.size,
-          url: re.target?.result as string
-        }]);
-      };
-      reader.readAsDataURL(f);
-    });
-  };
-
-  useEffect(() => {
-    if (open) {
-      form.reset({
-        id: item.id,
-        projectId: item.projectId,
-        clientInstructionId: item.clientInstructionId || 'none',
-        description: item.description || '',
-        assignedTo: (item.assignedTo || []).map(email => {
-            const isStaff = (distributionUsers || []).some(u => u.email === email);
-            return isStaff ? `staff:${email}` : `partner:${email}`;
-        }),
-        requiredBy: item.requiredBy,
-        status: item.status,
-      });
-      setPhotos(item.photos || []);
-      setFiles(item.files || []);
-    }
-  }, [open, form, item, distributionUsers]);
-
-  const submissionStatus = form.watch('status');
-
-  return (
-    <>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon">
-                    <Pencil className="h-4 w-4" />
-                    <span className="sr-only">Edit Request</span>
-                </Button>
-              </DialogTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Edit Request</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Information Request</DialogTitle>
-            <DialogDescription>Modify enquiry details or assigned recipients.</DialogDescription>
-          </DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-4">
-              <input type="hidden" {...form.register('id')} />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="projectId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Project</FormLabel>
-                      <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); form.setValue('clientInstructionId', 'none'); }} value={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel className="flex items-center gap-2">
-                            <LinkIcon className="h-4 w-4 text-primary" />
-                            Linked Client Directive
-                        </FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="No link" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="none">No Link / Standalone</SelectItem>
-                                {clientDirectives?.map(ci => (
-                                    <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </FormItem>
-                )} />
-              </div>
-
-              <FormField
-                control={form.control}
-                name="assignedTo"
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Assign To (Recipient)</FormLabel>
-                    <Select 
-                    onValueChange={(val) => {
-                        field.onChange([val]);
-                        form.clearErrors('assignedTo');
-                    }} 
-                    value={field.value?.[0] || ""}
-                    disabled={!selectedProjectId}
-                    >
-                    <FormControl>
-                        <SelectTrigger>
-                        <SelectValue placeholder="Select project recipient" />
-                        </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                        <SelectGroup>
-                        <SelectLabel className="flex items-center gap-2 text-primary">
-                            <ShieldCheck className="h-3 w-3" /> Project Staff
-                        </SelectLabel>
-                        {availableInternalUsers.map(u => (
-                            <SelectItem key={`staff:${u.email}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
-                        ))}
-                        {availableInternalUsers.length === 0 && (
-                            <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to this project.</div>
-                        )}
-                        </SelectGroup>
-                        <Separator className="my-1" />
-                        <SelectGroup>
-                        <SelectLabel className="flex items-center gap-2 text-accent">
-                            <Users2 className="h-3 w-3" /> Trade Partners
-                        </SelectLabel>
-                        {availableExternalPartners.map(s => (
-                            <SelectItem key={`partner:${s.email}`} value={`partner:${s.email}`}>{s.name}</SelectItem>
-                        ))}
-                        {availableExternalPartners.length === 0 && (
-                            <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to this project.</div>
-                        )}
-                        </SelectGroup>
-                    </SelectContent>
-                    </Select>
-                    <FormMessage />
-                </FormItem>
-                )}
-            />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel>Enquiry</FormLabel>
-                      <VoiceInput onResult={(text) => form.setValue('description', text)} />
-                    </div>
-                    <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="requiredBy"
-                render={({ field }) => <DatePicker field={field} label="Required By" />}
-              />
-
-              <Separator />
-
-              <div className="space-y-4">
-                <FormLabel>Documentation & Photos</FormLabel>
-                <div className="space-y-4">
-                  {(photos.length > 0 || files.length > 0) && (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        {photos.map((photo, index) => (
-                          <div key={`p-${index}`} className="relative group">
-                            <Image src={photo.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                            <button type="button" className="absolute top-1 right-1 bg-destructive text-white rounded-full p-0.5" onClick={() => setPhotos(prev => prev.filter((_, i) => i !== index))}>
-                              <X className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="space-y-1">
-                        {files.map((f, i) => (
-                          <div key={`f-${i}`} className="flex items-center justify-between p-2 rounded-md border bg-muted/30 group">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                              <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                              <span className="text-xs truncate font-medium">{f.name}</span>
-                            </div>
-                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4 text-primary" />Take Photo</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => {
-                      const input = document.createElement('input');
-                      input.type = 'file';
-                      input.accept = 'image/*';
-                      input.multiple = true;
-                      input.onchange = (e: any) => {
-                        const selected = e.target.files;
-                        if (!selected) return;
-                        Array.from(selected).forEach(f => {
-                          const reader = new FileReader();
-                          reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
-                          reader.readAsDataURL(f);
-                        });
-                      };
-                      input.click();
-                    }}><ImageIcon className="mr-2 h-4 w-4 text-primary" />Select Photos</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><Paperclip className="mr-2 h-4 w-4 text-primary" />Select Files</Button>
-                    
-                    <input 
-                      type="file" 
-                      ref={docInputRef} 
-                      className="hidden" 
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip"
-                      multiple 
-                      onChange={handleFileSelect} 
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <DialogFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-                <Button 
-                  type="submit" 
-                  variant="outline" 
-                  className="w-full sm:w-auto h-12"
-                  disabled={isPending}
-                  onClick={() => form.setValue('status', 'draft')}
-                >
-                  {isPending && submissionStatus === 'draft' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
-                  Save as Draft
-                </Button>
-                <Button 
-                  type="submit" 
-                  className="w-full sm:flex-1 h-12 text-lg font-bold" 
-                  disabled={isPending} 
-                  onClick={() => form.setValue('status', 'open')}
-                >
-                  {isPending && submissionStatus === 'open' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4 animate-spin mr-2" />}
-                  Save & Log Request
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      <CameraOverlay 
-        isOpen={isCameraOpen} 
-        onClose={() => setIsCameraOpen(false)} 
-        onCapture={(photo) => setPhotos(prev => [...prev, photo])} 
-        title="RFI Revision Context"
-      />
-    </>
-  );
-}
+type EditSnaggingListFormValues = z.infer<typeof EditSnaggingListSchema>;
 
 export function EditSnaggingItem({ item, projects, subContractors }: { item: SnaggingItem, projects: Project[], subContractors: SubContractor[] }) {
   const [open, setOpen] = useState(false);
@@ -668,7 +201,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
       try {
         toast({ title: 'Processing', description: 'Persisting changes and distributing reports...' });
 
-        // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -705,7 +237,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
         const docRef = doc(db, 'snagging-items', item.id);
         await updateDoc(docRef, updates);
 
-        // 2. Multi-trade Distribution Logic
         if (isIssuing && allUsers) {
             const area = selectedProject?.areas?.find(a => a.id === values.areaId);
             const subIds = Array.from(new Set(uploadedItems.map(i => i.subContractorId).filter(id => !!id))) as string[];
@@ -867,7 +398,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                               </button>
                                               <div className="min-w-0 flex-1">
                                                   <p className={cn("text-sm font-bold truncate", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</p>
-                                                  {listItem.subContractorId && <span className="text-[10px] text-muted-foreground uppercase font-black">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</span>}
+                                                  {listItem.subContractorId && <Badge variant="secondary" className="text-[10px] font-black h-4 px-1.5">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</Badge>}
                                                   {listItem.photos && listItem.photos.length > 0 && (
                                                       <div className="flex gap-1.5 mt-2 flex-wrap">
                                                           {listItem.photos.map((p, pi) => (

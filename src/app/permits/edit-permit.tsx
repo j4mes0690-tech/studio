@@ -52,12 +52,11 @@ import type {
   TemplateSection,
   PermitSignature,
   PermitSignatureRole,
-  SecurityRuleContext
 } from '@/lib/types';
-import { useFirestore, useStorage, useMemoFirebase } from '@/firebase';
+import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { cn, scrollToFirstError } from '@/lib/utils';
@@ -66,6 +65,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { SignaturePad } from '@/components/signature-pad';
+import { useToast } from '@/hooks/use-toast';
 
 const EditPermitSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -350,6 +350,7 @@ export function EditPermitDialog({
                                     Permit Expiry
                                 </FormLabel>
                                 <FormControl><Input type="datetime-local" {...field} className="bg-background h-11" /></FormControl>
+                                <FormDescription className="text-[10px]">Authorization automatically expires at this time.</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )} />
