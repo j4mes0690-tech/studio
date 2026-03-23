@@ -184,7 +184,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
       setItems(prev => prev.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), photo] } : itm));
       setItemPhotoTargetId(null);
     } else {
-      setPendingItemPhotos(prev => [...prev, photo]);
+        setPendingItemPhotos(prev => [...prev, photo]);
     }
   };
 
@@ -385,7 +385,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                               </Select>
                                               <div className="flex gap-1">
                                                   <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
-                                                  <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => setEditingItemIdx(null)}>Cancel</Button>
+                                                  <Button type="button" variant="ghost" size="sm" onClick={() => setEditingItemIdx(null)}>Cancel</Button>
                                                   <Button type="button" size="sm" className="h-8 gap-1.5" onClick={() => handleSaveEditItem(idx)}><Check className="h-3.5 w-3.5" /> Done</Button>
                                               </div>
                                           </div>
@@ -412,7 +412,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                           </div>
                                           <div className="flex gap-1">
                                               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleStartEditItem(idx)}><Pencil className="h-4 w-4" /></Button>
-                                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => { setItemPhotoTargetId(listItem.id); setIsItemCameraOpen(true); }}><Camera className="h-4 w-4" /></Button>
                                               <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleRemoveItem(idx)}><Trash2 className="h-4 w-4" /></Button>
                                           </div>
                                       </div>

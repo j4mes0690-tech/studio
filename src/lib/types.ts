@@ -62,6 +62,7 @@ export type Instruction = {
   photos?: Photo[];
   files?: FileAttachment[];
   recipients?: string[];
+  messages?: ChatMessage[];
   status?: 'draft' | 'issued';
   distributedAt?: string;
 };

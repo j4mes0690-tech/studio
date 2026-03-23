@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { VoiceInput } from '@/components/voice-input';
 import { ImageLightbox } from '@/components/image-lightbox';
-import { ClientDate } from '../../components/client-date';
+import { ClientDate } from '@/components/client-date';
 import { CameraOverlay } from '@/components/camera-overlay';
 
 function EditSnaggingContent() {

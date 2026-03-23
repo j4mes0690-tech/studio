@@ -407,7 +407,7 @@ export function NewPermitDialog({
                                 </div>
                                 <AccordionTrigger className="w-10 h-10 p-0 hover:no-underline border-none shadow-none" />
                             </div>
-                            <AccordionContent className="px-4 md:px-6 py-4 border-t">
+                            <AccordionContent className="px-4 md:px-6 py-4 border-t pt-4">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {section.fields.map((field) => (
                                         <div key={field.id} className={cn(
