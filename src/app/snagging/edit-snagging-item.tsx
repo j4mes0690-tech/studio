@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
+import { useState, useEffect, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,6 +14,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -82,13 +83,13 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   
   const [items, setItems] = useState<SnaggingListItem[]>(item.items || []);
   const [newItemText, setNewItemText] = useState('');
-  const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
+  const [pendingSubId, setPendingSubId] = useState<string>('unassigned');
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   
   // Item Editing State
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editItemText, setEditItemText] = useState('');
-  const [editItemSubId, setEditItemSubId] = useState<string | undefined>(undefined);
+  const [editItemSubId, setEditItemSubId] = useState<string>('unassigned');
 
   const [isCameraOpen, setIsCameraOpen] = useState(false); 
   const [isItemCameraOpen, setIsItemCameraOpen] = useState(false);
@@ -150,7 +151,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
     };
     setItems([...items, newItem]);
     setNewItemText('');
-    setPendingSubId(undefined);
+    setPendingSubId('unassigned');
     setPendingItemPhotos([]);
   };
 

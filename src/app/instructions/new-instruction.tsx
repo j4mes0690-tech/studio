@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, FileIcon, FileText, Loader2, Link as LinkIcon } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, FileIcon, FileText, Loader2, Link as LinkIcon, Save, Send } from 'lucide-react';
 import type { Project, Photo, FileAttachment, ClientInstruction, Instruction } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
@@ -45,6 +45,7 @@ import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { sendSiteInstructionEmailAction } from './actions';
 import { CameraOverlay } from '@/components/camera-overlay';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
