@@ -6,7 +6,7 @@ import { AddChecklistToProject } from './add-checklist-to-project';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { QualityChecklist, Project, SubContractor, DistributionUser } from '@/lib/types';
 import { Loader2, ChevronRight, LayoutGrid, Building2, MapPin, ArrowLeft, List, FileCheck, ShieldCheck, CheckCircle2 } from 'lucide-react';
-import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -219,6 +219,12 @@ function QualityControlContent() {
                     </h2>
                 </div>
                 <div className="flex items-center gap-2">
+                    <AddChecklistToProject 
+                        projects={allowedProjects} 
+                        checklistTemplates={checklistTemplates} 
+                        subContractors={subContractors || []} 
+                        existingChecklists={checklistInstances}
+                    />
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -320,12 +326,18 @@ function QualityControlContent() {
                     <Button variant="ghost" size="sm" onClick={clearSelection} className="mb-2 -ml-2 text-muted-foreground h-8 gap-1.5">
                         <ArrowLeft className="h-4 w-4" /> Back to All Projects
                     </Button>
-                    <h2 className="text-2xl font-bold tracking-tight flex items-gap-2">
+                    <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                         <Building2 className="h-6 w-6 text-primary" />
                         {project?.name || 'Project Overview'}
                     </h2>
                 </div>
                 <div className="flex items-center gap-2">
+                    <AddChecklistToProject 
+                        projects={allowedProjects} 
+                        checklistTemplates={checklistTemplates} 
+                        subContractors={subContractors || []} 
+                        existingChecklists={checklistInstances}
+                    />
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
