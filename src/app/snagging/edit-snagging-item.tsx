@@ -55,7 +55,7 @@ import { useFirestore, useStorage, useUser, useMemoFirebase, useCollection } fro
 import { doc, updateDoc, collection } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { getPartnerEmails, scrollToFirstError } from '@/lib/utils';
+import { getPartnerEmails, cn, scrollToFirstError } from '@/lib/utils';
 import { generateSnaggingPDF } from '@/lib/pdf-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { sendSubcontractorReportAction } from './actions';
