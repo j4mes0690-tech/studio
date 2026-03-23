@@ -119,8 +119,9 @@ function SettingsContent() {
   const canManageProjects = !!permissions?.canManageProjects || isAdmin;
   const canManageChecklists = !!permissions?.canManageChecklists || isAdmin;
   const canManagePermitTemplates = !!permissions?.canManagePermitTemplates || isAdmin;
+  const canManageMaintenance = !!permissions?.hasFullVisibility || isAdmin;
 
-  const hasAnyAdminPermission = canManageBranding || canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManagePermitTemplates;
+  const hasAnyAdminPermission = canManageBranding || canManageUsers || canManageSubcontractors || canManageProjects || canManageChecklists || canManagePermitTemplates || canManageMaintenance;
 
   if (!hasAnyAdminPermission) {
     return (
@@ -144,7 +145,7 @@ function SettingsContent() {
 
   const handleDeleteToolbox = (id: string) => {
     startTransition(async () => {
-        await deleteDoc(doc(db, 'toolbox-talk-templates', id));
+        await deleteDoc(doc(db!, 'toolbox-talk-templates', id));
         toast({ title: 'Template Removed' });
     });
   };
@@ -382,7 +383,7 @@ function SettingsContent() {
             </Card>
           )}
 
-          {isAdmin && (
+          {canManageMaintenance && (
             <Card className="overflow-hidden border-destructive/30">
                 <AccordionItem value="maintenance" className="border-b-0">
                     <AccordionTrigger className="px-6 py-4 hover:no-underline group">
@@ -391,7 +392,7 @@ function SettingsContent() {
                             <span className="text-base font-bold text-destructive">Database Maintenance</span>
                         </div>
                     </AccordionTrigger>
-                    <AccordionContent className="px-6 pb-6 pt-0 border-t">
+                    <AccordionContent className="px-6 py-6 pt-0 border-t">
                         <div className="pt-6">
                             <DatabaseCleanup />
                         </div>
@@ -400,7 +401,7 @@ function SettingsContent() {
             </Card>
           )}
         </Accordion>
-      </main>
+    </main>
   );
 }
 

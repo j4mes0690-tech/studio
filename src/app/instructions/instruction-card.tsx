@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import type { Instruction, Project, DistributionUser, ChatMessage, Photo, SubContractor, FileAttachment } from '@/lib/types';
 import Image from 'next/image';
-import Link from 'next/link';
 import {
   Card,
   CardContent,
