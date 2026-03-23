@@ -178,7 +178,7 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
     updateDoc(docRef, { dismissedBy: arrayUnion(email) });
   };
 
-  const handleUpdateStatus = (newStatus: 'open' | 'closed') => {
+  const handleUpdateStatus = (newStatus: 'open' | 'provided') => {
     startTransition(async () => {
       const docRef = doc(db, 'information-requests', item.id);
       const updates: any = { 
@@ -437,14 +437,15 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
             </div>
             
             <AlertDialog>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <AlertDialogTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  </TooltipTrigger>
-                </TooltipProvider>
+                  </AlertDialogTrigger>
+                </TooltipTrigger>
+                <TooltipContent><p>Delete Request</p></TooltipContent>
               </Tooltip>
               <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                 <AlertDialogHeader>
