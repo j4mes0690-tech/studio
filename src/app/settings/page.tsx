@@ -19,7 +19,7 @@ import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy, deleteDoc } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation, ToolboxTalkTemplate } from '@/lib/types';
-import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck, BookOpen, Pencil, Trash2, Plus } from 'lucide-react';
+import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck, BookOpen, Pencil, Trash2, Plus, PlusCircle } from 'lucide-react';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
 import { Separator } from '@/components/ui/separator';
@@ -387,7 +387,7 @@ function SettingsContent() {
 
 export default function SettingsPage() {
   return (
-    <div className="flex flex-col w-full min-h-screen">
+    <div className="flex flex-col w-full min-h-screen bg-background">
       <Header title="Settings" />
       <Suspense fallback={
         <div className="flex flex-col w-full h-screen items-center justify-center">
