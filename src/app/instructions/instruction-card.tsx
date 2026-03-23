@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import type { Instruction, Project, Photo, DistributionUser, SubContractor } from '@/lib/types';
+import { useState, useMemo, useTransition, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
+import type { ClientInstruction, Project, DistributionUser, ChatMessage, Photo, SubContractor, FileAttachment, Instruction, InformationRequest } from '@/lib/types';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -17,21 +18,35 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Camera, Trash2, Maximize2, Link as LinkIcon, FileText, Download, HardHat, Ruler, ExternalLink, CheckCircle2, Pencil } from 'lucide-react';
+import { 
+  CheckSquare, 
+  MessageCircle, 
+  Trash2, 
+  CheckCircle2, 
+  FileText, 
+  Download, 
+  Maximize2, 
+  ArrowRightLeft,
+  HelpCircle,
+  ClipboardList,
+  Loader2,
+  Plus,
+  User,
+  HardHat,
+  X,
+  ShieldCheck,
+  Ruler,
+  Users2,
+  RefreshCw,
+  Bell,
+  EyeOff,
+  ExternalLink,
+  Link as LinkIcon
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from '@/components/ui/carousel';
 import { ClientDate } from '../../components/client-date';
-import { useTransition } from 'react';
-import { useFirestore } from '@/firebase';
-import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, doc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -44,252 +59,689 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { ImageLightbox } from '@/components/image-lightbox';
-import { EditInstruction } from './edit-instruction';
-import { DistributeInstructionButton } from './distribute-instruction-button';
-import { DownloadInstructionButton } from './download-instruction-button';
-import { cn } from '@/lib/utils';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RespondToInstruction } from './respond-to-instruction';
+import { cn, getProjectInitials, getNextReference } from '@/lib/utils';
+import { ImageLightbox } from '@/components/image-lightbox';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { sendClientInstructionEmailAction } from './actions';
+import { Separator } from '@/components/ui/separator';
 
-type InstructionCardProps = {
-  instruction: Instruction;
-  projects: Project[];
-  distributionUsers: DistributionUser[];
-  subContractors: SubContractor[];
-  onDelete?: () => void;
-};
+function ReopenInstructionButton({ instruction, currentUser }: { instruction: ClientInstruction, currentUser: DistributionUser }) {
+    const { toast } = useToast();
+    const db = useFirestore();
+    const [isPending, startTransition] = useTransition();
 
-export function InstructionCard({
-  instruction,
-  projects,
-  distributionUsers,
-  subContractors,
-  onDelete
-}: InstructionCardProps) {
+    const handleReopen = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        startTransition(async () => {
+            const docRef = doc(db, 'client-instructions', instruction.id);
+            const systemMessage: ChatMessage = {
+                id: `system-${Date.now()}`,
+                sender: 'System',
+                senderEmail: 'system@sitecommand.internal',
+                message: `Directive REOPENED by ${currentUser.name} for further clarification.`,
+                createdAt: new Date().toISOString()
+            };
+
+            updateDoc(docRef, {
+                status: 'open',
+                messages: arrayUnion(systemMessage),
+                dismissedBy: []
+            }).then(() => {
+                toast({ title: 'Directive Reopened', description: 'Communication workspace is now active.' });
+            }).catch(err => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: docRef.path,
+                    operation: 'update',
+                    requestResourceData: { status: 'open' }
+                }));
+            });
+        });
+    };
+
+    return (
+        <AlertDialog>
+            <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+                                <RefreshCw className={cn("h-4 w-4", isPending && "animate-spin")} />
+                                <span className="sr-only">Reopen Directive</span>
+                            </Button>
+                        </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                        <p>Reopen Directive</p>
+                    </TooltipContent>
+                </Tooltip>
+            </TooltipProvider>
+            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Reopen Client Directive?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will move the directive back to "Open" status, re-enabling the implementation thread for further questions or documentation.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleReopen} disabled={isPending}>
+                        Confirm Reopen
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
+}
+
+function AcceptInstructionButton({ 
+    instruction, 
+    currentUser, 
+    projects,
+    allSiteInstructions,
+    allRfis
+}: { 
+    instruction: ClientInstruction, 
+    currentUser: DistributionUser, 
+    projects: Project[],
+    allSiteInstructions: Instruction[],
+    allRfis: InformationRequest[]
+}) {
+    const [open, setOpen] = useState(false);
+    const { toast } = useToast();
+    const db = useFirestore();
+    const [isPending, startTransition] = useTransition();
+
+    const [rfis, setRfis] = useState<{ description: string, assignedTo: string[] }[]>([]);
+    const [siteInsts, setSiteInsts] = useState<{ description: string, subcontractorId: string }[]>([]);
+
+    useEffect(() => {
+        if (!open) {
+            setRfis([]);
+            setSiteInsts([]);
+        }
+    }, [open]);
+
+    const subsQuery = useMemoFirebase(() => {
+        if (!db) return null;
+        return collection(db, 'sub-contractors');
+    }, [db]);
+    const { data: allSubs } = useCollection<SubContractor>(subsQuery);
+    
+    const usersQuery = useMemoFirebase(() => {
+        if (!db) return null;
+        return collection(db, 'users');
+    }, [db]);
+    const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
+
+    const project = useMemo(() => projects.find(p => p.id === instruction.projectId), [projects, instruction.projectId]);
+    const initials = useMemo(() => getProjectInitials(project?.name || 'PRJ'), [project]);
+    
+    // PROJECT-RESTRICTED FILTERS
+    const projectStaff = useMemo(() => {
+        if (!allUsers || !project) return [];
+        const assignedEmails = project.assignedUsers || [];
+        return allUsers.filter(u => assignedEmails.some(e => e.toLowerCase().trim() === u.email.toLowerCase().trim()));
+    }, [allUsers, project]);
+
+    const projectExternalPartners = useMemo(() => {
+        if (!allSubs || !project) return [];
+        const projectSubIds = project.assignedSubContractors || [];
+        return allSubs.filter(s => projectSubIds.includes(s.id));
+    }, [allSubs, project]);
+
+    const handleAddRfi = () => {
+        if (rfis.length > 0) {
+            const lastRfi = rfis[rfis.length - 1];
+            if (lastRfi.assignedTo.length === 0) {
+                toast({
+                    title: "Assignee Required",
+                    description: "Please assign the current enquiry to a project member before adding another.",
+                    variant: "destructive"
+                });
+                return;
+            }
+        }
+        setRfis([...rfis, { description: `Clarification for ${instruction.reference}`, assignedTo: [] }]);
+    };
+
+    const handleAddInst = () => {
+        if (siteInsts.length > 0) {
+            const lastInst = siteInsts[siteInsts.length - 1];
+            if (!lastInst.subcontractorId) {
+                toast({
+                    title: "Partner Required",
+                    description: "Please assign the current instruction to a trade partner before adding another.",
+                    variant: "destructive"
+                });
+                return;
+            }
+        }
+        setSiteInsts([...siteInsts, { description: `Implementation of ${instruction.reference}`, subcontractorId: '' }]);
+    };
+
+    const handleAccept = () => {
+        startTransition(async () => {
+            try {
+                const docRef = doc(db, 'client-instructions', instruction.id);
+                
+                const systemMessage: ChatMessage = {
+                    id: `system-${Date.now()}`,
+                    sender: 'System',
+                    senderEmail: 'system@sitecommand.internal',
+                    message: `Directive ACCEPTED. Generated ${rfis.length} RFIs and ${siteInsts.length} Instructions.`,
+                    createdAt: new Date().toISOString()
+                };
+
+                updateDoc(docRef, {
+                    status: 'accepted',
+                    messages: arrayUnion(systemMessage)
+                }).catch(err => {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({
+                        path: docRef.path,
+                        operation: 'update',
+                        requestResourceData: { status: 'accepted' }
+                    }));
+                });
+
+                // Track local counts to avoid collisions within the same batch
+                let currentRfis = [...allRfis];
+                let currentSis = [...allSiteInstructions];
+
+                rfis.forEach(rfi => {
+                    const isInternal = projectStaff.some(u => rfi.assignedTo.includes(u.email.toLowerCase().trim()));
+                    const prefix = isInternal ? 'CRFI' : 'RFI';
+                    const reference = getNextReference(currentRfis, instruction.projectId, prefix, initials);
+
+                    const rfiData = {
+                        reference,
+                        projectId: instruction.projectId,
+                        clientInstructionId: instruction.id,
+                        description: rfi.description,
+                        assignedTo: rfi.assignedTo.map(e => e.toLowerCase().trim()),
+                        raisedBy: currentUser.email.toLowerCase().trim(),
+                        createdAt: new Date().toISOString(),
+                        status: 'open',
+                        messages: [],
+                        photos: instruction.photos || [],
+                        files: instruction.files || []
+                    };
+                    
+                    currentRfis.push(rfiData as any);
+
+                    addDoc(collection(db, 'information-requests'), rfiData).catch(err => {
+                        errorEmitter.emit('permission-error', new FirestorePermissionError({
+                            path: 'information-requests',
+                            operation: 'create',
+                            requestResourceData: rfiData
+                        }));
+                    });
+                });
+
+                siteInsts.forEach(si => {
+                    const sub = allSubs?.find(s => s.id === si.subcontractorId);
+                    const reference = getNextReference(currentSis, instruction.projectId, 'SI', initials);
+
+                    const siData = {
+                        reference,
+                        projectId: instruction.projectId,
+                        clientInstructionId: instruction.id,
+                        originalText: instruction.originalText,
+                        summary: si.description,
+                        actionItems: instruction.actionItems,
+                        createdAt: new Date().toISOString(),
+                        photos: instruction.photos || [],
+                        recipients: sub ? [sub.email] : [],
+                        status: 'draft' 
+                    };
+
+                    currentSis.push(siData as any);
+
+                    addDoc(collection(db, 'instructions'), siData).catch(err => {
+                        errorEmitter.emit('permission-error', new FirestorePermissionError({
+                            path: 'instructions',
+                            operation: 'create',
+                            requestResourceData: siData
+                        }));
+                    });
+                });
+
+                const projectRecipients = project?.assignedUsers || [];
+                if (projectRecipients.length > 0) {
+                  await sendClientInstructionEmailAction({
+                    emails: projectRecipients,
+                    projectName: project?.name || 'Project',
+                    reference: instruction.reference,
+                    status: 'accepted',
+                    text: instruction.originalText,
+                    summary: instruction.summary
+                  });
+                }
+
+                toast({ title: 'Success', description: 'Directive processed and team notified.' });
+                setOpen(false);
+            } catch (err) {
+                console.error(err);
+                toast({ title: 'Error', description: 'Failed to process acceptance.', variant: 'destructive' });
+            }
+        });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2 text-green-600 border-green-200 hover:bg-green-50" onClick={(e) => e.stopPropagation()}>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Accept Directive
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-3xl h-[85vh] flex flex-col p-0 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                <DialogHeader className="p-6 pb-0 flex-none">
+                    <DialogTitle>Action Workspace: {instruction.reference}</DialogTitle>
+                    <DialogDescription>
+                        Assign follow-up tasks to project members and partners. Accepting will automatically notify the project team.
+                    </DialogDescription>
+                </DialogHeader>
+                
+                <ScrollArea className="flex-1">
+                    <div className="p-6 space-y-8 pb-32">
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between border-b pb-2">
+                                <div className="flex items-center gap-2">
+                                    <HelpCircle className="h-5 w-5 text-primary" />
+                                    <h3 className="font-bold">Information Requests (CRFI / RFI)</h3>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" onClick={handleAddRfi} className="h-7 px-2">
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Enquiry
+                                </Button>
+                            </div>
+                            
+                            {rfis.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic py-2">No technical enquiries added.</p>
+                            ) : (
+                                <div className="grid gap-4">
+                                    {rfis.map((rfi, idx) => (
+                                        <div key={idx} className="p-4 border rounded-lg bg-muted/10 space-y-4 relative group">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" 
+                                                onClick={() => setRfis(rfis.filter((_, i) => i !== idx))}
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Enquiry Details</Label>
+                                                <Input 
+                                                    id={`rfi-desc-${idx}`}
+                                                    value={rfi.description} 
+                                                    onChange={(e) => setRfis(rfis.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
+                                                    className="text-sm h-8"
+                                                    autoFocus={idx === rfis.length - 1}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Project Assignee</Label>
+                                                <Select 
+                                                    onValueChange={(val) => {
+                                                        const newVal = val === 'clear' ? [] : [val.split(':')[1]];
+                                                        setRfis(rfis.map((r, i) => i === idx ? { ...r, assignedTo: newVal } : r));
+                                                    }}
+                                                    value={rfi.assignedTo[0] ? (projectStaff.some(u => u.email === rfi.assignedTo[0]) ? `staff:${rfi.assignedTo[0]}` : `partner:${rfi.assignedTo[0]}`) : ""}
+                                                >
+                                                    <SelectTrigger className="h-8 text-xs">
+                                                        <SelectValue placeholder="Select Project Recipient" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="clear" className="text-destructive font-bold text-xs">Clear Selection</SelectItem>
+                                                        <Separator className="my-1" />
+                                                        <SelectGroup>
+                                                          <SelectLabel className="flex items-center gap-2 text-primary">
+                                                            <ShieldCheck className="h-3 w-3" /> Project Staff
+                                                          </SelectLabel>
+                                                          {projectStaff.length === 0 ? (
+                                                              <div className="p-2 text-[10px] text-muted-foreground italic">No staff assigned to project</div>
+                                                          ) : projectStaff.map(u => (
+                                                              <SelectItem key={`staff-${u.id}`} value={`staff:${u.email}`}>{u.name} ({u.email})</SelectItem>
+                                                          ))}
+                                                        </SelectGroup>
+                                                        <Separator className="my-1" />
+                                                        <SelectGroup>
+                                                          <SelectLabel className="flex items-center gap-2 text-accent">
+                                                            <Users2 className="h-3 w-3" /> Trade Partners
+                                                          </SelectLabel>
+                                                          {projectExternalPartners.length === 0 ? (
+                                                              <div className="p-2 text-[10px] text-muted-foreground italic">No partners assigned to project</div>
+                                                          ) : projectExternalPartners.map(p => (
+                                                              <SelectItem key={`partner-${p.id}`} value={`partner:${p.email}`}>{p.name} ({p.email})</SelectItem>
+                                                          ))}
+                                                        </SelectGroup>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between border-b pb-2">
+                                <div className="flex items-center gap-2">
+                                    <ClipboardList className="h-5 w-5 text-accent" />
+                                    <h3 className="font-bold">Internal Site Instructions</h3>
+                                </div>
+                                <Button type="button" variant="outline" size="sm" onClick={handleAddInst} className="h-7 px-2">
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Instruction
+                                </Button>
+                            </div>
+
+                            {siteInsts.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic py-2">No instructions drafted.</p>
+                            ) : (
+                                <div className="grid gap-4">
+                                    {siteInsts.map((si, idx) => (
+                                        <div key={idx} className="p-4 border rounded-lg bg-muted/10 space-y-4 relative group">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" 
+                                                onClick={() => setSiteInsts(siteInsts.filter((_, i) => i !== idx))}
+                                            >
+                                                <X className="h-3.5 w-3.5" />
+                                            </Button>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Trade Instruction</Label>
+                                                <Input 
+                                                    id={`si-desc-${idx}`}
+                                                    value={si.description} 
+                                                    onChange={(e) => setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, description: e.target.value } : s))}
+                                                    className="text-sm h-8"
+                                                    autoFocus={idx === siteInsts.length - 1}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-[10px] uppercase font-bold text-muted-foreground">Assigned Trade</Label>
+                                                <Select 
+                                                    onValueChange={(val) => {
+                                                        const newVal = val === 'clear' ? '' : val;
+                                                        setSiteInsts(siteInsts.map((s, i) => i === idx ? { ...s, subcontractorId: newVal } : s));
+                                                    }}
+                                                    value={si.subcontractorId}
+                                                >
+                                                    <SelectTrigger className="h-8 text-xs">
+                                                        <SelectValue placeholder="Assign trade" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="clear" className="text-destructive font-bold text-xs">Clear Selection</SelectItem>
+                                                        <Separator className="my-1" />
+                                                        {projectExternalPartners.length === 0 ? (
+                                                            <div className="p-2 text-[10px] text-muted-foreground italic">No sub-contractors assigned to project</div>
+                                                        ) : projectExternalPartners.map(s => (
+                                                            <SelectItem key={`si-sub-${s.id}`} value={s.id}>{s.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Scrolling action buttons */}
+                        <div className="flex flex-col sm:flex-row gap-3 pt-10">
+                            <Button variant="ghost" className="flex-1" onClick={() => setOpen(false)}>Cancel</Button>
+                            <Button 
+                                onClick={handleAccept} 
+                                disabled={isPending} 
+                                className="flex-[2] bg-green-600 hover:bg-green-700 font-bold h-12 shadow-lg shadow-green-600/20"
+                            >
+                                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ArrowRightLeft className="h-4 w-4 mr-2" />}
+                                Accept & Create Actions
+                            </Button>
+                        </div>
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+export function ClientInstructionCard({ 
+    instruction, 
+    projects, 
+    currentUser,
+    allSiteInstructions,
+    allRfis,
+    readOnly = false
+}: { 
+    instruction: ClientInstruction, 
+    projects: Project[], 
+    currentUser: DistributionUser,
+    allSiteInstructions: Instruction[],
+    allRfis: InformationRequest[],
+    readOnly?: boolean
+}) {
   const project = projects.find((p) => p.id === instruction.projectId);
   const db = useFirestore();
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
+  const router = useRouter();
+  const pathname = usePathname();
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const handleDelete = () => {
-    startTransition(async () => {
-      const docRef = doc(db, 'instructions', instruction.id);
-      deleteDoc(docRef)
-        .then(() => {
-          toast({ title: 'Success', description: 'Instruction deleted.' });
-          if (onDelete) onDelete();
-        })
-        .catch((error) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'delete',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+  const isDetailPage = pathname === `/client-instructions/${instruction.id}`;
+
+  const isAccepted = instruction.status === 'accepted';
+  const email = currentUser?.email.toLowerCase().trim();
+
+  const isAttentionRequired = useMemo(() => {
+    if (!instruction || !email || isAccepted || instruction.status !== 'open') return false;
+    if (instruction.dismissedBy?.includes(email)) return false;
+    return (instruction.recipients || []).some(e => e.toLowerCase().trim() === email);
+  }, [instruction, email, isAccepted]);
+
+  const handleDismissAlert = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const docRef = doc(db, 'client-instructions', instruction.id);
+    updateDoc(docRef, { dismissedBy: arrayUnion(email) })
+        .then(() => toast({ title: 'Alert Dismissed', description: 'Item removed from priority.' }));
+  };
+
+  const handleCardClick = () => {
+    if (!isDetailPage) {
+      router.push(`/client-instructions/${instruction.id}`);
+    }
+  };
+
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const docRef = doc(db, 'client-instructions', instruction.id);
+    deleteDoc(docRef).then(() => {
+        toast({ title: 'Success', description: 'Record deleted.' });
+        if (isDetailPage) router.push('/client-instructions');
     });
   };
 
-  const instructedParty = useMemo(() => {
-    return subContractors.find(s => instruction.recipients?.includes(s.email));
-  }, [subContractors, instruction.recipients]);
-
-  const isIssued = instruction.status === 'issued' && !!instruction.distributedAt;
-  const isDraft = !isIssued;
+  const sortedMessages = useMemo(() => [...(instruction.messages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [instruction.messages]);
 
   return (
     <>
-      <Card className={cn(
-        "border-l-4 transition-all", 
-        isDraft ? "border-orange-200 border-l-orange-400 bg-orange-50/10" : "border-l-green-500"
-      )}>
+      <Card 
+        className={cn(
+            "border-l-4 transition-all", 
+            isAccepted ? "border-l-green-500 bg-green-50/10" : "border-l-primary",
+            isAttentionRequired && !readOnly && "border-primary border-2 shadow-primary/10 bg-primary/[0.02] ring-1 ring-primary",
+            !isDetailPage && "cursor-pointer hover:shadow-md hover:border-l-primary/80 group/card"
+        )}
+        onClick={handleCardClick}
+      >
         <CardHeader className="p-4 md:p-6">
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div className="space-y-1 flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <Link href={`/instructions/${instruction.id}`} className="group flex items-center gap-2 min-w-0">
-                  <CardTitle className="text-lg group-hover:text-primary transition-colors truncate">{project?.name || 'Unknown Project'}</CardTitle>
-                  <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                </Link>
+                <CardTitle className={cn("text-xl transition-colors truncate", !isDetailPage && "group-hover/card:text-primary")}>
+                    {project?.name || 'Unknown'}
+                </CardTitle>
                 <Badge variant="outline" className="font-mono text-[10px] bg-background shrink-0">{instruction.reference}</Badge>
-                
-                {isIssued ? (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 cursor-help text-[10px] uppercase font-bold tracking-tight shrink-0">
-                          ISSUED
-                        </Badge>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Distributed: {new Date(instruction.distributedAt!).toLocaleString()}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ) : (
-                  <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200 text-[10px] uppercase font-bold tracking-tight shrink-0">DRAFT</Badge>
+              </div>
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                <span className="text-xs text-muted-foreground/80">
+                  <ClientDate date={instruction.createdAt} />
+                </span>
+                {isAttentionRequired && !readOnly && (
+                    <Badge className="bg-primary text-white h-5 px-2 text-[9px] font-black uppercase tracking-widest animate-pulse gap-1.5">
+                        <Bell className="h-2.5 w-2.5" />
+                        Action Required
+                    </Badge>
                 )}
               </div>
-              <CardDescription className="flex items-center gap-2 pt-1 flex-wrap">
-                <span className="text-xs text-muted-foreground/80">
-                  Logged <ClientDate date={instruction.createdAt} />
-                </span>
-                {instruction.clientInstructionId && (
-                    <Link href={`/client-instructions/${instruction.clientInstructionId}?mode=view`}>
-                        <Badge variant="secondary" className="text-[9px] gap-1 h-4 px-1.5 font-normal hover:bg-secondary/80 transition-colors cursor-pointer">
-                            <LinkIcon className="h-2 w-2" /> Linked to Client Directive
-                        </Badge>
-                    </Link>
+            </div>
+            {!readOnly && (
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap" onClick={(e) => e.stopPropagation()}>
+                {isAttentionRequired && (
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={handleDismissAlert}>
+                                    <EyeOff className="h-4 w-4" />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Dismiss Alert</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
                 )}
-              </CardDescription>
-              
-              {instructedParty && (
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest shrink-0">Instructed:</span>
-                  <Badge variant="default" className="gap-1.5 h-5 px-2 text-[10px] bg-primary/10 text-primary border-primary/20 truncate">
-                    {instructedParty.isDesigner ? <Ruler className="h-2.5 w-2.5" /> : <HardHat className="h-2.5 w-2.5" />}
-                    {instructedParty.name}
-                  </Badge>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-              <DownloadInstructionButton 
-                instruction={instruction}
-                project={project}
-                subContractors={subContractors}
-              />
 
-              <DistributeInstructionButton 
-                instruction={instruction} 
-                project={project} 
-                subContractors={subContractors} 
-              />
-
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="text-primary h-8 w-8" onClick={() => setIsEditDialogOpen(true)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent><p>Edit Instruction</p></TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-
-              <EditInstruction 
-                item={instruction} 
-                projects={projects} 
-                distributionUsers={distributionUsers} 
-                subContractors={subContractors}
-                open={isEditDialogOpen}
-                onOpenChange={setIsEditDialogOpen}
-              />
-
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-destructive h-8 w-8">
-                    <Trash2 className="h-4 w-4" />
-                    <span className="sr-only">Delete Instruction</span>
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Instruction?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
-                      {isPending ? 'Deleting...' : 'Delete'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+                <Badge variant={isAccepted ? "secondary" : "default"} className={cn("h-6", isAccepted && "bg-green-100 text-green-800 border-green-200")}>
+                    {isAccepted ? "Accepted" : "Open Directive"}
+                </Badge>
+                {!isAccepted ? (
+                  <AcceptInstructionButton 
+                      instruction={instruction} 
+                      currentUser={currentUser} 
+                      projects={projects} 
+                      allSiteInstructions={allSiteInstructions}
+                      allRfis={allRfis}
+                  />
+                ) : (
+                  <ReopenInstructionButton instruction={instruction} currentUser={currentUser} />
+                )}
+                <RespondToInstruction instruction={instruction} currentUser={currentUser} />
+                <AlertDialog>
+                  <AlertDialogTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4 text-destructive" /></Button></AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader><AlertDialogTitle>Delete Record?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
+            {readOnly && (
+              <Badge variant="secondary" className={cn("h-6", isAccepted && "bg-green-100 text-green-800 border-green-200")}>
+                  {isAccepted ? "Accepted" : "Open Directive"}
+              </Badge>
+            )}
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="bg-muted/5 p-4 rounded-lg border mb-4">
-            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{instruction.originalText}</p>
-          </div>
-          
-          {instruction.files && instruction.files.length > 0 && (
-            <div className="mb-4 space-y-1 border rounded-lg p-3 bg-muted/10">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 flex items-center gap-2">
-                <FileText className="h-3 w-3" /> Attached Documentation
-              </p>
-              {instruction.files.map((f, i) => (
-                <a key={i} href={f.url} download={f.name} className="flex items-center gap-2 p-2 rounded text-[10px] bg-background border text-primary hover:bg-accent group">
-                  <FileText className="h-3.5 w-3.5" /> 
-                  <span className="truncate flex-1 font-medium">{f.name}</span> 
-                  <Download className="h-3 w-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </a>
-              ))}
-            </div>
-          )}
-
-          <Accordion type="single" collapsible className="w-full">
-            {instruction.photos && instruction.photos.length > 0 && (
-              <AccordionItem value="photo">
-                <AccordionTrigger className="text-sm font-semibold">
-                  <div className="flex items-center gap-2">
-                    <Camera className="h-4 w-4" />
-                    <span>Attached Photos ({instruction.photos.length})</span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <Carousel className="w-full max-w-sm mx-auto">
-                    <CarouselContent>
-                      {instruction.photos.map((photo, index) => (
-                        <CarouselItem key={index}>
-                          <div className="p-1">
-                            <div className="space-y-2">
-                              <div className="relative cursor-pointer hover:opacity-95 transition-opacity group" onClick={() => setViewingPhoto(photo)}>
-                                <Image
-                                  src={photo.url}
-                                  alt={`Instruction photo ${index + 1}`}
-                                  width={600}
-                                  height={400}
-                                  className="rounded-md border object-cover aspect-video"
-                                  data-ai-hint="construction site"
-                                />
-                                <div className="absolute top-2 right-2 p-1.5 bg-black/50 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Maximize2 className="h-4 w-4" />
-                                </div>
-                              </div>
-                              <p className="text-xs text-muted-foreground text-center">
-                                Taken on:{' '}
-                                <ClientDate date={photo.takenAt} />
-                              </p>
-                            </div>
+        <CardContent className="p-4 md:p-6">
+          <div className="bg-muted/20 rounded-lg border p-4 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground uppercase tracking-widest border-b pb-2">
+                  <MessageCircle className="h-3 w-3" /> <span>Implementation Thread</span>
+              </div>
+              <div className="bg-background px-4 py-3 rounded-2xl rounded-tl-none border shadow-sm max-w-[95%]">
+                  <p className="text-[10px] font-bold mb-1 text-primary uppercase">Initial Client Directive</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{instruction.originalText}</p>
+                  
+                  {instruction.photos && instruction.photos.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
+                      {instruction.photos.map((p, i) => (
+                        <div 
+                            key={i} 
+                            className="relative aspect-video rounded-lg overflow-hidden border cursor-pointer group/photo" 
+                            onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}
+                        >
+                          <Image src={p.url} alt="Site" fill className="object-cover" />
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 flex items-center justify-center transition-opacity">
+                            <Maximize2 className="h-5 w-5 text-white" />
                           </div>
-                        </CarouselItem>
+                        </div>
                       ))}
-                    </CarouselContent>
-                     {instruction.photos.length > 1 && (
-                      <>
-                        <CarouselPrevious />
-                        <CarouselNext />
-                      </>
-                    )}
-                  </Carousel>
-                </AccordionContent>
-              </AccordionItem>
-            )}
-          </Accordion>
+                    </div>
+                  )}
+                  {instruction.files && instruction.files.length > 0 && (
+                    <div className="mt-3 space-y-1">
+                      {instruction.files.map((f, i) => (
+                        <a 
+                            key={i} 
+                            href={f.url} 
+                            download={f.name} 
+                            className="flex items-center gap-2 p-2 rounded text-[10px] bg-muted border text-primary hover:bg-accent"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                          <FileText className="h-3.5 w-3.5" /> <span className="truncate flex-1 font-medium">{f.name}</span> <Download className="h-3 w-3" />
+                        </a>
+                      ))}
+                    </div>
+                  )}
+              </div>
+              {sortedMessages.map((msg) => {
+                  const isMe = msg.senderEmail === email;
+                  const isSystem = msg.senderEmail === 'system@sitecommand.internal';
+                  if (isSystem) return <div key={msg.id} className="flex justify-center my-2"><Badge variant="outline" className="bg-background text-[10px] py-0.5 px-3 rounded-full border-dashed font-semibold text-muted-foreground">{msg.message}</Badge></div>;
+                  return (
+                      <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
+                          <div className={cn("relative px-4 py-2 rounded-2xl max-w-[90%] shadow-sm", isMe ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-muted text-foreground rounded-tl-none border")}>
+                              {!isMe && <p className="text-[10px] font-bold mb-1 text-primary">{msg.sender}</p>}
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                              {msg.photos?.map((p, i) => (
+                                <div 
+                                    key={i} 
+                                    className="relative aspect-video rounded-lg overflow-hidden border bg-background mt-2 cursor-pointer group/photo" 
+                                    onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}
+                                >
+                                  <Image src={p.url} alt="Update photo" fill className="object-cover" />
+                                  <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/photo:opacity-100 transition-opacity" />
+                                </div>
+                              ))}
+                              {msg.files?.map((f, i) => (
+                                <a 
+                                    key={i} 
+                                    href={f.url} 
+                                    download={f.name} 
+                                    className={cn("flex items-center gap-2 p-1.5 rounded text-[9px] mt-2 border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-background border-border text-primary")}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                  <FileText className="h-3 w-3" />
+                                  <span className="truncate max-w-[150px]">{f.name}</span>
+                                </a>
+                              ))}
+                              <div className={cn("text-[9px] mt-2", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}><ClientDate date={msg.createdAt} /></div>
+                          </div>
+                      </div>
+                  );
+              })}
+          </div>
         </CardContent>
       </Card>
-
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
   );

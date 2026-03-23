@@ -34,7 +34,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, History, Eye, FileSearch, Check, Send } from 'lucide-react';
+import { Pencil, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, History, Eye, FileSearch, Check, Send, Circle, CheckCircle2 } from 'lucide-react';
 import type { Project, SnaggingItem, Photo, Area, SnaggingListItem, SubContractor, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { doc, updateDoc, collection, query, orderBy, addDoc, arrayUnion } from 'firebase/firestore';

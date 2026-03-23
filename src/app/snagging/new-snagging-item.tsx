@@ -32,8 +32,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, CheckCircle2, Send, Pencil, Check, Circle } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, CheckCircle2, Send, Pencil, Check, Circle, Link as LinkIcon } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
 import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -344,7 +345,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                               <div className="flex gap-1">
                                   <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
                                       <SelectTrigger className={cn("px-2 border-none h-11 transition-all", pendingSubId ? "w-auto" : "w-10 justify-center")}>
-                                          {pendingSubId ? <Badge variant="secondary" className="h-6 text-[9px] uppercase tracking-tighter">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge> : <UserPlus className="h-4 w-4 text-primary" />}
+                                          {pendingSubId ? <Badge variant="secondary" className="h-6 text-[9px] font-black max-w-[100px] truncate uppercase">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge> : <UserPlus className="h-4 w-4 text-primary" />}
                                       </SelectTrigger>
                                       <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                   </Select>
