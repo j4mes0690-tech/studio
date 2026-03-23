@@ -1,11 +1,11 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
 
 /**
  * AppShell - Provides the main application layout.
- * The side menu has been removed to provide a cleaner, full-width interface.
- * Navigation is managed via the Dashboard and Header home links.
+ * The Site Intelligence widget has been removed to simplify the user interface.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

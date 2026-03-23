@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
-import type { Instruction, Project, DistributionUser, ChatMessage, Photo, SubContractor, FileAttachment } from '@/lib/types';
+import type { Instruction, Project, DistributionUser, ChatMessage, Photo, SubContractor } from '@/lib/types';
 import Image from 'next/image';
 import {
   Card,
@@ -27,9 +28,6 @@ import {
   User,
   X,
   RefreshCw,
-  Bell,
-  EyeOff,
-  ExternalLink,
   Link as LinkIcon,
   Pencil,
   Circle

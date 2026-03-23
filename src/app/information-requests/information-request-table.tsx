@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -165,7 +166,6 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
     const messages = item.messages || [];
     const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
     
-    // Ball in court logic
     const assigneeAction = isAssignedToMe && (!lastMessage || lastMessage.senderEmail.toLowerCase().trim() !== email);
     const raiserAction = item.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
     
@@ -173,12 +173,13 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
   }, [item, email]);
 
   const handleDismissAlert = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
     const docRef = doc(db, 'information-requests', item.id);
     updateDoc(docRef, { dismissedBy: arrayUnion(email) });
   };
 
-  const handleUpdateStatus = (newStatus: 'open' | 'provided') => {
+  const handleUpdateStatus = (newStatus: 'open' | 'provided' | 'closed') => {
     startTransition(async () => {
       const docRef = doc(db, 'information-requests', item.id);
       const updates: any = { 
@@ -197,16 +198,8 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
       };
       updates.messages = arrayUnion(systemMsg);
 
-      updateDoc(docRef, updates)
-        .then(() => toast({ title: 'Success', description: `Request ${newStatus}.` }))
-        .catch((err) => {
-          const permissionError = new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'update',
-            requestResourceData: updates,
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+      await updateDoc(docRef, updates);
+      toast({ title: 'Success', description: `Request ${newStatus}.` });
     });
   };
 
@@ -241,67 +234,11 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
             });
 
             if (result.success) {
-                toast({ title: 'Success', description: 'Request notification, PDF and attachments resent.' });
-            } else {
-                toast({ title: 'Error', description: result.message, variant: 'destructive' });
+                toast({ title: 'Success', description: 'Request notification resent.' });
             }
         } catch (err) {
             console.error(err);
-            toast({ title: 'Error', description: 'Failed to send notification.', variant: 'destructive' });
         }
-    });
-  };
-
-  const handleIssue = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const hasText = item.description && item.description.trim().length >= 10;
-    const hasRecipients = item.assignedTo && item.assignedTo.length > 0;
-
-    if (!hasText || !hasRecipients) {
-      toast({ 
-        title: "Requirements Not Met", 
-        description: "Please complete the enquiry details and assign recipients before issuing.", 
-        variant: "destructive" 
-      });
-      setIsEditDialogOpen(true);
-      return;
-    }
-
-    startTransition(async () => {
-      try {
-        const docRef = doc(db, 'information-requests', item.id);
-        await updateDoc(docRef, { status: 'open' });
-
-        const targetEmail = item.assignedTo[0];
-        const sub = allSubs?.find(s => s.email.toLowerCase() === targetEmail.toLowerCase());
-        const recipientEmails = new Set<string>();
-        recipientEmails.add(targetEmail.toLowerCase().trim());
-
-        if (sub) {
-            const partnerUsers = getPartnerEmails(sub.id, allSubs || [], distributionUsers);
-            partnerUsers.forEach(e => recipientEmails.add(e));
-        }
-
-        const assignedToNames = item.assignedTo.map(email => distributionUsers.find(u => u.email === email)?.name || email);
-        const pdf = await generateInformationRequestPDF(item, project, assignedToNames);
-        const pdfBase64 = pdf.output('datauristring').split(',')[1];
-
-        await sendInformationRequestEmailAction({
-            emails: Array.from(recipientEmails),
-            projectName: project?.name || 'Project',
-            reference: item.reference,
-            description: item.description,
-            raisedBy: distributionUsers.find(u => u.email === item.raisedBy)?.name || item.raisedBy,
-            requestId: item.id,
-            pdfBase64,
-            fileName: `RFI-${item.reference}.pdf`,
-            additionalFiles: item.files || []
-        });
-
-        toast({ title: 'Success', description: 'Request formally logged with PDF and file attachments.' });
-      } catch (err) {
-        console.error(err);
-      }
     });
   };
 
@@ -369,28 +306,15 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                 </Tooltip>
             )}
 
-            {isDraft && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-orange-600" onClick={handleIssue} disabled={isPending}>
-                    {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                    <span className="sr-only">Issue Request</span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent><p>Issue Request</p></TooltipContent>
-              </Tooltip>
-            )}
-            
             {!isDraft && (
               <>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button variant="ghost" size="icon" className="text-primary" onClick={handleDistribute} disabled={isPending}>
-                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                      <span className="sr-only">Distribute/Resend Notification & Attachments</span>
+                      <Send className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent><p>Distribute/Resend Notification & Attachments</p></TooltipContent>
+                  <TooltipContent><p>Resend Notification</p></TooltipContent>
                 </Tooltip>
 
                 <RespondToRequest item={item} currentUser={currentUser} />
@@ -404,37 +328,29 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
                         </Button>
                       </AlertDialogTrigger>
                     </TooltipTrigger>
-                    <TooltipContent><p>{item.status === 'open' ? 'Close' : 'Reopen'} Request</p></TooltipContent>
+                    <TooltipContent><p>{item.status === 'open' ? 'Close' : 'Reopen'}</p></TooltipContent>
                   </Tooltip>
                   <AlertDialogContent onClick={e => e.stopPropagation()}>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>{item.status === 'open' ? 'Close RFI?' : 'Reopen RFI?'}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                          {item.status === 'open' 
-                              ? "Are you sure you want to mark this technical enquiry as resolved?" 
-                              : "This will move the request back to 'Open' status for further updates."}
-                      </AlertDialogDescription>
+                      <AlertDialogTitle>Update Status?</AlertDialogTitle>
+                      <AlertDialogDescription>Are you sure you want to change the status of this enquiry?</AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleUpdateStatus(item.status === 'open' ? 'closed' : 'open')} disabled={isPending}>
-                          Confirm
-                      </AlertDialogAction>
+                      <AlertDialogAction onClick={() => handleUpdateStatus(item.status === 'open' ? 'closed' : 'open')}>Confirm</AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               </>
             )}
             
-            <div className="flex items-center">
-              <EditInformationRequest 
-                item={item} 
-                projects={projects} 
-                distributionUsers={distributionUsers} 
-                open={isEditDialogOpen}
-                onOpenChange={setIsEditDialogOpen}
-              />
-            </div>
+            <EditInformationRequest 
+              item={item} 
+              projects={projects} 
+              distributionUsers={distributionUsers} 
+              open={isEditDialogOpen}
+              onOpenChange={setIsEditDialogOpen}
+            />
             
             <AlertDialog>
               <Tooltip>
@@ -449,14 +365,12 @@ function RequestTableRow({ item, projects, distributionUsers, currentUser }: { i
               </Tooltip>
               <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>Permanently delete this information request.</AlertDialogDescription>
+                  <AlertDialogTitle>Delete RFI?</AlertDialogTitle>
+                  <AlertDialogDescription>Permanently remove this enquiry. This cannot be undone.</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
-                    {isPending ? 'Deleting...' : 'Delete'}
-                  </AlertDialogAction>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive">Delete</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
