@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Form,
@@ -50,13 +51,14 @@ import type {
   Photo, 
   TemplateSection,
   PermitSignature,
-  PermitSignatureRole
+  PermitSignatureRole,
+  SecurityRuleContext
 } from '@/lib/types';
 import { useFirestore, useStorage, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { useToast } from '@/hooks/use-toast';
-import { Separator } from '@/components/ui/separator';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { cn, scrollToFirstError } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
