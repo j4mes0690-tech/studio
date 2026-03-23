@@ -24,7 +24,24 @@ import { useFirestore } from '@/firebase';
 import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { sendHolidayStatusEmailAction } from './actions';
+import { sendHolidayStatusEmailAction, sendHolidayCancellationEmailAction } from './actions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 export function HolidayRequestCard({ 
   request, 
@@ -42,7 +59,7 @@ export function HolidayRequestCard({
   const [isPending, startTransition] = useTransition();
 
   const isPendingStatus = request.status === 'pending';
-  const isMe = request.userEmail.toLowerCase() === currentUser.email.toLowerCase();
+  const isMe = request.userEmail.toLowerCase().trim() === currentUser.email.toLowerCase().trim();
 
   const handleUpdateStatus = (newStatus: 'approved' | 'rejected') => {
     startTransition(async () => {
@@ -76,8 +93,26 @@ export function HolidayRequestCard({
 
   const handleDelete = () => {
     startTransition(async () => {
-      await deleteDoc(doc(db, 'holiday-requests', request.id));
-      toast({ title: 'Request Cancelled', description: 'The leave request has been removed.' });
+      try {
+        const docRef = doc(db, 'holiday-requests', request.id);
+        
+        // Notify manager of cancellation if a manager is assigned and the request was relevant
+        if (request.lineManagerEmail && (request.status === 'approved' || request.status === 'pending')) {
+            await sendHolidayCancellationEmailAction({
+                managerEmail: request.lineManagerEmail,
+                employeeName: request.userName,
+                startDate: request.startDate,
+                endDate: request.endDate,
+                type: request.type,
+                status: request.status
+            });
+        }
+
+        await deleteDoc(docRef);
+        toast({ title: 'Request Cancelled', description: 'The leave record has been removed and your balance restored.' });
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to cancel request.', variant: 'destructive' });
+      }
     });
   };
 
@@ -117,10 +152,39 @@ export function HolidayRequestCard({
             )}>
                 {request.status}
             </Badge>
-            {isPendingStatus && isMe && (
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={handleDelete}>
-                    <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+            
+            {isMe && (
+                <AlertDialog>
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent><p>Cancel Leave Request</p></TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+                    <AlertDialogContent onClick={e => e.stopPropagation()}>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Cancel Leave Request?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                {request.status === 'approved' 
+                                    ? "This request has already been approved. Cancelling it will notify your manager and restore your remaining holiday balance."
+                                    : "Are you sure you want to remove this leave request from the system?"}
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Keep Request</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90" disabled={isPending}>
+                                {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                Confirm Cancellation
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
             )}
           </div>
         </div>
