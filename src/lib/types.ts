@@ -203,6 +203,8 @@ export type UserPermissions = {
   accessHolidays?: boolean;
   accessSiteDiary: boolean;
   accessDocuments: boolean;
+  accessFormEditor?: boolean;
+  accessInsights?: boolean;
   // Read Only Flags
   materialsReadOnly?: boolean;
   plantReadOnly?: boolean;
@@ -221,6 +223,7 @@ export type UserPermissions = {
   plannerReadOnly?: boolean;
   procurementReadOnly?: boolean;
   documentsReadOnly?: boolean;
+  siteDiaryReadOnly?: boolean;
 };
 
 export type DistributionUser = {

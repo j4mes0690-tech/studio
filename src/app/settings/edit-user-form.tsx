@@ -114,6 +114,15 @@ const EditUserSchema = z.object({
   procurementReadOnly: z.boolean().default(false),
   accessHolidays: z.boolean().default(true),
   canApproveHolidays: z.boolean().default(false),
+
+  accessDocuments: z.boolean().default(true),
+  documentsReadOnly: z.boolean().default(false),
+
+  accessSiteDiary: z.boolean().default(true),
+  siteDiaryReadOnly: z.boolean().default(false),
+
+  accessInsights: z.boolean().default(true),
+  accessFormEditor: z.boolean().default(false),
 });
 
 type EditUserFormValues = z.infer<typeof EditUserSchema>;
@@ -213,6 +222,13 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
       accessProcurement: user.permissions?.accessProcurement !== false,
       procurementReadOnly: !!user.permissions?.procurementReadOnly,
       accessHolidays: user.permissions?.accessHolidays !== false,
+      
+      accessDocuments: user.permissions?.accessDocuments !== false,
+      documentsReadOnly: !!user.permissions?.documentsReadOnly,
+      accessSiteDiary: user.permissions?.accessSiteDiary !== false,
+      siteDiaryReadOnly: !!user.permissions?.siteDiaryReadOnly,
+      accessInsights: user.permissions?.accessInsights !== false,
+      accessFormEditor: !!user.permissions?.accessFormEditor,
     },
   });
   
@@ -287,7 +303,14 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         accessProcurement: user.permissions?.accessProcurement !== false,
         procurementReadOnly: !!user.permissions?.procurementReadOnly,
         accessHolidays: user.permissions?.accessHolidays !== false,
-      } as any);
+        
+        accessDocuments: user.permissions?.accessDocuments !== false,
+        documentsReadOnly: !!user.permissions?.documentsReadOnly,
+        accessSiteDiary: user.permissions?.accessSiteDiary !== false,
+        siteDiaryReadOnly: !!user.permissions?.siteDiaryReadOnly,
+        accessInsights: user.permissions?.accessInsights !== false,
+        accessFormEditor: !!user.permissions?.accessFormEditor,
+      });
     }
   }, [open, user, form]);
 
@@ -415,6 +438,13 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
           accessProcurement: values.accessProcurement,
           procurementReadOnly: values.procurementReadOnly,
           accessHolidays: values.accessHolidays,
+          
+          accessDocuments: values.accessDocuments,
+          documentsReadOnly: values.documentsReadOnly,
+          accessSiteDiary: values.accessSiteDiary,
+          siteDiaryReadOnly: values.siteDiaryReadOnly,
+          accessInsights: values.accessInsights,
+          accessFormEditor: values.accessFormEditor,
         }
       };
 
@@ -446,12 +476,16 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
   ];
 
   const modules = [
-    { access: 'accessPlanner', ro: 'plannerReadOnly', label: 'Planner' },
+    { access: 'accessFormEditor', label: 'Form Editor' },
+    { access: 'accessInsights', label: 'Project Insights' },
+    { access: 'accessDocuments', ro: 'documentsReadOnly', label: 'Drawing Register' },
+    { access: 'accessSiteDiary', ro: 'siteDiaryReadOnly', label: 'Site Diary' },
+    { access: 'accessPlanner', ro: 'plannerReadOnly', label: 'Work Planner' },
     { access: 'accessProcurement', ro: 'procurementReadOnly', label: 'Procurement' },
     { access: 'accessIRS', ro: 'irsReadOnly', label: 'IRS Schedule' },
     { access: 'accessMaterials', ro: 'materialsReadOnly', label: 'Materials' },
     { access: 'accessPlant', ro: 'plantReadOnly', label: 'Plant Hire' },
-    { access: 'accessSubContractOrders', ro: 'subContractOrdersReadOnly', label: 'Sub Contract Orders' },
+    { access: 'accessSubContractOrders', ro: 'subContractOrdersReadOnly', label: 'Sub-contract Orders' },
     { access: 'accessVariations', ro: 'variationsReadOnly', label: 'Variations' },
     { access: 'accessPaymentNotices', ro: 'paymentNoticesReadOnly', label: 'Payment Notices' },
     { access: 'accessPermits', ro: 'permitsReadOnly', label: 'Permits' },

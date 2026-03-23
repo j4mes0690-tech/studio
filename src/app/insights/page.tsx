@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Suspense, useMemo } from 'react';
@@ -49,15 +48,16 @@ function InsightsPageContent() {
 
   // Security Gate
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
+  const hasInsightsAccess = !!profile?.permissions?.accessInsights;
   const isAdmin = profile?.email.toLowerCase().trim() === 'admin@example.com';
 
-  if (!hasFullVisibility && !isAdmin) {
+  if (!hasFullVisibility && !hasInsightsAccess && !isAdmin) {
     return (
         <div className="flex flex-col items-center justify-center h-[60vh] p-6 text-center">
             <ShieldAlert className="h-16 w-16 text-destructive mb-4 opacity-20" />
             <h3 className="text-xl font-bold">Executive Access Restricted</h3>
             <p className="text-muted-foreground text-sm max-w-md mt-2">
-                Project Insights provide sensitive financial and procurement overviews. Please contact your administrator to enable "Global Visibility" for your profile.
+                Project Insights provide sensitive financial and procurement overviews. Please contact your administrator to enable "Project Insights" for your profile.
             </p>
         </div>
     );

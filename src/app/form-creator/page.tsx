@@ -117,13 +117,17 @@ function FormCreatorContent() {
   }
 
   // Security Check
-  if (!profile?.permissions?.hasFullVisibility) {
+  const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
+  const hasEditorAccess = !!profile?.permissions?.accessFormEditor;
+  const isAdmin = profile?.email.toLowerCase().trim() === 'admin@example.com';
+
+  if (!hasFullVisibility && !hasEditorAccess && !isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] p-6 text-center">
         <ShieldAlert className="h-16 w-16 text-destructive mb-4 opacity-20" />
         <h3 className="text-xl font-bold">Access Restricted</h3>
         <p className="text-muted-foreground text-sm max-w-md mt-2">
-          Management of master templates requires administrative oversight.
+          Management of master templates requires "Form Editor" authorization.
         </p>
       </div>
     );
@@ -153,7 +157,7 @@ function FormCreatorContent() {
             </div>
 
             <FormWizard 
-                currentUser={profile} 
+                currentUser={profile!} 
                 initialTemplate={existingTemplate} 
                 initialType={templateType} 
             />

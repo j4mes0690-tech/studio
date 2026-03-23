@@ -104,6 +104,15 @@ const AddUserSchema = z.object({
   
   accessHolidays: z.boolean().default(true),
   canApproveHolidays: z.boolean().default(false),
+
+  accessDocuments: z.boolean().default(true),
+  documentsReadOnly: z.boolean().default(false),
+
+  accessSiteDiary: z.boolean().default(true),
+  siteDiaryReadOnly: z.boolean().default(false),
+
+  accessInsights: z.boolean().default(true),
+  accessFormEditor: z.boolean().default(false),
 });
 
 type AddUserFormValues = z.infer<typeof AddUserSchema>;
@@ -171,10 +180,6 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
       qualityControlReadOnly: false,
       accessInfoRequests: true,
       infoRequestsReadOnly: false,
-      accessPaymentNotices: true,
-      paymentNoticesReadOnly: false,
-      accessSubContractOrders: true,
-      subContractOrdersReadOnly: false,
       accessIRS: true,
       irsReadOnly: false,
       accessPlanner: true,
@@ -183,6 +188,12 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
       procurementReadOnly: false,
       accessHolidays: true,
       canApproveHolidays: false,
+      accessDocuments: true,
+      documentsReadOnly: false,
+      accessSiteDiary: true,
+      siteDiaryReadOnly: false,
+      accessInsights: true,
+      accessFormEditor: false,
     },
   });
 
@@ -262,6 +273,13 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
           accessProcurement: values.accessProcurement,
           procurementReadOnly: values.procurementReadOnly,
           accessHolidays: values.accessHolidays,
+          
+          accessDocuments: values.accessDocuments,
+          documentsReadOnly: values.documentsReadOnly,
+          accessSiteDiary: values.accessSiteDiary,
+          siteDiaryReadOnly: values.siteDiaryReadOnly,
+          accessInsights: values.accessInsights,
+          accessFormEditor: values.accessFormEditor,
         }
       };
 
@@ -296,6 +314,10 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
   ];
 
   const modules = [
+    { access: 'accessFormEditor', label: 'Form Editor' },
+    { access: 'accessInsights', label: 'Project Insights' },
+    { access: 'accessDocuments', ro: 'documentsReadOnly', label: 'Drawing Register' },
+    { access: 'accessSiteDiary', ro: 'siteDiaryReadOnly', label: 'Site Diary' },
     { access: 'accessPlanner', ro: 'plannerReadOnly', label: 'Work Planner' },
     { access: 'accessProcurement', ro: 'procurementReadOnly', label: 'Procurement' },
     { access: 'accessIRS', ro: 'irsReadOnly', label: 'IRS Schedule' },
@@ -414,7 +436,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-4">
-                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Admin Access Rights</FormLabel>
+                    <FormLabel className="text-xs font-black uppercase text-muted-foreground tracking-widest text-muted-foreground">Admin Access Rights</FormLabel>
                     <div className="space-y-3">
                         <FormField control={form.control} name="hasFullVisibility" render={({ field }) => (
                             <FormItem className="flex items-center justify-between rounded-lg border-2 border-primary/20 p-3 bg-primary/5">
@@ -434,7 +456,7 @@ export function AddUserForm({ onSuccess }: { onSuccess?: () => void }) {
                 </div>
 
                 <div className="space-y-4">
-                    <FormLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground">Module Specific Access</FormLabel>
+                    <FormLabel className="text-xs font-black uppercase text-muted-foreground tracking-widest text-muted-foreground">Module Specific Access</FormLabel>
                     <div className="space-y-3">
                         {modules.map(mod => (
                             <div key={mod.access} className="flex flex-col p-3 rounded-lg border bg-background gap-3">

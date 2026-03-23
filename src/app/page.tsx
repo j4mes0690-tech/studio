@@ -58,8 +58,8 @@ import {
 import { Logo } from '@/components/logo';
 
 const DASHBOARD_CARDS = [
-  { id: 'form-creator', href: '/form-creator', label: 'Form Editor', icon: Wand2, desc: 'Master template library and high-fidelity form designer.', permission: 'hasFullVisibility' },
-  { id: 'insights', href: '/insights', label: 'Project Insights', icon: BarChart3, desc: 'Project performance, procurement tracking, and RFI analytics.', permission: 'hasFullVisibility' },
+  { id: 'form-creator', href: '/form-creator', label: 'Form Editor', icon: Wand2, desc: 'Master template library and high-fidelity form designer.', permission: 'accessFormEditor' },
+  { id: 'insights', href: '/insights', label: 'Project Insights', icon: BarChart3, desc: 'Project performance, procurement tracking, and RFI analytics.', permission: 'accessInsights' },
   { id: 'documents', href: '/documents', label: 'Drawing Register', icon: FolderOpen, desc: 'Manage project drawings with authorised SharePoint backups.', permission: 'accessDocuments' },
   { id: 'site-diary', href: '/site-diary', label: 'Site Diary', icon: BookOpen, desc: 'Daily records of weather, labour resources, and site activities.', permission: 'accessSiteDiary' },
   { id: 'planner', href: '/planner', label: 'Work Planner', icon: CalendarRange, desc: 'Walkthrough properties and identify activities.', permission: 'accessPlanner' },
@@ -178,14 +178,10 @@ export default function Dashboard() {
         const messages = req.messages || [];
         const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
         
-        // Alert if:
-        // 1. Assigned to me AND (it's new OR someone else spoke last)
         const assigneeNeedsAction = isAssignedToMe && (!lastMessage || lastMessage.senderEmail.toLowerCase().trim() !== email);
-        
-        // 2. Raised by me AND someone else spoke last
         const raiserNeedsAction = req.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
         
-        return assigneeNeedsAction || raiserAction;
+        return assigneeNeedsAction || raiserNeedsAction;
     }).length;
 
     const ciCount = (rawClientInstructions || []).filter(ci => {
@@ -196,7 +192,6 @@ export default function Dashboard() {
         const messages = ci.messages || [];
         const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
         
-        // Alert if I'm a recipient and someone else (the raiser/client) was the last to speak
         const hasExternalUpdate = lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
         
         return isRecipient && (!lastMessage || hasExternalUpdate);
@@ -219,6 +214,7 @@ export default function Dashboard() {
     if (!profile || orderedCardIds.length === 0) return [];
     const allowed = DASHBOARD_CARDS.filter(card => {
         if (!card.permission) return true;
+        if (profile.permissions?.hasFullVisibility) return true;
         return profile.permissions?.[card.permission as keyof typeof profile.permissions] !== false;
     });
     return [...allowed].sort((a, b) => orderedCardIds.indexOf(a.id) - orderedCardIds.indexOf(b.id));
