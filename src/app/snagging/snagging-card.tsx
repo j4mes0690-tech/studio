@@ -34,7 +34,8 @@ import {
   FileText,
   Send,
   Building2,
-  ChevronRight
+  ChevronRight,
+  Link as LinkIcon
 } from 'lucide-react';
 import { PdfReportButton } from '@/app/snagging/pdf-report-button';
 import { DistributeReportsButton } from '@/app/snagging/distribute-reports-button';

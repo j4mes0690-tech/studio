@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, History, Eye, FileSearch, Check, Send } from 'lucide-react';
 import type { Project, SnaggingItem, Photo, Area, SnaggingListItem, SubContractor, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -331,7 +332,15 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                           </div>
                           <div className="flex gap-1">
                               <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
-                                  <SelectTrigger className="w-40 bg-background"><SelectValue placeholder="Assign" /></SelectTrigger>
+                                  <SelectTrigger className="w-40 bg-background h-11 px-2 justify-center">
+                                      <div className="flex items-center gap-2">
+                                          {pendingSubId !== 'unassigned' ? (
+                                              <Badge variant="secondary" className="hidden md:block h-6 text-[9px] font-black max-w-[100px] truncate uppercase">
+                                                  {projectSubs.find(s => s.id === pendingSubId)?.name}
+                                              </Badge>
+                                          ) : <UserPlus className="h-4 w-4 text-primary" />}
+                                      </div>
+                                  </SelectTrigger>
                                   <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                               </Select>
                               <Button type="button" variant="outline" className="h-10" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>

@@ -40,7 +40,8 @@ import {
   ChevronDown,
   Signature as SignatureIcon,
   UserPlus,
-  Trash2
+  Trash2,
+  Link as LinkIcon
 } from 'lucide-react';
 import type { 
   Project, 

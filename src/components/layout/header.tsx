@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Home, Loader2, Settings } from 'lucide-react';
+import { Home, Loader2, Settings, Link as LinkIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { UserMenu } from './user-menu';
@@ -10,6 +10,7 @@ import { usePathname } from 'next/navigation';
 import { doc } from 'firebase/firestore';
 import type { DistributionUser, SystemSettings } from '@/lib/types';
 import { Logo } from '@/components/logo';
+import { cn } from '@/lib/utils';
 
 export function Header({ title }: { title: string }) {
   const { user: sessionUser, isLoading: sessionLoading } = useUser();
@@ -90,6 +91,3 @@ export function Header({ title }: { title: string }) {
     </header>
   );
 }
-
-// Helper needed for conditional class in Header
-import { cn } from '@/lib/utils';

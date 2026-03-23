@@ -33,7 +33,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, FileIcon, FileText, Loader2, Link as LinkIcon, Save, Send } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, FileIcon, FileText, Loader2, Link as LinkIcon } from 'lucide-react';
 import type { Project, Photo, FileAttachment, ClientInstruction, Instruction } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
@@ -42,7 +42,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
-import { getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
+import { getProjectInitials, getNextReference } from '@/lib/utils';
 import { sendSiteInstructionEmailAction } from './actions';
 import { CameraOverlay } from '@/components/camera-overlay';
 
@@ -180,8 +180,6 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
       form.reset();
     }
   }, [open, form]);
-
-  const submissionStatus = form.watch('status');
 
   return (
     <>
