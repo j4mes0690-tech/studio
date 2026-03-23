@@ -52,7 +52,7 @@ import type { Project, Photo, Area, SnaggingListItem, SubContractor, Distributio
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useStorage, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, collection } from 'firebase/firestore';
+import { doc, updateDoc, collection, arrayUnion } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { getPartnerEmails, cn, scrollToFirstError } from '@/lib/utils';

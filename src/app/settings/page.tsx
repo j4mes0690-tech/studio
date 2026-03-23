@@ -19,7 +19,7 @@ import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy, deleteDoc } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation, ToolboxTalkTemplate } from '@/lib/types';
-import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck, BookOpen, Pencil, Trash2, Plus, PlusCircle } from 'lucide-react';
+import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck, BookOpen, Pencil, Trash2, Plus, PlusCircle, Database } from 'lucide-react';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
 import { Separator } from '@/components/ui/separator';
@@ -28,6 +28,7 @@ import { InviteCollaboratorDialog } from './invite-collaborator-dialog';
 import { InvitationsList } from './invitations-list';
 import { Suspense, useTransition } from 'react';
 import { BrandingSettings } from './branding-settings';
+import { DatabaseCleanup } from './database-cleanup';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -149,7 +150,7 @@ function SettingsContent() {
   };
 
   return (
-    <main className="flex-1 p-4 md:p-8 space-y-4">
+    <main className="flex-1 p-4 md:p-8 space-y-4 pb-20">
         <Accordion type="single" collapsible className="w-full space-y-4">
           
           {canManageBranding && <BrandingSettings />}
@@ -375,6 +376,24 @@ function SettingsContent() {
                                 <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground">System Library</h3>
                                 <PermitTemplatesList templates={permitTemplates || []} />
                             </div>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            </Card>
+          )}
+
+          {isAdmin && (
+            <Card className="overflow-hidden border-destructive/30">
+                <AccordionItem value="maintenance" className="border-b-0">
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline group">
+                        <div className="flex items-center gap-3 text-left w-full">
+                            <Database className="h-5 w-5 text-destructive shrink-0" />
+                            <span className="text-base font-bold text-destructive">Database Maintenance</span>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6 pt-0 border-t">
+                        <div className="pt-6">
+                            <DatabaseCleanup />
                         </div>
                     </AccordionContent>
                 </AccordionItem>

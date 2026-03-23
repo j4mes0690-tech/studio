@@ -371,7 +371,7 @@ function QualityControlContent() {
                                     <TableRow key={area.id} className="cursor-pointer group" onClick={() => navigateToArea(area.id)}>
                                         <TableCell className="font-semibold group-hover:text-primary transition-colors">{area.name}</TableCell>
                                         <TableCell><Badge variant="secondary">{stats.count} Trade Checks</Badge></TableCell>
-                                        <TableCell className="text-xs text-muted-foreground">{stats.closed} / {stats.total} points</TableCell>
+                                        <TableCell className="text-xs text-muted-foreground">{stats.closed} / {stats.total} points verified</TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2 min-w-[120px]">
                                                 <Progress value={progress} className="h-1.5" />
