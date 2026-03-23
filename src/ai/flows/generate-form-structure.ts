@@ -2,7 +2,7 @@
 /**
  * @fileOverview This file implements a Genkit flow for generating and refining form structures.
  * 
- * - generateFormStructure - Uses Gemini 1.5 Pro to create or refine templates for Permits, QC, or Toolbox Talks.
+ * - generateFormStructure - Uses Gemini 1.5 Flash to create or refine templates for Permits, QC, or Toolbox Talks.
  */
 
 import { ai } from '@/ai/genkit';
@@ -39,7 +39,7 @@ export async function generateFormStructure(
 
 const prompt = ai.definePrompt({
   name: 'generateFormStructurePrompt',
-  model: 'googleai/gemini-1.5-pro',
+  model: 'googleai/gemini-1.5-flash',
   input: { schema: GenerateFormStructureInputSchema },
   output: { schema: FormStructureOutputSchema },
   system: `You are an expert site safety and quality manager. Your goal is to produce highly professional, structured JSON data for construction site templates. 

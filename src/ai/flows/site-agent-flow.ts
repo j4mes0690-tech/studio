@@ -92,7 +92,7 @@ const siteAgentFlow = ai.defineFlow(
   },
   async (input) => {
     const response = await ai.generate({
-      model: 'googleai/gemini-1.5-pro',
+      model: 'googleai/gemini-1.5-flash',
       system: `You are the SiteCommand Intelligence Agent (SIA). 
       You are an expert in construction project management, site coordination, and commercial compliance.
       

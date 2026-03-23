@@ -4,10 +4,11 @@ import {googleAI} from '@genkit-ai/google-genai';
 /**
  * Genkit Instance Configuration
  * 
- * Upgraded to 'gemini-1.5-pro' for superior instruction following and 
- * reliability in generating complex structured JSON data for forms.
+ * Switched to 'gemini-1.5-flash' to ensure high availability and prevent 
+ * 429 rate limit errors while maintaining excellent performance for 
+ * construction site documentation tasks.
  */
 export const ai = genkit({
   plugins: [googleAI()],
-  model: 'googleai/gemini-1.5-pro',
+  model: 'googleai/gemini-1.5-flash',
 });
