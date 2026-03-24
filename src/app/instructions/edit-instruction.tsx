@@ -22,31 +22,37 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, Loader2, Link as LinkIcon } from 'lucide-react';
-import type { Project, Photo, FileAttachment, Instruction, ClientInstruction } from '@/lib/types';
+import { Pencil, Camera, Upload, X, Loader2, Link as LinkIcon, FileText, FileIcon, HardHat, Ruler } from 'lucide-react';
+import type { Project, Photo, FileAttachment, Instruction, ClientInstruction, SubContractor } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, query, collection, where } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
+import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB limit
 
 const EditInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   clientInstructionId: z.string().optional().nullable(),
   originalText: z.string().min(10, 'Site instructions must be at least 10 characters.'),
+  recipientEmail: z.string().min(1, 'Please assign this instruction to a partner.'),
 });
 
 type EditInstructionFormValues = z.infer<typeof EditInstructionSchema>;
@@ -54,11 +60,13 @@ type EditInstructionFormValues = z.infer<typeof EditInstructionSchema>;
 export function EditInstruction({ 
   item, 
   projects, 
+  subContractors,
   open,
   onOpenChange
 }: { 
   item: Instruction; 
   projects: Project[]; 
+  subContractors: SubContractor[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -66,10 +74,12 @@ export function EditInstruction({
   const db = useFirestore();
   const storage = useStorage();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
   const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
+  const [files, setFiles] = useState<FileAttachment[]>(item.files || []);
 
   const form = useForm<EditInstructionFormValues>({
     resolver: zodResolver(EditInstructionSchema),
@@ -77,6 +87,7 @@ export function EditInstruction({
       projectId: item.projectId,
       clientInstructionId: item.clientInstructionId || 'none',
       originalText: item.originalText,
+      recipientEmail: item.recipients?.[0] || '',
     },
   });
 
@@ -86,12 +97,23 @@ export function EditInstruction({
         projectId: item.projectId,
         clientInstructionId: item.clientInstructionId || 'none',
         originalText: item.originalText,
+        recipientEmail: item.recipients?.[0] || '',
       });
       setPhotos(item.photos || []);
+      setFiles(item.files || []);
     }
   }, [open, item, form]);
 
   const selectedProjectId = form.watch('projectId');
+  const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+
+  const projectPartners = useMemo(() => {
+    if (!selectedProjectId || !selectedProject) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
+    return (subContractors || []).filter(sub => 
+      assignedIds.includes(sub.id) && (sub.isSubContractor || sub.isDesigner)
+    );
+  }, [selectedProjectId, selectedProject, subContractors]);
 
   const ciQuery = useMemoFirebase(() => {
     if (!db || !selectedProjectId) return null;
@@ -101,6 +123,34 @@ export function EditInstruction({
 
   const onCapture = (photo: Photo) => {
     setPhotos(prev => [...prev, photo]);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles) return;
+    
+    Array.from(selectedFiles).forEach(f => {
+      if (f.size > MAX_FILE_SIZE) {
+        toast({ 
+          title: 'File Too Large', 
+          description: `${f.name} exceeds the 20MB limit.`, 
+          variant: 'destructive' 
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (re) => {
+        setFiles(prev => [...prev, {
+          name: f.name,
+          type: f.type,
+          size: f.size,
+          url: re.target?.result as string
+        }]);
+      };
+      reader.readAsDataURL(f);
+    });
+    e.target.value = '';
   };
 
   const onSubmit = (values: EditInstructionFormValues) => {
@@ -117,12 +167,25 @@ export function EditInstruction({
           })
         );
 
+        const uploadedFiles = await Promise.all(
+          files.map(async (f, i) => {
+            if (f.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(f.url);
+              const url = await uploadFile(storage, `instructions/files/${item.id}-${Date.now()}-${i}-${f.name}`, blob);
+              return { ...f, url };
+            }
+            return f;
+          })
+        );
+
         const updates = {
           projectId: values.projectId,
           clientInstructionId: values.clientInstructionId === 'none' ? null : values.clientInstructionId,
           originalText: values.originalText,
           summary: values.originalText.length > 100 ? values.originalText.substring(0, 100) + '...' : values.originalText,
+          recipients: [values.recipientEmail],
           photos: uploadedPhotos,
+          files: uploadedFiles,
         };
 
         await updateDoc(doc(db, 'instructions', item.id), updates);
@@ -138,52 +201,150 @@ export function EditInstruction({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent 
-          className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+          className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader><DialogTitle>Edit Site Instruction</DialogTitle></DialogHeader>
+          <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/5">
+            <DialogTitle>Edit Site Instruction</DialogTitle>
+            <DialogDescription>Modify instruction details or assigned recipients.</DialogDescription>
+          </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="projectId" render={({ field }) => (
-                  <FormItem><FormLabel>Project</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
-                )} />
-                <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-2"><LinkIcon className="h-3.5 w-3.5 text-primary" /> Linked Directive</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">No Link</SelectItem>
-                        {clientDirectives?.map(ci => <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )} />
-              </div>
-              <FormField control={form.control} name="originalText" render={({ field }) => (
-                <FormItem><div className="flex justify-between items-center"><FormLabel>Instruction Text</FormLabel><VoiceInput onResult={field.onChange} /></div><FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl></FormItem>
-              )} />
-              <div className="space-y-4">
-                <FormLabel>Visual Evidence</FormLabel>
-                <div className="flex flex-wrap gap-2">
-                  {photos.map((p, i) => (
-                    <div key={i} className="relative w-20 h-20 group">
-                      <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
-                      <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <ScrollArea className="flex-1 px-6 py-6">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="projectId" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project</FormLabel>
+                        <Select onValueChange={(v) => { field.onChange(v); form.setValue('recipientEmail', ''); }} value={field.value}>
+                          <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                          <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="flex items-center gap-2"><LinkIcon className="h-3.5 w-3.5 text-primary" /> Linked Directive</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}>
+                          <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                          <SelectContent>
+                            <SelectItem value="none">No Link</SelectItem>
+                            {clientDirectives?.map(ci => <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </FormItem>
+                    )} />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="recipientEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Assigned Partner</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select subcontractor or designer" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel className="flex items-center gap-2 text-primary">
+                                <HardHat className="h-3 w-3" /> Sub-contractors
+                              </SelectLabel>
+                              {projectPartners.filter(p => p.isSubContractor).map(p => (
+                                <SelectItem key={p.id} value={p.email}>{p.name}</SelectItem>
+                              ))}
+                            </SelectGroup>
+                            <Separator className="my-1" />
+                            <SelectGroup>
+                              <SelectLabel className="flex items-center gap-2 text-accent">
+                                <Ruler className="h-3 w-3" /> Designers
+                              </SelectLabel>
+                              {projectPartners.filter(p => p.isDesigner).map(p => (
+                                <SelectItem key={p.id} value={p.email}>{p.name}</SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField control={form.control} name="originalText" render={({ field }) => (
+                    <FormItem>
+                      <div className="flex justify-between items-center">
+                        <FormLabel>Instruction Text</FormLabel>
+                        <VoiceInput onResult={field.onChange} />
+                      </div>
+                      <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>
+                    </FormItem>
+                  )} />
+
+                  <div className="space-y-4">
+                    <FormLabel>Visual Evidence</FormLabel>
+                    <div className="flex flex-wrap gap-2">
+                      {photos.map((p, i) => (
+                        <div key={i} className="relative w-20 h-20 group">
+                          <Image src={p.url} alt="Site" fill className="rounded-md object-cover border" />
+                          <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                        </div>
+                      ))}
+                      <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed rounded-lg" onClick={() => setIsCameraOpen(true)}><Camera className="h-5 w-5" /><span className="text-[8px] font-black uppercase">Camera</span></Button>
+                      <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed rounded-lg" onClick={() => fileInputRef.current?.click()}><Upload className="h-5 w-5" /><span className="text-[8px] font-black uppercase">Photos</span></Button>
                     </div>
-                  ))}
-                  <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <FormLabel>Technical Files (Max 20MB)</FormLabel>
+                    <div className="space-y-2">
+                      {files.map((f, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 rounded-md border bg-muted/30 group">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span className="text-xs truncate font-medium">{f.name}</span>
+                            <Badge variant="outline" className="text-[8px] h-4">{(f.size / 1024 / 1024).toFixed(1)}MB</Badge>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button type="button" variant="outline" className="w-full h-10 border-dashed" onClick={() => docInputRef.current?.click()}>
+                        <FileIcon className="mr-2 h-4 w-4" />
+                        Attach Files
+                      </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={isPending} className="w-full h-12 text-lg font-bold">{isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Save Changes</Button>
+              </ScrollArea>
+              <DialogFooter className="p-6 border-t bg-muted/10 shrink-0">
+                <Button type="submit" disabled={isPending} className="w-full h-12 text-lg font-bold">
+                  {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  Save Changes
+                </Button>
               </DialogFooter>
+              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={(e) => {
+                const selected = e.target.files; if (!selected) return;
+                Array.from(selected).forEach(f => {
+                  const reader = new FileReader();
+                  reader.onload = (re) => setPhotos(prev => [...prev, { url: re.target?.result as string, takenAt: new Date().toISOString() }]);
+                  reader.readAsDataURL(f);
+                });
+              }} />
+              <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.dwg,.dxf" />
             </form>
           </Form>
         </DialogContent>
       </Dialog>
-      <CameraOverlay isOpen={isCameraOpen} onClose={() => setIsCameraOpen(false)} onCapture={onCapture} />
+      <CameraOverlay 
+        isOpen={isCameraOpen} 
+        onClose={() => setIsCameraOpen(false)} 
+        onCapture={onCapture} 
+        title="Site Instruction capture"
+      />
     </>
   );
 }

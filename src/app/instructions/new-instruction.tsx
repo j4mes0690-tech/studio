@@ -23,18 +23,34 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, FileIcon, FileText, Loader2, Link as LinkIcon, Save, Send } from 'lucide-react';
-import type { Project, Photo, FileAttachment, ClientInstruction, Instruction } from '@/lib/types';
+import { 
+  PlusCircle, 
+  Camera, 
+  Upload, 
+  X, 
+  FileIcon, 
+  FileText, 
+  Loader2, 
+  Link as LinkIcon, 
+  Save, 
+  Send,
+  HardHat,
+  Ruler
+} from 'lucide-react';
+import type { Project, Photo, FileAttachment, ClientInstruction, Instruction, SubContractor } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, query, where } from 'firebase/firestore';
@@ -45,6 +61,9 @@ import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
 import { sendSiteInstructionEmailAction } from './actions';
 import { CameraOverlay } from '@/components/camera-overlay';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB limit
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -52,7 +71,7 @@ const NewInstructionSchema = z.object({
   originalText: z
     .string()
     .min(10, 'Site instructions must be at least 10 characters.'),
-  externalRecipient: z.string().optional().default(''),
+  recipientEmail: z.string().min(1, 'Please assign this instruction to a partner.'),
   status: z.enum(['draft', 'issued']).default('draft'),
 });
 
@@ -61,9 +80,10 @@ type NewInstructionFormValues = z.infer<typeof NewInstructionSchema>;
 type NewInstructionProps = {
   projects: Project[];
   allInstructions: Instruction[];
+  subContractors: SubContractor[];
 };
 
-export function NewInstruction({ projects, allInstructions }: NewInstructionProps) {
+export function NewInstruction({ projects, allInstructions, subContractors }: NewInstructionProps) {
   const [open, setOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const { toast } = useToast();
@@ -82,13 +102,21 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
       projectId: '',
       clientInstructionId: 'none',
       originalText: '',
-      externalRecipient: '',
+      recipientEmail: '',
       status: 'draft',
     },
   });
 
   const selectedProjectId = form.watch('projectId');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
+
+  const projectPartners = useMemo(() => {
+    if (!selectedProjectId || !selectedProject) return [];
+    const assignedIds = selectedProject.assignedSubContractors || [];
+    return (subContractors || []).filter(sub => 
+      assignedIds.includes(sub.id) && (sub.isSubContractor || sub.isDesigner)
+    );
+  }, [selectedProjectId, selectedProject, subContractors]);
 
   const ciQuery = useMemoFirebase(() => {
     if (!db || !selectedProjectId) return null;
@@ -103,7 +131,17 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (!selectedFiles) return;
+    
     Array.from(selectedFiles).forEach(f => {
+      if (f.size > MAX_FILE_SIZE) {
+        toast({ 
+          title: 'File Too Large', 
+          description: `${f.name} exceeds the 20MB limit.`, 
+          variant: 'destructive' 
+        });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (re) => {
         setFiles(prev => [...prev, {
@@ -115,6 +153,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
       };
       reader.readAsDataURL(f);
     });
+    e.target.value = '';
   };
 
   const onSubmit = (values: NewInstructionFormValues) => {
@@ -124,6 +163,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
       try {
         toast({ title: isIssuing ? 'Issuing Instruction' : 'Saving Draft', description: 'Processing documentation...' });
 
+        // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -135,6 +175,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
           })
         );
 
+        // 2. Upload Files
         const uploadedFiles = await Promise.all(
           files.map(async (f, i) => {
             if (f.url.startsWith('data:')) {
@@ -156,7 +197,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
           originalText: values.originalText,
           summary: values.originalText.length > 100 ? values.originalText.substring(0, 100) + '...' : values.originalText,
           actionItems: [],
-          recipients: values.externalRecipient ? [values.externalRecipient] : [],
+          recipients: [values.recipientEmail],
           createdAt: new Date().toISOString(),
           photos: uploadedPhotos,
           files: uploadedFiles,
@@ -199,8 +240,8 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
             <DialogDescription>Record a formal instruction for trade partners. Link to client directives for traceability.</DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              <div className="flex-1 overflow-y-auto px-6 py-6">
+            <form onSubmit={form.handleSubmit(() => {}, () => scrollToFirstError())} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <ScrollArea className="flex-1 px-6 py-6">
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
@@ -209,7 +250,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
                         render={({ field }) => (
                         <FormItem>
                             <FormLabel>Project</FormLabel>
-                            <Select onValueChange={(v) => { field.onChange(v); form.setValue('clientInstructionId', 'none'); }} value={field.value}>
+                            <Select onValueChange={(v) => { field.onChange(v); form.setValue('clientInstructionId', 'none'); form.setValue('recipientEmail', ''); }} value={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
                             <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                             </Select>
@@ -240,6 +281,43 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
 
                   <FormField
                     control={form.control}
+                    name="recipientEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Assigned Partner</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedProjectId}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={projectPartners.length > 0 ? "Select subcontractor or designer" : "No partners assigned to project"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel className="flex items-center gap-2 text-primary">
+                                <HardHat className="h-3 w-3" /> Sub-contractors
+                              </SelectLabel>
+                              {projectPartners.filter(p => p.isSubContractor).map(p => (
+                                <SelectItem key={p.id} value={p.email}>{p.name}</SelectItem>
+                              ))}
+                            </SelectGroup>
+                            <Separator className="my-1" />
+                            <SelectGroup>
+                              <SelectLabel className="flex items-center gap-2 text-accent">
+                                <Ruler className="h-3 w-3" /> Designers
+                              </SelectLabel>
+                              {projectPartners.filter(p => p.isDesigner).map(p => (
+                                <SelectItem key={p.id} value={p.email}>{p.name}</SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="originalText"
                     render={({ field }) => (
                       <FormItem>
@@ -247,7 +325,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
                           <FormLabel>Instruction Details</FormLabel>
                           <VoiceInput onResult={field.onChange} />
                         </div>
-                        <FormControl><Textarea className="min-h-[150px]" {...field} /></FormControl>
+                        <FormControl><Textarea placeholder="Detail the work required or compliance instruction..." className="min-h-[150px]" {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -262,37 +340,50 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
                           <Button type="button" variant="destructive" size="icon" className="absolute -top-1 -right-1 h-5 w-5" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
                         </div>
                       ))}
-                      <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Upload</Button>
+                      <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed rounded-lg" onClick={() => setIsCameraOpen(true)}><Camera className="h-5 w-5" /><span className="text-[8px] font-black uppercase">Camera</span></Button>
+                      <Button type="button" variant="outline" className="w-20 h-20 flex flex-col gap-1 border-dashed rounded-lg" onClick={() => fileInputRef.current?.click()}><Upload className="h-5 w-5" /><span className="text-[8px] font-black uppercase">Photos</span></Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <FormLabel>Technical Files (Max 20MB)</FormLabel>
+                    <div className="space-y-2">
+                      {files.map((f, i) => (
+                        <div key={i} className="flex items-center justify-between p-2 rounded-md border bg-muted/30 group">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                            <span className="text-xs truncate font-medium">{f.name}</span>
+                            <Badge variant="outline" className="text-[8px] h-4">{(f.size / 1024 / 1024).toFixed(1)}MB</Badge>
+                          </div>
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button type="button" variant="outline" className="w-full h-10 border-dashed" onClick={() => docInputRef.current?.click()}>
+                        <FileIcon className="mr-2 h-4 w-4" />
+                        Attach Files
+                      </Button>
                     </div>
                   </div>
                 </div>
-              </div>
+              </ScrollArea>
 
               <DialogFooter className="p-6 border-t bg-muted/10 shrink-0 gap-3">
                 <Button 
-                    type="submit" 
+                    type="button" 
                     variant="outline" 
                     className="w-full sm:w-auto h-12 gap-2" 
                     disabled={isPending} 
-                    onClick={() => form.setValue('status', 'draft')}
+                    onClick={form.handleSubmit(v => onSubmit({...v, status: 'draft'}))}
                 >
-                    <Save className="mr-2 h-4 w-4" /> Save as Draft
+                    <Save className="h-4 w-4" /> Save as Draft
                 </Button>
                 <Button 
-                    type="submit" 
-                    variant="outline" 
-                    className="w-full sm:flex-1 h-12 font-bold gap-2" 
-                    disabled={isPending} 
-                    onClick={() => form.setValue('status', 'issued')}
-                >
-                    <Save className="mr-2 h-4 w-4" /> Save
-                </Button>
-                <Button 
-                    type="submit" 
+                    type="button" 
                     className="w-full sm:flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20 gap-2" 
                     disabled={isPending} 
-                    onClick={() => form.setValue('status', 'issued')}
+                    onClick={form.handleSubmit(v => onSubmit({...v, status: 'issued'}))}
                 >
                     {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-5 w-5" />} Save & Issue
                 </Button>
@@ -305,6 +396,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
                   reader.readAsDataURL(f);
                 });
               }} />
+              <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip,.dwg,.dxf" />
             </form>
           </Form>
         </DialogContent>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -164,9 +163,8 @@ function InstructionsContent() {
 
             <NewInstruction 
               projects={allowedProjects} 
-              distributionUsers={distributionUsers || []} 
-              subContractors={subContractors || []}
               allInstructions={allInstructions || []}
+              subContractors={subContractors || []}
             />
           </div>
         </div>
