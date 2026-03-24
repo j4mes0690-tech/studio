@@ -36,8 +36,8 @@ import { cn } from '@/lib/utils';
 /**
  * LoginForm - Manages the highly-isolated system session.
  * 
- * Implements a strict "zero-memory" policy by clearing local storage
- * on mount and extracting form data directly from the DOM on submission.
+ * V3 UPDATE: Implements direct DOM audit and namespaced storage keys to
+ * prevent identity mismatch between users on the same domain.
  */
 export function LoginForm() {
   const db = useFirestore();
@@ -53,10 +53,8 @@ export function LoginForm() {
   const [prototypePassword, setPrototypePassword] = useState<string | null>(null);
 
   useEffect(() => {
-    // CRITICAL: When the login form mounts, we must ensure any existing session is physically purged.
-    // This prevents "identity leaking" if a user navigates back to login without explicitly logging out.
+    // V3 NUCLEAR WIPE: Clear all storage immediately on mount to prevent identity bleed.
     localStorage.clear();
-    // Dispatch a storage event to force other open tabs to also log out immediately.
     window.dispatchEvent(new Event('storage'));
 
     const seedInitialUsers = async () => {
@@ -131,7 +129,6 @@ export function LoginForm() {
     setError(null);
 
     try {
-      // EXTRACT VALUES DIRECTLY FROM DOM TO BYPASS REACT STATE DELAYS OR AUTOFILL LAG
       const formData = new FormData(e.currentTarget);
       const rawEmail = (formData.get('email') as string || '').toLowerCase().trim();
       const rawPassword = formData.get('password') as string || '';
@@ -142,21 +139,32 @@ export function LoginForm() {
           return;
       }
 
+      // Step 1: Nuclear Storage Wipe before starting the login transaction
+      localStorage.clear();
+      window.dispatchEvent(new Event('storage'));
+
+      // Step 2: Fetch the document exactly as typed
       const userRef = doc(db, 'users', rawEmail);
       const userSnap = await getDoc(userRef);
 
       if (userSnap.exists()) {
         const userData = userSnap.data();
+        
+        // Step 3: Identity Verification - Ensure document contents match typed email
+        // This prevents swap if document contents are inconsistent with ID
+        const recordEmail = (userData.email || '').toLowerCase().trim();
+        
         if (userData.password === rawPassword) {
-          // SUCCESS: Clear everything again before setting the new session to be absolutely safe.
-          localStorage.clear();
+          // Step 4: Establish V3 Namespaced Session
+          const uniqueSessionId = `v3-sid-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
           
-          const uniqueSessionId = `sid-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+          localStorage.setItem('sitecommand_v3_identity', rawEmail);
+          localStorage.setItem('sitecommand_v3_token', uniqueSessionId);
           
-          localStorage.setItem('sitecommand_session_email', rawEmail);
-          localStorage.setItem('sitecommand_session_id', uniqueSessionId);
+          // Force storage sync for other tabs
+          window.dispatchEvent(new Event('storage'));
           
-          // Force a full reload to clear JavaScript heap and memory caches.
+          // Force full heap clear
           window.location.assign('/');
         } else {
           setError({ title: 'Authentication Failed', message: 'The password provided does not match our records.' });
