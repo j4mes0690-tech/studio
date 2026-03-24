@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -32,12 +33,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Loader2, Save, Send, MailPlus, ShieldCheck, Eye, Edit3, Building2, Mail, UserCheck } from 'lucide-react';
+import { Pencil, Loader2, Save, Send, MailPlus, ShieldCheck, Eye, Edit3, Building2, Mail, UserCheck, KeyRound } from 'lucide-react';
 import type { DistributionUser, Invitation, SubContractor } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { useFirestore, useUser as useSession, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection, addDoc, query, orderBy } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc, query, orderBy, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { sendInvitationEmailAction } from './actions';
@@ -105,7 +106,7 @@ const EditUserSchema = z.object({
   infoRequestsReadOnly: z.boolean().default(false),
   
   accessIRS: z.boolean().default(true),
-  irsReadOnly: !!z.boolean().default(false),
+  irsReadOnly: z.boolean().default(false),
 
   accessPlanner: z.boolean().default(true),
   plannerReadOnly: z.boolean().default(false),
@@ -368,12 +369,14 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
 
   const onSubmit = (values: EditUserFormValues) => {
     startTransition(async () => {
-      const docId = user.email.toLowerCase().trim(); // Use email as unique key
-      const docRef = doc(db, 'users', docId);
-      
-      const updates: Partial<DistributionUser> = {
+      const oldEmail = user.email.toLowerCase().trim();
+      const newEmail = values.email.toLowerCase().trim();
+      const isEmailChanging = oldEmail !== newEmail;
+
+      const profile: DistributionUser = {
+        id: newEmail,
         name: values.name,
-        email: values.email.toLowerCase().trim(),
+        email: newEmail,
         password: values.password,
         userType: values.userType,
         subContractorId: (values.subContractorId && values.subContractorId !== 'none') ? values.subContractorId : null,
@@ -450,18 +453,34 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
         }
       };
 
-      updateDoc(docRef, updates)
-        .then(() => {
+      try {
+        if (isEmailChanging) {
+          // Verify new email isn't already used
+          const newDocRef = doc(db, 'users', newEmail);
+          const newDocSnap = await getDoc(newDocRef);
+          if (newDocSnap.exists()) {
+            toast({ title: 'Migration Blocked', description: 'A profile with this email already exists.', variant: 'destructive' });
+            return;
+          }
+
+          // Migrate: Create new doc and delete old
+          await setDoc(newDocRef, profile);
+          await deleteDoc(doc(db, 'users', oldEmail));
+          toast({ title: 'Email Changed', description: 'Profile successfully migrated to new login email.' });
+        } else {
+          // Standard Update
+          const docRef = doc(db, 'users', oldEmail);
+          await updateDoc(docRef, profile as any);
           toast({ title: 'Success', description: 'User profile updated.' });
-          setOpen(false);
-        })
-        .catch(async (error) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: docRef.path,
-            operation: 'update',
-            requestResourceData: updates,
-          } satisfies SecurityRuleContext));
-        });
+        }
+        setOpen(false);
+      } catch (error: any) {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `users/${newEmail}`,
+          operation: 'write',
+          requestResourceData: profile,
+        } satisfies SecurityRuleContext));
+      }
     });
   };
 
@@ -511,7 +530,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
           <div className="flex items-center justify-between">
             <div>
                 <DialogTitle>Edit User Profile</DialogTitle>
-                <DialogDescription>Manage permissions and onboarding for {user.name}.</DialogDescription>
+                <DialogDescription>Manage permissions and login identity for {user.name}.</DialogDescription>
             </div>
             <Button 
                 variant="outline" 
@@ -529,16 +548,44 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
             <ScrollArea className="flex-1">
               <div className="p-6 space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-primary/5 p-6 rounded-xl border-2 border-primary/10 space-y-6">
+                    <div className="flex items-center gap-2">
+                        <KeyRound className="h-4 w-4 text-primary" />
+                        <h3 className="font-bold text-sm uppercase tracking-widest text-primary">Login Identity</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <FormField control={form.control} name="email" render={({ field }) => (
+                            <FormItem className="md:col-span-2">
+                                <FormLabel className="text-xs font-bold text-primary">Login Email Address</FormLabel>
+                                <FormControl>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                        <Input className="pl-9 h-10 bg-background font-bold border-primary/20 focus-visible:ring-primary" {...field} />
+                                    </div>
+                                </FormControl>
+                                <FormDescription className="text-[10px]">
+                                    Changing this will migrate the user's entire profile to the new login ID.
+                                </FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="password" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-xs font-bold">Initial / Reset Password</FormLabel>
+                                <FormControl><Input type="password" {...field} className="h-10 bg-background" /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )} />
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField control={form.control} name="name" render={({ field }) => (
-                        <FormItem><FormLabel>Full Name</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
-                    )} />
-                    <FormField control={form.control} name="password" render={({ field }) => (
-                        <FormItem><FormLabel>Initial Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl></FormItem>
+                        <FormItem><FormLabel>Full Display Name</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>
                     )} />
                     <FormField control={form.control} name="userType" render={({ field }) => (
                         <FormItem>
-                            <FormLabel>Account Type</FormLabel>
+                            <FormLabel>Account Category</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                                 <SelectContent>
@@ -690,7 +737,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
             </ScrollArea>
 
             <DialogFooter className="p-6 border-t bg-muted/5 shrink-0">
-              <Button type="submit" disabled={isPending} className="w-full h-12 font-bold">
+              <Button type="submit" className="w-full h-12 font-bold" disabled={isPending}>
                 {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                 Save All Changes
               </Button>
