@@ -8,34 +8,29 @@ import { usePathname } from 'next/navigation';
 
 /**
  * AuthBoundary - Protects routes and ensures Firebase services are ready.
- * It waits for both the internal session (localStorage) and the 
- * Firebase Auth state (request.auth) to be initialized before rendering.
- * Allows specific public routes like /join to bypass authentication.
  * 
- * Enforces a minimum display time for the branded loading experience to prevent flickering.
+ * Uses a unique sessionId as a React 'key' to force-reset the entire
+ * component tree when a user identity changes.
  */
 export function AuthBoundary({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useUser();
+  const { user, sessionId, isLoading } = useUser();
   const { isUserLoading: isFirebaseLoading } = useFirebase();
   const pathname = usePathname();
   
-  // Track if the minimum required time for the splash screen has passed
   const [isMinimumTimeElapsed, setIsMinimumTimeElapsed] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMinimumTimeElapsed(true);
-    }, 2000); // 2 seconds minimum duration
+    }, 2000); 
 
     return () => clearTimeout(timer);
   }, []);
 
-  // Show loading screen if auth logic is still working OR if the 2s timer hasn't finished
   if (isLoading || isFirebaseLoading || !isMinimumTimeElapsed) {
     return <LoadingScreen />;
   }
 
-  // Allow the /join route to bypass the auth check so new collaborators can set their password
   if (pathname === '/join') {
     return <>{children}</>;
   }
@@ -44,5 +39,6 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
     return <LoginPage />;
   }
 
-  return <>{children}</>;
+  // Keying the children by sessionId ensures NO stale React state survives a logout/login cycle
+  return <div key={sessionId || 'empty'} className="contents">{children}</div>;
 }

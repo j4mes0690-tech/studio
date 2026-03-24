@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -12,9 +11,10 @@ export function LogoutForm() {
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      // Clear the custom system session
-      localStorage.removeItem('sitecommand_session_email');
-      // Redirect to login page
+      // Clear the custom system session and unique session ID
+      localStorage.clear();
+      
+      // Force a full reload to the login page
       window.location.href = '/login';
     } catch (err: any) {
       console.error('Logout Error:', err);

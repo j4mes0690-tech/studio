@@ -1,28 +1,38 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
 
 /**
  * useUser - A custom hook to manage internal authentication state.
- * It tracks the logged-in user via localStorage and provides a consistent interface.
+ * Tracks the session email and a unique session ID to prevent state persistence issues.
  */
 export function useUser() {
   const [user, setUser] = useState<{ email: string } | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // We check localStorage for a session marker
-    const sessionEmail = localStorage.getItem('sitecommand_session_email');
-    if (sessionEmail) {
-      setUser({ email: sessionEmail });
-    }
-    setIsLoading(false);
+    const checkSession = () => {
+      const sessionEmail = localStorage.getItem('sitecommand_session_email');
+      const sId = localStorage.getItem('sitecommand_session_id');
+      
+      if (sessionEmail && sId) {
+        setUser({ email: sessionEmail });
+        setSessionId(sId);
+      } else {
+        setUser(null);
+        setSessionId(null);
+      }
+      setIsLoading(false);
+    };
 
-    // Listen for changes in other tabs
+    // Initial check
+    checkSession();
+
+    // Listen for changes in other tabs or explicit logouts
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'sitecommand_session_email') {
-        setUser(e.newValue ? { email: e.newValue } : null);
+      if (e.key === 'sitecommand_session_email' || e.key === 'sitecommand_session_id') {
+        checkSession();
       }
     };
 
@@ -30,5 +40,5 @@ export function useUser() {
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  return { user, isLoading };
+  return { user, sessionId, isLoading };
 }

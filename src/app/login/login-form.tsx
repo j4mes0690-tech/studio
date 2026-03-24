@@ -40,10 +40,8 @@ import { cn } from '@/lib/utils';
 /**
  * LoginForm - Manages the custom simulation session for SiteCommand.
  * 
- * FIX: Switched to direct DOM extraction via FormData during submission.
- * This ensures that if a browser autofills the fields, we capture the 
- * absolute current value displayed to the user, preventing identity 
- * mismatches caused by stale React state.
+ * Implements strict Session Locking by generating a unique session ID
+ * on every login to force-reset the entire application state.
  */
 export function LoginForm() {
   const db = useFirestore();
@@ -130,11 +128,7 @@ export function LoginForm() {
     setIsLoading(true);
     setError(null);
 
-    // 1. Wipe all local data immediately to prevent identity cross-talk
-    localStorage.clear();
-
     try {
-      // 2. Extract values directly from the form elements
       const formData = new FormData(e.currentTarget);
       const rawEmail = formData.get('email') as string;
       const rawPassword = formData.get('password') as string;
@@ -147,24 +141,28 @@ export function LoginForm() {
           return;
       }
 
-      // 3. Document Lookup by Normalized Key
       const userRef = doc(db, 'users', emailKey);
       const userSnap = await getDoc(userRef);
 
       if (userSnap.exists()) {
         const userData = userSnap.data();
-        // 4. Constant-time-like comparison (simulation)
         if (userData.password === rawPassword) {
-          // 5. Explicitly lock the session to the TYPED emailKey
+          // Success: Atomic Session Update
+          const uniqueSessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+          
+          localStorage.clear(); // Wipe everything previous
           localStorage.setItem('sitecommand_session_email', emailKey);
+          localStorage.setItem('sitecommand_session_id', uniqueSessionId);
+          
+          // Force a full reload to the home page to ensure every provider is fresh
           window.location.href = '/';
         } else {
-          setError({ title: 'Access Denied', message: 'Incorrect password for this account.' });
+          setError({ title: 'Access Denied', message: 'Incorrect password.' });
         }
       } else {
         setError({ 
           title: 'Account Unknown', 
-          message: `The account "${emailKey}" does not exist in the site registry.` 
+          message: `Account "${emailKey}" not found.` 
         });
       }
     } catch (err: any) {
