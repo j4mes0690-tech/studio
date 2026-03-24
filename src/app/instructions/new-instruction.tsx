@@ -45,7 +45,6 @@ import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { getProjectInitials, getNextReference, scrollToFirstError } from '@/lib/utils';
 import { sendSiteInstructionEmailAction } from './actions';
 import { CameraOverlay } from '@/components/camera-overlay';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const NewInstructionSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -201,7 +200,7 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
           </DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
-              <ScrollArea className="flex-1 px-6 py-6">
+              <div className="flex-1 overflow-y-auto px-6 py-6">
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
@@ -268,9 +267,9 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
                     </div>
                   </div>
                 </div>
-              </ScrollArea>
+              </div>
 
-              <DialogFooter className="p-6 border-t bg-muted/10 gap-3">
+              <DialogFooter className="p-6 border-t bg-muted/10 shrink-0 gap-3">
                 <Button 
                     type="submit" 
                     variant="outline" 

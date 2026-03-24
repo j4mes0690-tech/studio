@@ -149,7 +149,6 @@ export function NewClientInstruction({ projects, allInstructions }: NewInstructi
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
         const reference = getNextReference(allInstructions, values.projectId, 'CI', initials);
 
-        // Automatically include all project assigned users in the distribution
         const projectRecipients = selectedProject?.assignedUsers || [];
         const summaryText = values.originalText.length > 100 
           ? values.originalText.substring(0, 100) + '...' 
@@ -172,7 +171,6 @@ export function NewClientInstruction({ projects, allInstructions }: NewInstructi
         const colRef = collection(db, 'client-instructions');
         await addDoc(colRef, instructionData)
           .then(async () => {
-            // Trigger automated email distribution to the team
             if (projectRecipients.length > 0) {
               await sendClientInstructionEmailAction({
                 emails: projectRecipients,
@@ -221,107 +219,109 @@ export function NewClientInstruction({ projects, allInstructions }: NewInstructi
           </Button>
         </DialogTrigger>
         <DialogContent 
-          className="sm:max-w-lg max-h-[90vh] overflow-y-auto"
+          className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader>
+          <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
             <DialogTitle>Record Client Instruction</DialogTitle>
             <DialogDescription>
               Capture external directives. This will be automatically distributed to all project-assigned staff.
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="projectId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Project</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="originalText"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-center justify-between">
-                      <FormLabel>Client Directive / Request</FormLabel>
-                      <VoiceInput 
-                        onResult={(text) => {
-                          form.setValue('originalText', text);
-                        }} 
-                      />
-                    </div>
-                    <FormControl>
-                      <Textarea placeholder="What did the client instruct?" className="min-h-[150px]" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormItem>
-                <FormLabel>Reference Documentation</FormLabel>
-                <div className="space-y-4">
-                  {(photos.length > 0 || files.length > 0) && (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-3 gap-2">
-                        {photos.map((p, i) => (
-                          <div key={`p-${i}`} className="relative group">
-                            <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
-                            <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-3 w-3" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="space-y-1">
-                        {files.map((f, i) => (
-                          <div key={`f-${i}`} className="flex items-center justify-between p-2 rounded-md border bg-muted/30 group">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                              <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                              <span className="text-xs truncate font-medium">{f.name}</span>
-                            </div>
-                            <Button type="button" variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+                <FormField
+                  control={form.control}
+                  name="projectId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Project</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select a project" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
                   )}
+                />
+                <FormField
+                  control={form.control}
+                  name="originalText"
+                  render={({ field }) => (
+                    <FormItem>
+                      <div className="flex items-center justify-between">
+                        <FormLabel>Client Directive / Request</FormLabel>
+                        <VoiceInput 
+                          onResult={(text) => {
+                            form.setValue('originalText', text);
+                          }} 
+                        />
+                      </div>
+                      <FormControl>
+                        <Textarea placeholder="What did the client instruct?" className="min-h-[150px]" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
-                    
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handlePhotoSelect} />
-                    <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" />
+                <FormItem>
+                  <FormLabel>Reference Documentation</FormLabel>
+                  <div className="space-y-4">
+                    {(photos.length > 0 || files.length > 0) && (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          {photos.map((p, i) => (
+                            <div key={`p-${i}`} className="relative group">
+                              <Image src={p.url} alt="Site" width={200} height={150} className="rounded-md border object-cover aspect-video" />
+                              <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-3 w-3" onClick={() => setPhotos(prev => prev.filter((_, idx) => idx !== i))}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="space-y-1">
+                          {files.map((f, i) => (
+                            <div key={`f-${i}`} className="flex items-center justify-between p-2 rounded-md border bg-muted/30 group">
+                              <div className="flex items-center gap-2 overflow-hidden">
+                                <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                                <span className="text-xs truncate font-medium">{f.name}</span>
+                              </div>
+                              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setFiles(prev => prev.filter((_, idx) => idx !== i))}>
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setIsCameraOpen(true)}><Camera className="mr-2 h-4 w-4" />Camera</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}><Upload className="mr-2 h-4 w-4" />Photos</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => docInputRef.current?.click()}><FileIcon className="mr-2 h-4 w-4" />Files</Button>
+                      
+                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handlePhotoSelect} />
+                      <input type="file" ref={docInputRef} className="hidden" multiple onChange={handleFileSelect} accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" />
+                    </div>
                   </div>
-                </div>
-              </FormItem>
+                </FormItem>
 
-              <Separator />
-              
-              <div className="p-4 bg-muted/20 rounded-lg border border-dashed text-center">
-                  <p className="text-xs text-muted-foreground">
-                      Recording this instruction will automatically notify all staff assigned to the project.
-                  </p>
+                <Separator />
+                
+                <div className="p-4 bg-muted/20 rounded-lg border border-dashed text-center">
+                    <p className="text-xs text-muted-foreground">
+                        Recording this instruction will automatically notify all staff assigned to the project.
+                    </p>
+                </div>
               </div>
 
-              <DialogFooter>
+              <DialogFooter className="p-6 border-t bg-muted/10 shrink-0">
                 <Button type="submit" disabled={isPending} className="w-full h-12 text-lg font-bold">
                   {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Record Directive
