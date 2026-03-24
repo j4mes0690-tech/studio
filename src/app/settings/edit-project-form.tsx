@@ -27,7 +27,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, X, Loader2, Save, Users2, MapPin, Plus, Trash2, CheckCircle2, Link as LinkIcon, ShieldCheck } from 'lucide-react';
+import { Pencil, X, Loader2, Save, Users2, MapPin, Plus, Trash2, CheckCircle2, Link as LinkIcon, ShieldCheck, UserPlus } from 'lucide-react';
 import type { Project, Area, DistributionUser, SubContractor, QualityChecklist } from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection, query, where, addDoc, deleteDoc } from 'firebase/firestore';
@@ -47,6 +47,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { AddSubcontractorForm } from './add-subcontractor-form';
+import { AddUserDialog } from './add-user-dialog';
 
 const EditProjectSchema = z.object({
   id: z.string().min(1),
@@ -244,7 +247,7 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
       <DialogTrigger asChild>
         <Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
         <DialogHeader className="p-6 pb-0">
           <DialogTitle>Project Configuration</DialogTitle>
           <DialogDescription>Update metadata and manage assignments.</DialogDescription>
@@ -300,16 +303,22 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                     </TabsContent>
 
                     <TabsContent value="access" className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            {users.map((user) => (
-                                <FormField key={user.id} control={form.control} name="assignedUsers" render={({ field }) => (
-                                    <FormItem className="flex items-center space-x-3 space-y-0 p-2 border rounded-md bg-background">
-                                        <FormControl><Checkbox checked={field.value?.includes(user.email)} onCheckedChange={(c) => c ? field.onChange([...(field.value || []), user.email]) : field.onChange((field.value || []).filter((v) => v !== user.email))} /></FormControl>
-                                        <div className="flex-1 min-w-0"><FormLabel className="text-sm font-semibold truncate block">{user.name}</FormLabel><span className="text-[10px] text-muted-foreground block">{user.email}</span></div>
-                                    </FormItem>
-                                )} />
-                            ))}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                            <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest px-1">Internal Project Staff</h4>
+                            <AddUserDialog />
                         </div>
+                        <ScrollArea className="h-64 rounded-md border p-4 bg-muted/5">
+                            <div className="space-y-2">
+                                {users.map((user) => (
+                                    <FormField key={user.id} control={form.control} name="assignedUsers" render={({ field }) => (
+                                        <FormItem className="flex items-center space-x-3 space-y-0 p-2.5 border rounded-md bg-background hover:border-primary/30 transition-colors">
+                                            <FormControl><Checkbox checked={field.value?.includes(user.email)} onCheckedChange={(c) => c ? field.onChange([...(field.value || []), user.email]) : field.onChange((field.value || []).filter((v) => v !== user.email))} /></FormControl>
+                                            <div className="flex-1 min-w-0"><FormLabel className="text-sm font-bold truncate block cursor-pointer">{user.name}</FormLabel><span className="text-[10px] text-muted-foreground block truncate">{user.email}</span></div>
+                                        </FormItem>
+                                    )} />
+                                ))}
+                            </div>
+                        </ScrollArea>
                     </TabsContent>
 
                     <TabsContent value="approvers" className="space-y-4 py-4">
@@ -320,29 +329,55 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                             </p>
                             <p className="text-[10px] text-muted-foreground mt-1">Users selected below are authorised to apply formal Status A/B/C sign-offs to project drawings.</p>
                         </div>
-                        <div className="space-y-2">
-                            {users.filter(u => u.userType === 'internal').map((user) => (
-                                <FormField key={`appr-${user.id}`} control={form.control} name="drawingApprovers" render={({ field }) => (
-                                    <FormItem className="flex items-center space-x-3 space-y-0 p-2 border rounded-md bg-background">
-                                        <FormControl><Checkbox checked={field.value?.includes(user.email)} onCheckedChange={(c) => c ? field.onChange([...(field.value || []), user.email]) : field.onChange((field.value || []).filter((v) => v !== user.email))} /></FormControl>
-                                        <div className="flex-1 min-w-0"><FormLabel className="text-sm font-semibold truncate block">{user.name}</FormLabel><span className="text-[10px] text-muted-foreground block">{user.email}</span></div>
-                                    </FormItem>
-                                )} />
-                            ))}
-                        </div>
+                        <ScrollArea className="h-64 rounded-md border p-4 bg-muted/5">
+                            <div className="space-y-2">
+                                {users.filter(u => u.userType === 'internal').map((user) => (
+                                    <FormField key={`appr-${user.id}`} control={form.control} name="drawingApprovers" render={({ field }) => (
+                                        <FormItem className="flex items-center space-x-3 space-y-0 p-2.5 border rounded-md bg-background hover:border-primary/30 transition-colors">
+                                            <FormControl><Checkbox checked={field.value?.includes(user.email)} onCheckedChange={(c) => c ? field.onChange([...(field.value || []), user.email]) : field.onChange((field.value || []).filter((v) => v !== user.email))} /></FormControl>
+                                            <div className="flex-1 min-w-0"><FormLabel className="text-sm font-bold truncate block cursor-pointer">{user.name}</FormLabel><span className="text-[10px] text-muted-foreground block truncate">{user.email}</span></div>
+                                        </FormItem>
+                                    )} />
+                                ))}
+                            </div>
+                        </ScrollArea>
                     </TabsContent>
 
                     <TabsContent value="subs" className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            {allSubContractors?.map((sub) => (
-                                <FormField key={sub.id} control={form.control} name="assignedSubContractors" render={({ field }) => (
-                                    <FormItem className="flex items-center space-x-3 space-y-0 p-2 border rounded-md bg-background">
-                                        <FormControl><Checkbox checked={field.value?.includes(sub.id)} onCheckedChange={(c) => c ? field.onChange([...(field.value || []), sub.id]) : field.onChange((field.value || []).filter((v) => v !== sub.id))} /></FormControl>
-                                        <div className="flex-1 min-w-0"><FormLabel className="text-sm font-semibold truncate block">{sub.name}</FormLabel><span className="text-[10px] text-muted-foreground block">{sub.email}</span></div>
-                                    </FormItem>
-                                )} />
-                            ))}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                            <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest px-1">Trade Partner Access</h4>
+                            <Dialog>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-7 gap-1.5 font-bold border-primary/20 text-primary">
+                                        <Plus className="h-3.5 w-3.5" />
+                                        Register New Partner
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                                    <DialogHeader>
+                                        <DialogTitle>Register Trade Partner</DialogTitle>
+                                        <DialogDescription>Add a new company to the system to assign them to this project.</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="py-4">
+                                        <AddSubcontractorForm />
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
                         </div>
+                        <ScrollArea className="h-64 rounded-md border p-4 bg-muted/5">
+                            <div className="space-y-2">
+                                {allSubContractors && allSubContractors.length > 0 ? allSubContractors.map((sub) => (
+                                    <FormField key={sub.id} control={form.control} name="assignedSubContractors" render={({ field }) => (
+                                        <FormItem className="flex items-center space-x-3 space-y-0 p-2.5 border rounded-md bg-background hover:border-primary/30 transition-colors">
+                                            <FormControl><Checkbox checked={field.value?.includes(sub.id)} onCheckedChange={(c) => c ? field.onChange([...(field.value || []), sub.id]) : field.onChange((field.value || []).filter((v) => v !== sub.id))} /></FormControl>
+                                            <div className="flex-1 min-w-0"><FormLabel className="text-sm font-bold truncate block cursor-pointer">{sub.name}</FormLabel><span className="text-[10px] text-muted-foreground block truncate">{sub.email}</span></div>
+                                        </FormItem>
+                                    )} />
+                                )) : (
+                                    <div className="py-10 text-center text-muted-foreground italic text-xs">No trade partners registered in the system.</div>
+                                )}
+                            </div>
+                        </ScrollArea>
                     </TabsContent>
 
                     <TabsContent value="checklists" className="space-y-6 py-4">
