@@ -35,6 +35,7 @@ import {
 import { sendPasswordResetEmailAction } from './actions';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { cn } from '@/lib/utils';
 
 /**
  * LoginForm - Manages the custom simulation session for SiteCommand.
@@ -55,7 +56,6 @@ export function LoginForm() {
   const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsReseting] = useState(false);
   const [resetStatus, setResetStatus] = useState<'idle' | 'success' | 'prototype-success' | 'not-found' | 'error'>('idle');
-  const [resetErrorMessage, setResetErrorMessage] = useState<string | null>(null);
   const [prototypePassword, setPrototypePassword] = useState<string | null>(null);
 
   useEffect(() => {
