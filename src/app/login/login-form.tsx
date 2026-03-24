@@ -63,7 +63,8 @@ export function LoginForm() {
       try {
         const usersToSeed = [
           { email: 'admin@example.com', name: 'System Admin', password: '123456', isAdmin: true },
-          { email: 'james@hallcc.co.uk', name: 'James Hall', password: '123456', isAdmin: false }
+          { email: 'james@hallcc.co.uk', name: 'James Hall', password: '123456', isAdmin: false },
+          { email: 'kenzo@hallcc.co.uk', name: 'Kenzo Iloube', password: '123456', isAdmin: false }
         ];
 
         for (const u of usersToSeed) {
@@ -151,9 +152,6 @@ export function LoginForm() {
         const userData = userSnap.data();
         
         // Step 3: Identity Verification - Ensure document contents match typed email
-        // This prevents swap if document contents are inconsistent with ID
-        const recordEmail = (userData.email || '').toLowerCase().trim();
-        
         if (userData.password === rawPassword) {
           // Step 4: Establish V3 Namespaced Session
           const uniqueSessionId = `v3-sid-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
