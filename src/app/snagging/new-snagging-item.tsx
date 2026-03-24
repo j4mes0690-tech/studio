@@ -411,7 +411,16 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                           <FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Area Photos</FormLabel>
                           <div className="flex flex-wrap gap-3">
                               {photos.map((p, i) => (
-                                  <div key={i} className="relative w-24 h-24 group"><Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" /></div>
+                                  <div key={i} className="relative w-24 h-24 group">
+                                      <Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" />
+                                      <button 
+                                          type="button" 
+                                          className="absolute -top-2 -right-2 bg-destructive text-white h-6 w-6 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95" 
+                                          onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}
+                                      >
+                                          <X className="h-3.5 w-3.5" />
+                                      </button>
+                                  </div>
                               ))}
                               <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase">Photo</span></Button>
                           </div>
