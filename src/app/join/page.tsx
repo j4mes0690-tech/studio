@@ -16,7 +16,9 @@ import Image from 'next/image';
 function JoinContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const token = searchParams.get('token');
+  const rawToken = searchParams.get('token');
+  const token = useMemo(() => rawToken?.trim(), [rawToken]);
+  
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
@@ -25,14 +27,14 @@ function JoinContent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch invitation details - Query only by token to allow for better error reporting on status
+  // Fetch invitation details - Querying by token to allow for better error reporting on status
   const invitesQuery = useMemoFirebase(() => {
     if (!db || !token) return null;
     return query(collection(db, 'invitations'), where('token', '==', token));
   }, [db, token]);
   
   const { data: invitations, isLoading: inviteLoading } = useCollection<Invitation>(invitesQuery);
-  const invitation = invitations?.[0];
+  const invitation = invitations && invitations.length > 0 ? invitations[0] : null;
 
   // Derive specific invitation states
   const isExpired = useMemo(() => {
@@ -50,7 +52,7 @@ function JoinContent() {
   useEffect(() => {
     if (!inviteLoading && token) {
         if (!invitation) {
-            toast({ title: 'Invalid Link', description: 'This invitation could not be found.', variant: 'destructive' });
+            console.warn(`Onboarding: Token "${token}" matched 0 results.`);
         } else if (isAlreadyUsed) {
             toast({ title: 'Link Used', description: 'This invitation has already been used. Please log in directly.', variant: 'destructive' });
         } else if (isExpired) {
@@ -193,7 +195,7 @@ function JoinContent() {
                     </CardTitle>
                     <CardDescription className="text-sm">
                         {!invitation 
-                            ? 'The link provided is invalid. Please check the URL and try again.' 
+                            ? 'The link provided is invalid or has been removed. Please check the URL and try again.' 
                             : isAlreadyUsed 
                                 ? 'This onboarding link has already been used to create an account.' 
                                 : 'This invitation has expired. Links are valid for 7 days.'}
@@ -201,7 +203,7 @@ function JoinContent() {
                 </CardHeader>
                 <CardFooter className="flex flex-col gap-3">
                     <Button className="w-full font-bold" onClick={() => router.push('/login')}>Go to Login</Button>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Contact your Site Manager for a new link</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold text-center w-full">Contact your Site Manager for a new link</p>
                 </CardFooter>
             </Card>
         </div>
@@ -285,7 +287,7 @@ function JoinContent() {
       </div>
       <div className="relative hidden w-1/2 lg:block">
         <Image
-          src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxjb25zdHJ1Y3Rpb24lMjBzaXRlfGVufDB8fHx8MTczOTA4NjQyNXww&ixlib=rb-4.1.0&q=80&w=1080"
+          src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxjb25zdHJ1Y3Rpb24lMjBzaXRlfGVufDB8fHx8MTczOTA4NjQyNXww&ixlib=rb-4.1.0&q=80&w=1080"
           alt="Site Team"
           fill
           className="object-cover"

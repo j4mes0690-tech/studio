@@ -9,11 +9,13 @@ import { usePathname } from 'next/navigation';
 /**
  * AuthBoundary - Protects routes and ensures Firebase services are ready.
  * 
- * Uses a unique sessionId as a React 'key' to force-reset the entire
- * component tree when a user identity changes.
+ * V3 UPDATE: Implements a specific wait state for the onboarding (/join) route.
+ * Even though /join doesn't require a system user account, it MUST wait for 
+ * the Firebase auth state (anonymous sign-in) to initialize, or Firestore 
+ * security rules will block the invitation lookup.
  */
 export function AuthBoundary({ children }: { children: React.ReactNode }) {
-  const { user, sessionId, isLoading } = useUser();
+  const { user, sessionId, isLoading: isSessionLoading } = useUser();
   const { isUserLoading: isFirebaseLoading } = useFirebase();
   const pathname = usePathname();
   
@@ -27,14 +29,18 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, []);
 
-  if (isLoading || isFirebaseLoading || !isMinimumTimeElapsed) {
+  // ALWAYS wait for Firebase Auth and Session state to finish initial load.
+  // This prevents race conditions where /join tries to read from DB before anonymous auth is ready.
+  if (isSessionLoading || isFirebaseLoading || !isMinimumTimeElapsed) {
     return <LoadingScreen />;
   }
 
+  // Bypassing for Onboarding: Now safe because we know Firebase is ready.
   if (pathname === '/join') {
     return <>{children}</>;
   }
 
+  // Standard protection for the rest of the app.
   if (!user) {
     return <LoginPage />;
   }
