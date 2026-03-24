@@ -23,6 +23,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
   Select,
@@ -47,7 +48,8 @@ import {
   Users2, 
   Save, 
   Send,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Building2
 } from 'lucide-react';
 import type { Project, Photo, FileAttachment, DistributionUser, SubContractor, InformationRequest, ClientInstruction } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
@@ -183,10 +185,26 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField control={form.control} name="projectId" render={({ field }) => (
-                  <FormItem><FormLabel>Project</FormLabel><Select onValueChange={(v) => { field.onChange(v); form.setValue('clientInstructionId', 'none'); }} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Project" /></SelectTrigger></FormControl><SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select></FormItem>
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 h-5">
+                        <Building2 className="h-3.5 w-3.5 text-primary" /> Project
+                    </FormLabel>
+                    <Select onValueChange={(v) => { field.onChange(v); form.setValue('clientInstructionId', 'none'); }} value={field.value}>
+                        <FormControl><SelectTrigger><SelectValue placeholder="Project" /></SelectTrigger></FormControl>
+                        <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
-                  <FormItem><FormLabel className="flex items-center gap-2"><LinkIcon className="h-3.5 w-3.5 text-primary" /> Linked Directive</FormLabel><Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="none">No Link</SelectItem>{clientDirectives?.map(ci => <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>)}</SelectContent></Select></FormItem>
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-2 h-5">
+                        <LinkIcon className="h-3.5 w-3.5 text-primary" /> Linked Directive
+                    </FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}>
+                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                        <SelectContent><SelectItem value="none">No Link</SelectItem>{clientDirectives?.map(ci => <SelectItem key={ci.id} value={ci.id}>{ci.reference} - {ci.summary}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </FormItem>
                 )} />
               </div>
               <FormField control={form.control} name="description" render={({ field }) => (

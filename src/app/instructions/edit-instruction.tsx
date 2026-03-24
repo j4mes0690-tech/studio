@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Camera, Upload, X, Loader2, Link as LinkIcon, FileText, FileIcon, HardHat, Ruler, Save } from 'lucide-react';
+import { Pencil, Camera, Upload, X, Loader2, Link as LinkIcon, FileText, FileIcon, HardHat, Ruler, Save, Building2 } from 'lucide-react';
 import type { Project, Photo, FileAttachment, Instruction, ClientInstruction, SubContractor } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
@@ -214,7 +214,9 @@ export function EditInstruction({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField control={form.control} name="projectId" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Project</FormLabel>
+                      <FormLabel className="flex items-center gap-2 h-5">
+                        <Building2 className="h-3.5 w-3.5 text-primary" /> Project
+                      </FormLabel>
                       <Select onValueChange={(v) => { field.onChange(v); form.setValue('recipientEmail', ''); }} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
@@ -223,7 +225,9 @@ export function EditInstruction({
                   )} />
                   <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="flex items-center gap-2"><LinkIcon className="h-3.5 w-3.5 text-primary" /> Linked Directive</FormLabel>
+                      <FormLabel className="flex items-center gap-2 h-5">
+                        <LinkIcon className="h-3.5 w-3.5 text-primary" /> Linked Directive
+                      </FormLabel>
                       <Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}>
                         <FormControl><SelectTrigger><SelectValue placeholder="No link" /></SelectTrigger></FormControl>
                         <SelectContent>

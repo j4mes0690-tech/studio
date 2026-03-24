@@ -47,7 +47,8 @@ import {
   Loader2, 
   Save, 
   Send,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Building2
 } from 'lucide-react';
 import type { Project, InformationRequest, DistributionUser, Photo, SubContractor, FileAttachment, ClientInstruction } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -334,7 +335,9 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                   name="projectId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Project</FormLabel>
+                      <FormLabel className="flex items-center gap-2 h-5">
+                        <Building2 className="h-3.5 w-3.5 text-primary" /> Project
+                      </FormLabel>
                       <Select onValueChange={(val) => { field.onChange(val); form.setValue('assignedTo', []); form.setValue('clientInstructionId', 'none'); }} value={field.value}>
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
@@ -346,9 +349,8 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
                 
                 <FormField control={form.control} name="clientInstructionId" render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="flex items-center gap-2">
-                            <LinkIcon className="h-4 w-4 text-primary" />
-                            Linked Client Directive
+                        <FormLabel className="flex items-center gap-2 h-5">
+                            <LinkIcon className="h-4 w-4 text-primary" /> Linked Directive
                         </FormLabel>
                         <Select onValueChange={field.onChange} value={field.value || 'none'}>
                             <FormControl><SelectTrigger><SelectValue placeholder="No link" /></SelectTrigger></FormControl>

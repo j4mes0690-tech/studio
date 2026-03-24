@@ -47,7 +47,8 @@ import {
   Save, 
   Send,
   HardHat,
-  Ruler
+  Ruler,
+  Building2
 } from 'lucide-react';
 import type { Project, Photo, FileAttachment, ClientInstruction, Instruction, SubContractor } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
@@ -255,7 +256,9 @@ export function NewInstruction({ projects, allInstructions, subContractors }: Ne
                       name="projectId"
                       render={({ field }) => (
                       <FormItem>
-                          <FormLabel>Project</FormLabel>
+                          <FormLabel className="flex items-center gap-2 h-5">
+                              <Building2 className="h-3.5 w-3.5 text-primary" /> Project
+                          </FormLabel>
                           <Select onValueChange={(v) => { field.onChange(v); form.setValue('clientInstructionId', 'none'); form.setValue('recipientEmail', ''); }} value={field.value}>
                           <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
                           <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
@@ -268,7 +271,7 @@ export function NewInstruction({ projects, allInstructions, subContractors }: Ne
                       name="clientInstructionId"
                       render={({ field }) => (
                       <FormItem>
-                          <FormLabel className="flex items-center gap-2">
+                          <FormLabel className="flex items-center gap-2 h-5">
                               <LinkIcon className="h-3.5 w-3.5 text-primary" /> Linked Directive
                           </FormLabel>
                           <Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedProjectId}>
