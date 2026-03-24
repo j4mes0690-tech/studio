@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -28,7 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { UserPlus, Loader2, Send, Mail, ShieldCheck, Users2, Sparkles, AlertCircle } from 'lucide-react';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import type { Project, DistributionUser, Invitation } from '@/lib/types';
 import { sendInvitationEmailAction } from './actions';
@@ -62,12 +61,27 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
     setErrorStatus(null);
     startTransition(async () => {
       try {
+        const email = values.email.toLowerCase().trim();
+        
+        // Check if user already exists
+        const userRef = doc(db, 'users', email);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          toast({ 
+            title: 'User Already Registered', 
+            description: `"${email}" already has an active system profile. You do not need to invite them again. You can manage their project access directly in System Settings.`,
+            variant: 'destructive'
+          });
+          return;
+        }
+
         const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + 7); // 7 day expiry
 
         const inviteData: any = {
-          email: values.email.toLowerCase().trim(),
+          email,
           name: values.name,
           userType: values.userType,
           token,
@@ -77,16 +91,13 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
           createdByEmail: currentUser.email,
         };
 
-        // Only include projectId if it's not 'none' and exists
         if (values.projectId && values.projectId !== 'none') {
           inviteData.projectId = values.projectId;
         }
 
-        // 1. Save to database
         const colRef = collection(db, 'invitations');
         await addDoc(colRef, inviteData);
 
-        // 2. Send email
         const host = typeof window !== 'undefined' ? window.location.origin : '';
         const inviteLink = `${host}/join?token=${token}`;
 
@@ -103,7 +114,6 @@ export function InviteCollaboratorDialog({ projects, currentUser }: { projects: 
           setOpen(false);
           form.reset();
         } else {
-          // Transmission failed or Config error
           setErrorStatus(result.message);
           toast({ 
             title: result.isConfigError ? 'Service Not Configured' : 'Delivery Failed', 

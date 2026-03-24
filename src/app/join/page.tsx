@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, updateDoc, setDoc, arrayUnion, getDocs } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import type { Invitation, DistributionUser, Project } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -56,6 +55,18 @@ function JoinContent() {
         const email = invitation.email.toLowerCase().trim();
         const docRef = doc(db, 'users', email);
 
+        // Safety check: Don't overwrite if user somehow already exists
+        const userSnap = await getDoc(docRef);
+        if (userSnap.exists()) {
+            toast({ 
+                title: 'Account Already Active', 
+                description: 'A system profile already exists for this email. Please log in directly.',
+                variant: 'destructive'
+            });
+            router.push('/login');
+            return;
+        }
+
         // 1. Create User Profile based on role
         const permissions: any = {
             accessMaterials: true,
@@ -71,20 +82,26 @@ function JoinContent() {
             accessInfoRequests: true,
             accessPaymentNotices: true,
             accessSubContractOrders: true,
+            accessIRS: true,
+            accessPlanner: true,
+            accessProcurement: true,
+            accessHolidays: true,
+            accessSiteDiary: true,
+            accessDocuments: true,
         };
 
-        // Internal staff get management rights by default if invited as staff
         if (invitation.userType === 'internal') {
             permissions.canManageTraining = true;
             permissions.canManageProjects = false;
             permissions.canManageUsers = false;
         } else {
-            // Partners only see operational modules
+            // Partners only see operational modules by default
             permissions.accessMaterials = false;
             permissions.accessPlant = false;
             permissions.accessPaymentNotices = false;
             permissions.accessSubContractOrders = false;
             permissions.accessVariations = false;
+            permissions.accessProcurement = false;
         }
 
         await setDoc(docRef, {
@@ -109,11 +126,12 @@ function JoinContent() {
         const inviteRef = doc(db, 'invitations', invitation.id);
         await updateDoc(inviteRef, { status: 'accepted' });
 
-        // 4. Log in locally
-        localStorage.setItem('sitecommand_session_email', email);
+        // 4. Set session
+        localStorage.setItem('sitecommand_v3_identity', email);
+        localStorage.setItem('sitecommand_v3_token', `onboard-${Date.now()}`);
         
         toast({ title: 'Welcome aboard!', description: 'Your account has been created successfully.' });
-        window.location.href = '/';
+        window.location.assign('/');
       } catch (err) {
         console.error(err);
         toast({ title: 'Error', description: 'Failed to complete registration.', variant: 'destructive' });
