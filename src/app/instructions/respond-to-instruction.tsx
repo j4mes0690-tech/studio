@@ -75,7 +75,9 @@ export function RespondToInstruction({ instruction, currentUser }: { instruction
           <MessageSquareReply className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent 
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Post Implementation Update</DialogTitle>
           <DialogDescription>Add a note to the audit trail for this instruction.</DialogDescription>

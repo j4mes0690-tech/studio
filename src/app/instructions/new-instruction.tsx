@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -192,7 +191,10 @@ export function NewInstruction({ projects, allInstructions }: NewInstructionProp
             New Instruction
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent 
+          className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
             <DialogTitle>Issue Site Instruction</DialogTitle>
             <DialogDescription>Record a formal instruction for trade partners. Link to client directives for traceability.</DialogDescription>

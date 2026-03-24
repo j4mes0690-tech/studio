@@ -244,7 +244,10 @@ export function NewTaskDialog({
       <DialogTrigger asChild>
         <Button className="gap-2 font-bold"><PlusCircle className="h-4 w-4" />Log Task</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>Log Construction Activity</DialogTitle>
           <DialogDescription>Define sequence and responsibility for this task.</DialogDescription>

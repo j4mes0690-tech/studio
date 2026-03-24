@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useRef } from 'react';
@@ -163,6 +162,7 @@ export function RespondToIRS({ item, currentUser }: RespondToIRSProps) {
       try {
         toast({ title: 'Uploading', description: 'Persisting media...' });
 
+        // 1. Upload Photos
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -174,6 +174,7 @@ export function RespondToIRS({ item, currentUser }: RespondToIRSProps) {
           })
         );
 
+        // 2. Upload Files
         const uploadedFiles = await Promise.all(
           files.map(async (f, i) => {
             if (f.url.startsWith('data:')) {
@@ -222,7 +223,10 @@ export function RespondToIRS({ item, currentUser }: RespondToIRSProps) {
                 Workspace
             </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-2xl h-[90vh] flex flex-col p-0 overflow-hidden shadow-2xl">
+        <DialogContent 
+          className="sm:max-w-2xl h-[90vh] flex flex-col p-0 overflow-hidden shadow-2xl"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/10">
             <div>
                 <DialogTitle>IRS Workspace: {item.reference}</DialogTitle>
@@ -322,7 +326,7 @@ export function RespondToIRS({ item, currentUser }: RespondToIRSProps) {
                                   {(msg.files?.length || 0) > 0 && (
                                     <div className="mt-2 space-y-1">
                                       {msg.files?.map((f, i) => (
-                                        <div key={i} className={cn("flex items-center gap-2 p-2 rounded text-[10px] border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-muted/50 border-border text-primary")}>
+                                        <div key={i} className={cn("flex items-center gap-1.5 p-1.5 rounded text-[10px] border", isMe ? "bg-primary-foreground/10 border-primary-foreground/20 text-white" : "bg-muted/50 border-border text-primary")}>
                                           <FileText className="h-3.5 w-3.5" />
                                           <span className="truncate max-w-[150px]">{f.name}</span>
                                         </div>

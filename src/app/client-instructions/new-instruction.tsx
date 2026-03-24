@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
@@ -221,7 +220,10 @@ export function NewClientInstruction({ projects, allInstructions }: NewInstructi
             New Client Instruction
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="sm:max-w-lg max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Record Client Instruction</DialogTitle>
             <DialogDescription>

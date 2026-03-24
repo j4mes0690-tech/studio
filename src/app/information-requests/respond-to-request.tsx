@@ -197,7 +197,10 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Information Request Workspace</DialogTitle>
             <DialogDescription>

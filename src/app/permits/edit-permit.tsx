@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -309,10 +308,13 @@ export function EditPermitDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[95vh] overflow-hidden flex flex-col p-0 shadow-2xl rounded-xl">
+      <DialogContent 
+        className="w-[95vw] sm:max-w-3xl max-h-[95vh] overflow-hidden flex flex-col p-0 shadow-2xl rounded-xl"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="p-4 md:p-6 bg-muted/10 border-b shrink-0">
           <DialogTitle>Edit Permit: {permit.reference}</DialogTitle>
-          <DialogDescription>Modify hazard controls or validity periods.</DialogDescription>
+          <DialogDescription>Adjust hazard controls or validity periods.</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>

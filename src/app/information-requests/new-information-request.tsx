@@ -174,7 +174,10 @@ export function NewInformationRequest({ projects, distributionUsers, subContract
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button><PlusCircle className="mr-2 h-4 w-4" />New Request</Button></DialogTrigger>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader><DialogTitle>Log Information Request</DialogTitle></DialogHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

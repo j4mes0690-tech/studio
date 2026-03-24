@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -137,7 +136,7 @@ export function NewPermitDialog({
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return (subContractors || []).filter(sub => assignedIds.includes(sub.id));
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const handleApplyTemplate = (templateId: string) => {
@@ -330,7 +329,10 @@ export function NewPermitDialog({
           Issue Permit
         </Button>
       </DialogTrigger>
-      <DialogContent className="w-[95vw] sm:max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0 shadow-2xl rounded-xl">
+      <DialogContent 
+        className="w-[95vw] sm:max-w-5xl max-h-[95vh] overflow-hidden flex flex-col p-0 shadow-2xl rounded-xl"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="p-4 md:p-6 bg-primary/5 border-b shrink-0">
           <DialogTitle>Issue Electronic Permit</DialogTitle>
           <DialogDescription>Apply a master safety template to a contractor and work area.</DialogDescription>

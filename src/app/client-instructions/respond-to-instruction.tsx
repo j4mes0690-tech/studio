@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useTransition, useRef } from 'react';
@@ -184,7 +183,10 @@ export function RespondToInstruction({ instruction, currentUser }: RespondToInst
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Client Instruction Conversation</DialogTitle>
             <DialogDescription>

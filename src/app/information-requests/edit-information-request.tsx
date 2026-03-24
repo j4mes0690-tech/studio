@@ -316,7 +316,10 @@ export function EditInformationRequest({ item, projects, distributionUsers, open
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Edit Information Request</DialogTitle>
             <DialogDescription>Modify enquiry details or assigned recipients.</DialogDescription>
