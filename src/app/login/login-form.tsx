@@ -17,8 +17,6 @@ import {
     AlertTriangle, 
     Loader2, 
     KeyRound, 
-    HelpCircle, 
-    Info, 
     CheckCircle2 
 } from 'lucide-react';
 import { useFirestore } from '@/firebase';
@@ -33,15 +31,13 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import { sendPasswordResetEmailAction } from './actions';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
 
 /**
- * LoginForm - Manages the custom simulation session for SiteCommand.
+ * LoginForm - Manages the highly-isolated system session.
  * 
- * Implements strict Session Locking by generating a unique session ID
- * on every login to force-reset the entire application state.
+ * Uses direct DOM extraction (FormData) to ensure browser autofill 
+ * values are captured accurately regardless of React state sync.
  */
 export function LoginForm() {
   const db = useFirestore();
@@ -128,45 +124,47 @@ export function LoginForm() {
     setIsLoading(true);
     setError(null);
 
+    // NUCLEAR OPTION: Clear all existing session data immediately on submission attempt
+    const oldEmail = localStorage.getItem('sitecommand_session_email');
+    localStorage.clear();
+
     try {
+      // EXTRACT VALUES DIRECTLY FROM DOM TO BYPASS REACT STATE DELAYS
       const formData = new FormData(e.currentTarget);
-      const rawEmail = formData.get('email') as string;
-      const rawPassword = formData.get('password') as string;
+      const rawEmail = (formData.get('email') as string || '').toLowerCase().trim();
+      const rawPassword = formData.get('password') as string || '';
       
-      const emailKey = rawEmail.toLowerCase().trim();
-      
-      if (!emailKey || !rawPassword) {
-          setError({ title: 'Input Required', message: 'Please enter both email and password.' });
+      if (!rawEmail || !rawPassword) {
+          setError({ title: 'Credentials Missing', message: 'Please enter both your registered email and password.' });
           setIsLoading(false);
           return;
       }
 
-      const userRef = doc(db, 'users', emailKey);
+      const userRef = doc(db, 'users', rawEmail);
       const userSnap = await getDoc(userRef);
 
       if (userSnap.exists()) {
         const userData = userSnap.data();
         if (userData.password === rawPassword) {
-          // Success: Atomic Session Update
-          const uniqueSessionId = Math.random().toString(36).substring(2) + Date.now().toString(36);
+          // SUCCESS: Lock new session with unique immutable ID
+          const uniqueSessionId = `sid-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
           
-          localStorage.clear(); // Wipe everything previous
-          localStorage.setItem('sitecommand_session_email', emailKey);
+          localStorage.setItem('sitecommand_session_email', rawEmail);
           localStorage.setItem('sitecommand_session_id', uniqueSessionId);
           
-          // Force a full reload to the home page to ensure every provider is fresh
-          window.location.href = '/';
+          // FORCE FULL PAGE RELOAD: This clears all JS variables, contexts, and memory caches.
+          window.location.assign('/');
         } else {
-          setError({ title: 'Access Denied', message: 'Incorrect password.' });
+          setError({ title: 'Authentication Failed', message: 'The password provided does not match our records.' });
         }
       } else {
         setError({ 
-          title: 'Account Unknown', 
-          message: `Account "${emailKey}" not found.` 
+          title: 'Account Not Found', 
+          message: `We couldn't find a profile for "${rawEmail}".` 
         });
       }
     } catch (err: any) {
-      setError({ title: 'System Error', message: 'Could not connect to user database.' });
+      setError({ title: 'System Offline', message: 'Unable to connect to the authentication server.' });
     } finally {
       setIsLoading(false);
     }
@@ -216,41 +214,41 @@ export function LoginForm() {
 
   return (
     <div className="space-y-6">
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleLogin} autoComplete="off" noValidate>
             <Card className={cn("shadow-xl border-2 transition-all", error ? "border-destructive ring-4 ring-destructive/10" : "border-primary/10")}>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <KeyRound className="h-5 w-5 text-primary" />
-                        Log In
+                        System Access
                     </CardTitle>
-                    <CardDescription>Enter credentials to access the project hub.</CardDescription>
+                    <CardDescription>Authorize your session to enter the intelligence hub.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="email">Email</Label>
+                        <Label htmlFor="email">Work Email</Label>
                         <Input
                             id="email"
                             name="email"
                             type="email"
-                            placeholder="your@email.com"
+                            placeholder="your@company.com"
                             required
-                            autoComplete="username"
+                            autoFocus
                         />
                     </div>
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                            <Label htmlFor="password">Password</Label>
+                            <Label htmlFor="password">Security Password</Label>
                             
                             <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
                                 <DialogTrigger asChild>
-                                    <Button variant="link" type="button" className="h-auto p-0 text-xs text-primary">
-                                        Forgot Password?
+                                    <Button variant="link" type="button" className="h-auto p-0 text-xs text-primary font-bold">
+                                        Forgot?
                                     </Button>
                                 </DialogTrigger>
                                 <DialogContent className="sm:max-w-md">
                                     <DialogHeader>
-                                        <DialogTitle>Recovery</DialogTitle>
-                                        <DialogDescription>Request a temporary login password.</DialogDescription>
+                                        <DialogTitle>Account Recovery</DialogTitle>
+                                        <DialogDescription>Request a temporary reset password.</DialogDescription>
                                     </DialogHeader>
                                     <div className="space-y-4 py-4">
                                         {resetStatus === 'success' ? (
@@ -292,7 +290,6 @@ export function LoginForm() {
                             name="password"
                             type="password" 
                             required 
-                            autoComplete="current-password"
                         />
                     </div>
 
@@ -305,19 +302,12 @@ export function LoginForm() {
                     )}
                 </CardContent>
                 <CardFooter>
-                    <Button type="submit" className="w-full h-11 text-lg font-bold" disabled={isLoading || isSeeding}>
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Log In'}
+                    <Button type="submit" className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isLoading || isSeeding}>
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Authorize & Enter'}
                     </Button>
                 </CardFooter>
             </Card>
         </form>
-
-        <div className="flex items-center gap-2 p-4 bg-muted/30 rounded-lg border border-dashed border-muted-foreground/20">
-            <Info className="h-4 w-4 text-muted-foreground shrink-0" />
-            <p className="text-[10px] text-muted-foreground leading-snug">
-                SiteCommand is an internal management system. Access restricted to authorized project personnel only.
-            </p>
-        </div>
     </div>
   );
 }

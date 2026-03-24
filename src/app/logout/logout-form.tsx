@@ -11,15 +11,15 @@ export function LogoutForm() {
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      // Clear the custom system session and unique session ID
+      // NUCLEAR WIPE: Clear all local state and session identifiers
       localStorage.clear();
       
-      // Force a full reload to the login page
-      window.location.href = '/login';
+      // FORCE FULL RELOAD: Ensure memory is purged and all providers reset
+      window.location.assign('/login');
     } catch (err: any) {
-      console.error('Logout Error:', err);
-    } finally {
-      setIsLoading(false);
+      console.error('Logout Exception:', err);
+      // Fallback redirect if clear fails
+      window.location.assign('/login');
     }
   };
 
@@ -27,18 +27,18 @@ export function LogoutForm() {
     <div className="space-y-4">
       <Button 
         onClick={handleLogout} 
-        className="w-full" 
+        className="w-full h-12 font-bold" 
         disabled={isLoading} 
         variant="destructive"
       >
         {isLoading ? (
             <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Logging out...
+                Ending Session...
             </>
         ) : 'Confirm Log Out'}
       </Button>
-       <Button variant="outline" asChild className="w-full">
+       <Button variant="outline" asChild className="w-full h-12 font-bold">
         <Link href="/">Cancel</Link>
       </Button>
     </div>
