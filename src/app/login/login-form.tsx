@@ -233,7 +233,7 @@ export function LoginForm() {
                         <KeyRound className="h-5 w-5 text-primary" />
                         System Access
                     </CardTitle>
-                    <CardDescription>Authorize your session to enter the intelligence hub.</CardDescription>
+                    <CardDescription>Log in to your account to enter the intelligence hub.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
@@ -317,7 +317,7 @@ export function LoginForm() {
                 </CardContent>
                 <CardFooter>
                     <Button type="submit" className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isLoading || isSeeding}>
-                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Authorize & Enter'}
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Log In'}
                     </Button>
                 </CardFooter>
             </Card>
