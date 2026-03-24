@@ -4,7 +4,7 @@ import { useState, useEffect, useTransition, useMemo, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, updateDoc, setDoc, arrayUnion, getDoc } from 'firebase/firestore';
-import type { Invitation, DistributionUser, Project } from '@/lib/types';
+import type { Invitation, DistributionUser, Project, UserPermissions } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -67,11 +67,21 @@ function JoinContent() {
             return;
         }
 
-        // 1. Create User Profile based on role
-        const permissions: any = {
-            accessMaterials: true,
-            accessPlant: true,
-            accessVariations: true,
+        // 1. Create robust default permissions object
+        const permissions: UserPermissions = {
+            canManageUsers: false,
+            canManageSubcontractors: false,
+            canManageProjects: false,
+            canManageChecklists: false,
+            canManageMaterials: false,
+            canManagePermitTemplates: false,
+            canManageTraining: false,
+            canManageIRS: false,
+            canManageBranding: false,
+            hasFullVisibility: false,
+            accessMaterials: invitation.userType === 'internal',
+            accessPlant: invitation.userType === 'internal',
+            accessVariations: invitation.userType === 'internal',
             accessPermits: true,
             accessTraining: true,
             accessClientInstructions: true,
@@ -80,29 +90,17 @@ function JoinContent() {
             accessSnagging: true,
             accessQualityControl: true,
             accessInfoRequests: true,
-            accessPaymentNotices: true,
-            accessSubContractOrders: true,
+            accessPaymentNotices: invitation.userType === 'internal',
+            accessSubContractOrders: invitation.userType === 'internal',
             accessIRS: true,
             accessPlanner: true,
-            accessProcurement: true,
+            accessProcurement: invitation.userType === 'internal',
             accessHolidays: true,
             accessSiteDiary: true,
             accessDocuments: true,
+            accessFormEditor: false,
+            accessInsights: invitation.userType === 'internal',
         };
-
-        if (invitation.userType === 'internal') {
-            permissions.canManageTraining = true;
-            permissions.canManageProjects = false;
-            permissions.canManageUsers = false;
-        } else {
-            // Partners only see operational modules by default
-            permissions.accessMaterials = false;
-            permissions.accessPlant = false;
-            permissions.accessPaymentNotices = false;
-            permissions.accessSubContractOrders = false;
-            permissions.accessVariations = false;
-            permissions.accessProcurement = false;
-        }
 
         await setDoc(docRef, {
           id: email,
@@ -114,12 +112,15 @@ function JoinContent() {
           permissions
         });
 
-        // 2. Auto-assign to project if defined
-        if (invitation.projectId) {
+        // 2. Auto-assign to project if defined AND valid
+        if (invitation.projectId && invitation.projectId !== 'none') {
             const projectRef = doc(db, 'projects', invitation.projectId);
-            await updateDoc(projectRef, {
-                assignedUsers: arrayUnion(email)
-            });
+            const projectSnap = await getDoc(projectRef);
+            if (projectSnap.exists()) {
+                await updateDoc(projectRef, {
+                    assignedUsers: arrayUnion(email)
+                });
+            }
         }
 
         // 3. Close Invitation
@@ -131,10 +132,13 @@ function JoinContent() {
         localStorage.setItem('sitecommand_v3_token', `onboard-${Date.now()}`);
         
         toast({ title: 'Welcome aboard!', description: 'Your account has been created successfully.' });
+        
+        // Force cross-tab sync and reload
+        window.dispatchEvent(new Event('storage'));
         window.location.assign('/');
       } catch (err) {
-        console.error(err);
-        toast({ title: 'Error', description: 'Failed to complete registration.', variant: 'destructive' });
+        console.error("Onboarding error:", err);
+        toast({ title: 'Error', description: 'Failed to complete registration. Please contact support.', variant: 'destructive' });
       } finally {
         setIsSubmitting(false);
       }
