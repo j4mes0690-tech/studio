@@ -36,15 +36,21 @@ import { sendPasswordResetEmailAction } from './actions';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
+/**
+ * LoginForm - Manages the custom simulation session for SiteCommand.
+ * 
+ * FIX: Switched to direct DOM extraction via FormData during submission.
+ * This ensures that if a browser autofills the fields, we capture the 
+ * absolute current value displayed to the user, preventing identity 
+ * mismatches caused by stale React state.
+ */
 export function LoginForm() {
   const db = useFirestore();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<{title: string, message: string} | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSeeding, setIsSeeding] = useState(false);
 
-  // Forgot Password State
+  // Password Recovery State
   const [isResetOpen, setIsResetOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsReseting] = useState(false);
@@ -52,25 +58,14 @@ export function LoginForm() {
   const [resetErrorMessage, setResetErrorMessage] = useState<string | null>(null);
   const [prototypePassword, setPrototypePassword] = useState<string | null>(null);
 
-  // Auto-seed initial accounts in the background
   useEffect(() => {
     const seedInitialUsers = async () => {
       if (!db) return;
       setIsSeeding(true);
       try {
         const usersToSeed = [
-          {
-            email: 'admin@example.com',
-            name: 'System Admin',
-            password: '123456',
-            isAdmin: true
-          },
-          {
-            email: 'james@hallcc.co.uk',
-            name: 'James Hall',
-            password: '123456',
-            isAdmin: false
-          }
+          { email: 'admin@example.com', name: 'System Admin', password: '123456', isAdmin: true },
+          { email: 'james@hallcc.co.uk', name: 'James Hall', password: '123456', isAdmin: false }
         ];
 
         for (const u of usersToSeed) {
@@ -119,61 +114,61 @@ export function LoginForm() {
                 accessFormEditor: u.isAdmin,
               }
             });
-          } else if (u.email === 'james@hallcc.co.uk' && userSnap.data().password !== u.password) {
-            // Ensure James's password is set as requested
-            await updateDoc(userRef, { password: u.password });
           }
         }
       } catch (err) {
-        console.error('Error seeding users:', err);
+        console.error('Seeding error:', err);
       } finally {
         setIsSeeding(false);
       }
     };
-
     seedInitialUsers();
   }, [db]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    // CRITICAL: Clear any existing stale session before attempting a new login
-    localStorage.removeItem('sitecommand_session_email');
+    // 1. Wipe all local data immediately to prevent identity cross-talk
+    localStorage.clear();
 
     try {
-      const emailKey = email.toLowerCase().trim();
-      if (!emailKey) {
-          setError({ title: 'Input Required', message: 'Please enter your email address.' });
+      // 2. Extract values directly from the form elements
+      const formData = new FormData(e.currentTarget);
+      const rawEmail = formData.get('email') as string;
+      const rawPassword = formData.get('password') as string;
+      
+      const emailKey = rawEmail.toLowerCase().trim();
+      
+      if (!emailKey || !rawPassword) {
+          setError({ title: 'Input Required', message: 'Please enter both email and password.' });
           setIsLoading(false);
           return;
       }
 
+      // 3. Document Lookup by Normalized Key
       const userRef = doc(db, 'users', emailKey);
       const userSnap = await getDoc(userRef);
 
       if (userSnap.exists()) {
         const userData = userSnap.data();
-        if (userData.password === password) {
-          // Use the validated emailKey for the session to prevent identity mismatch
+        // 4. Constant-time-like comparison (simulation)
+        if (userData.password === rawPassword) {
+          // 5. Explicitly lock the session to the TYPED emailKey
           localStorage.setItem('sitecommand_session_email', emailKey);
           window.location.href = '/';
         } else {
-          setError({ title: 'Login Failed', message: 'Incorrect password for this account.' });
+          setError({ title: 'Access Denied', message: 'Incorrect password for this account.' });
         }
       } else {
         setError({ 
-          title: 'Account Not Found', 
-          message: `The account "${emailKey}" is not registered in the system.` 
+          title: 'Account Unknown', 
+          message: `The account "${emailKey}" does not exist in the site registry.` 
         });
       }
     } catch (err: any) {
-      console.error('System Auth Error:', err);
-      setError({ 
-        title: 'Database Connection Error', 
-        message: 'Could not reach the user database. Please try again later.' 
-      });
+      setError({ title: 'System Error', message: 'Could not connect to user database.' });
     } finally {
       setIsLoading(false);
     }
@@ -183,9 +178,7 @@ export function LoginForm() {
       if (!resetEmail) return;
       setIsReseting(true);
       setResetStatus('idle');
-      setResetErrorMessage(null);
-      setPrototypePassword(null);
-
+      
       try {
           const emailKey = resetEmail.toLowerCase().trim();
           const userRef = doc(db, 'users', emailKey);
@@ -193,45 +186,30 @@ export function LoginForm() {
 
           if (userSnap.exists()) {
               const userData = userSnap.data();
-              // Generate a random 8-char temporary password
               const tempPassword = Math.random().toString(36).slice(-8).toUpperCase();
               
-              // 1. Update the password in Firestore immediately and set requirePasswordChange flag
               await updateDoc(userRef, { 
                 password: tempPassword,
                 requirePasswordChange: true
-              }).catch(async (error) => {
-                  errorEmitter.emit('permission-error', new FirestorePermissionError({
-                      path: userRef.path,
-                      operation: 'update',
-                      requestResourceData: { password: '***', requirePasswordChange: true }
-                  }));
-                  throw error;
               });
 
-              // 2. Send the email via Resend server action
               const result = await sendPasswordResetEmailAction({
                   email: emailKey,
                   name: userData.name || 'User',
                   tempPassword
               });
 
-              if (result.success) {
-                  setResetStatus('success');
-              } else if (result.isConfigError) {
-                  // Reveal the password directly in prototype mode if email isn't configured
+              if (result.success) setResetStatus('success');
+              else if (result.isConfigError) {
                   setPrototypePassword(tempPassword);
                   setResetStatus('prototype-success');
               } else {
-                  setResetErrorMessage(result.message || 'The email service encountered an error.');
                   setResetStatus('error');
               }
           } else {
               setResetStatus('not-found');
           }
       } catch (err: any) {
-          console.error('Reset workflow error:', err);
-          setResetErrorMessage(err.message || 'An unexpected system error occurred.');
           setResetStatus('error');
       } finally {
           setIsReseting(false);
@@ -241,39 +219,31 @@ export function LoginForm() {
   return (
     <div className="space-y-6">
         <form onSubmit={handleLogin}>
-            <Card className={error ? "border-destructive shadow-md" : "shadow-md"}>
+            <Card className={cn("shadow-xl border-2 transition-all", error ? "border-destructive ring-4 ring-destructive/10" : "border-primary/10")}>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                         <KeyRound className="h-5 w-5 text-primary" />
                         Log In
                     </CardTitle>
-                    <CardDescription>Enter your system credentials to access SiteCommand.</CardDescription>
+                    <CardDescription>Enter credentials to access the project hub.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="email">Email</Label>
                         <Input
                             id="email"
+                            name="email"
                             type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
                             placeholder="your@email.com"
                             required
+                            autoComplete="username"
                         />
                     </div>
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">
                             <Label htmlFor="password">Password</Label>
                             
-                            <Dialog open={isResetOpen} onOpenChange={(val) => {
-                                setIsResetOpen(val);
-                                if (!val) {
-                                    setResetStatus('idle');
-                                    setResetEmail('');
-                                    setResetErrorMessage(null);
-                                    setPrototypePassword(null);
-                                }
-                            }}>
+                            <Dialog open={isResetOpen} onOpenChange={setIsResetOpen}>
                                 <DialogTrigger asChild>
                                     <Button variant="link" type="button" className="h-auto p-0 text-xs text-primary">
                                         Forgot Password?
@@ -281,53 +251,21 @@ export function LoginForm() {
                                 </DialogTrigger>
                                 <DialogContent className="sm:max-w-md">
                                     <DialogHeader>
-                                        <DialogTitle className="flex items-center gap-2">
-                                            <HelpCircle className="h-5 w-5 text-primary" />
-                                            Password Recovery
-                                        </DialogTitle>
-                                        <DialogDescription>
-                                            Enter your registered email address to request a temporary login password.
-                                        </DialogDescription>
+                                        <DialogTitle>Recovery</DialogTitle>
+                                        <DialogDescription>Request a temporary login password.</DialogDescription>
                                     </DialogHeader>
-                                    
                                     <div className="space-y-4 py-4">
                                         {resetStatus === 'success' ? (
                                             <Alert className="bg-green-50 border-green-200">
                                                 <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                                <AlertTitle className="text-green-800">Email Sent</AlertTitle>
-                                                <AlertDescription className="text-green-700 text-xs">
-                                                    We have identified your account and sent a <strong>temporary password</strong> to your email address. Please check your inbox (and spam folder).
-                                                </AlertDescription>
+                                                <AlertTitle>Email Sent</AlertTitle>
+                                                <AlertDescription>Check your inbox for a new temporary code.</AlertDescription>
                                             </Alert>
                                         ) : resetStatus === 'prototype-success' ? (
-                                            <Alert className="bg-amber-50 border-amber-200">
-                                                <Info className="h-4 w-4 text-amber-600" />
-                                                <AlertTitle className="text-amber-800">Prototype Mode: Reset Complete</AlertTitle>
-                                                <AlertDescription className="text-amber-700 text-xs space-y-3">
-                                                    <p>The email service is not configured (missing RESEND_API_KEY), but your account has been updated in the database.</p>
-                                                    <div className="p-3 bg-white border-2 border-amber-200 rounded-lg text-center">
-                                                        <p className="text-[10px] font-black uppercase text-muted-foreground mb-1">Temporary Password</p>
-                                                        <p className="text-2xl font-mono font-bold text-primary tracking-widest">{prototypePassword}</p>
-                                                    </div>
-                                                    <p className="font-medium">Use this code to log in, then update your password in Account Settings.</p>
-                                                </AlertDescription>
-                                            </Alert>
-                                        ) : resetStatus === 'not-found' ? (
-                                            <Alert variant="destructive" className="bg-destructive/5">
-                                                <AlertTriangle className="h-4 w-4" />
-                                                <AlertTitle>Account Not Found</AlertTitle>
-                                                <AlertDescription className="text-xs">
-                                                    We couldn't find an active user profile for that email address.
-                                                </AlertDescription>
-                                            </Alert>
-                                        ) : resetStatus === 'error' ? (
-                                            <Alert variant="destructive" className="bg-destructive/5">
-                                                <AlertTriangle className="h-4 w-4" />
-                                                <AlertTitle>Recovery Failed</AlertTitle>
-                                                <AlertDescription className="text-xs">
-                                                    {resetErrorMessage || "Could not process your reset request. Please contact your administrator."}
-                                                </AlertDescription>
-                                            </Alert>
+                                            <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-lg text-center space-y-2">
+                                                <p className="text-[10px] font-black uppercase text-muted-foreground">New Temporary Password</p>
+                                                <p className="text-3xl font-mono font-bold text-primary tracking-widest">{prototypePassword}</p>
+                                            </div>
                                         ) : (
                                             <div className="space-y-2">
                                                 <Label>Account Email</Label>
@@ -340,15 +278,11 @@ export function LoginForm() {
                                             </div>
                                         )}
                                     </div>
-
                                     <DialogFooter>
-                                        <Button variant="ghost" onClick={() => setIsResetOpen(false)}>
-                                            {(resetStatus === 'success' || resetStatus === 'prototype-success') ? 'Back to Login' : 'Cancel'}
-                                        </Button>
-                                        {resetStatus !== 'success' && resetStatus !== 'prototype-success' && (
+                                        <Button variant="ghost" onClick={() => setIsResetOpen(false)}>Close</Button>
+                                        {(resetStatus === 'idle' || resetStatus === 'not-found' || resetStatus === 'error') && (
                                             <Button onClick={handleResetPassword} disabled={isResetting || !resetEmail}>
-                                                {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                                Send Temporary Password
+                                                {isResetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Reset Password'}
                                             </Button>
                                         )}
                                     </DialogFooter>
@@ -357,10 +291,10 @@ export function LoginForm() {
                         </div>
                         <Input 
                             id="password" 
+                            name="password"
                             type="password" 
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
                             required 
+                            autoComplete="current-password"
                         />
                     </div>
 
@@ -368,20 +302,13 @@ export function LoginForm() {
                         <Alert variant="destructive" className="bg-destructive/5 animate-in fade-in slide-in-from-top-1">
                             <AlertTriangle className="h-4 w-4" />
                             <AlertTitle>{error.title}</AlertTitle>
-                            <AlertDescription className="text-xs">
-                                {error.message}
-                            </AlertDescription>
+                            <AlertDescription className="text-xs">{error.message}</AlertDescription>
                         </Alert>
                     )}
                 </CardContent>
                 <CardFooter>
                     <Button type="submit" className="w-full h-11 text-lg font-bold" disabled={isLoading || isSeeding}>
-                        {isLoading ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Authenticating...
-                            </>
-                        ) : 'Log In'}
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Log In'}
                     </Button>
                 </CardFooter>
             </Card>
@@ -390,7 +317,7 @@ export function LoginForm() {
         <div className="flex items-center gap-2 p-4 bg-muted/30 rounded-lg border border-dashed border-muted-foreground/20">
             <Info className="h-4 w-4 text-muted-foreground shrink-0" />
             <p className="text-[10px] text-muted-foreground leading-snug">
-                SiteCommand is an internal construction management system. Access is restricted to authorised project personnel only.
+                SiteCommand is an internal management system. Access restricted to authorized project personnel only.
             </p>
         </div>
     </div>

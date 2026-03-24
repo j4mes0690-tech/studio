@@ -148,7 +148,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
   const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
   const internalStaff = useMemo(() => {
-    return allUsers?.filter(u => u.userType === 'internal' && u.email !== user.email) || [];
+    return allUsers?.filter(u => u.userType === 'internal' && u.email.toLowerCase() !== user.email.toLowerCase()) || [];
   }, [allUsers, user.email]);
 
   const form = useForm<EditUserFormValues>({
@@ -156,7 +156,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
     defaultValues: {
       id: user.id,
       name: user.name,
-      email: user.email,
+      email: user.email.toLowerCase().trim(),
       password: user.password || '',
       userType: user.userType || 'internal',
       subContractorId: user.subContractorId || 'none',
@@ -237,7 +237,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
       form.reset({
         id: user.id,
         name: user.name,
-        email: user.email,
+        email: user.email.toLowerCase().trim(),
         password: user.password || '',
         userType: user.userType || 'internal',
         subContractorId: user.subContractorId || 'none',
@@ -368,11 +368,12 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
 
   const onSubmit = (values: EditUserFormValues) => {
     startTransition(async () => {
-      const docId = user.id || user.email;
+      const docId = user.email.toLowerCase().trim(); // Use email as unique key
       const docRef = doc(db, 'users', docId);
+      
       const updates: Partial<DistributionUser> = {
         name: values.name,
-        email: values.email.toLowerCase().trim(), // Enforce normalization
+        email: values.email.toLowerCase().trim(),
         password: values.password,
         userType: values.userType,
         subContractorId: (values.subContractorId && values.subContractorId !== 'none') ? values.subContractorId : null,
