@@ -105,7 +105,7 @@ const EditUserSchema = z.object({
   infoRequestsReadOnly: z.boolean().default(false),
   
   accessIRS: z.boolean().default(true),
-  irsReadOnly: z.boolean().default(false),
+  irsReadOnly: !!z.boolean().default(false),
 
   accessPlanner: z.boolean().default(true),
   plannerReadOnly: z.boolean().default(false),
@@ -372,6 +372,7 @@ export function EditUserForm({ user }: { user: DistributionUser }) {
       const docRef = doc(db, 'users', docId);
       const updates: Partial<DistributionUser> = {
         name: values.name,
+        email: values.email.toLowerCase().trim(), // Enforce normalization
         password: values.password,
         userType: values.userType,
         subContractorId: (values.subContractorId && values.subContractorId !== 'none') ? values.subContractorId : null,

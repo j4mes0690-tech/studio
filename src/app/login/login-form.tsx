@@ -93,6 +93,8 @@ export function LoginForm() {
                 canManageMaterials: u.isAdmin,
                 canManagePermitTemplates: u.isAdmin,
                 canManageTraining: u.isAdmin,
+                canManageIRS: u.isAdmin,
+                canManageBranding: u.isAdmin,
                 hasFullVisibility: u.isAdmin,
                 accessMaterials: true,
                 accessPlant: true,
@@ -106,6 +108,15 @@ export function LoginForm() {
                 accessQualityControl: true,
                 accessInfoRequests: true,
                 accessPaymentNotices: true,
+                accessSubContractOrders: true,
+                accessIRS: true,
+                accessPlanner: true,
+                accessProcurement: true,
+                accessHolidays: true,
+                accessSiteDiary: true,
+                accessDocuments: true,
+                accessInsights: u.isAdmin,
+                accessFormEditor: u.isAdmin,
               }
             });
           } else if (u.email === 'james@hallcc.co.uk' && userSnap.data().password !== u.password) {
@@ -128,6 +139,9 @@ export function LoginForm() {
     setIsLoading(true);
     setError(null);
 
+    // CRITICAL: Clear any existing stale session before attempting a new login
+    localStorage.removeItem('sitecommand_session_email');
+
     try {
       const emailKey = email.toLowerCase().trim();
       if (!emailKey) {
@@ -142,7 +156,8 @@ export function LoginForm() {
       if (userSnap.exists()) {
         const userData = userSnap.data();
         if (userData.password === password) {
-          localStorage.setItem('sitecommand_session_email', userData.email);
+          // Use the validated emailKey for the session to prevent identity mismatch
+          localStorage.setItem('sitecommand_session_email', emailKey);
           window.location.href = '/';
         } else {
           setError({ title: 'Login Failed', message: 'Incorrect password for this account.' });
