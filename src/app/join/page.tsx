@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, ShieldCheck, Users2, KeyRound, CheckCircle2 } from 'lucide-react';
+import { Loader2, Sparkles, ShieldCheck, Users2, KeyRound, CheckCircle2, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 
 function JoinContent() {
@@ -25,24 +25,43 @@ function JoinContent() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch invitation details
+  // Fetch invitation details - Query only by token to allow for better error reporting on status
   const invitesQuery = useMemoFirebase(() => {
     if (!db || !token) return null;
-    return query(collection(db, 'invitations'), where('token', '==', token), where('status', '==', 'pending'));
+    return query(collection(db, 'invitations'), where('token', '==', token));
   }, [db, token]);
   
   const { data: invitations, isLoading: inviteLoading } = useCollection<Invitation>(invitesQuery);
   const invitation = invitations?.[0];
 
+  // Derive specific invitation states
+  const isExpired = useMemo(() => {
+    if (!invitation) return false;
+    return new Date(invitation.expiresAt) < new Date();
+  }, [invitation]);
+
+  const isAlreadyUsed = useMemo(() => {
+    if (!invitation) return false;
+    return invitation.status === 'accepted';
+  }, [invitation]);
+
+  const isValid = invitation && !isExpired && !isAlreadyUsed;
+
   useEffect(() => {
-    if (!inviteLoading && !invitation && token) {
-        toast({ title: 'Invalid Link', description: 'This invitation has expired or already been used.', variant: 'destructive' });
+    if (!inviteLoading && token) {
+        if (!invitation) {
+            toast({ title: 'Invalid Link', description: 'This invitation could not be found.', variant: 'destructive' });
+        } else if (isAlreadyUsed) {
+            toast({ title: 'Link Used', description: 'This invitation has already been used. Please log in directly.', variant: 'destructive' });
+        } else if (isExpired) {
+            toast({ title: 'Link Expired', description: 'This invitation has expired. Please request a new one.', variant: 'destructive' });
+        }
     }
-  }, [inviteLoading, invitation, token, toast]);
+  }, [inviteLoading, invitation, isExpired, isAlreadyUsed, token, toast]);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!invitation || !db) return;
+    if (!invitation || !db || !isValid) return;
 
     if (password !== confirmPassword) {
         toast({ title: 'Passwords do not match', variant: 'destructive' });
@@ -53,21 +72,26 @@ function JoinContent() {
     startTransition(async () => {
       try {
         const email = invitation.email.toLowerCase().trim();
-        const docRef = doc(db, 'users', email);
+        const userRef = doc(db, 'users', email);
 
         // Safety check: Don't overwrite if user somehow already exists
-        const userSnap = await getDoc(docRef);
+        const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
             toast({ 
                 title: 'Account Already Active', 
                 description: 'A system profile already exists for this email. Please log in directly.',
                 variant: 'destructive'
             });
+            
+            // Mark invite as accepted if user exists to prevent reuse of link
+            const inviteRef = doc(db, 'invitations', invitation.id);
+            await updateDoc(inviteRef, { status: 'accepted' });
+            
             router.push('/login');
             return;
         }
 
-        // 1. Create robust default permissions object
+        // 1. Create default permissions object
         const permissions: UserPermissions = {
             canManageUsers: false,
             canManageSubcontractors: false,
@@ -102,7 +126,8 @@ function JoinContent() {
             accessInsights: invitation.userType === 'internal',
         };
 
-        await setDoc(docRef, {
+        // 2. Set the User Document
+        await setDoc(userRef, {
           id: email,
           name: invitation.name,
           email: email,
@@ -112,9 +137,10 @@ function JoinContent() {
           permissions
         });
 
-        // 2. Auto-assign to project if defined AND valid
-        if (invitation.projectId && invitation.projectId !== 'none') {
-            const projectRef = doc(db, 'projects', invitation.projectId);
+        // 3. Auto-assign to project if defined AND valid
+        const targetProjectId = invitation.projectId;
+        if (targetProjectId && targetProjectId !== 'none') {
+            const projectRef = doc(db, 'projects', targetProjectId);
             const projectSnap = await getDoc(projectRef);
             if (projectSnap.exists()) {
                 await updateDoc(projectRef, {
@@ -123,13 +149,13 @@ function JoinContent() {
             }
         }
 
-        // 3. Close Invitation
+        // 4. Close Invitation
         const inviteRef = doc(db, 'invitations', invitation.id);
         await updateDoc(inviteRef, { status: 'accepted' });
 
-        // 4. Set session
+        // 5. Establish Session
         localStorage.setItem('sitecommand_v3_identity', email);
-        localStorage.setItem('sitecommand_v3_token', `onboard-${Date.now()}`);
+        localStorage.setItem('sitecommand_v3_token', `v3-sid-onboard-${Date.now()}`);
         
         toast({ title: 'Welcome aboard!', description: 'Your account has been created successfully.' });
         
@@ -138,7 +164,7 @@ function JoinContent() {
         window.location.assign('/');
       } catch (err) {
         console.error("Onboarding error:", err);
-        toast({ title: 'Error', description: 'Failed to complete registration. Please contact support.', variant: 'destructive' });
+        toast({ title: 'Registration Failed', description: 'An unexpected error occurred. Please try again or contact support.', variant: 'destructive' });
       } finally {
         setIsSubmitting(false);
       }
@@ -153,16 +179,29 @@ function JoinContent() {
     );
   }
 
-  if (!invitation) {
+  // Error UI for invalid states
+  if (!invitation || isExpired || isAlreadyUsed) {
     return (
         <div className="flex min-h-screen items-center justify-center p-4 bg-muted/30">
-            <Card className="max-w-md w-full text-center">
+            <Card className="max-w-md w-full text-center shadow-xl">
                 <CardHeader>
-                    <CardTitle>Invitation Not Found</CardTitle>
-                    <CardDescription>The link may be expired or used. Please contact your administrator for a new invite.</CardDescription>
+                    <div className="mx-auto w-12 h-12 bg-destructive/10 rounded-full flex items-center justify-center mb-2">
+                        <AlertTriangle className="h-6 w-6 text-destructive" />
+                    </div>
+                    <CardTitle>
+                        {!invitation ? 'Invitation Not Found' : isAlreadyUsed ? 'Access Already Set' : 'Invitation Expired'}
+                    </CardTitle>
+                    <CardDescription className="text-sm">
+                        {!invitation 
+                            ? 'The link provided is invalid. Please check the URL and try again.' 
+                            : isAlreadyUsed 
+                                ? 'This onboarding link has already been used to create an account.' 
+                                : 'This invitation has expired. Links are valid for 7 days.'}
+                    </CardDescription>
                 </CardHeader>
-                <CardFooter>
-                    <Button className="w-full" onClick={() => router.push('/login')}>Return to Login</Button>
+                <CardFooter className="flex flex-col gap-3">
+                    <Button className="w-full font-bold" onClick={() => router.push('/login')}>Go to Login</Button>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold">Contact your Site Manager for a new link</p>
                 </CardFooter>
             </Card>
         </div>
@@ -178,47 +217,48 @@ function JoinContent() {
                 <Sparkles className="h-12 w-12 text-primary" />
             </div>
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-primary">Complete Your Access</h1>
+                <h1 className="text-3xl font-bold tracking-tight text-primary uppercase">Complete Your Access</h1>
                 <p className="mt-2 text-muted-foreground">Welcome, <strong>{invitation.name}</strong>. Set your secure password to join the project team.</p>
             </div>
           </div>
 
           <form onSubmit={handleJoin}>
-            <Card className="shadow-xl border-primary/20">
+            <Card className="shadow-2xl border-primary/20">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                         <KeyRound className="h-5 w-5 text-primary" />
-                        Account Setup
+                        Security Setup
                     </CardTitle>
-                    <CardDescription>Your email <strong>{invitation.email}</strong> is already verified.</CardDescription>
+                    <CardDescription>Your verified email: <strong>{invitation.email}</strong></CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="password">Create Password</Label>
+                        <Label htmlFor="password">Create Secure Password</Label>
                         <Input
                             id="password"
                             type="password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Min 6 characters"
+                            placeholder="Minimum 6 characters"
                             required
                             minLength={6}
+                            autoFocus
                         />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="confirm">Confirm Password</Label>
+                        <Label htmlFor="confirm">Repeat Password</Label>
                         <Input
                             id="confirm"
                             type="password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            placeholder="Repeat password"
+                            placeholder="Repeat for confirmation"
                             required
                         />
                     </div>
                 </CardContent>
                 <CardFooter>
-                    <Button type="submit" className="w-full h-12 text-lg font-bold" disabled={isSubmitting}>
+                    <Button type="submit" className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20" disabled={isSubmitting}>
                         {isSubmitting ? (
                             <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -227,7 +267,7 @@ function JoinContent() {
                         ) : (
                             <>
                                 <CheckCircle2 className="mr-2 h-5 w-5" />
-                                Join the Project
+                                Join Project
                             </>
                         )}
                     </Button>
@@ -237,8 +277,8 @@ function JoinContent() {
 
           <div className="flex items-center gap-3 p-4 bg-primary/5 rounded-xl border border-dashed border-primary/20">
             {invitation.userType === 'internal' ? <ShieldCheck className="h-6 w-6 text-primary" /> : <Users2 className="h-6 w-6 text-accent" />}
-            <p className="text-xs text-muted-foreground leading-relaxed">
-                You are joining as a <strong>{invitation.userType}</strong> collaborator. Your project dashboard will be tailored to your role upon login.
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                You are joining as a <strong>{invitation.userType}</strong> collaborator. Your dashboard will be customized based on this role once you log in.
             </p>
           </div>
         </div>
@@ -250,7 +290,7 @@ function JoinContent() {
           fill
           className="object-cover"
           priority
-          data-ai-hint="construction teamwork"
+          data-ai-hint="construction team"
         />
         <div className="absolute inset-0 bg-primary/20 backdrop-blur-[1px]" />
       </div>
