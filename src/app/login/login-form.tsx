@@ -78,6 +78,7 @@ export function LoginForm() {
               email: emailKey,
               name: u.name,
               password: u.password,
+              userType: 'internal',
               requirePasswordChange: false,
               permissions: {
                 canManageUsers: u.isAdmin,
@@ -89,6 +90,7 @@ export function LoginForm() {
                 canManageTraining: u.isAdmin,
                 canManageIRS: u.isAdmin,
                 canManageBranding: u.isAdmin,
+                canApproveHolidays: u.isAdmin,
                 hasFullVisibility: u.isAdmin,
                 accessMaterials: true,
                 accessPlant: true,
