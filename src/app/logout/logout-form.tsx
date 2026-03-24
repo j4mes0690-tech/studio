@@ -11,14 +11,16 @@ export function LogoutForm() {
   const handleLogout = async () => {
     setIsLoading(true);
     try {
-      // NUCLEAR WIPE: Clear all local state and session identifiers
+      // NUCLEAR WIPE: Clear all local state and session identifiers immediately.
       localStorage.clear();
       
-      // FORCE FULL RELOAD: Ensure memory is purged and all providers reset
+      // Notify other tabs immediately to force a sync.
+      window.dispatchEvent(new Event('storage'));
+      
+      // FORCE FULL RELOAD: Purge memory and redirect to the fresh login state.
       window.location.assign('/login');
     } catch (err: any) {
       console.error('Logout Exception:', err);
-      // Fallback redirect if clear fails
       window.location.assign('/login');
     }
   };

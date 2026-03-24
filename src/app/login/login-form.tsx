@@ -36,8 +36,8 @@ import { cn } from '@/lib/utils';
 /**
  * LoginForm - Manages the highly-isolated system session.
  * 
- * Uses direct DOM extraction (FormData) to ensure browser autofill 
- * values are captured accurately regardless of React state sync.
+ * Implements a strict "zero-memory" policy by clearing local storage
+ * on mount and extracting form data directly from the DOM on submission.
  */
 export function LoginForm() {
   const db = useFirestore();
@@ -53,6 +53,12 @@ export function LoginForm() {
   const [prototypePassword, setPrototypePassword] = useState<string | null>(null);
 
   useEffect(() => {
+    // CRITICAL: When the login form mounts, we must ensure any existing session is physically purged.
+    // This prevents "identity leaking" if a user navigates back to login without explicitly logging out.
+    localStorage.clear();
+    // Dispatch a storage event to force other open tabs to also log out immediately.
+    window.dispatchEvent(new Event('storage'));
+
     const seedInitialUsers = async () => {
       if (!db) return;
       setIsSeeding(true);
@@ -124,12 +130,8 @@ export function LoginForm() {
     setIsLoading(true);
     setError(null);
 
-    // NUCLEAR OPTION: Clear all existing session data immediately on submission attempt
-    const oldEmail = localStorage.getItem('sitecommand_session_email');
-    localStorage.clear();
-
     try {
-      // EXTRACT VALUES DIRECTLY FROM DOM TO BYPASS REACT STATE DELAYS
+      // EXTRACT VALUES DIRECTLY FROM DOM TO BYPASS REACT STATE DELAYS OR AUTOFILL LAG
       const formData = new FormData(e.currentTarget);
       const rawEmail = (formData.get('email') as string || '').toLowerCase().trim();
       const rawPassword = formData.get('password') as string || '';
@@ -146,13 +148,15 @@ export function LoginForm() {
       if (userSnap.exists()) {
         const userData = userSnap.data();
         if (userData.password === rawPassword) {
-          // SUCCESS: Lock new session with unique immutable ID
+          // SUCCESS: Clear everything again before setting the new session to be absolutely safe.
+          localStorage.clear();
+          
           const uniqueSessionId = `sid-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
           
           localStorage.setItem('sitecommand_session_email', rawEmail);
           localStorage.setItem('sitecommand_session_id', uniqueSessionId);
           
-          // FORCE FULL PAGE RELOAD: This clears all JS variables, contexts, and memory caches.
+          // Force a full reload to clear JavaScript heap and memory caches.
           window.location.assign('/');
         } else {
           setError({ title: 'Authentication Failed', message: 'The password provided does not match our records.' });
@@ -231,6 +235,7 @@ export function LoginForm() {
                             name="email"
                             type="email"
                             placeholder="your@company.com"
+                            autoComplete="off"
                             required
                             autoFocus
                         />
@@ -289,6 +294,7 @@ export function LoginForm() {
                             id="password" 
                             name="password"
                             type="password" 
+                            autoComplete="off"
                             required 
                         />
                     </div>
