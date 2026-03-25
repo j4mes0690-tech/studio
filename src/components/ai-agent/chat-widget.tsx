@@ -1,4 +1,4 @@
-'use use client';
+'use client';
 
 import { useState, useRef, useEffect, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
@@ -103,7 +103,7 @@ export function SiteAgentWidget() {
                             </div>
                             <div>
                                 <CardTitle className="text-sm font-black uppercase tracking-widest">Site Intelligence</CardTitle>
-                                <Badge variant="secondary" className="h-4 text-[8px] bg-white/10 text-white border-transparent uppercase">Gemini 1.5 Pro</Badge>
+                                <Badge variant="secondary" className="h-4 text-[8px] bg-white/10 text-white border-transparent uppercase">Gemini 1.5 Flash</Badge>
                             </div>
                         </div>
                         <div className="flex items-center gap-1">
