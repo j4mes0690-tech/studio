@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -27,6 +28,7 @@ function SnaggingContent() {
   const db = useFirestore();
   const { user: sessionUser } = useUser();
   const projectId = searchParams.get('project') || undefined;
+  const areaId = searchParams.get('area') || undefined;
   
   const [isCompact, setIsCompact] = useState(false);
   const [isGroupedByProject, setIsGroupedByProject] = useState(false);
@@ -113,8 +115,12 @@ function SnaggingContent() {
 
         // For partners, only show if at least one item in the list is assigned to their company
         return subId ? list.items.some(item => item.subContractorId === subId) : false;
-    }).filter(item => projectId ? item.projectId === projectId : true);
-  }, [allItems, profile, allProjects, projectId]);
+    }).filter(item => {
+        const matchesProject = projectId ? item.projectId === projectId : true;
+        const matchesArea = areaId ? (areaId === 'other' ? (!item.areaId || item.areaId === 'other') : item.areaId === areaId) : true;
+        return matchesProject && matchesArea;
+    });
+  }, [allItems, profile, allProjects, projectId, areaId]);
 
   // GROUPING LOGIC: Aggregated by Project
   const displayItems = useMemo(() => {
@@ -172,7 +178,7 @@ function SnaggingContent() {
                 {isGroupedByProject ? 'Project Snagging Status' : 'Snagging Log'}
             </h2>
             {hasFullVisibility && (
-                <div className="flex items-center gap-1.5 text-[9px] md:text-[10px] font-bold text-primary uppercase tracking-widest">
+                <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest">
                     <ShieldCheck className="h-3 w-3" />
                     <span className="hidden xs:inline">Administrative Visibility Active</span>
                     <span className="xs:hidden">Admin Access</span>
