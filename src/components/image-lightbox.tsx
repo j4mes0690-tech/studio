@@ -1,9 +1,10 @@
 'use client';
 
 import * as React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { Photo } from '@/lib/types';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ImageLightboxProps {
   photo: Photo | null;
@@ -12,18 +13,21 @@ interface ImageLightboxProps {
 
 /**
  * ImageLightbox - A high-performance full-screen documentation viewer.
- * Uses strictly enforced viewport constraints and native image scaling to ensure
- * site documentation photos resize correctly to fit any screen size without overflow.
+ * Now uses React Portals to render at the document root, preventing z-index or 
+ * parent clipping issues. Fixed the close button by ensuring it's always at 
+ * the top of the stacking context.
  */
 export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
 
     if (photo) {
       window.addEventListener('keydown', handleEsc);
-      // Prevent background scrolling
       document.body.style.overflow = 'hidden';
     }
 
@@ -33,20 +37,22 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
     };
   }, [photo, onClose]);
 
-  if (!photo) return null;
+  if (!photo || !mounted) return null;
 
-  return (
+  return createPortal(
     <div 
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none animate-in fade-in duration-200 overflow-hidden"
+      className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none animate-in fade-in duration-200 overflow-hidden pointer-events-auto"
       onClick={onClose}
     >
-      {/* High-Visibility Close Button */}
+      {/* High-Visibility Close Button - Explicitly top level */}
       <button
+        type="button"
         onClick={(e) => {
+          e.preventDefault();
           e.stopPropagation();
           onClose();
         }}
-        className="absolute top-6 right-6 z-[10000] h-12 w-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 border border-white/20 shadow-2xl transition-all active:scale-95 focus:outline-none"
+        className="absolute top-6 right-6 z-[100000] h-12 w-12 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 border border-white/20 shadow-2xl transition-all active:scale-95 focus:outline-none pointer-events-auto"
       >
         <X className="h-8 w-8" />
         <span className="sr-only">Close Viewer</span>
@@ -54,12 +60,12 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
 
       {/* Constraints: Absolute inset ensures image is bounded by viewport */}
       <div 
-        className="absolute inset-0 flex items-center justify-center p-4 md:p-8 overflow-hidden pointer-events-none" 
+        className="absolute inset-0 flex items-center justify-center p-4 md:p-12 overflow-hidden pointer-events-none" 
       >
         <img
           src={photo.url}
           alt="Site documentation"
-          className="max-w-full max-h-full object-contain shadow-2xl rounded-sm border border-white/5 pointer-events-none"
+          className="max-w-full max-h-full object-contain shadow-2xl rounded-sm border border-white/5 pointer-events-none select-none"
         />
       </div>
 
@@ -71,6 +77,7 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
           </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
