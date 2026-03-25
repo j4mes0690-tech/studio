@@ -113,6 +113,10 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
+  // Synchronization references to prevent duplicate records during rapid multi-capture
+  const activeIdRef = useRef<string | null>(null);
+  const creationPromiseRef = useRef<Promise<string> | null>(null);
+
   // Warning State
   const [showLabourWarning, setShowLabourWarning] = useState(false);
   const [pendingValues, setPendingValues] = useState<NewDiaryFormValues | null>(null);
@@ -142,12 +146,17 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
     return allEntries.find(e => e.projectId === projId && e.date === dateStr);
   };
 
+  /**
+   * ensureDiaryCreated - Centralized initialization logic.
+   * Uses a promise ref to handle race conditions during rapid multi-photo capture.
+   */
   const ensureDiaryCreated = async (): Promise<string | null> => {
-    if (activeDiaryId) return activeDiaryId;
+    if (activeIdRef.current) return activeIdRef.current;
+    if (creationPromiseRef.current) return creationPromiseRef.current;
     
     const values = form.getValues();
     if (!values.projectId) {
-        toast({ title: 'Project Required', description: 'Select a project before capturing photos.', variant: 'destructive' });
+        toast({ title: 'Project Required', description: 'Select a project before capturing documentation.', variant: 'destructive' });
         return null;
     }
 
@@ -155,29 +164,34 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
     if (existing) {
         toast({ 
             title: 'Log Already Exists', 
-            description: `A site diary for this project has already been recorded for ${new Date(values.date).toLocaleDateString()}. Please edit the existing entry instead.`, 
+            description: `A diary for this project already exists for ${new Date(values.date).toLocaleDateString()}. Please edit the existing entry.`, 
             variant: 'destructive' 
         });
         return null;
     }
 
-    const diaryData = {
-      projectId: values.projectId,
-      date: values.date,
-      weather: {
-        condition: values.weatherCondition,
-        temp: values.temp,
-      },
-      subcontractorLogs: logs as any,
-      generalComments: values.generalComments || '',
-      photos: [],
-      createdAt: new Date().toISOString(),
-      createdByEmail: currentUser.email.toLowerCase().trim(),
-    };
+    creationPromiseRef.current = (async () => {
+        const diaryData = {
+            projectId: values.projectId,
+            date: values.date,
+            weather: {
+                condition: values.weatherCondition,
+                temp: values.temp,
+            },
+            subcontractorLogs: logs as any,
+            generalComments: values.generalComments || '',
+            photos: [],
+            createdAt: new Date().toISOString(),
+            createdByEmail: currentUser.email.toLowerCase().trim(),
+        };
 
-    const docRef = await addDoc(collection(db, 'site-diary'), diaryData);
-    setActiveDiaryId(docRef.id);
-    return docRef.id;
+        const docRef = await addDoc(collection(db, 'site-diary'), diaryData);
+        activeIdRef.current = docRef.id;
+        setActiveDiaryId(docRef.id);
+        return docRef.id;
+    })();
+
+    return creationPromiseRef.current;
   };
 
   const handleMetadataBlur = async () => {
@@ -267,12 +281,11 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
         });
         
         setPhotos(prev => [...prev, updatedPhoto]);
-        toast({ title: 'Photo Saved', description: 'Autosave active.' });
+        toast({ title: 'Photo Synced', description: 'Autosave active.' });
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to autosave photo.', variant: 'destructive' });
       }
     });
-    setIsCameraOpen(false);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -393,6 +406,8 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
       setLogs([]);
       setPhotos([]);
       setActiveDiaryId(null);
+      activeIdRef.current = null;
+      creationPromiseRef.current = null;
       setEditingLogIdx(null);
       setShowLabourWarning(false);
       setPendingValues(null);

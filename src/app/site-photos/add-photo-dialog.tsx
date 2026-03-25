@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo, useRef, useEffect } from 'react';
@@ -59,6 +58,10 @@ export function AddPhotoDialog({ projects, currentUser }: { projects: Project[],
   const [isSyncing, setIsSyncing] = useState(false);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
+  // Synchronization references to prevent duplicate records during rapid multi-capture
+  const activeIdRef = useRef<string | null>(null);
+  const creationPromiseRef = useRef<Promise<string> | null>(null);
+
   const form = useForm<AddPhotoFormValues>({
     resolver: zodResolver(AddPhotoSchema),
     defaultValues: { projectId: '', areaId: 'none', description: '' },
@@ -68,42 +71,58 @@ export function AddPhotoDialog({ projects, currentUser }: { projects: Project[],
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
   const availableAreas = selectedProject?.areas || [];
 
+  /**
+   * ensureRecordCreated - Robust initialization of the progress record.
+   * Handles race conditions by returning a pending creation promise if already in flight.
+   */
+  const ensureRecordCreated = async (values: AddPhotoFormValues): Promise<string | null> => {
+    if (activeIdRef.current) return activeIdRef.current;
+    if (creationPromiseRef.current) return creationPromiseRef.current;
+
+    creationPromiseRef.current = (async () => {
+        const photoData: Omit<SiteProgressPhoto, 'id'> = {
+            projectId: values.projectId,
+            areaId: values.areaId === 'none' ? null : (values.areaId || null),
+            description: values.description || '',
+            photos: [], // Start with empty list, images are added via arrayUnion immediately after
+            createdAt: new Date().toISOString(),
+            createdByEmail: currentUser.email.toLowerCase().trim()
+        };
+        const docRef = await addDoc(collection(db, 'site-photos'), photoData);
+        activeIdRef.current = docRef.id;
+        setActiveDocId(docRef.id);
+        return docRef.id;
+    })();
+
+    return creationPromiseRef.current;
+  };
+
   const handleAutoSavePhoto = async (photo: Photo) => {
     const values = form.getValues();
     if (!values.projectId) {
-        toast({ title: 'Project Required', description: 'Please select a project before taking photos.', variant: 'destructive' });
+        toast({ title: 'Project Required', description: 'Please select a project before documenting progress.', variant: 'destructive' });
         return;
     }
 
     setIsSyncing(true);
     try {
+        const diaryId = await ensureRecordCreated(values);
+        if (!diaryId) return;
+
         const blob = await dataUriToBlob(photo.url);
-        const path = `site-progress/${values.projectId}/${Date.now()}.jpg`;
+        const path = `site-progress/${diaryId}/${Date.now()}.jpg`;
         const url = await uploadFile(storage, path, blob);
         const finalPhoto = { ...photo, url };
 
-        if (activeDocId) {
-            await updateDoc(doc(db, 'site-photos', activeDocId), {
-                photos: arrayUnion(finalPhoto)
-            });
-        } else {
-            const photoData: Omit<SiteProgressPhoto, 'id'> = {
-                projectId: values.projectId,
-                areaId: values.areaId === 'none' ? null : (values.areaId || null),
-                description: values.description || '',
-                photos: [finalPhoto],
-                createdAt: new Date().toISOString(),
-                createdByEmail: currentUser.email.toLowerCase().trim()
-            };
-            const docRef = await addDoc(collection(db, 'site-photos'), photoData);
-            setActiveDocId(docRef.id);
-        }
+        await updateDoc(doc(db, 'site-photos', diaryId), {
+            photos: arrayUnion(finalPhoto)
+        });
         
         setPhotos(prev => [...prev, finalPhoto]);
         toast({ title: 'Photo Synced', description: 'Visual record saved.' });
     } catch (err) {
         console.error(err);
-        toast({ title: 'Sync Error', description: 'Failed to upload photo.', variant: 'destructive' });
+        toast({ title: 'Sync Error', description: 'Failed to upload documentation.', variant: 'destructive' });
     } finally {
         setIsSyncing(false);
     }
@@ -171,6 +190,8 @@ export function AddPhotoDialog({ projects, currentUser }: { projects: Project[],
     if (!open) {
       setPhotos([]);
       setActiveDocId(null);
+      activeIdRef.current = null;
+      creationPromiseRef.current = null;
       setIsSyncing(false);
       form.reset();
     }
