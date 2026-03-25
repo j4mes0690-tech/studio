@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -27,7 +26,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, X, Loader2, Save, Users2, MapPin, Plus, Trash2, CheckCircle2, Link as LinkIcon, ShieldCheck, UserPlus } from 'lucide-react';
+import { Pencil, X, Loader2, Save, Users2, MapPin, Plus, Trash2, CheckCircle2, Link as LinkIcon, ShieldCheck, UserPlus, QrCode, Copy, ExternalLink } from 'lucide-react';
 import type { Project, Area, DistributionUser, SubContractor, QualityChecklist } from '@/lib/types';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection, query, where, addDoc, deleteDoc } from 'firebase/firestore';
@@ -212,6 +211,15 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
     });
   };
 
+  const copyQrLink = (areaId?: string) => {
+    const host = typeof window !== 'undefined' ? window.location.origin : '';
+    let link = `${host}/site-photos?project=${project.id}`;
+    if (areaId) link += `&area=${areaId}`;
+    
+    navigator.clipboard.writeText(link);
+    toast({ title: 'Link Copied', description: 'URL is ready for QR generation.' });
+  };
+
   const onSubmit = (values: EditProjectFormValues) => {
     startTransition(async () => {
       const docRef = doc(db, 'projects', values.id);
@@ -264,13 +272,14 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                 )} />
 
                 <Tabs defaultValue="details" className="w-full">
-                    <TabsList className="grid w-full grid-cols-6 h-auto p-1 bg-muted/50 rounded-lg">
+                    <TabsList className="grid w-full grid-cols-7 h-auto p-1 bg-muted/50 rounded-lg">
                         <TabsTrigger value="details" className="text-[10px] uppercase font-bold py-2">Details</TabsTrigger>
                         <TabsTrigger value="areas" className="text-[10px] uppercase font-bold py-2">Areas</TabsTrigger>
                         <TabsTrigger value="access" className="text-[10px] uppercase font-bold py-2">Staff</TabsTrigger>
                         <TabsTrigger value="approvers" className="text-[10px] uppercase font-bold py-2">Approvers</TabsTrigger>
                         <TabsTrigger value="subs" className="text-[10px] uppercase font-bold py-2">Partners</TabsTrigger>
                         <TabsTrigger value="checklists" className="text-[10px] uppercase font-bold py-2">Checklists</TabsTrigger>
+                        <TabsTrigger value="qr" className="text-[10px] uppercase font-bold py-2 text-primary">QR Links</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="details" className="space-y-4 py-4">
@@ -299,6 +308,50 @@ export function EditProjectForm({ project, users }: EditProjectFormProps) {
                                     <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveArea(area.id)}><X className="h-4 w-4 text-destructive"/></Button>
                                 </div>
                             ))}
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="qr" className="space-y-6 py-4 animate-in fade-in slide-in-from-top-2">
+                        <div className="bg-primary/5 p-4 rounded-lg border-2 border-primary/10">
+                            <div className="flex items-center gap-2 text-primary font-bold">
+                                <QrCode className="h-5 w-5" />
+                                <h4 className="text-sm uppercase tracking-widest">Site Signage Links</h4>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">Copy these URLs to generate QR codes. Scanning them will automatically set the Progress Photos module to the correct area.</p>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="p-4 rounded-xl border bg-background shadow-sm flex items-center justify-between">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-black text-primary uppercase tracking-widest">Global Project Link</p>
+                                    <p className="text-[10px] text-muted-foreground">General site progress documentation.</p>
+                                </div>
+                                <Button size="sm" variant="outline" className="gap-2 font-bold" onClick={() => copyQrLink()}>
+                                    <Copy className="h-3.5 w-3.5" /> Copy URL
+                                </Button>
+                            </div>
+
+                            <Separator />
+
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest ml-1">Area-Specific Links</Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {areas.map(area => (
+                                        <div key={area.id} className="p-3 rounded-lg border bg-muted/5 flex items-center justify-between group">
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold truncate">{area.name}</p>
+                                                <p className="text-[8px] text-muted-foreground uppercase">Plot / Level Link</p>
+                                            </div>
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-primary opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => copyQrLink(area.id)}>
+                                                <Copy className="h-3.5 w-3.5" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    {areas.length === 0 && (
+                                        <p className="col-span-full text-center py-8 text-xs text-muted-foreground italic border-2 border-dashed rounded-lg">No areas defined. Add them in the "Areas" tab first.</p>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     </TabsContent>
 

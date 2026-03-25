@@ -5,7 +5,7 @@ import { Header } from '@/components/layout/header';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, orderBy } from 'firebase/firestore';
 import type { SiteProgressPhoto, Project, DistributionUser, Photo } from '@/lib/types';
-import { Loader2, Camera, ShieldCheck, Filter, Search, Grid2X2, LayoutGrid, Calendar } from 'lucide-react';
+import { Loader2, Camera, ShieldCheck, Filter, Search, Grid2X2, LayoutGrid, Calendar, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -16,14 +16,28 @@ import { AddPhotoDialog } from './add-photo-dialog';
 import { PhotoCard } from './photo-card';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { format, parseISO, isSameDay } from 'date-fns';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 function SitePhotosContent() {
   const db = useFirestore();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user: sessionUser } = useUser();
-  const [projectFilter, setProjectFilter] = useState<string>('all');
-  const [areaFilter, setAreaFilter] = useState<string>('all');
+
+  // URL Parameter Detection (for QR code support)
+  const urlProject = searchParams.get('project');
+  const urlArea = searchParams.get('area');
+
+  const [projectFilter, setProjectFilter] = useState<string>(urlProject || 'all');
+  const [areaFilter, setAreaFilter] = useState<string>(urlArea || 'all');
   const [searchTerm, setSearchTerm] = useState('');
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
+
+  // Sync state if URL params change externally
+  useEffect(() => {
+    if (urlProject) setProjectFilter(urlProject);
+    if (urlArea) setAreaFilter(urlArea);
+  }, [urlProject, urlArea]);
 
   // Data Loading
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
@@ -86,6 +100,14 @@ function SitePhotosContent() {
   }
 
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
+  const hasActiveFilters = projectFilter !== 'all' || areaFilter !== 'all' || searchTerm;
+
+  const clearFilters = () => {
+    setProjectFilter('all');
+    setAreaFilter('all');
+    setSearchTerm('');
+    router.push('/site-photos');
+  };
 
   return (
     <div className="flex flex-col w-full gap-6 p-4 md:p-8">
@@ -151,6 +173,12 @@ function SitePhotosContent() {
                 />
             </div>
           </div>
+
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-destructive h-10 px-4">
+                <X className="h-3 w-3 mr-1.5" /> Clear
+            </Button>
+          )}
         </CardContent>
       </Card>
 
