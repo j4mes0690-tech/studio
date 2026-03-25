@@ -129,7 +129,6 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
   });
 
   const selectedProjectId = form.watch('projectId');
-  const selectedDate = form.watch('date');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
   const availableAreas = selectedProject?.areas || [];
   
@@ -532,7 +531,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
                                 setPendingNotes('');
                                 setPendingQty(1);
                                 setPendingAreaId('none');
-                            }}>Cancel</Button>
+                            }}>Cancel Edit</Button>
                         )}
                         <Button type="button" variant={editingLogIdx !== null ? "default" : "secondary"} className="flex-1 font-bold" onClick={handleAddLabour} disabled={!pendingSubId}>
                             {editingLogIdx !== null ? <><Check className="h-4 w-4 mr-2" /> Update Labour Line</> : <><UserPlus className="h-4 w-4 mr-2" /> Add Trade Resource</>}

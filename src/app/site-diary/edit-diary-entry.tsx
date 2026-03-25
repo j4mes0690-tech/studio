@@ -166,14 +166,21 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
       notes: pendingNotes,
     };
 
+    let updatedLogs: Omit<SubcontractorLog, 'id'>[] = [];
     if (editingLogIdx !== null) {
-      const updatedLogs = [...logs];
+      updatedLogs = [...logs];
       updatedLogs[editingLogIdx] = newLog;
       setLogs(updatedLogs);
       setEditingLogIdx(null);
     } else {
-      setLogs([...logs, newLog]);
+      updatedLogs = [...logs, newLog];
+      setLogs(updatedLogs);
     }
+
+    // TRIGGER AUTOSAVE
+    updateDoc(doc(db, 'site-diary', entry.id), {
+        subcontractorLogs: updatedLogs as any
+    });
 
     setPendingSubId('');
     setPendingNotes('');
@@ -191,7 +198,14 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
   };
 
   const removeLabour = (idx: number) => {
-    setLogs(logs.filter((_, i) => i !== idx));
+    const updatedLogs = logs.filter((_, i) => i !== idx);
+    setLogs(updatedLogs);
+    
+    // TRIGGER AUTOSAVE
+    updateDoc(doc(db, 'site-diary', entry.id), {
+        subcontractorLogs: updatedLogs as any
+    });
+    
     if (editingLogIdx === idx) setEditingLogIdx(null);
   };
 
@@ -424,7 +438,7 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
                                 setPendingNotes('');
                                 setPendingQty(1);
                                 setPendingAreaId('none');
-                            }}>Cancel</Button>
+                            }}>Cancel Edit</Button>
                         )}
                         <Button type="button" variant={editingLogIdx !== null ? "default" : "secondary"} className="flex-1 font-bold" onClick={handleAddLabour} disabled={!pendingSubId}>
                             {editingLogIdx !== null ? <><Check className="h-4 w-4 mr-2" /> Update Labour Line</> : <><UserPlus className="h-4 w-4 mr-2" /> Add Trade Resource</>}
