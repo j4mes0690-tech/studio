@@ -52,7 +52,8 @@ import {
   X,
   Pencil,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Maximize2
 } from 'lucide-react';
 import type { Project, DistributionUser, SubContractor, SiteDiaryEntry, SubcontractorLog, Photo } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
@@ -65,6 +66,7 @@ import { VoiceInput } from '@/components/voice-input';
 import { dataUriToBlob, uploadFile } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { cn, scrollToFirstError } from '@/lib/utils';
+import { ImageLightbox } from '@/components/image-lightbox';
 
 const EditDiarySchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -105,6 +107,7 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
 
   const [photos, setPhotos] = useState<Photo[]>(entry.photos || []);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
   // Warning State
   const [showLabourWarning, setShowLabourWarning] = useState(false);
@@ -413,9 +416,18 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
                   <FormLabel>Daily Visual Records</FormLabel>
                   <div className="flex flex-wrap gap-3">
                     {photos.map((p, i) => (
-                      <div key={i} className="relative w-24 h-24 group">
+                      <div key={i} className="relative w-24 h-24 group cursor-pointer" onClick={() => setViewingPhoto(p)}>
                         <Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" />
-                        <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full opacity-0 group-hover:opacity-100" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3 w-3" /></Button>
+                        <div className="absolute inset-0 bg-black/10 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
+                            <Maximize2 className="h-4 w-4 text-white" />
+                        </div>
+                        <button 
+                          type="button" 
+                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-white flex items-center justify-center shadow-lg z-10" 
+                          onClick={(e) => { e.stopPropagation(); setPhotos(photos.filter((_, idx) => idx !== i)); }}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
                     ))}
                     <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}>
@@ -471,6 +483,8 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
         onCapture={onCapture} 
         title="Update Site Documentation"
       />
+
+      <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
   );
 }
