@@ -27,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Camera, PlusCircle, Loader2, Save, Upload, X, Building2, MapPin, Sparkles, CheckCircle2 } from 'lucide-react';
 import type { Project, DistributionUser, Photo, SiteProgressPhoto } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
@@ -35,7 +35,6 @@ import Image from 'next/image';
 import { cn, scrollToFirstError } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const AddPhotoSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -111,7 +110,7 @@ export function AddPhotoDialog({ projects, currentUser }: { projects: Project[],
   };
 
   const onCapture = (photo: Photo) => {
-    setCapturedPhoto(photo); // Immediate UI preview
+    setCapturedPhoto(photo);
     handleAutoSavePhoto(photo);
     setIsCameraOpen(false);
   };
@@ -205,7 +204,7 @@ export function AddPhotoDialog({ projects, currentUser }: { projects: Project[],
             </div>
           </DialogHeader>
 
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             <div className="p-6">
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit, () => scrollToFirstError())} className="space-y-6">
@@ -293,7 +292,7 @@ export function AddPhotoDialog({ projects, currentUser }: { projects: Project[],
                     </form>
                 </Form>
             </div>
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 
