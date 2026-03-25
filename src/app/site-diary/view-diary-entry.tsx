@@ -56,7 +56,10 @@ export function ViewDiaryEntry({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="sm:max-w-3xl max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="border-b pb-4">
             <div className="flex justify-between items-start">
               <div className="space-y-1">

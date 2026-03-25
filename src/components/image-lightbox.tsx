@@ -14,8 +14,10 @@ interface ImageLightboxProps {
 /**
  * ImageLightbox - A high-performance full-screen documentation viewer.
  * Now uses React Portals to render at the document root, preventing z-index or 
- * parent clipping issues. Fixed the close button by ensuring it's always at 
- * the top of the stacking context.
+ * parent clipping issues. 
+ * 
+ * FIX: Added explicit event stopPropagation to prevent parent Dialogs from 
+ * closing when this overlay is interacted with or closed.
  */
 export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
   const [mounted, setMounted] = useState(false);
@@ -23,26 +25,36 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
   useEffect(() => {
     setMounted(true);
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
     };
 
     if (photo) {
-      window.addEventListener('keydown', handleEsc);
+      window.addEventListener('keydown', handleEsc, true);
       document.body.style.overflow = 'hidden';
     }
 
     return () => {
-      window.removeEventListener('keydown', handleEsc);
+      window.removeEventListener('keydown', handleEsc, true);
       document.body.style.overflow = '';
     };
   }, [photo, onClose]);
 
   if (!photo || !mounted) return null;
 
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClose();
+  };
+
   return createPortal(
     <div 
       className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-black/95 backdrop-blur-sm select-none animate-in fade-in duration-200 overflow-hidden pointer-events-auto"
-      onClick={onClose}
+      onClick={handleBackdropClick}
     >
       {/* High-Visibility Close Button - Explicitly top level */}
       <button
@@ -71,7 +83,10 @@ export function ImageLightbox({ photo, onClose }: ImageLightboxProps) {
 
       {/* Capture Metadata Overlay */}
       <div className="absolute bottom-10 left-0 right-0 flex justify-center pointer-events-none px-4">
-        <div className="bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 shadow-2xl pointer-events-auto">
+        <div 
+          className="bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 shadow-2xl pointer-events-auto"
+          onClick={(e) => e.stopPropagation()}
+        >
           <p className="text-[10px] font-bold text-white/90 uppercase tracking-widest text-center">
             Captured {new Date(photo.takenAt).toLocaleString()}
           </p>
