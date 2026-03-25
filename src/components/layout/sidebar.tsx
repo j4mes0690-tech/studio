@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -35,7 +36,8 @@ import {
   BarChart3,
   Sun,
   BookOpen,
-  FolderOpen
+  FolderOpen,
+  Camera
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
@@ -45,6 +47,7 @@ import { useMemo } from 'react';
 
 const links = [
   { href: '/', label: 'Dashboard', icon: LayoutGrid },
+  { href: '/site-photos', label: 'Progress Photos', icon: Camera, permission: 'accessSitePhotos' },
   { href: '/documents', label: 'Drawing Register', icon: FolderOpen, permission: 'accessDocuments' },
   { href: '/site-diary', label: 'Site Diary', icon: BookOpen, permission: 'accessSiteDiary' },
   { href: '/planner', label: 'Work Planner', icon: CalendarRange, permission: 'accessPlanner' },

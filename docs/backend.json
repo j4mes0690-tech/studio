@@ -44,11 +44,27 @@
             "accessProcurement": { "type": "boolean" },
             "accessHolidays": { "type": "boolean" },
             "accessSiteDiary": { "type": "boolean" },
-            "accessDocuments": { "type": "boolean" }
+            "accessDocuments": { "type": "boolean" },
+            "accessSitePhotos": { "type": "boolean" }
           }
         }
       },
       "required": ["id", "name", "email"]
+    },
+    "SiteProgressPhoto": {
+      "title": "Site Progress Photo",
+      "description": "A single photo of site progress linked to a project and optional area.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "areaId": { "type": "string", "nullable": true },
+        "description": { "type": "string" },
+        "photo": { "$ref": "#/backend/entities/Photo" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdByEmail": { "type": "string" }
+      },
+      "required": ["id", "projectId", "photo", "createdAt"]
     },
     "DrawingDocument": {
       "title": "Drawing Document",
@@ -173,6 +189,7 @@
     "/site-diary/{id}": { "schema": { "$ref": "#/backend/entities/SiteDiaryEntry" }, "description": "Daily site logs and labour records." },
     "/drawings/{id}": { "schema": { "$ref": "#/backend/entities/DrawingDocument" }, "description": "Project drawings and technical document register." },
     "/snagging-items/{id}": { "schema": { "$ref": "#/backend/entities/SnaggingItem" }, "description": "Area snagging and defect management lists." },
-    "/toolbox-talk-templates/{id}": { "schema": { "$ref": "#/backend/entities/ToolboxTalkTemplate" }, "description": "Master library of safety briefings." }
+    "/toolbox-talk-templates/{id}": { "schema": { "$ref": "#/backend/entities/ToolboxTalkTemplate" }, "description": "Master library of safety briefings." },
+    "/site-photos/{id}": { "schema": { "$ref": "#/backend/entities/SiteProgressPhoto" }, "description": "Standalone site progress photos." }
   }
 }

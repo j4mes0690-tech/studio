@@ -1,3 +1,4 @@
+
 export type Planner = {
   id: string;
   name: string;
@@ -22,6 +23,16 @@ export type Project = {
 export type Photo = {
   url: string;
   takenAt: string;
+};
+
+export type SiteProgressPhoto = {
+  id: string;
+  projectId: string;
+  areaId: string | null;
+  description?: string;
+  photo: Photo;
+  createdAt: string;
+  createdByEmail: string;
 };
 
 export type FileAttachment = {
@@ -205,6 +216,7 @@ export type UserPermissions = {
   accessDocuments: boolean;
   accessFormEditor?: boolean;
   accessInsights?: boolean;
+  accessSitePhotos: boolean;
   // Read Only Flags
   materialsReadOnly?: boolean;
   plantReadOnly?: boolean;
@@ -224,6 +236,7 @@ export type UserPermissions = {
   procurementReadOnly?: boolean;
   documentsReadOnly?: boolean;
   siteDiaryReadOnly?: boolean;
+  sitePhotosReadOnly?: boolean;
 };
 
 export type DistributionUser = {

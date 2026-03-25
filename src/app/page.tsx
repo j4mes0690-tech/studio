@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -38,7 +39,8 @@ import {
   FolderOpen,
   LayoutList,
   Layers,
-  Wand2
+  Wand2,
+  Camera
 } from 'lucide-react';
 import Link from 'next/link';
 import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
@@ -58,6 +60,7 @@ import {
 import { Logo } from '@/components/logo';
 
 const DASHBOARD_CARDS = [
+  { id: 'site-photos', href: '/site-photos', label: 'Progress Photos', icon: Camera, desc: 'Central repository for site progress imagery and area assignment.', permission: 'accessSitePhotos' },
   { id: 'form-creator', href: '/form-creator', label: 'Form Editor', icon: Wand2, desc: 'Master template library and high-fidelity form designer.', permission: 'accessFormEditor' },
   { id: 'insights', href: '/insights', label: 'Project Insights', icon: BarChart3, desc: 'Project performance, procurement tracking, and RFI analytics.', permission: 'accessInsights' },
   { id: 'documents', href: '/documents', label: 'Drawing Register', icon: FolderOpen, desc: 'Manage project drawings with authorised SharePoint backups.', permission: 'accessDocuments' },
