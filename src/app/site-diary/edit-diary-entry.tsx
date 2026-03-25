@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect } from 'react';
@@ -53,17 +54,18 @@ import {
   Pencil,
   Check,
   AlertTriangle,
-  Maximize2
+  Maximize2,
+  Upload
 } from 'lucide-react';
 import type { Project, DistributionUser, SubContractor, SiteDiaryEntry, SubcontractorLog, Photo } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { VoiceInput } from '@/components/voice-input';
-import { dataUriToBlob, uploadFile } from '@/lib/storage-utils';
+import { dataUriToBlob, uploadFile, optimizeImage } from '@/lib/storage-utils';
 import Image from 'next/image';
 import { cn, scrollToFirstError } from '@/lib/utils';
 import { ImageLightbox } from '@/components/image-lightbox';
@@ -193,6 +195,76 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
     if (editingLogIdx === idx) setEditingLogIdx(null);
   };
 
+  const onCapture = (photo: Photo) => {
+    startTransition(async () => {
+      try {
+        const blob = await dataUriToBlob(photo.url);
+        const url = await uploadFile(storage, `site-diary/photos/${entry.id}-${Date.now()}.jpg`, blob);
+        const updatedPhoto = { ...photo, url };
+        
+        await updateDoc(doc(db, 'site-diary', entry.id), {
+          photos: arrayUnion(updatedPhoto)
+        });
+        
+        setPhotos(prev => [...prev, updatedPhoto]);
+        toast({ title: 'Photo Saved', description: 'Real-time sync complete.' });
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to autosave photo.', variant: 'destructive' });
+      }
+    });
+    setIsCameraOpen(false);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles) return;
+
+    Array.from(selectedFiles).forEach(f => {
+      const reader = new FileReader();
+      reader.onload = async (re) => {
+        startTransition(async () => {
+          try {
+            const dataUri = re.target?.result as string;
+            const optimized = await optimizeImage(dataUri);
+            const blob = await dataUriToBlob(optimized);
+            const url = await uploadFile(storage, `site-diary/photos/${entry.id}-${Date.now()}.jpg`, blob);
+            
+            const newPhoto = { url, takenAt: new Date().toISOString() };
+            
+            await updateDoc(doc(db, 'site-diary', entry.id), {
+              photos: arrayUnion(newPhoto)
+            });
+            
+            setPhotos(prev => [...prev, newPhoto]);
+          } catch (err) {
+            toast({ title: 'Sync Error', description: 'Failed to upload image.', variant: 'destructive' });
+          }
+        });
+      };
+      reader.readAsDataURL(f);
+    });
+    e.target.value = '';
+  };
+
+  const removePhoto = (idx: number) => {
+    const updatedPhotos = photos.filter((_, i) => i !== idx);
+    setPhotos(updatedPhotos);
+    updateDoc(doc(db, 'site-diary', entry.id), { photos: updatedPhotos });
+  };
+
+  const handleMetadataBlur = () => {
+    const values = form.getValues();
+    updateDoc(doc(db, 'site-diary', entry.id), {
+      projectId: values.projectId,
+      date: values.date,
+      weather: {
+        condition: values.weatherCondition,
+        temp: values.temp,
+      },
+      generalComments: values.generalComments || '',
+    });
+  };
+
   const onSubmit = (values: EditDiaryFormValues) => {
     if (logs.length === 0) {
       setPendingValues(values);
@@ -205,18 +277,7 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
   const executeSave = (values: EditDiaryFormValues) => {
     startTransition(async () => {
       try {
-        const uploadedPhotos = await Promise.all(
-          photos.map(async (p, i) => {
-            if (p.url.startsWith('data:')) {
-              const blob = await dataUriToBlob(p.url);
-              const url = await uploadFile(storage, `site-diary/photos/${Date.now()}-${i}.jpg`, blob);
-              return { ...p, url };
-            }
-            return p;
-          })
-        );
-
-        const updates = {
+        await updateDoc(doc(db, 'site-diary', entry.id), {
           projectId: values.projectId,
           date: values.date,
           weather: {
@@ -225,22 +286,13 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
           },
           subcontractorLogs: logs as any,
           generalComments: values.generalComments || '',
-          photos: uploadedPhotos,
-        };
-
-        await updateDoc(doc(db, 'site-diary', entry.id), updates);
+        });
         toast({ title: 'Success', description: 'Site diary entry updated.' });
         setOpen(false);
       } catch (err) {
-        console.error(err);
         toast({ title: 'Error', description: 'Failed to update entry.', variant: 'destructive' });
       }
     });
-  };
-
-  const onCapture = (photo: Photo) => {
-    setPhotos(prev => [...prev, photo]);
-    setIsCameraOpen(false);
   };
 
   return (
@@ -256,9 +308,14 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
           className="sm:max-w-3xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
-            <DialogTitle>Edit Daily Log</DialogTitle>
-            <DialogDescription>Update weather, trade resources, or activities for this record.</DialogDescription>
+          <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0 flex flex-row items-center justify-between">
+            <div>
+                <DialogTitle>Edit Daily Log</DialogTitle>
+                <DialogDescription>Update weather, trade resources, or activities for this record.</DialogDescription>
+            </div>
+            <div className="hidden sm:block">
+                <Badge variant="outline" className="font-mono text-[10px] bg-background">AUTOSAVE ACTIVE</Badge>
+            </div>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8 bg-muted/5">
@@ -269,14 +326,14 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
                     <FormField control={form.control} name="projectId" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Project</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={(v) => { field.onChange(v); handleMetadataBlur(); }} value={field.value}>
                           <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
                           <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                         </Select>
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="date" render={({ field }) => (
-                      <FormItem><FormLabel>Log Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
+                      <FormItem><FormLabel>Log Date</FormLabel><FormControl><Input type="date" {...field} onBlur={handleMetadataBlur} /></FormControl></FormItem>
                     )} />
                   </div>
 
@@ -286,7 +343,7 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
                     <FormField control={form.control} name="weatherCondition" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Weather Condition</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={(v) => { field.onChange(v); handleMetadataBlur(); }} value={field.value}>
                           <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                           <SelectContent>
                             {WEATHER_CONDITIONS.map(w => (
@@ -307,7 +364,7 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
                         <FormControl>
                           <div className="relative">
                             <Thermometer className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input type="number" className="pl-9" {...field} />
+                            <Input type="number" className="pl-9" {...field} onBlur={handleMetadataBlur} />
                           </div>
                         </FormControl>
                       </FormItem>
@@ -405,15 +462,18 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
                     <FormItem>
                       <div className="flex justify-between items-center">
                         <FormLabel>General Site Comments</FormLabel>
-                        <VoiceInput onResult={field.onChange} />
+                        <VoiceInput onResult={(text) => { field.onChange(text); handleMetadataBlur(); }} />
                       </div>
-                      <FormControl><Textarea placeholder="Major activities, deliveries, or safety observations..." className="min-h-[100px]" {...field} /></FormControl>
+                      <FormControl><Textarea placeholder="Major activities, deliveries, or safety observations..." className="min-h-[100px]" {...field} onBlur={handleMetadataBlur} /></FormControl>
                     </FormItem>
                   )} />
                 </div>
 
                 <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
-                  <FormLabel>Daily Visual Records</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel className="text-sm font-bold">Daily Visual Records</FormLabel>
+                    <Badge variant="outline" className="text-[8px] font-black uppercase">Stored in real-time</Badge>
+                  </div>
                   <div className="flex flex-wrap gap-3">
                     {photos.map((p, i) => (
                       <div key={i} className="relative w-24 h-24 group cursor-pointer" onClick={() => setViewingPhoto(p)}>
@@ -424,7 +484,7 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
                         <button 
                           type="button" 
                           className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-destructive text-white flex items-center justify-center shadow-lg z-10" 
-                          onClick={(e) => { e.stopPropagation(); setPhotos(photos.filter((_, idx) => idx !== i)); }}
+                          onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -432,7 +492,18 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
                     ))}
                     <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}>
                       <Camera className="h-6 w-6 text-muted-foreground" />
-                      <span className="text-[10px] font-bold uppercase">Photo</span>
+                      <span className="text-[10px] font-bold uppercase">Camera</span>
+                    </Button>
+                    <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => {
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.multiple = true;
+                        input.onchange = (e: any) => handleFileSelect(e);
+                        input.click();
+                    }}>
+                      <Upload className="h-6 w-6 text-muted-foreground" />
+                      <span className="text-[10px] font-bold uppercase">Upload</span>
                     </Button>
                   </div>
                 </div>
@@ -443,7 +514,7 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
           <DialogFooter className="p-6 bg-white border-t shrink-0">
             <Button className="w-full h-12 text-lg font-bold shadow-lg shadow-primary/20" onClick={form.handleSubmit(onSubmit, () => scrollToFirstError())} disabled={isPending}>
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Save Changes
+              Done & Close
             </Button>
           </DialogFooter>
         </DialogContent>
