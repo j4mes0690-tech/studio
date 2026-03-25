@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -97,6 +97,7 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
   const [logs, setLogs] = useState<Omit<SubcontractorLog, 'id'>[]>([]);
@@ -493,14 +494,7 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
                       <Camera className="h-6 w-6 text-muted-foreground" />
                       <span className="text-[10px] font-bold uppercase">Camera</span>
                     </Button>
-                    <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => {
-                        const input = document.createElement('input');
-                        input.type = 'file';
-                        input.accept = 'image/*';
-                        input.multiple = true;
-                        input.onchange = (e: any) => handleFileSelect(e);
-                        input.click();
-                    }}>
+                    <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => fileInputRef.current?.click()}>
                       <Upload className="h-6 w-6 text-muted-foreground" />
                       <span className="text-[10px] font-bold uppercase">Upload</span>
                     </Button>
@@ -553,6 +547,8 @@ export function EditDiaryEntry({ entry, projects, subContractors, currentUser }:
         onCapture={onCapture} 
         title="Update Site Documentation"
       />
+
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileSelect} />
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>

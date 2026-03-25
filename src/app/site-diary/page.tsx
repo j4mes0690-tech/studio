@@ -152,6 +152,7 @@ function SiteDiaryContent() {
             projects={allowedProjects} 
             subContractors={allSubContractors || []}
             currentUser={profile}
+            allEntries={allEntries || []}
           />
         </div>
       </div>

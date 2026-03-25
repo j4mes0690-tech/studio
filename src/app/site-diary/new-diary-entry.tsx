@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useMemo, useEffect } from 'react';
+import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -88,15 +88,17 @@ const WEATHER_CONDITIONS = [
   { label: 'Mixed', icon: CloudRain },
 ];
 
-export function NewDiaryEntry({ projects, subContractors, currentUser }: { 
+export function NewDiaryEntry({ projects, subContractors, currentUser, allEntries }: { 
   projects: Project[]; 
   subContractors: SubContractor[];
   currentUser: DistributionUser;
+  allEntries: SiteDiaryEntry[];
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
 
   const [activeDiaryId, setActiveDiaryId] = useState<string | null>(null);
@@ -127,6 +129,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
   });
 
   const selectedProjectId = form.watch('projectId');
+  const selectedDate = form.watch('date');
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
   const availableAreas = selectedProject?.areas || [];
   
@@ -136,12 +139,26 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
     return (subContractors || []).filter(sub => assignedIds.includes(sub.id));
   }, [selectedProjectId, selectedProject, subContractors]);
 
+  const checkForDuplicate = (projId: string, dateStr: string) => {
+    return allEntries.find(e => e.projectId === projId && e.date === dateStr);
+  };
+
   const ensureDiaryCreated = async (): Promise<string | null> => {
     if (activeDiaryId) return activeDiaryId;
     
     const values = form.getValues();
     if (!values.projectId) {
         toast({ title: 'Project Required', description: 'Select a project before capturing photos.', variant: 'destructive' });
+        return null;
+    }
+
+    const existing = checkForDuplicate(values.projectId, values.date);
+    if (existing) {
+        toast({ 
+            title: 'Log Already Exists', 
+            description: `A site diary for this project has already been recorded for ${new Date(values.date).toLocaleDateString()}. Please edit the existing entry instead.`, 
+            variant: 'destructive' 
+        });
         return null;
     }
 
@@ -302,6 +319,16 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
   };
 
   const onSubmit = (values: NewDiaryFormValues) => {
+    const existing = checkForDuplicate(values.projectId, values.date);
+    if (existing && existing.id !== activeDiaryId) {
+        toast({ 
+            title: 'Duplicate Entry', 
+            description: 'A site diary already exists for this project on this date. Please edit the existing entry.', 
+            variant: 'destructive' 
+        });
+        return;
+    }
+
     if (logs.length === 0) {
       setPendingValues(values);
       setShowLabourWarning(true);
@@ -575,14 +602,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
                       <Camera className="h-6 w-6 text-muted-foreground" />
                       <span className="text-[10px] font-bold uppercase">Camera</span>
                     </Button>
-                    <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => {
-                        const input = document.createElement('input');
-                        input.type = 'file';
-                        input.accept = 'image/*';
-                        input.multiple = true;
-                        input.onchange = (e: any) => handleFileSelect(e);
-                        input.click();
-                    }}>
+                    <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => fileInputRef.current?.click()}>
                       <Upload className="h-6 w-6 text-muted-foreground" />
                       <span className="text-[10px] font-bold uppercase">Upload</span>
                     </Button>
@@ -635,6 +655,8 @@ export function NewDiaryEntry({ projects, subContractors, currentUser }: {
         onCapture={onCapture} 
         title="Site Progress Documentation"
       />
+
+      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" multiple onChange={handleFileSelect} />
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
