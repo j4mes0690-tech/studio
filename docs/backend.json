@@ -53,18 +53,18 @@
     },
     "SiteProgressPhoto": {
       "title": "Site Progress Photo",
-      "description": "A single photo of site progress linked to a project and optional area.",
+      "description": "A record of site progress photos linked to a project and optional area.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "projectId": { "type": "string" },
         "areaId": { "type": "string", "nullable": true },
         "description": { "type": "string" },
-        "photo": { "$ref": "#/backend/entities/Photo" },
+        "photos": { "type": "array", "items": { "$ref": "#/backend/entities/Photo" } },
         "createdAt": { "type": "string", "format": "date-time" },
         "createdByEmail": { "type": "string" }
       },
-      "required": ["id", "projectId", "photo", "createdAt"]
+      "required": ["id", "projectId", "photos", "createdAt"]
     },
     "DrawingDocument": {
       "title": "Drawing Document",

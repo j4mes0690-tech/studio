@@ -30,7 +30,7 @@ export type SiteProgressPhoto = {
   projectId: string;
   areaId: string | null;
   description?: string;
-  photo: Photo;
+  photos: Photo[];
   createdAt: string;
   createdByEmail: string;
 };
