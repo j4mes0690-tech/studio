@@ -9,7 +9,7 @@ import {
     BrainCircuit, 
     X, 
     Send, 
-    Loader2, 
+    Loader2,
     MessageSquare, 
     Sparkles,
     User,

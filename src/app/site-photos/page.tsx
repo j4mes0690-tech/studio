@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Suspense, useMemo, useState, useEffect } from 'react';
@@ -12,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import { AddPhotoDialog } from './add-photo-dialog';
 import { PhotoCard } from './photo-card';
 import { ImageLightbox } from '@/components/image-lightbox';
