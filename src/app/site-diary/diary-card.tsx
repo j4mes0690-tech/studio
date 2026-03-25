@@ -38,6 +38,7 @@ import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { EditDiaryEntry } from './edit-diary-entry';
+import { ViewDiaryEntry } from './view-diary-entry';
 
 const WEATHER_ICONS: Record<string, any> = {
   'Sunny': Sun,
@@ -64,6 +65,7 @@ export function DiaryCard({
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
 
   const WeatherIcon = WEATHER_ICONS[entry.weather.condition] || Cloud;
 
@@ -71,7 +73,8 @@ export function DiaryCard({
     return entry.subcontractorLogs.reduce((sum, log) => sum + (log.operativeCount || (log as any).employeeCount || 0), 0);
   }, [entry.subcontractorLogs]);
 
-  const handleDelete = () => {
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation();
     startTransition(async () => {
       const docRef = doc(db, 'site-diary', entry.id);
       await deleteDoc(docRef);
@@ -81,7 +84,10 @@ export function DiaryCard({
 
   return (
     <>
-      <Card className="hover:border-primary transition-all shadow-sm overflow-hidden group">
+      <Card 
+        className="hover:border-primary transition-all shadow-sm overflow-hidden group cursor-pointer"
+        onClick={() => setIsViewOpen(true)}
+      >
         <CardHeader className="bg-muted/10 pb-3">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
@@ -99,7 +105,7 @@ export function DiaryCard({
                 <Building2 className="h-3 w-3 text-muted-foreground" /> {project?.name || 'Unknown Project'}
               </CardDescription>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
                 <EditDiaryEntry 
                     entry={entry} 
                     projects={projects} 
@@ -143,7 +149,7 @@ export function DiaryCard({
           <div className="space-y-2">
               <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest px-1">Resource Breakdown</p>
               <div className="space-y-1">
-                  {entry.subcontractorLogs.map((log, idx) => (
+                  {entry.subcontractorLogs.slice(0, 3).map((log, idx) => (
                       <div key={idx} className="flex items-center justify-between p-2 rounded bg-muted/20 border border-transparent hover:border-border transition-colors">
                           <div className="min-w-0 flex-1">
                               <p className="text-xs font-bold truncate">{log.subcontractorName}</p>
@@ -154,6 +160,9 @@ export function DiaryCard({
                           <span className="text-xs font-black text-primary">{log.operativeCount || (log as any).employeeCount || 0}</span>
                       </div>
                   ))}
+                  {entry.subcontractorLogs.length > 3 && (
+                      <p className="text-[10px] text-center text-muted-foreground pt-1 font-bold italic">+{entry.subcontractorLogs.length - 3} more trades</p>
+                  )}
               </div>
           </div>
 
@@ -163,7 +172,7 @@ export function DiaryCard({
                       <MessageSquare className="h-3 w-3" />
                       <span>Activity Log</span>
                   </div>
-                  <p className="text-xs text-foreground leading-relaxed bg-muted/10 p-3 rounded border border-dashed italic">
+                  <p className="text-xs text-foreground leading-relaxed bg-muted/10 p-3 rounded border border-dashed italic line-clamp-3">
                       "{entry.generalComments}"
                   </p>
               </div>
@@ -171,18 +180,28 @@ export function DiaryCard({
 
           {entry.photos && entry.photos.length > 0 && (
               <div className="flex gap-2 flex-wrap">
-                  {entry.photos.map((p, i) => (
-                      <div key={i} className="relative w-12 h-12 rounded-lg border overflow-hidden cursor-pointer hover:scale-105 transition-transform" onClick={() => setViewingPhoto(p)}>
+                  {entry.photos.slice(0, 4).map((p, i) => (
+                      <div key={i} className="relative w-12 h-12 rounded-lg border overflow-hidden cursor-pointer hover:scale-105 transition-transform" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
                           <Image src={p.url} alt="Diary" fill className="object-cover" />
                           <div className="absolute inset-0 bg-black/10 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                               <Maximize2 className="h-3 w-3 text-white" />
                           </div>
                       </div>
                   ))}
+                  {entry.photos.length > 4 && (
+                      <div className="w-12 h-12 rounded-lg border bg-muted flex items-center justify-center text-[10px] font-bold text-muted-foreground">+{entry.photos.length - 4}</div>
+                  )}
               </div>
           )}
         </CardContent>
       </Card>
+
+      <ViewDiaryEntry 
+        entry={entry} 
+        project={project} 
+        open={isViewOpen} 
+        onOpenChange={setIsViewOpen} 
+      />
 
       <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>

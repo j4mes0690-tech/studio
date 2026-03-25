@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { EditDiaryEntry } from './edit-diary-entry';
+import { ViewDiaryEntry } from './view-diary-entry';
 
 type SortKey = 'date' | 'project' | 'resources' | 'weather';
 type SortOrder = 'asc' | 'desc';
@@ -144,6 +145,7 @@ function DiaryRow({
 }) {
   const db = useFirestore();
   const [isPending, startTransition] = useTransition();
+  const [isViewOpen, setIsViewOpen] = useState(false);
 
   const totalPersonnel = entry.subcontractorLogs.reduce((sum, log) => sum + (log.operativeCount || (log as any).employeeCount || 0), 0);
 
@@ -154,51 +156,60 @@ function DiaryRow({
   };
 
   return (
-    <TableRow>
-      <TableCell className="font-bold">
-        <ClientDate date={entry.date} format="date" />
-      </TableCell>
-      <TableCell className="font-medium text-xs truncate max-w-[180px]">{project?.name || '---'}</TableCell>
-      <TableCell>
-        <div className="flex items-center gap-2 text-xs">
-            <Cloud className="h-3 w-3 text-muted-foreground" />
-            {entry.weather.condition} {entry.weather.temp && `(${entry.weather.temp}°C)`}
-        </div>
-      </TableCell>
-      <TableCell className="text-center font-bold text-primary">
-        <div className="flex items-center justify-center gap-1.5">
-            <Users className="h-3 w-3" />
-            {totalPersonnel}
-        </div>
-      </TableCell>
-      <TableCell className="text-xs text-muted-foreground truncate max-w-[250px]">
-        {entry.generalComments || 'No activity log recorded.'}
-      </TableCell>
-      <TableCell className="text-right">
-        <div className="flex items-center justify-end gap-1">
-          <EditDiaryEntry 
-            entry={entry} 
-            projects={projects} 
-            subContractors={subContractors} 
-            currentUser={currentUser} 
-          />
-          
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader><AlertDialogTitle>Delete Log?</AlertDialogTitle><AlertDialogDescription>Permanently remove the diary entry for this date.</AlertDialogDescription></AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </TableCell>
-    </TableRow>
+    <>
+      <TableRow className="cursor-pointer" onClick={() => setIsViewOpen(true)}>
+        <TableCell className="font-bold">
+          <ClientDate date={entry.date} format="date" />
+        </TableCell>
+        <TableCell className="font-medium text-xs truncate max-w-[180px]">{project?.name || '---'}</TableCell>
+        <TableCell>
+          <div className="flex items-center gap-2 text-xs">
+              <Cloud className="h-3 w-3 text-muted-foreground" />
+              {entry.weather.condition} {entry.weather.temp && `(${entry.weather.temp}°C)`}
+          </div>
+        </TableCell>
+        <TableCell className="text-center font-bold text-primary">
+          <div className="flex items-center justify-center gap-1.5">
+              <Users className="h-3 w-3" />
+              {totalPersonnel}
+          </div>
+        </TableCell>
+        <TableCell className="text-xs text-muted-foreground truncate max-w-[250px]">
+          {entry.generalComments || 'No activity log recorded.'}
+        </TableCell>
+        <TableCell className="text-right">
+          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
+            <EditDiaryEntry 
+              entry={entry} 
+              projects={projects} 
+              subContractors={subContractors} 
+              currentUser={currentUser} 
+            />
+            
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader><AlertDialogTitle>Delete Log?</AlertDialogTitle><AlertDialogDescription>Permanently remove the diary entry for this date.</AlertDialogDescription></AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive" disabled={isPending}>Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </TableCell>
+      </TableRow>
+
+      <ViewDiaryEntry 
+        entry={entry} 
+        project={project} 
+        open={isViewOpen} 
+        onOpenChange={setIsViewOpen} 
+      />
+    </>
   );
 }
