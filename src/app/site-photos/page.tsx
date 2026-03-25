@@ -172,7 +172,7 @@ function SitePhotosContent() {
                             key={p.id} 
                             photoRecord={p} 
                             project={allProjects?.find(proj => proj.id === p.projectId)}
-                            onView={() => setViewingPhoto(p.photo)}
+                            onView={(photo) => setViewingPhoto(photo)}
                         />
                     ))}
                 </div>

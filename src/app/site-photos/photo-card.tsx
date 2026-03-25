@@ -1,14 +1,12 @@
-
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useTransition } from 'react';
 import type { SiteProgressPhoto, Project, Photo } from '@/lib/types';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Maximize2, Trash2, MapPin, Building2, User, Clock, Loader2, Images } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -24,19 +22,19 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ImageLightbox } from '@/components/image-lightbox';
 
 export function PhotoCard({ 
   photoRecord, 
   project,
+  onView
 }: { 
   photoRecord: SiteProgressPhoto; 
   project?: Project;
+  onView: (photo: Photo) => void;
 }) {
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
   const area = project?.areas?.find(a => a.id === photoRecord.areaId);
   const primaryPhoto = photoRecord.photos?.[0];
@@ -53,11 +51,12 @@ export function PhotoCard({
   if (!primaryPhoto) return null;
 
   return (
-    <>
+    <div className="flex flex-col gap-1">
       <Card 
-        className="group relative overflow-hidden transition-all hover:shadow-lg border-primary/10 hover:border-primary/30 h-full flex flex-col"
+        className="group relative overflow-hidden transition-all hover:shadow-lg border-primary/10 hover:border-primary/30 h-full flex flex-col cursor-pointer"
+        onClick={() => onView(primaryPhoto)}
       >
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted cursor-pointer" onClick={() => setViewingPhoto(primaryPhoto)}>
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
           <Image 
             src={primaryPhoto.url} 
             alt={photoRecord.description || 'Site Progress'} 
@@ -82,7 +81,7 @@ export function PhotoCard({
                   <AlertDialogContent onClick={e => e.stopPropagation()}>
                       <AlertDialogHeader>
                           <AlertDialogTitle>Remove Documentation?</AlertDialogTitle>
-                          <AlertDialogDescription>Permanently delete this record and all ${photoCount} associated photos.</AlertDialogDescription>
+                          <AlertDialogDescription>Permanently delete this record and all {photoCount} associated photos.</AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -92,7 +91,14 @@ export function PhotoCard({
                       </AlertDialogFooter>
                   </AlertDialogContent>
               </AlertDialog>
-              <Button variant="secondary" size="icon" className="h-8 w-8 shadow-xl"><Maximize2 className="h-4 w-4" /></Button>
+              <Button 
+                variant="secondary" 
+                size="icon" 
+                className="h-8 w-8 shadow-xl"
+                onClick={(e) => { e.stopPropagation(); onView(primaryPhoto); }}
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
           </div>
 
           <div className="absolute top-2 left-2 z-10">
@@ -138,7 +144,11 @@ export function PhotoCard({
       {photoCount > 1 && (
           <div className="flex gap-1 mt-1 overflow-x-auto no-scrollbar">
               {photoRecord.photos.slice(1, 5).map((p, idx) => (
-                  <div key={idx} className="relative w-10 h-8 rounded border overflow-hidden cursor-pointer shrink-0" onClick={() => setViewingPhoto(p)}>
+                  <div 
+                    key={idx} 
+                    className="relative w-10 h-8 rounded border overflow-hidden cursor-pointer shrink-0" 
+                    onClick={(e) => { e.stopPropagation(); onView(p); }}
+                  >
                       <Image src={p.url} alt="site" fill className="object-cover" />
                   </div>
               ))}
@@ -147,8 +157,6 @@ export function PhotoCard({
               )}
           </div>
       )}
-
-      <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
-    </>
+    </div>
   );
 }

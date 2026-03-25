@@ -245,12 +245,20 @@ export function AddPhotoDialog({ projects, currentUser }: { projects: Project[],
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 min-h-[120px] bg-muted/5 p-4 rounded-xl border-2 border-dashed border-muted">
                         {photos.map((p, i) => (
-                            <div key={i} className="relative aspect-video rounded-lg overflow-hidden border shadow-sm group">
-                                <Image src={p.url} alt="Site" fill className="object-cover cursor-pointer" onClick={() => setViewingPhoto(p)} />
+                            <div 
+                                key={i} 
+                                className="relative aspect-video rounded-lg overflow-hidden border shadow-sm group cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}
+                            >
+                                <Image src={p.url} alt="Site" fill className="object-cover" />
                                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                     <Maximize2 className="h-4 w-4 text-white" />
                                 </div>
-                                <button type="button" className="absolute top-1 right-1 bg-destructive text-white h-5 w-5 rounded-full flex items-center justify-center shadow-lg" onClick={(e) => { e.stopPropagation(); removePhoto(i); }}>
+                                <button 
+                                    type="button" 
+                                    className="absolute top-1 right-1 bg-destructive text-white h-5 w-5 rounded-full flex items-center justify-center shadow-lg z-10" 
+                                    onClick={(e) => { e.stopPropagation(); removePhoto(i); }}
+                                >
                                     <X className="h-3 w-3" />
                                 </button>
                             </div>
