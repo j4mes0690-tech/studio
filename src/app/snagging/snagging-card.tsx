@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, SnaggingHistoryRecord, DistributionUser } from '@/lib/types';
@@ -294,7 +293,7 @@ export function SnaggingItemCard({
                                       subItem.status === 'closed' ? "bg-green-50 text-green-700 border-green-200" :
                                       subItem.status === 'provisionally-complete' ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-muted text-muted-foreground"
                                   )}>
-                                      {subItem.status.replace('-', ' ')}
+                                      {subItem.status.toUpperCase().replace('-', ' ')}
                                   </Badge>
                               </div>
                               
@@ -307,7 +306,7 @@ export function SnaggingItemCard({
                               {(subItem.photos && subItem.photos.length > 0) || (subItem.completionPhotos && subItem.completionPhotos.length > 0) ? (
                                 <div className="pl-7 flex flex-wrap gap-1.5 pt-2 mt-2 border-t border-dashed">
                                   {subItem.photos?.map((p, idx) => (
-                                    <div key={idx} className="relative w-12 h-9 md:w-16 md:h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
+                                    <div key={idx} className="relative w-12 h-9 md:w-16 md:h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border bg-background overflow-hidden group" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
                                       <Image src={p.url} alt="Defect" fill className="object-cover" />
                                       <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
                                           <Maximize2 className="h-3 w-3 text-white" />
@@ -315,7 +314,7 @@ export function SnaggingItemCard({
                                     </div>
                                   ))}
                                   {subItem.completionPhotos?.map((p, idx) => (
-                                    <div key={idx} className="relative w-12 h-9 md:w-16 md:h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border-2 border-green-200 bg-background overflow-hidden group" onClick={() => setViewingPhoto(p)}>
+                                    <div key={idx} className="relative w-12 h-9 md:w-16 md:h-12 cursor-pointer hover:opacity-80 transition-opacity rounded border-2 border-green-200 bg-background overflow-hidden group" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
                                       <Image src={p.url} alt="Fixed" fill className="object-cover" />
                                       <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <Maximize2 className="h-3 w-3 text-white" />
@@ -450,7 +449,7 @@ export function SnaggingItemCard({
                                                   {sub && <span className="text-[9px] font-bold text-primary uppercase tracking-tight truncate">{sub.name}</span>}
                                               </div>
                                           </div>
-                                          <Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[8px] md:text-[9px] uppercase font-bold h-4 px-1 whitespace-nowrap shrink-0'>{histItem.status}</Badge>
+                                          <Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[8px] md:text-[9px] uppercase font-bold h-4 px-1 whitespace-nowrap shrink-0'>{histItem.status.toUpperCase()}</Badge>
                                       </div>
                                       {(histItem.photos && histItem.photos.length > 0) || (histItem.completionPhotos && histItem.completionPhotos.length > 0) ? (
                                           <div className='pl-6 flex flex-wrap gap-1.5 pt-1 border-t border-dashed'>
