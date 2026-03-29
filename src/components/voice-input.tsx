@@ -41,8 +41,10 @@ export function VoiceInput({ onResult, className }: VoiceInputProps) {
     };
 
     recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
+      let transcript = event.results[0][0].transcript;
       if (transcript) {
+        // Capitalize the first letter for professional documentation
+        transcript = transcript.charAt(0).toUpperCase() + transcript.slice(1);
         onResult(transcript);
       }
     };
