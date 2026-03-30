@@ -115,7 +115,7 @@ export function SnaggingItemCard({
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
   const totalItems = item.items?.length || 0;
-  const closedItems = item.items?.filter(i => i.status === 'closed').length || 0;
+  const closedItems = item.items?.filter(i => (i.status || 'open') === 'closed').length || 0;
   const isComplete = totalItems > 0 && totalItems === closedItems;
 
   const sortedSubItems = useMemo(() => {
@@ -126,7 +126,7 @@ export function SnaggingItemCard({
         'provisionally-complete': 1,
         'closed': 2
       };
-      return statusWeight[a.status] - statusWeight[b.status];
+      return (statusWeight[a.status || 'open'] || 0) - (statusWeight[b.status || 'open'] || 0);
     });
   }, [item.items]);
 
@@ -259,15 +259,16 @@ export function SnaggingItemCard({
                 <div className="space-y-3 bg-muted/20 p-3 md:p-4 rounded-lg border shadow-inner">
                   {sortedSubItems?.map((subItem) => {
                       const sub = subContractors.find(s => s.id === subItem.subContractorId);
+                      const currentStatus = subItem.status || 'open';
                       
                       return (
                           <div key={subItem.id} className="p-2.5 md:p-3 rounded-lg bg-background border shadow-sm group">
                               <div className="flex items-start justify-between gap-3">
                                   <div className="flex items-start gap-2.5 min-w-0">
                                       <div className="mt-0.5 flex-shrink-0">
-                                          {subItem.status === 'closed' ? (
+                                          {currentStatus === 'closed' ? (
                                               <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5 text-green-500" />
-                                          ) : subItem.status === 'provisionally-complete' ? (
+                                          ) : currentStatus === 'provisionally-complete' ? (
                                               <Clock className="h-4 w-4 md:h-5 md:w-5 text-amber-500" />
                                           ) : (
                                               <Circle className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
@@ -276,7 +277,7 @@ export function SnaggingItemCard({
                                       <div className="flex flex-col min-w-0">
                                           <span className={cn(
                                                 "text-xs md:text-sm font-semibold leading-snug break-words", 
-                                                subItem.status === 'closed' && "line-through text-muted-foreground"
+                                                currentStatus === 'closed' && "line-through text-muted-foreground"
                                             )}>
                                               {subItem.description}
                                           </span>
@@ -290,10 +291,10 @@ export function SnaggingItemCard({
                                   
                                   <Badge variant="outline" className={cn(
                                       "text-[8px] md:text-[9px] font-black uppercase tracking-tighter h-4 px-1.5 whitespace-nowrap shrink-0",
-                                      subItem.status === 'closed' ? "bg-green-50 text-green-700 border-green-200" :
-                                      subItem.status === 'provisionally-complete' ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-muted text-muted-foreground"
+                                      currentStatus === 'closed' ? "bg-green-50 text-green-700 border-green-200" :
+                                      currentStatus === 'provisionally-complete' ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-muted text-muted-foreground"
                                   )}>
-                                      {subItem.status.toUpperCase().replace('-', ' ')}
+                                      {currentStatus.toUpperCase().replace('-', ' ')}
                                   </Badge>
                               </div>
                               
@@ -439,17 +440,18 @@ export function SnaggingItemCard({
                       <div className="space-y-3 pt-2 pb-10">
                           {viewingHistoryRecord?.items.map((histItem) => {
                               const sub = subContractors.find(s => s.id === histItem.subContractorId);
+                              const histStatus = histItem.status || 'open';
                               return (
                                   <div key={histItem.id} className="p-3 border rounded-lg bg-background shadow-sm space-y-3">
                                       <div className="flex items-start justify-between gap-3">
                                           <div className="flex items-start gap-2.5 min-w-0">
-                                              {histItem.status === 'closed' ? <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />}
+                                              {histStatus === 'closed' ? <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5 shrink-0" /> : <Circle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />}
                                               <div className='flex flex-col min-w-0'>
-                                                  <span className={cn("text-xs md:text-sm font-semibold", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span>
+                                                  <span className={cn("text-xs md:text-sm font-semibold", histStatus === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span>
                                                   {sub && <span className="text-[9px] font-bold text-primary uppercase tracking-tight truncate">{sub.name}</span>}
                                               </div>
                                           </div>
-                                          <Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[8px] md:text-[9px] uppercase font-bold h-4 px-1 whitespace-nowrap shrink-0'>{histItem.status.toUpperCase()}</Badge>
+                                          <Badge variant={histStatus === 'closed' ? "secondary" : "outline"} className='text-[8px] md:text-[9px] uppercase font-bold h-4 px-1 whitespace-nowrap shrink-0'>{histStatus.toUpperCase()}</Badge>
                                       </div>
                                       {(histItem.photos && histItem.photos.length > 0) || (histItem.completionPhotos && histItem.completionPhotos.length > 0) ? (
                                           <div className='pl-6 flex flex-wrap gap-1.5 pt-1 border-t border-dashed'>
