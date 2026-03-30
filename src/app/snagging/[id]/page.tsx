@@ -390,7 +390,7 @@ function EditSnaggingContent() {
 
                             return (
                                 <div 
-                                    key={listItem.id} 
+                                    key={`${listItem.id}-${idx}`} 
                                     className={cn(
                                         "p-4 transition-all",
                                         isEditing ? "bg-primary/[0.03] ring-2 ring-inset ring-primary/20" : "hover:bg-muted/5 cursor-pointer"
@@ -578,8 +578,8 @@ function EditSnaggingContent() {
               </DialogHeader>
               <div className='flex-1 overflow-y-auto px-6 py-4'>
                   <div className="space-y-4">
-                      {viewingHistoryRecord?.items.map((histItem) => (
-                          <div key={histItem.id} className="p-3 border rounded-lg bg-background flex items-center justify-between">
+                      {viewingHistoryRecord?.items.map((histItem, idx) => (
+                          <div key={`${histItem.id}-${idx}`} className="p-3 border rounded-lg bg-background flex items-center justify-between">
                               <span className={cn("text-sm font-medium", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span>
                               <Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold'>{histItem.status}</Badge>
                           </div>
