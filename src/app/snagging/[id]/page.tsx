@@ -13,7 +13,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useDoc, useCollection, useUser, useStorage, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection, query, orderBy, arrayUnion, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, query, orderBy, arrayUnion, deleteDoc, getDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord } from '@/lib/types';
@@ -101,12 +101,12 @@ function EditSnaggingContent() {
   const [viewingHistoryRecord, setViewingHistoryRecord] = useState<SnaggingHistoryRecord | null>(null);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
-  // Sync initial data
+  // Sync initial data - defensive to prevent clearing local state during updates
   useEffect(() => {
     if (item) {
-      setTitle(item.title || '');
-      setProjectId(item.projectId || '');
-      setAreaId(item.areaId || '');
+      setTitle(t => t || item.title || '');
+      setProjectId(p => p || item.projectId || '');
+      setAreaId(a => a || item.areaId || '');
       setItems(item.items || []);
       setPhotos(item.photos || []);
     }
@@ -138,13 +138,17 @@ function EditSnaggingContent() {
   const onCaptureGeneral = (photo: Photo) => {
     if (snagRef) {
       startTransition(async () => {
-        const blob = await dataUriToBlob(photo.url);
-        const url = await uploadFile(storage, `snagging/general/${id}-${Date.now()}.jpg`, blob);
-        const updatedPhoto = { ...photo, url };
-        await updateDoc(snagRef, {
-          photos: arrayUnion(updatedPhoto)
-        });
-        setPhotos(prev => [...prev, updatedPhoto]);
+        try {
+          const blob = await dataUriToBlob(photo.url);
+          const url = await uploadFile(storage, `snagging/general/${id}-${Date.now()}.jpg`, blob);
+          const updatedPhoto = { ...photo, url };
+          await updateDoc(snagRef, {
+            photos: arrayUnion(updatedPhoto)
+          });
+          setPhotos(prev => [...prev, updatedPhoto]);
+        } catch (err) {
+          toast({ title: 'Upload Failed', description: 'Could not sync photo to cloud.', variant: 'destructive' });
+        }
       });
     }
   };
@@ -152,17 +156,27 @@ function EditSnaggingContent() {
   const onCaptureItem = (photo: Photo) => {
     if (itemPhotoTargetId && snagRef) {
       startTransition(async () => {
-        const blob = await dataUriToBlob(photo.url);
-        const url = await uploadFile(storage, `snagging/items/${itemPhotoTargetId}-${Date.now()}.jpg`, blob);
-        const updatedPhoto = { ...photo, url };
-        
-        const newItems = items.map(itm => 
-          itm.id === itemPhotoTargetId 
-            ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } 
-            : itm
-        );
-        setItems(newItems);
-        await updateDoc(snagRef, { items: newItems });
+        try {
+          const blob = await dataUriToBlob(photo.url);
+          const url = await uploadFile(storage, `snagging/items/${itemPhotoTargetId}-${Date.now()}.jpg`, blob);
+          const updatedPhoto = { ...photo, url };
+          
+          // Re-fetch document to avoid overwriting other people's items
+          const docSnap = await getDoc(snagRef);
+          if (!docSnap.exists()) return;
+          const currentItems = docSnap.data().items || [];
+
+          const newItemsList = currentItems.map((itm: any) => 
+            itm.id === itemPhotoTargetId 
+              ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } 
+              : itm
+          );
+          
+          setItems(newItemsList);
+          await updateDoc(snagRef, { items: newItemsList });
+        } catch (err) {
+          toast({ title: 'Error', description: 'Failed to sync item photo.', variant: 'destructive' });
+        }
       });
       setItemPhotoTargetId(null);
     } else {
@@ -197,9 +211,16 @@ function EditSnaggingContent() {
                 subContractorId: pendingSubId === 'unassigned' ? null : pendingSubId,
                 completionPhotos: []
             };
-            const newItemsList = [...items, newItem];
+
+            // Re-fetch document to avoid overwriting other people's items
+            const docSnap = await getDoc(snagRef);
+            if (!docSnap.exists()) return;
+            const currentItems = docSnap.data().items || [];
+
+            const newItemsList = [...currentItems, newItem];
             setItems(newItemsList);
             await updateDoc(snagRef, { items: newItemsList });
+            
             setNewItemText('');
             setPendingSubId('unassigned');
             setPendingItemPhotos([]);
@@ -218,43 +239,86 @@ function EditSnaggingContent() {
 
   const handleSaveItemEdit = (itemId: string) => {
     if (!snagRef) return;
-    const newItemsList = items.map(i => 
-      i.id === itemId 
-        ? { ...i, description: editItemText, subContractorId: editItemSubId === 'unassigned' ? null : editItemSubId } 
-        : i
-    );
-    setItems(newItemsList);
-    updateDoc(snagRef, { items: newItemsList });
-    setEditingItemId(null);
+    
+    startTransition(async () => {
+        try {
+            const docSnap = await getDoc(snagRef);
+            if (!docSnap.exists()) return;
+            const currentItems = docSnap.data().items || [];
+
+            const newItemsList = currentItems.map((i: any) => 
+              i.id === itemId 
+                ? { ...i, description: editItemText, subContractorId: editItemSubId === 'unassigned' ? null : editItemSubId } 
+                : i
+            );
+            
+            setItems(newItemsList);
+            await updateDoc(snagRef, { items: newItemsList });
+            setEditingItemId(null);
+        } catch (err) {
+            toast({ title: 'Error', description: 'Failed to save changes.', variant: 'destructive' });
+        }
+    });
   };
 
   const handleRemoveItem = (e: React.MouseEvent, itemId: string) => {
     e.stopPropagation();
     if (!snagRef) return;
-    const newItemsList = items.filter(i => i.id !== itemId);
-    setItems(newItemsList);
-    updateDoc(snagRef, { items: newItemsList });
+
+    startTransition(async () => {
+        try {
+            const docSnap = await getDoc(snagRef);
+            if (!docSnap.exists()) return;
+            const currentItems = docSnap.data().items || [];
+
+            const newItemsList = currentItems.filter((i: any) => i.id !== itemId);
+            setItems(newItemsList);
+            await updateDoc(snagRef, { items: newItemsList });
+        } catch (err) {}
+    });
   };
 
   const handleToggleStatus = (e: React.MouseEvent, itemId: string) => {
     e.stopPropagation();
     if (!snagRef) return;
-    const newItemsList = items.map(i => i.id === itemId ? { ...i, status: (i.status === 'open' ? 'closed' : 'open') as any } : i);
-    setItems(newItemsList);
-    updateDoc(snagRef, { items: newItemsList });
+
+    startTransition(async () => {
+        try {
+            const docSnap = await getDoc(snagRef);
+            if (!docSnap.exists()) return;
+            const currentItems = docSnap.data().items || [];
+
+            const newItemsList = currentItems.map((i: any) => 
+                i.id === itemId 
+                    ? { ...i, status: (i.status === 'open' ? 'closed' : 'open') as any } 
+                    : i
+            );
+            setItems(newItemsList);
+            await updateDoc(snagRef, { items: newItemsList });
+        } catch (err) {}
+    });
   };
 
   const handleRemovePhoto = (e: React.MouseEvent, itemId: string, photoIdx: number) => {
     e.stopPropagation();
     if (!snagRef) return;
-    const newItemsList = items.map(itm => {
-        if (itm.id === itemId) {
-            return { ...itm, photos: (itm.photos || []).filter((_, i) => i !== photoIdx) };
-        }
-        return itm;
+
+    startTransition(async () => {
+        try {
+            const docSnap = await getDoc(snagRef);
+            if (!docSnap.exists()) return;
+            const currentItems = docSnap.data().items || [];
+
+            const newItemsList = currentItems.map((itm: any) => {
+                if (itm.id === itemId) {
+                    return { ...itm, photos: (itm.photos || []).filter((_: any, i: number) => i !== photoIdx) };
+                }
+                return itm;
+            });
+            setItems(newItemsList);
+            await updateDoc(snagRef, { items: newItemsList });
+        } catch (err) {}
     });
-    setItems(newItemsList);
-    updateDoc(snagRef, { items: newItemsList });
   };
 
   if (itemLoading || projectsLoading || subsLoading || profileLoading) {
@@ -547,7 +611,7 @@ function EditSnaggingContent() {
                         <div className="space-y-4 pr-4">
                             {history && history.length > 0 ? history.map((record, idx) => (
                                 <div 
-                                    key={record.id} 
+                                    key={`${record.id}-${idx}`} 
                                     className="relative pl-4 border-l-2 border-primary/20 pb-4 last:pb-0 cursor-pointer group/hist transition-all hover:bg-muted/30 rounded-r-md"
                                     onClick={() => setViewingHistoryRecord(record)}
                                 >

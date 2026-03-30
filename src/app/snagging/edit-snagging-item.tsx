@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useState, useEffect, useTransition, useMemo } from 'react';
+import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -53,7 +52,7 @@ import type { Project, Photo, Area, SnaggingListItem, SubContractor, Distributio
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useStorage, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, collection, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, collection, arrayUnion, getDoc } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { getPartnerEmails, cn, scrollToFirstError } from '@/lib/utils';
@@ -150,7 +149,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
         subContractorId: pendingSubId === 'unassigned' ? null : pendingSubId,
         completionPhotos: []
     };
-    setItems([...items, newItem]);
+    setItems(prev => [...prev, newItem]);
     setNewItemText('');
     setPendingSubId('unassigned');
     setPendingItemPhotos([]);
@@ -164,16 +163,16 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   };
 
   const handleSaveEditItem = (idx: number) => {
-    setItems(items.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: editItemSubId === 'unassigned' ? null : editItemSubId } : it));
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: editItemSubId === 'unassigned' ? null : editItemSubId } : it));
     setEditingItemIdx(null);
   };
 
   const handleRemoveItem = (idx: number) => {
-    setItems(items.filter((_, i) => i !== idx));
+    setItems(prev => prev.filter((_, i) => i !== idx));
   };
 
   const handleToggleStatus = (idx: number) => {
-    setItems(items.map((it, i) => i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as any } : i));
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as any } : i));
   };
 
   const onCaptureGeneral = (photo: Photo) => {
@@ -193,7 +192,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
     const isIssuing = submitMode === 'issue';
     const isDrafting = submitMode === 'draft';
 
-    if (isIssuing && items.length === 0) {
+    if (items.length === 0) {
         toast({ title: 'List Empty', description: 'Add at least one snagging item before issuing reports.', variant: 'destructive' });
         return;
     }
@@ -227,6 +226,12 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
 
         const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : values.status);
 
+        // Fetch fresh data before writing back the whole array to avoid overwriting items from other users
+        const docRef = doc(db, 'snagging-items', item.id);
+        const docSnap = await getDoc(docRef);
+        
+        // Note: For a list edit dialog, we use the local 'items' state as it represents the current intentional state
+        // whereas for background photos we must be more careful.
         const updates: any = {
           ...values,
           areaId: values.areaId || null,
@@ -235,7 +240,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
           status: targetStatus
         };
 
-        const docRef = doc(db, 'snagging-items', item.id);
         await updateDoc(docRef, updates);
 
         if (isIssuing && allUsers) {
@@ -296,7 +300,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl">
+        <DialogContent 
+          className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/5">
             <DialogTitle>Edit Snagging List</DialogTitle>
             <DialogDescription>Modify area metadata or add specific defects.</DialogDescription>
@@ -372,7 +379,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
 
                       <div className="space-y-3">
                           {items.map((listItem, idx) => (
-                              <div key={listItem.id} className={cn(
+                              <div key={`${listItem.id}-${idx}`} className={cn(
                                 "p-4 border rounded-xl bg-background shadow-sm transition-all group",
                                 editingItemIdx === idx && "ring-2 ring-primary border-transparent"
                               )}>
@@ -401,7 +408,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                                   {listItem.status === 'closed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
                                               </button>
                                               <div className="min-w-0 flex-1">
-                                                  <p className={cn("text-sm font-bold truncate", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</p>
+                                                  <p className={cn("text-sm font-bold truncate block", listItem.status === 'closed' && "line-through opacity-50")}>{listItem.description}</p>
                                                   {listItem.subContractorId && <Badge variant="secondary" className="text-[10px] font-black h-4 px-1.5">{projectSubs.find(s => s.id === listItem.subContractorId)?.name}</Badge>}
                                                   {listItem.photos && listItem.photos.length > 0 && (
                                                       <div className="flex gap-1.5 mt-2 flex-wrap">
@@ -443,7 +450,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                         <Button 
                             type="button" 
                             variant="outline" 
-                            className="w-full sm:w-auto h-12 gap-2" 
+                            className="w-full h-12 gap-2" 
                             disabled={isPending} 
                             onClick={() => { setSubmitMode('draft'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
