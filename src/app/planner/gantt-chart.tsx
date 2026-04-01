@@ -10,7 +10,7 @@ import {
     eachDayOfInterval, 
     startOfWeek, 
     isValid,
-    startOfDay
+    endOfWeek
 } from 'date-fns';
 import { cn, parseDateString, calculateFinishDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -20,8 +20,8 @@ import { ImageLightbox } from '@/components/image-lightbox';
 import Image from 'next/image';
 
 const DAY_WIDTH = 40; // px per day
-const TIMELINE_WEEKS = 4;
 const ROW_HEIGHT = 52; // px per task row
+const MIN_WEEKS = 12; // Minimum timeline width if no tasks exist
 
 function getTradeColor(id: string) {
   const colors = [
@@ -115,19 +115,43 @@ export function GanttChart({
 }) {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
-  // Robust timeline start point: This week's Monday at noon local time.
+  // Dynamic timeline start: Earliest task start or today, with a 1-week buffer
   const startDate = useMemo(() => {
-    const d = new Date();
-    const noon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
-    return startOfWeek(noon, { weekStartsOn: 1 });
-  }, []);
+    let minDate = new Date();
+    if (tasks.length > 0) {
+        tasks.forEach(t => {
+            const d = parseDateString(t.startDate);
+            if (isValid(d) && d < minDate) minDate = d;
+        });
+    }
+    const buffered = addDays(minDate, -7);
+    return startOfWeek(buffered, { weekStartsOn: 1 });
+  }, [tasks]);
 
-  const endDate = useMemo(() => addDays(startDate, TIMELINE_WEEKS * 7 - 1), [startDate]);
+  // Dynamic timeline end: Latest task finish or 12 weeks from start, with a 2-week buffer
+  const endDate = useMemo(() => {
+    let maxDate = addDays(startDate, MIN_WEEKS * 7);
+    if (tasks.length > 0) {
+        const sat = !!planner?.includeSaturday;
+        const sun = !!planner?.includeSunday;
+        tasks.forEach(t => {
+            const finishStr = t.status === 'completed' && t.actualCompletionDate 
+                ? t.actualCompletionDate 
+                : calculateFinishDate(t.startDate, t.durationDays, sat, sun);
+            const d = parseDateString(finishStr);
+            if (isValid(d) && d > maxDate) maxDate = d;
+        });
+    }
+    return endOfWeek(addDays(maxDate, 14), { weekStartsOn: 1 });
+  }, [startDate, tasks, planner]);
   
-  const timelineDays = useMemo(() => 
-    eachDayOfInterval({ start: startDate, end: endDate }), 
-    [startDate, endDate]
-  );
+  const timelineDays = useMemo(() => {
+    try {
+        return eachDayOfInterval({ start: startDate, end: endDate });
+    } catch (e) {
+        return [];
+    }
+  }, [startDate, endDate]);
 
   const chartWidth = timelineDays.length * DAY_WIDTH;
   const chartHeight = tasks.length * ROW_HEIGHT;
