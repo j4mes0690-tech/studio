@@ -256,7 +256,7 @@ function PlannerContent() {
         const projRef = doc(db, 'projects', currentProject.id);
         await updateDoc(projRef, { planners: updatedPlanners });
         toast({ 
-            title: isArchived ? 'Planner Restored' : 'Planner Archived', 
+            title: isArchived ? 'Record Restored' : 'Record Archived', 
             description: `Schedule has been ${isArchived ? 'restored to active view' : 'moved to archives'}.` 
         });
     });
@@ -547,7 +547,7 @@ function PlannerContent() {
   }
 
   return (
-    <main className="flex-1 flex flex-col w-full gap-6 p-4 md:p-8">
+    <main className="flex-1 flex flex-col w-full gap-6 p-4 md:p-8 overflow-hidden">
         <div className="flex flex-col gap-4">
             <div className="space-y-1">
                 <div className="flex items-center gap-2 mb-2">
@@ -627,8 +627,8 @@ function PlannerContent() {
             </div>
         </div>
 
-        {isGanttView ? (
-            <div className="overflow-x-auto pb-20">
+        <div className="flex-1 w-full overflow-hidden">
+            {isGanttView ? (
                 <GanttChart 
                     tasks={filteredTasks} 
                     subContractors={allSubContractors || []} 
@@ -636,66 +636,68 @@ function PlannerContent() {
                     planner={currentPlanner}
                     onTaskClick={(task) => setEditingTaskId(task.id)}
                 />
-            </div>
-        ) : (
-            <div className="grid gap-4 pb-20">
-            {filteredTasks.length > 0 ? (
-                filteredTasks.map(task => {
-                    const sub = allSubContractors?.find(s => s.id === task.subcontractorId);
-                    const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned Partner');
-                    
-                    return (
-                        <Card key={task.id} className="hover:border-primary transition-all overflow-hidden cursor-pointer" onClick={() => setEditingTaskId(task.id)}>
-                            <CardContent className="p-0 flex flex-col sm:flex-row items-stretch">
-                                <div className="p-4 flex flex-1 items-start gap-3 min-w-0">
-                                    <div className="mt-1">
-                                        {task.status === 'completed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : task.status === 'in-progress' ? <Loader2 className="h-5 w-5 text-primary animate-spin" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
-                                    </div>
-                                    <div className="space-y-2 min-w-0 flex-1">
-                                        <div className="space-y-1">
-                                            <p className={cn("font-bold truncate text-base", task.status === 'completed' && "line-through text-muted-foreground")}>{task.title}</p>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <Badge variant="secondary" className="text-[9px] uppercase font-black bg-primary/5 text-primary border-primary/10 tracking-tight">{tradeName}</Badge>
+            ) : (
+                <ScrollArea className="h-full pb-20">
+                    <div className="grid gap-4">
+                    {filteredTasks.length > 0 ? (
+                        filteredTasks.map(task => {
+                            const sub = allSubContractors?.find(s => s.id === task.subcontractorId);
+                            const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned Partner');
+                            
+                            return (
+                                <Card key={task.id} className="hover:border-primary transition-all overflow-hidden cursor-pointer" onClick={() => setEditingTaskId(task.id)}>
+                                    <CardContent className="p-0 flex flex-col sm:flex-row items-stretch">
+                                        <div className="p-4 flex flex-1 items-start gap-3 min-w-0">
+                                            <div className="mt-1">
+                                                {task.status === 'completed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : task.status === 'in-progress' ? <Loader2 className="h-5 w-5 text-primary animate-spin" /> : <Circle className="h-5 w-5 text-muted-foreground" />}
+                                            </div>
+                                            <div className="space-y-2 min-w-0 flex-1">
+                                                <div className="space-y-1">
+                                                    <p className={cn("font-bold truncate text-base", task.status === 'completed' && "line-through text-muted-foreground")}>{task.title}</p>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <Badge variant="secondary" className="text-[9px] uppercase font-black bg-primary/5 text-primary border-primary/10 tracking-tight">{tradeName}</Badge>
+                                                    </div>
+                                                </div>
+                                                
+                                                {task.photos && task.photos.length > 0 && (
+                                                    <div className="flex gap-2 flex-wrap pt-1">
+                                                        {task.photos.map((p, idx) => (
+                                                            <div key={idx} className="relative w-12 h-12 rounded-md border bg-muted overflow-hidden group cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
+                                                                <Image src={p.url} alt="Task Context" fill className="object-cover" />
+                                                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 flex items-center justify-center transition-opacity">
+                                                                    <Maximize2 className="h-3 w-3 text-white" />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                        
-                                        {task.photos && task.photos.length > 0 && (
-                                            <div className="flex gap-2 flex-wrap pt-1">
-                                                {task.photos.map((p, idx) => (
-                                                    <div key={idx} className="relative w-12 h-12 rounded-md border bg-muted overflow-hidden group cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
-                                                        <Image src={p.url} alt="Task Context" fill className="object-cover" />
-                                                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 flex items-center justify-center transition-opacity">
-                                                            <Maximize2 className="h-3 w-3 text-white" />
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                        <div className="p-4 bg-muted/10 border-t sm:border-t-0 sm:border-l flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-4 shrink-0">
+                                            <div className="text-right">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Forecast Start</p>
+                                                <p className="text-xs font-bold">{new Date(task.startDate).toLocaleDateString()}</p>
                                             </div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="p-4 bg-muted/10 border-t sm:border-t-0 sm:border-l flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-4 shrink-0">
-                                    <div className="text-right">
-                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Forecast Start</p>
-                                        <p className="text-xs font-bold">{new Date(task.startDate).toLocaleDateString()}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Planned Days</p>
-                                        <p className="text-xs font-bold">{task.durationDays}</p>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )
-                })
-            ) : (
-                <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/5 text-muted-foreground/40">
-                    <CalendarRange className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                    <p className="text-lg font-semibold">No activities scheduled for this planner</p>
-                    <p className="text-sm">Click "Add Task" to begin building your project schedule.</p>
-                </div>
+                                            <div className="text-right">
+                                                <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Planned Days</p>
+                                                <p className="text-xs font-bold">{task.durationDays}</p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )
+                        })
+                    ) : (
+                        <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/5 text-muted-foreground/40">
+                            <CalendarRange className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                            <p className="text-lg font-semibold">No activities scheduled for this planner</p>
+                            <p className="text-sm">Click "Add Task" to begin building your project schedule.</p>
+                        </div>
+                    )}
+                    </div>
+                </ScrollArea>
             )}
-            </div>
-        )}
+        </div>
 
         {editingTask && (
             <EditTaskDialog 

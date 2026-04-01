@@ -93,7 +93,7 @@ function getTaskSegments(
     }
     
     return segments.map(seg => ({
-        left: differenceInDays(seg.start, timelineStart) * DAY_WIDTH,
+        left: (differenceInDays(seg.start, timelineStart) * DAY_WIDTH),
         width: seg.days * DAY_WIDTH,
         isFirst: isSameDay(seg.start, start),
         isLast: isSameDay(addDays(seg.start, seg.days - 1), end)
@@ -172,7 +172,7 @@ export function GanttChart({
       const taskStart = parseDateString(task.startDate);
       if (!isValid(taskStart)) return;
 
-      const successorX = differenceInDays(taskStart, startDate) * DAY_WIDTH;
+      const successorX = (differenceInDays(taskStart, startDate) * DAY_WIDTH);
       const successorY = (taskIdx * ROW_HEIGHT) + (ROW_HEIGHT / 2);
 
       task.predecessorIds.forEach(predId => {
@@ -226,11 +226,14 @@ export function GanttChart({
 
   return (
     <>
-        <div id="planner-gantt-capture" className="bg-background border rounded-xl overflow-hidden shadow-sm">
-            <div className="flex flex-col min-w-max">
+        <div 
+            id="planner-gantt-container"
+            className="bg-background border rounded-xl shadow-sm overflow-x-auto overflow-y-hidden select-none"
+        >
+            <div id="planner-gantt-capture" className="min-w-max flex flex-col relative">
                 {/* Timeline Header */}
-                <div className="flex border-b bg-muted/30">
-                    <div className="w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end sticky left-0 z-30 bg-muted/30 backdrop-blur-sm">
+                <div className="flex border-b bg-muted/30 sticky top-0 z-40">
+                    <div className="w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end sticky left-0 z-50 bg-muted/30 backdrop-blur-md">
                         Work Activity
                     </div>
                     <div className="flex">
@@ -262,7 +265,7 @@ export function GanttChart({
                 {/* Gantt Body */}
                 <div className="flex">
                     {/* Left Column: Task Labels (Sticky) */}
-                    <div className="flex flex-col border-r shrink-0 w-64 bg-background sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                    <div className="flex flex-col border-r shrink-0 w-64 bg-background sticky left-0 z-30 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                         {tasks.map(task => {
                             const sub = subContractors.find(s => s.id === task.subcontractorId);
                             const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
