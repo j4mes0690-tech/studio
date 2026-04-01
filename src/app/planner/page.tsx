@@ -5,6 +5,7 @@ import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@
 import { collection, query, orderBy, doc, updateDoc, arrayUnion, writeBatch, where, getDocs, getDoc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense, useTransition } from 'react';
 import type { PlannerTask, Project, Planner, DistributionUser, Photo, SubContractor } from '@/lib/types';
+import Image from 'next/image';
 import { 
     Loader2, 
     CalendarRange, 
