@@ -21,16 +21,14 @@ import Image from 'next/image';
 import { Layers } from 'lucide-react';
 
 const DAY_WIDTH = 40; // px per day
-const ROW_HEIGHT = 60; // px per task row
+const ROW_HEIGHT = 72; // Increased to 72px per task row to prevent overlaps
 const SECTION_HEADER_HEIGHT = 32; // px per section header row
 const MIN_WEEKS = 12; // Minimum timeline width if no tasks exist
 
 function getTradeColor(id: string, subContractors: SubContractor[]) {
-  // First priority: Check if the subcontractor has a specific color set in their profile
   const sub = subContractors.find(s => s.id === id);
   if (sub?.color) return sub.color;
 
-  // Fallback: Algorithmic color generation
   const colors = [
     '#2563eb', '#ea580c', '#16a34a', '#7c3aed', '#db2777', 
     '#0891b2', '#4f46e5', '#059669', '#d97706', '#dc2626', 
@@ -124,12 +122,10 @@ export function GanttChart({
 }) {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
-  // Grouping logic: Organize tasks by section
   const groupedData = useMemo(() => {
     const groups: { section: PlannerSection | null, tasks: PlannerTask[] }[] = [];
     const sections = planner?.sections || [];
     
-    // 1. Add defined sections
     sections.forEach(s => {
         groups.push({ 
             section: s, 
@@ -137,7 +133,6 @@ export function GanttChart({
         });
     });
 
-    // 2. Add "General" group for tasks with no section
     const generalTasks = tasks.filter(t => !t.sectionId || !sections.some(s => s.id === t.sectionId));
     if (generalTasks.length > 0) {
         groups.push({ section: null, tasks: generalTasks });
@@ -146,7 +141,6 @@ export function GanttChart({
     return groups.filter(g => g.tasks.length > 0);
   }, [tasks, planner]);
 
-  // Flattened ordered list for row indexing (for dependency arrows)
   const flattenedTasks = useMemo(() => groupedData.flatMap(g => g.tasks), [groupedData]);
 
   const startDate = useMemo(() => {
@@ -196,7 +190,7 @@ export function GanttChart({
     let currentY = 0;
     
     groupedData.forEach((group) => {
-        currentY += SECTION_HEADER_HEIGHT; // Section Header
+        currentY += SECTION_HEADER_HEIGHT;
         group.tasks.forEach((t) => {
             map.set(t.id, { task: t, index: 0, yOffset: currentY });
             currentY += ROW_HEIGHT;
@@ -286,7 +280,6 @@ export function GanttChart({
             )}
         >
             <div id="planner-gantt-capture" className="min-w-max flex flex-col relative" style={{ width: chartWidth + 256 }}>
-                {/* Timeline Header */}
                 <div className={cn("flex border-b bg-muted/30", !isPrinting && "sticky top-0 z-40")}>
                     <div className={cn(
                         "w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end bg-muted/30",
@@ -320,9 +313,7 @@ export function GanttChart({
                     </div>
                 </div>
 
-                {/* Gantt Body */}
                 <div className="flex">
-                    {/* Left Column: Task Labels */}
                     <div className={cn(
                         "flex flex-col border-r shrink-0 w-64 bg-background",
                         !isPrinting && "sticky left-0 z-30 shadow-[2px_0_5px_rgba(0,0,0,0.05)]"
@@ -343,8 +334,8 @@ export function GanttChart({
                                     const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
                                     const tradeColor = getTradeColor(task.subcontractorId || '', subContractors);
                                     return (
-                                        <div key={task.id} className="border-b px-4 flex flex-col justify-center min-w-0 gap-1" style={{ height: ROW_HEIGHT }}>
-                                            <p className={cn("text-[11px] font-bold truncate leading-tight", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
+                                        <div key={task.id} className="border-b px-4 flex flex-col justify-center min-w-0 gap-1.5" style={{ height: ROW_HEIGHT }}>
+                                            <p className={cn("text-[11px] font-bold truncate leading-none m-0", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
                                             <Badge variant="outline" className="text-[8px] h-4 bg-background truncate w-fit max-w-full px-1.5" style={{ borderColor: `${tradeColor}40`, color: tradeColor }}>
                                                 {tradeName}
                                             </Badge>
@@ -355,9 +346,7 @@ export function GanttChart({
                         ))}
                     </div>
 
-                    {/* Right Column: Bars & Grid */}
                     <div className="relative flex-1" style={{ width: chartWidth }}>
-                        {/* Shaded Weekend Columns in Body */}
                         <div className="absolute inset-0 flex z-0 pointer-events-none">
                             {timelineDays.map((day, i) => {
                                 const dayOfWeek = day.getDay();
@@ -374,12 +363,10 @@ export function GanttChart({
                             })}
                         </div>
 
-                        {/* Drawing Layer for Dependencies */}
                         <svg className="absolute inset-0 pointer-events-none z-10" style={{ width: chartWidth, height: chartHeight }}>
                             {dependencyArrows}
                         </svg>
 
-                        {/* Bars Layer */}
                         <div className="relative z-20 flex flex-col">
                             {groupedData.map((group, gIdx) => (
                                 <div key={`g-right-${gIdx}`} className="flex flex-col">
@@ -412,7 +399,7 @@ export function GanttChart({
                                                 {baselineSegments.map((seg, sIdx) => (
                                                     <div 
                                                         key={`baseline-${sIdx}`}
-                                                        className="absolute h-1.5 top-2 opacity-20 bg-slate-400 border border-slate-500 z-0"
+                                                        className="absolute h-1.5 top-3 opacity-20 bg-slate-400 border border-slate-500 z-0"
                                                         style={{ 
                                                             left: seg.left, 
                                                             width: seg.width,
@@ -432,7 +419,7 @@ export function GanttChart({
                                                             <TooltipTrigger asChild>
                                                                 <div 
                                                                     className={cn(
-                                                                        "absolute h-8 top-[14px] shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
+                                                                        "absolute h-8 top-[20px] shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
                                                                         task.status === 'completed' ? "text-white opacity-80" : 
                                                                         task.status === 'in-progress' ? "text-white animate-pulse" : 
                                                                         "text-white",
@@ -470,15 +457,6 @@ export function GanttChart({
                                                                             <span className='flex justify-between opacity-60'>Baseline: <strong>{format(parseDateString(task.originalStartDate), 'PP')}</strong></span>
                                                                         )}
                                                                     </div>
-                                                                    {task.photos && task.photos.length > 0 && (
-                                                                        <div className="grid grid-cols-3 gap-1 pt-1">
-                                                                            {task.photos.map((p, idx) => (
-                                                                                <div key={idx} className="relative aspect-square rounded border overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
-                                                                                    <Image src={p.url} alt="Context" fill className="object-cover" />
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
                                                                     <Separator className="my-1" />
                                                                     <p className="text-[9px] text-center font-bold text-primary italic">Click to edit reforecast</p>
                                                                 </div>
