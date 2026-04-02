@@ -154,6 +154,33 @@ function PlannerContent() {
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
   }, [allTasks, projectFilter, plannerFilter]);
 
+  // Project Bounds for Export Tight Fitting
+  const projectBounds = useMemo(() => {
+    if (!rawFilteredTasks || rawFilteredTasks.length === 0) return null;
+    
+    let minDate: Date | null = null;
+    let maxDate: Date | null = null;
+    const sat = !!currentPlanner?.includeSaturday;
+    const sun = !!currentPlanner?.includeSunday;
+
+    rawFilteredTasks.forEach(t => {
+      const start = parseDateString(t.startDate);
+      const finishStr = t.status === 'completed' && t.actualCompletionDate 
+        ? t.actualCompletionDate 
+        : calculateFinishDate(t.startDate, t.durationDays, sat, sun);
+      const end = parseDateString(finishStr);
+
+      if (isValid(start)) {
+        if (!minDate || start < minDate) minDate = start;
+      }
+      if (isValid(end)) {
+        if (!maxDate || end > maxDate) maxDate = end;
+      }
+    });
+
+    return { minDate, maxDate };
+  }, [rawFilteredTasks, currentPlanner]);
+
   const displayTasks = useMemo(() => {
     if (!isProcessingExport || exportScope === 'full' || !exportStart || !exportEnd) return rawFilteredTasks;
 
@@ -634,8 +661,16 @@ function PlannerContent() {
                     projects={allowedProjects}
                     planner={currentPlanner}
                     onTaskClick={(task) => setEditingTaskId(task.id)}
-                    startDateOverride={isProcessingExport && exportScope === 'range' && exportStart ? parseISO(exportStart) : undefined}
-                    endDateOverride={isProcessingExport && exportScope === 'range' && exportEnd ? parseISO(exportEnd) : undefined}
+                    startDateOverride={
+                        isProcessingExport 
+                            ? (exportScope === 'range' && exportStart ? parseDateString(exportStart) : projectBounds?.minDate) 
+                            : undefined
+                    }
+                    endDateOverride={
+                        isProcessingExport 
+                            ? (exportScope === 'range' && exportEnd ? parseDateString(exportEnd) : projectBounds?.maxDate) 
+                            : undefined
+                    }
                     isPrinting={isProcessingExport}
                 />
             ) : (

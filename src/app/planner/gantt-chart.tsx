@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -146,36 +145,49 @@ export function GanttChart({
   const flattenedTasks = useMemo(() => groupedData.flatMap(g => g.tasks), [groupedData]);
 
   const startDate = useMemo(() => {
-    if (startDateOverride) return startOfWeek(startDateOverride, { weekStartsOn: 1 });
-    
-    let minDate = new Date();
-    if (tasks.length > 0) {
-        tasks.forEach(t => {
-            const d = parseDateString(t.startDate);
-            if (isValid(d) && d < minDate) minDate = d;
-        });
+    // Force exact bounding during printing/export
+    if (startDateOverride) {
+        return isPrinting ? startDateOverride : startOfWeek(startDateOverride, { weekStartsOn: 1 });
     }
-    const buffered = addDays(minDate, -7);
-    return startOfWeek(buffered, { weekStartsOn: 1 });
-  }, [tasks, startDateOverride]);
+    
+    if (tasks.length === 0) return startOfWeek(new Date(), { weekStartsOn: 1 });
+
+    let minDate: Date | null = null;
+    tasks.forEach(t => {
+        const d = parseDateString(t.startDate);
+        if (isValid(d) && (!minDate || d < minDate)) minDate = d;
+    });
+    
+    if (!minDate) return startOfWeek(new Date(), { weekStartsOn: 1 });
+
+    const baseDate = isPrinting ? minDate : addDays(minDate, -7);
+    return isPrinting ? baseDate : startOfWeek(baseDate, { weekStartsOn: 1 });
+  }, [tasks, startDateOverride, isPrinting]);
 
   const endDate = useMemo(() => {
-    if (endDateOverride) return endOfWeek(endDateOverride, { weekStartsOn: 1 });
-
-    let maxDate = addDays(startDate, MIN_WEEKS * 7);
-    if (tasks.length > 0) {
-        const sat = !!planner?.includeSaturday;
-        const sun = !!planner?.includeSunday;
-        tasks.forEach(t => {
-            const finishStr = t.status === 'completed' && t.actualCompletionDate 
-                ? t.actualCompletionDate 
-                : calculateFinishDate(t.startDate, t.durationDays, sat, sun);
-            const d = parseDateString(finishStr);
-            if (isValid(d) && d > maxDate) maxDate = d;
-        });
+    // Force exact bounding during printing/export
+    if (endDateOverride) {
+        return isPrinting ? endDateOverride : endOfWeek(endDateOverride, { weekStartsOn: 1 });
     }
-    return endOfWeek(addDays(maxDate, 14), { weekStartsOn: 1 });
-  }, [startDate, tasks, planner, endDateOverride]);
+
+    if (tasks.length === 0) return endOfWeek(addDays(startDate, MIN_WEEKS * 7), { weekStartsOn: 1 });
+
+    let maxDate: Date | null = null;
+    const sat = !!planner?.includeSaturday;
+    const sun = !!planner?.includeSunday;
+    tasks.forEach(t => {
+        const finishStr = t.status === 'completed' && t.actualCompletionDate 
+            ? t.actualCompletionDate 
+            : calculateFinishDate(t.startDate, t.durationDays, sat, sun);
+        const d = parseDateString(finishStr);
+        if (isValid(d) && (!maxDate || d > maxDate)) maxDate = d;
+    });
+
+    if (!maxDate) return endOfWeek(addDays(startDate, MIN_WEEKS * 7), { weekStartsOn: 1 });
+
+    const finalEnd = isPrinting ? maxDate : addDays(maxDate, 14);
+    return isPrinting ? finalEnd : endOfWeek(finalEnd, { weekStartsOn: 1 });
+  }, [startDate, tasks, planner, endDateOverride, isPrinting]);
   
   const timelineDays = useMemo(() => {
     try {
@@ -343,7 +355,11 @@ export function GanttChart({
                                             )}>
                                                 {task.title}
                                             </span>
-                                            <Badge variant="outline" className="text-[8px] font-black h-5 uppercase bg-background px-2 flex items-center justify-center shrink-0 rounded-full" style={{ borderColor: `${tradeColor}40`, color: tradeColor }}>
+                                            <Badge 
+                                                variant="outline" 
+                                                className="text-[8px] font-black h-5 uppercase bg-background px-2 flex items-center justify-center shrink-0 rounded-full" 
+                                                style={{ borderColor: `${tradeColor}40`, color: tradeColor }}
+                                            >
                                                 {tradeName}
                                             </Badge>
                                         </div>
