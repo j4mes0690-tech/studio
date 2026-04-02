@@ -3,7 +3,7 @@
 
 import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Send, Loader2, Users, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Send, Loader2, Users, CheckCircle2, AlertTriangle, Calendar, ArrowRight } from 'lucide-react';
 import type { PlannerTask, Project, SubContractor, Planner } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -27,6 +27,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { sendPlannerEmailAction } from './actions';
 import { generatePlannerPDF } from '@/lib/pdf-utils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Input } from '@/components/ui/input';
+import { cn, calculateFinishDate, parseDateString } from '@/lib/utils';
+import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
 export function DistributePlannerButton({
   tasks,
@@ -43,6 +47,11 @@ export function DistributePlannerButton({
   const [isDistributing, setIsDistributing] = useState(false);
   const { toast } = useToast();
 
+  // Range Settings
+  const [scope, setScope] = useState<'full' | 'range'>('full');
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+
   // Find unique subcontractors involved in this specific planner
   const subsInPlanner = useMemo(() => {
     const ids = Array.from(new Set(tasks.map(t => t.subcontractorId).filter(id => !!id))) as string[];
@@ -55,6 +64,7 @@ export function DistributePlannerButton({
     setOpen(newOpen);
     if (newOpen) {
       setSelectedSubIds(subsInPlanner.map(s => s.id));
+      setScope('full');
     }
   };
 
@@ -71,17 +81,43 @@ export function DistributePlannerButton({
     setIsDistributing(true);
 
     try {
-      // 1. Generate the PDF
-      const pdf = await generatePlannerPDF(tasks, project, planner, subContractors);
+      // 1. Filter tasks for PDF
+      let finalTasks = [...tasks];
+      const range = scope === 'range' ? { from: dateStart, to: dateEnd } : undefined;
+      
+      if (range && dateStart && dateEnd) {
+          const start = startOfDay(parseISO(dateStart));
+          const end = endOfDay(parseISO(dateEnd));
+          const sat = !!planner?.includeSaturday;
+          const sun = !!planner?.includeSunday;
+
+          finalTasks = tasks.filter(t => {
+              const tStart = parseDateString(t.startDate);
+              const tFinishStr = t.status === 'completed' && t.actualCompletionDate 
+                  ? t.actualCompletionDate 
+                  : calculateFinishDate(t.startDate, t.durationDays, sat, sun);
+              const tEnd = parseDateString(tFinishStr);
+              return (tStart <= end && tEnd >= start);
+          });
+      }
+
+      if (finalTasks.length === 0) {
+          toast({ title: "Distribution Empty", description: "No activities overlap with your selected range.", variant: "destructive" });
+          setIsDistributing(false);
+          return;
+      }
+
+      // 2. Generate the PDF
+      const pdf = await generatePlannerPDF(finalTasks, project, planner, subContractors, range);
       const pdfBase64 = pdf.output('datauristring').split(',')[1];
       const fileName = `Schedule-${project?.name.replace(/\s+/g, '-')}-${planner?.name.replace(/\s+/g, '-')}.pdf`;
 
-      // 2. Get recipient emails
+      // 3. Get recipient emails
       const recipientEmails = subContractors
         .filter(s => selectedSubIds.includes(s.id))
         .map(s => s.email);
 
-      // 3. Send via Resend
+      // 4. Send via Resend
       const result = await sendPlannerEmailAction({
         emails: recipientEmails,
         projectName: project?.name || 'Project',
@@ -128,7 +164,7 @@ export function DistributePlannerButton({
         </Tooltip>
       </TooltipProvider>
 
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2 mb-1">
             <div className="bg-primary/10 p-2 rounded-lg text-primary">
@@ -137,13 +173,48 @@ export function DistributePlannerButton({
             <DialogTitle>Distribute Site Schedule</DialogTitle>
           </div>
           <DialogDescription>
-            Email the latest lookahead PDF to the trade partners involved in this planner.
+            Email a lookahead PDF to trade partners. Define the window of work to include.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-8 py-4">
           <div className="space-y-3">
-            <Label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Select Recipients</Label>
+            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">1. Report Range</Label>
+            <RadioGroup value={scope} onValueChange={(v: any) => setScope(v)} className="grid grid-cols-2 gap-4">
+                <div className={cn("p-4 rounded-xl border-2 transition-all cursor-pointer", scope === 'full' ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/30")} onClick={() => setScope('full')}>
+                    <RadioGroupItem value="full" id="dist-full" className="sr-only" />
+                    <Label htmlFor="dist-full" className="font-bold flex flex-col gap-1 cursor-pointer">
+                        <span>All Activities</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">Full timeline data.</span>
+                    </Label>
+                </div>
+                <div className={cn("p-4 rounded-xl border-2 transition-all cursor-pointer", scope === 'range' ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/30")} onClick={() => setScope('range')}>
+                    <RadioGroupItem value="range" id="dist-range" className="sr-only" />
+                    <Label htmlFor="dist-range" className="font-bold flex flex-col gap-1 cursor-pointer">
+                        <span>Focused Window</span>
+                        <span className="text-[10px] text-muted-foreground font-normal">Short-term lookahead.</span>
+                    </Label>
+                </div>
+            </RadioGroup>
+
+            {scope === 'range' && (
+                <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 pt-2">
+                    <div className="space-y-1">
+                        <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">Start Date</Label>
+                        <Input type="date" value={dateStart} onChange={e => setDateStart(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="text-[9px] uppercase font-black text-muted-foreground ml-1">End Date</Label>
+                        <Input type="date" value={dateEnd} onChange={e => setDateEnd(e.target.value)} />
+                    </div>
+                </div>
+            )}
+          </div>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">2. Select Recipients</Label>
             <ScrollArea className="h-48 rounded-lg border bg-muted/5 p-4">
               {subsInPlanner.length > 0 ? (
                 <div className="space-y-3">
@@ -179,7 +250,7 @@ export function DistributePlannerButton({
           <Button 
             className="flex-1 h-11 px-8 font-bold gap-2 shadow-lg shadow-primary/20" 
             onClick={handleDistribute}
-            disabled={isDistributing || selectedSubIds.length === 0}
+            disabled={isDistributing || selectedSubIds.length === 0 || (scope === 'range' && (!dateStart || !dateEnd))}
           >
             {isDistributing ? (
               <>

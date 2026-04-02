@@ -104,13 +104,17 @@ export function GanttChart({
   subContractors, 
   projects,
   planner,
-  onTaskClick 
+  onTaskClick,
+  startDateOverride,
+  endDateOverride
 }: { 
   tasks: PlannerTask[]; 
   subContractors: SubContractor[]; 
   projects: Project[];
   planner?: Planner;
   onTaskClick: (task: PlannerTask) => void;
+  startDateOverride?: Date;
+  endDateOverride?: Date;
 }) {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
@@ -140,6 +144,8 @@ export function GanttChart({
   const flattenedTasks = useMemo(() => groupedData.flatMap(g => g.tasks), [groupedData]);
 
   const startDate = useMemo(() => {
+    if (startDateOverride) return startOfWeek(startDateOverride, { weekStartsOn: 1 });
+    
     let minDate = new Date();
     if (tasks.length > 0) {
         tasks.forEach(t => {
@@ -149,9 +155,11 @@ export function GanttChart({
     }
     const buffered = addDays(minDate, -7);
     return startOfWeek(buffered, { weekStartsOn: 1 });
-  }, [tasks]);
+  }, [tasks, startDateOverride]);
 
   const endDate = useMemo(() => {
+    if (endDateOverride) return endOfWeek(endDateOverride, { weekStartsOn: 1 });
+
     let maxDate = addDays(startDate, MIN_WEEKS * 7);
     if (tasks.length > 0) {
         const sat = !!planner?.includeSaturday;
@@ -165,7 +173,7 @@ export function GanttChart({
         });
     }
     return endOfWeek(addDays(maxDate, 14), { weekStartsOn: 1 });
-  }, [startDate, tasks, planner]);
+  }, [startDate, tasks, planner, endDateOverride]);
   
   const timelineDays = useMemo(() => {
     try {
@@ -268,7 +276,7 @@ export function GanttChart({
             id="planner-gantt-container"
             className="bg-background border rounded-xl shadow-sm overflow-x-auto overflow-y-hidden select-none"
         >
-            <div id="planner-gantt-capture" className="min-w-max flex flex-col relative">
+            <div id="planner-gantt-capture" className="min-w-max flex flex-col relative" style={{ width: chartWidth + 256 }}>
                 {/* Timeline Header */}
                 <div className="flex border-b bg-muted/30 sticky top-0 z-40">
                     <div className="w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end sticky left-0 z-50 bg-muted/30 backdrop-blur-md">

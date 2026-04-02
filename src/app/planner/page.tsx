@@ -3,7 +3,7 @@
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, arrayUnion, writeBatch, where, getDocs, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, arrayUnion, writeBatch, where } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense, useTransition } from 'react';
 import type { PlannerTask, Project, Planner, DistributionUser, Photo, SubContractor, PlannerSection } from '@/lib/types';
 import Image from 'next/image';
@@ -32,7 +32,9 @@ import {
     Layers,
     Plus,
     X,
-    Settings2
+    Settings2,
+    Calendar,
+    ArrowRight
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -43,7 +45,7 @@ import { useToast } from '@/hooks/use-toast';
 import { GanttChart } from './gantt-chart';
 import { NewTaskDialog } from './new-task';
 import { EditTaskDialog } from './edit-task';
-import { cn, optimiseGlobalSchedule } from '@/lib/utils';
+import { cn, optimiseGlobalSchedule, calculateFinishDate, parseDateString } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { Progress } from '@/components/ui/progress';
@@ -74,6 +76,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { generatePlannerPDF } from '@/lib/pdf-utils';
 import { DistributePlannerButton } from './distribute-planner-button';
+import { isValid, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
 
 function PlannerContent() {
   const db = useFirestore();
@@ -88,6 +91,13 @@ function PlannerContent() {
   const [isExporting, setIsExporting] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   
+  // Export Settings
+  const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [exportScope, setExportScope] = useState<'full' | 'range'>('full');
+  const [exportStart, setExportFrom] = useState('');
+  const [exportEnd, setExportTo] = useState('');
+  const [isProcessingExport, setIsProcessingExport] = useState(false);
+
   const [isAddPlannerOpen, setIsAddPlannerOpen] = useState(false);
   const [newPlannerName, setNewPlannerName] = useState('');
 
@@ -133,7 +143,7 @@ function PlannerContent() {
     return planners.find(p => p.id === plannerFilter);
   }, [currentProject, plannerFilter]);
 
-  const filteredTasks = useMemo(() => {
+  const rawFilteredTasks = useMemo(() => {
     if (!allTasks || !projectFilter || !plannerFilter) return [];
     return allTasks
       .filter(task => 
@@ -143,10 +153,62 @@ function PlannerContent() {
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
   }, [allTasks, projectFilter, plannerFilter]);
 
-  const editingTask = useMemo(() => {
-    if (!editingTaskId || !allTasks) return null;
-    return allTasks.find(t => t.id === editingTaskId);
-  }, [editingTaskId, allTasks]);
+  // Tasks filtered by current EXPORT range if processing, otherwise full list
+  const displayTasks = useMemo(() => {
+    if (!isProcessingExport || exportScope === 'full' || !exportStart || !exportEnd) return rawFilteredTasks;
+
+    const start = startOfDay(parseISO(exportStart));
+    const end = endOfDay(parseISO(exportEnd));
+    const sat = !!currentPlanner?.includeSaturday;
+    const sun = !!currentPlanner?.includeSunday;
+
+    return rawFilteredTasks.filter(t => {
+        const tStart = parseDateString(t.startDate);
+        const tFinishStr = t.status === 'completed' && t.actualCompletionDate 
+            ? t.actualCompletionDate 
+            : calculateFinishDate(t.startDate, t.durationDays, sat, sun);
+        const tEnd = parseDateString(tFinishStr);
+
+        // Include if ANY part of the task overlaps the range
+        const overlaps = (tStart <= end && tEnd >= start);
+        return overlaps;
+    });
+  }, [rawFilteredTasks, isProcessingExport, exportScope, exportStart, exportEnd, currentPlanner]);
+
+  /**
+   * handleDownloadPDF - Triggers the export sequence.
+   * Applying temporary filters to the rendered Gantt component for capture.
+   */
+  const handleDownloadPDF = async () => {
+    if (!currentProject || !currentPlanner) return;
+    
+    setIsProcessingExport(true);
+    setIsExportDialogOpen(false);
+    toast({ title: "Generating PDF", description: "Reforecasting view for export..." });
+
+    // Wait for React to re-render the Gantt component with the filtered subset
+    setTimeout(async () => {
+        try {
+            const range = exportScope === 'range' ? { from: exportStart, to: exportEnd } : undefined;
+            const pdf = await generatePlannerPDF(
+                displayTasks, 
+                currentProject, 
+                currentPlanner, 
+                allSubContractors || [],
+                range
+            );
+            
+            const timestamp = new Date().toISOString().split('T')[0];
+            pdf.save(`Schedule-${currentProject.name.replace(/\s+/g, '-')}-${currentPlanner.name.replace(/\s+/g, '-')}-${timestamp}.pdf`);
+            toast({ title: "Export Complete", description: "Schedule has been downloaded." });
+        } catch (err) {
+            console.error(err);
+            toast({ title: "Export Error", description: "Failed to capture visual schedule.", variant: "destructive" });
+        } finally {
+            setIsProcessingExport(false);
+        }
+    }, 500); // Sufficient delay for heavy layout shifts
+  };
 
   const selectProject = (id: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -180,12 +242,15 @@ function PlannerContent() {
             sections: []
         };
         const projRef = doc(db, 'projects', currentProject.id);
-        await updateDoc(projRef, {
-            planners: arrayUnion(newPlanner)
-        });
-        toast({ title: 'New Planner Added', description: `Planner "${newPlanner.name}" is ready.` });
-        setNewPlannerName('');
-        setIsAddPlannerOpen(false);
+        const snap = await getDoc(projRef);
+        if (snap.exists()) {
+            await updateDoc(projRef, {
+                planners: arrayUnion(newPlanner)
+            });
+            toast({ title: 'New Planner Added', description: `Planner "${newPlanner.name}" is ready.` });
+            setNewPlannerName('');
+            setIsAddPlannerOpen(false);
+        }
     });
   };
 
@@ -229,22 +294,6 @@ function PlannerContent() {
         
         toast({ title: 'Section Removed', description: 'Associated tasks have been moved to General.' });
     });
-  };
-
-  const handleDownloadPDF = async () => {
-    if (!currentProject || !currentPlanner) return;
-    setIsExporting(true);
-    try {
-      const pdf = await generatePlannerPDF(filteredTasks, currentProject, currentPlanner, allSubContractors || []);
-      const timestamp = new Date().toISOString().split('T')[0];
-      pdf.save(`Schedule-${currentProject.name.replace(/\s+/g, '-')}-${currentPlanner.name.replace(/\s+/g, '-')}-${timestamp}.pdf`);
-      toast({ title: "PDF Ready", description: "Your schedule has been exported." });
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Export Error", description: "Failed to generate schedule PDF.", variant: "destructive" });
-    } finally {
-      setIsExporting(false);
-    }
   };
 
   if (tasksLoading || !profile) {
@@ -482,19 +531,74 @@ function PlannerContent() {
                             </DialogContent>
                         </Dialog>
 
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="outline" size="icon" onClick={handleDownloadPDF} disabled={isExporting} className="h-10 w-10">
-                                    {isExporting ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileDown className="h-5 w-5" />}
+                        <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DialogTrigger asChild>
+                                            <Button variant="outline" size="icon" disabled={isProcessingExport} className="h-10 w-10">
+                                                {isProcessingExport ? <Loader2 className="h-5 w-5 animate-spin" /> : <FileDown className="h-5 w-5" />}
+                                            </Button>
+                                        </DialogTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p>Export Schedule PDF</p></TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <div className="bg-primary/10 p-2 rounded-lg text-primary"><FileDown className="h-5 w-5" /></div>
+                                        <DialogTitle>Export Schedule PDF</DialogTitle>
+                                    </div>
+                                    <DialogDescription>Define the range of the Gantt chart and activity log.</DialogDescription>
+                                </DialogHeader>
+                                <div className="py-6 space-y-6">
+                                    <RadioGroup value={exportScope} onValueChange={(v: any) => setExportScope(v)} className="grid grid-cols-2 gap-4">
+                                        <div className={cn("p-4 rounded-xl border-2 transition-all cursor-pointer", exportScope === 'full' ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/30")} onClick={() => setExportScope('full')}>
+                                            <RadioGroupItem value="full" id="exp-full" className="sr-only" />
+                                            <Label htmlFor="exp-full" className="font-bold flex flex-col gap-1 cursor-pointer">
+                                                <span>Full Project</span>
+                                                <span className="text-[10px] text-muted-foreground font-normal">Entire schedule timeline.</span>
+                                            </Label>
+                                        </div>
+                                        <div className={cn("p-4 rounded-xl border-2 transition-all cursor-pointer", exportScope === 'range' ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/30")} onClick={() => setExportScope('range')}>
+                                            <RadioGroupItem value="range" id="exp-range" className="sr-only" />
+                                            <Label htmlFor="exp-range" className="font-bold flex flex-col gap-1 cursor-pointer">
+                                                <span>Date Range</span>
+                                                <span className="text-[10px] text-muted-foreground font-normal">Focused window only.</span>
+                                            </Label>
+                                        </div>
+                                    </RadioGroup>
+
+                                    {exportScope === 'range' && (
+                                        <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] font-black uppercase text-muted-foreground">Start Date</Label>
+                                                <Input type="date" value={exportStart} onChange={e => setExportFrom(e.target.value)} />
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] font-black uppercase text-muted-foreground">End Date</Label>
+                                                <Input type="date" value={exportEnd} onChange={e => setExportTo(e.target.value)} />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="ghost" onClick={() => setIsExportDialogOpen(false)}>Cancel</Button>
+                                    <Button 
+                                        className="gap-2 font-bold shadow-lg shadow-primary/20" 
+                                        onClick={handleDownloadPDF}
+                                        disabled={exportScope === 'range' && (!exportStart || !exportEnd)}
+                                    >
+                                        <FileDown className="h-4 w-4" />
+                                        Generate PDF
                                     </Button>
-                                </TooltipTrigger>
-                                <TooltipContent><p>Export Schedule PDF</p></TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
 
                         <DistributePlannerButton 
-                            tasks={filteredTasks}
+                            tasks={rawFilteredTasks}
                             project={currentProject}
                             planner={currentPlanner}
                             subContractors={allSubContractors || []}
@@ -526,17 +630,19 @@ function PlannerContent() {
         <div className="flex-1 w-full overflow-hidden">
             {isGanttView ? (
                 <GanttChart 
-                    tasks={filteredTasks} 
+                    tasks={displayTasks} 
                     subContractors={allSubContractors || []} 
                     projects={allowedProjects}
                     planner={currentPlanner}
                     onTaskClick={(task) => setEditingTaskId(task.id)}
+                    startDateOverride={isProcessingExport && exportScope === 'range' && exportStart ? parseISO(exportStart) : undefined}
+                    endDateOverride={isProcessingExport && exportScope === 'range' && exportEnd ? parseISO(exportEnd) : undefined}
                 />
             ) : (
                 <ScrollArea className="h-full pb-20">
                     <div className="grid gap-4">
-                    {filteredTasks.length > 0 ? (
-                        filteredTasks.map(task => {
+                    {displayTasks.length > 0 ? (
+                        displayTasks.map(task => {
                             const sub = allSubContractors?.find(s => s.id === task.subcontractorId);
                             const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned Partner');
                             
