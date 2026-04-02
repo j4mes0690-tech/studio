@@ -1,9 +1,8 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, doc, updateDoc, arrayUnion, writeBatch, where } from 'firebase/firestore';
+import { collection, query, orderBy, doc, updateDoc, arrayUnion, writeBatch, where, getDoc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense, useTransition } from 'react';
 import type { PlannerTask, Project, Planner, DistributionUser, Photo, SubContractor, PlannerSection } from '@/lib/types';
 import Image from 'next/image';
@@ -77,6 +76,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { generatePlannerPDF } from '@/lib/pdf-utils';
 import { DistributePlannerButton } from './distribute-planner-button';
 import { isValid, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 function PlannerContent() {
   const db = useFirestore();
@@ -88,7 +88,6 @@ function PlannerContent() {
   const [isGanttView, setIsGanttView] = useState(true);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [isExporting, setIsExporting] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   
   // Export Settings
@@ -108,9 +107,10 @@ function PlannerContent() {
   const plannerFilter = searchParams.get('planner');
 
   useEffect(() => {
-    const saved = localStorage.getItem('sitecommand_view_planner');
-    if (saved !== null) setIsGanttView(saved === 'true');
-  }, []);
+    const savedDensity = localStorage.getItem('sitecommand_dashboard_compact');
+    const savedView = localStorage.getItem('sitecommand_view_planner');
+    if (savedView !== null) setIsGanttView(savedView === 'true');
+  }, [searchParams]);
 
   const toggleView = () => {
     const newVal = !isGanttView;
@@ -153,7 +153,6 @@ function PlannerContent() {
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
   }, [allTasks, projectFilter, plannerFilter]);
 
-  // Tasks filtered by current EXPORT range if processing, otherwise full list
   const displayTasks = useMemo(() => {
     if (!isProcessingExport || exportScope === 'full' || !exportStart || !exportEnd) return rawFilteredTasks;
 
@@ -169,16 +168,11 @@ function PlannerContent() {
             : calculateFinishDate(t.startDate, t.durationDays, sat, sun);
         const tEnd = parseDateString(tFinishStr);
 
-        // Include if ANY part of the task overlaps the range
         const overlaps = (tStart <= end && tEnd >= start);
         return overlaps;
     });
   }, [rawFilteredTasks, isProcessingExport, exportScope, exportStart, exportEnd, currentPlanner]);
 
-  /**
-   * handleDownloadPDF - Triggers the export sequence.
-   * Applying temporary filters to the rendered Gantt component for capture.
-   */
   const handleDownloadPDF = async () => {
     if (!currentProject || !currentPlanner) return;
     
@@ -186,7 +180,6 @@ function PlannerContent() {
     setIsExportDialogOpen(false);
     toast({ title: "Generating PDF", description: "Reforecasting view for export..." });
 
-    // Wait for React to re-render the Gantt component with the filtered subset
     setTimeout(async () => {
         try {
             const range = exportScope === 'range' ? { from: exportStart, to: exportEnd } : undefined;
@@ -207,7 +200,7 @@ function PlannerContent() {
         } finally {
             setIsProcessingExport(false);
         }
-    }, 500); // Sufficient delay for heavy layout shifts
+    }, 500);
   };
 
   const selectProject = (id: string) => {
@@ -284,7 +277,6 @@ function PlannerContent() {
         const projRef = doc(db, 'projects', currentProject.id);
         await updateDoc(projRef, { planners: updatedPlanners });
         
-        // Also unassign tasks from this section
         const batch = writeBatch(db);
         const sectionTasks = allTasks.filter(t => t.sectionId === sectionId);
         sectionTasks.forEach(t => {
@@ -295,6 +287,11 @@ function PlannerContent() {
         toast({ title: 'Section Removed', description: 'Associated tasks have been moved to General.' });
     });
   };
+
+  const editingTask = useMemo(() => 
+    allTasks?.find(t => t.id === editingTaskId), 
+    [allTasks, editingTaskId]
+  );
 
   if (tasksLoading || !profile) {
     return (
