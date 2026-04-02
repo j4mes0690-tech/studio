@@ -21,7 +21,7 @@ import Image from 'next/image';
 import { Layers } from 'lucide-react';
 
 const DAY_WIDTH = 40; // px per day
-const ROW_HEIGHT = 48; // Optimized height for side-by-side labels
+const ROW_HEIGHT = 56; // Increased height to prevent text clipping in PDF
 const SECTION_HEADER_HEIGHT = 32; // px per section header row
 const MIN_WEEKS = 12; // Minimum timeline width if no tasks exist
 
@@ -247,12 +247,12 @@ export function GanttChart({
             <path
               d={`M ${predecessorEndX} ${predecessorY} L ${midX} ${predecessorY} L ${midX} ${successorY} L ${successorX} ${successorY}`}
               fill="none"
-              stroke="currentColor"
+              stroke="#f26522"
               strokeWidth="1.5"
             />
             <polygon 
               points={`${successorX},${successorY} ${successorX-arrowHeadSize},${successorY-(arrowHeadSize/1.5)} ${successorX-arrowHeadSize},${successorY+(arrowHeadSize/1.5)}`}
-              fill="currentColor"
+              fill="#f26522"
             />
           </g>
         );
@@ -283,7 +283,7 @@ export function GanttChart({
                 <div className={cn("flex border-b bg-muted/30", !isPrinting && "sticky top-0 z-40")}>
                     <div className={cn(
                         "w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end bg-muted/30",
-                        !isPrinting && "sticky left-0 z-50 backdrop-blur-md"
+                        (!isPrinting) ? "sticky left-0 z-50 backdrop-blur-md" : "bg-muted/30"
                     )}>
                         Work Activity
                     </div>
@@ -334,7 +334,7 @@ export function GanttChart({
                                     const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
                                     const tradeColor = getTradeColor(task.subcontractorId || '', subContractors);
                                     return (
-                                        <div key={task.id} className="border-b px-4 flex flex-row items-center justify-between min-w-0 gap-2" style={{ height: ROW_HEIGHT }}>
+                                        <div key={task.id} className="border-b px-4 flex flex-row items-center justify-between min-w-0 gap-2 py-4" style={{ height: ROW_HEIGHT }}>
                                             <p className={cn("text-[11px] font-bold truncate leading-snug m-0 flex-1", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
                                             <Badge variant="outline" className="text-[8px] h-4 bg-background truncate px-1.5 shrink-0" style={{ borderColor: `${tradeColor}40`, color: tradeColor }}>
                                                 {tradeName}
@@ -419,7 +419,7 @@ export function GanttChart({
                                                             <TooltipTrigger asChild>
                                                                 <div 
                                                                     className={cn(
-                                                                        "absolute h-6 top-5 shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
+                                                                        "absolute h-6 top-4 shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
                                                                         task.status === 'completed' ? "text-white opacity-80" : 
                                                                         task.status === 'in-progress' ? "text-white animate-pulse" : 
                                                                         "text-white",
