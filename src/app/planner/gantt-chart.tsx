@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -111,7 +110,8 @@ export function GanttChart({
   planner,
   onTaskClick,
   startDateOverride,
-  endDateOverride
+  endDateOverride,
+  isPrinting = false
 }: { 
   tasks: PlannerTask[]; 
   subContractors: SubContractor[]; 
@@ -120,6 +120,7 @@ export function GanttChart({
   onTaskClick: (task: PlannerTask) => void;
   startDateOverride?: Date;
   endDateOverride?: Date;
+  isPrinting?: boolean;
 }) {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
@@ -248,7 +249,7 @@ export function GanttChart({
         const midX = predecessorEndX + ((successorX - predecessorEndX) / 2);
         
         arrows.push(
-          <g key={`${predId}-${task.id}`} className="text-primary/40">
+          <g key={`${predId}-${task.id}`} style={{ color: '#f26522' }} opacity={0.4}>
             <path
               d={`M ${predecessorEndX} ${predecessorY} L ${midX} ${predecessorY} L ${midX} ${successorY} L ${successorX} ${successorY}`}
               fill="none"
@@ -279,12 +280,18 @@ export function GanttChart({
     <>
         <div 
             id="planner-gantt-container"
-            className="bg-background border rounded-xl shadow-sm overflow-x-auto overflow-y-hidden select-none"
+            className={cn(
+                "bg-background border rounded-xl shadow-sm overflow-x-auto overflow-y-hidden select-none",
+                isPrinting && "overflow-visible border-none shadow-none rounded-none"
+            )}
         >
             <div id="planner-gantt-capture" className="min-w-max flex flex-col relative" style={{ width: chartWidth + 256 }}>
                 {/* Timeline Header */}
-                <div className="flex border-b bg-muted/30 sticky top-0 z-40">
-                    <div className="w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end sticky left-0 z-50 bg-muted/30 backdrop-blur-md">
+                <div className={cn("flex border-b bg-muted/30", !isPrinting && "sticky top-0 z-40")}>
+                    <div className={cn(
+                        "w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end bg-muted/30",
+                        !isPrinting && "sticky left-0 z-50 backdrop-blur-md"
+                    )}>
                         Work Activity
                     </div>
                     <div className="flex" style={{ width: chartWidth }}>
@@ -315,8 +322,11 @@ export function GanttChart({
 
                 {/* Gantt Body */}
                 <div className="flex">
-                    {/* Left Column: Task Labels (Sticky) */}
-                    <div className="flex flex-col border-r shrink-0 w-64 bg-background sticky left-0 z-30 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                    {/* Left Column: Task Labels */}
+                    <div className={cn(
+                        "flex flex-col border-r shrink-0 w-64 bg-background",
+                        !isPrinting && "sticky left-0 z-30 shadow-[2px_0_5px_rgba(0,0,0,0.05)]"
+                    )}>
                         {groupedData.map((group, gIdx) => (
                             <div key={`g-left-${gIdx}`} className="flex flex-col">
                                 <div 

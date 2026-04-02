@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -131,6 +130,7 @@ function PlannerContent() {
   const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
   const { data: allSubContractors } = useCollection<SubContractor>(subsQuery);
 
+  // Security & Visibility
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
@@ -636,6 +636,7 @@ function PlannerContent() {
                     onTaskClick={(task) => setEditingTaskId(task.id)}
                     startDateOverride={isProcessingExport && exportScope === 'range' && exportStart ? parseISO(exportStart) : undefined}
                     endDateOverride={isProcessingExport && exportScope === 'range' && exportEnd ? parseISO(exportEnd) : undefined}
+                    isPrinting={isProcessingExport}
                 />
             ) : (
                 <ScrollArea className="h-full pb-20">
