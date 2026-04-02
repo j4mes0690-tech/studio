@@ -335,7 +335,7 @@ export function GanttChart({
                                     const tradeColor = getTradeColor(task.subcontractorId || '', subContractors);
                                     return (
                                         <div key={task.id} className="border-b px-4 flex flex-row items-center justify-between min-w-0 gap-2" style={{ height: ROW_HEIGHT }}>
-                                            <p className={cn("text-[11px] font-bold truncate leading-none m-0 flex-1", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
+                                            <p className={cn("text-[11px] font-bold truncate leading-snug m-0 flex-1", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
                                             <Badge variant="outline" className="text-[8px] h-4 bg-background truncate px-1.5 shrink-0" style={{ borderColor: `${tradeColor}40`, color: tradeColor }}>
                                                 {tradeName}
                                             </Badge>
