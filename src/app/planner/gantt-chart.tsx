@@ -26,7 +26,12 @@ const ROW_HEIGHT = 52; // px per task row
 const SECTION_HEADER_HEIGHT = 32; // px per section header row
 const MIN_WEEKS = 12; // Minimum timeline width if no tasks exist
 
-function getTradeColor(id: string) {
+function getTradeColor(id: string, subContractors: SubContractor[]) {
+  // First priority: Check if the subcontractor has a specific color set in their profile
+  const sub = subContractors.find(s => s.id === id);
+  if (sub?.color) return sub.color;
+
+  // Fallback: Algorithmic color generation
   const colors = [
     '#2563eb', '#ea580c', '#16a34a', '#7c3aed', '#db2777', 
     '#0891b2', '#4f46e5', '#059669', '#d97706', '#dc2626', 
@@ -326,7 +331,7 @@ export function GanttChart({
                                 {group.tasks.map(task => {
                                     const sub = subContractors.find(s => s.id === task.subcontractorId);
                                     const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
-                                    const tradeColor = getTradeColor(task.subcontractorId || '');
+                                    const tradeColor = getTradeColor(task.subcontractorId || '', subContractors);
                                     return (
                                         <div key={task.id} className="border-b px-4 py-2 flex flex-col justify-center min-w-0" style={{ height: ROW_HEIGHT }}>
                                             <p className={cn("text-[11px] font-bold truncate", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
@@ -370,7 +375,7 @@ export function GanttChart({
                                 <div key={`g-right-${gIdx}`} className="flex flex-col">
                                     <div className="bg-muted/30 border-b w-full" style={{ height: SECTION_HEADER_HEIGHT }} />
                                     {group.tasks.map((task) => {
-                                        const tradeColor = getTradeColor(task.subcontractorId || '');
+                                        const tradeColor = getTradeColor(task.subcontractorId || '', subContractors);
                                         const sub = subContractors.find(s => s.id === task.subcontractorId);
                                         const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
 

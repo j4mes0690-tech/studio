@@ -278,6 +278,7 @@ export type SubContractor = {
   email: string;
   phone?: string | null;
   address?: string | null;
+  color?: string | null;
   isSubContractor?: boolean;
   isDesigner?: boolean;
   isSupplier?: boolean;

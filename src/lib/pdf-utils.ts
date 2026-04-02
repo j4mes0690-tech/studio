@@ -4,6 +4,8 @@
 import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation, ClientInstruction, Permit, QualityChecklist, PermitSignature } from '@/lib/types';
 import { proxyImageAction } from '@/app/snagging/actions';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { isValid, startOfDay, endOfDay, parseISO } from 'date-fns';
+import { calculateFinishDate, parseDateString } from '@/lib/utils';
 
 /**
  * safeLoadImage - Proxies an image via server action to bypass CORS.
@@ -1549,7 +1551,7 @@ export async function generatePlannerPDF(
   tasks: PlannerTask[],
   project?: Project,
   planner?: Planner,
-  subContractors: SubContractor[],
+  subContractors: SubContractor[] = [],
   dateRange?: { from: string, to: string }
 ) {
   const { jsPDF } = await import('jspdf');
@@ -1558,6 +1560,29 @@ export async function generatePlannerPDF(
   const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape for Gantt
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
+
+  // Tight Bounding Logic: If no range is set, find the absolute bounds of the task set.
+  let reportFromStr = dateRange?.from;
+  let reportToStr = dateRange?.to;
+
+  if (!reportFromStr && tasks.length > 0) {
+    const dates = tasks.map(t => parseDateString(t.startDate));
+    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+    reportFromStr = format(minDate, 'yyyy-MM-dd');
+  }
+
+  if (!reportToStr && tasks.length > 0) {
+    const sat = !!planner?.includeSaturday;
+    const sun = !!planner?.includeSunday;
+    const dates = tasks.map(t => {
+        const finishStr = t.status === 'completed' && t.actualCompletionDate 
+            ? t.actualCompletionDate 
+            : calculateFinishDate(t.startDate, t.durationDays, sat, sun);
+        return parseDateString(finishStr);
+    });
+    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+    reportToStr = format(maxDate, 'yyyy-MM-dd');
+  }
 
   // 1. Capture Header & Summary
   const headerElement = document.createElement('div');
@@ -1571,7 +1596,7 @@ export async function generatePlannerPDF(
     <div style="border-bottom: 4px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px;">
       <h1 style="margin: 0; color: #1e40af; font-size: 32px;">Project Schedule Update</h1>
       <p style="margin: 5px 0 0 0; color: #64748b; font-size: 16px; font-weight: bold;">${project?.name || 'Project'} &rsaquo; ${planner?.name || 'Schedule'}</p>
-      ${dateRange ? `<p style="margin: 5px 0 0 0; color: #1e40af; font-size: 12px; font-weight: bold;">Report Window: ${new Date(dateRange.from).toLocaleDateString()} to ${new Date(dateRange.to).toLocaleDateString()}</p>` : ''}
+      ${reportFromStr ? `<p style="margin: 5px 0 0 0; color: #1e40af; font-size: 12px; font-weight: bold;">Report Window: ${new Date(reportFromStr).toLocaleDateString()} to ${new Date(reportToStr || '').toLocaleDateString()}</p>` : ''}
     </div>
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px;">
       <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -1657,4 +1682,14 @@ export async function generatePlannerPDF(
   });
 
   return pdf;
+}
+
+/**
+ * Helper to generate simple date strings for formatting in PDF internal logic
+ */
+function format(date: Date, pattern: string): string {
+    const y = date.getFullYear();
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    return `${y}-${m}-${d}`;
 }

@@ -23,12 +23,14 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { Palette } from 'lucide-react';
 
 const AddContactSchema = z.object({
   name: z.string().min(1, 'Name or company name is required.'),
   email: z.string().email('Invalid email address.'),
   phone: z.string().optional(),
   address: z.string().optional(),
+  color: z.string().optional().nullable(),
   isSubContractor: z.boolean().default(false),
   isDesigner: z.boolean().default(false),
   isSupplier: z.boolean().default(false),
@@ -52,6 +54,7 @@ export function AddSubcontractorForm() {
       email: '',
       phone: '',
       address: '',
+      color: '#1e40af',
       isSubContractor: true,
       isDesigner: false,
       isSupplier: false,
@@ -115,6 +118,28 @@ export function AddSubcontractorForm() {
               </FormItem>
             )}
           />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+                control={form.control}
+                name="color"
+                render={({ field }) => (
+                    <FormItem>
+                        <div className="flex items-center gap-2">
+                            <Palette className="h-3.5 w-3.5 text-primary" />
+                            <FormLabel>Planner Brand Color</FormLabel>
+                        </div>
+                        <FormControl>
+                            <div className="flex gap-2">
+                                <Input type="color" {...field} value={field.value || '#1e40af'} className="w-12 h-10 p-1 cursor-pointer" />
+                                <Input {...field} value={field.value || '#1e40af'} placeholder="#000000" className="flex-1 font-mono text-xs uppercase" />
+                            </div>
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
         </div>
 
         <FormField

@@ -25,7 +25,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { Pencil, Loader2, Save } from 'lucide-react';
+import { Pencil, Loader2, Save, Palette } from 'lucide-react';
 import type { SubContractor } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -42,6 +42,7 @@ const EditContactSchema = z.object({
   email: z.string().email('Invalid email address.'),
   phone: z.string().optional(),
   address: z.string().optional(),
+  color: z.string().optional().nullable(),
   isSubContractor: z.boolean().default(false),
   isDesigner: z.boolean().default(false),
   isSupplier: z.boolean().default(false),
@@ -71,6 +72,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
       email: subContractor.email,
       phone: subContractor.phone || '',
       address: subContractor.address || '',
+      color: subContractor.color || '#1e40af',
       isSubContractor: !!subContractor.isSubContractor,
       isDesigner: !!subContractor.isDesigner,
       isSupplier: !!subContractor.isSupplier,
@@ -86,6 +88,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
         email: subContractor.email,
         phone: subContractor.phone || '',
         address: subContractor.address || '',
+        color: subContractor.color || '#1e40af',
         isSubContractor: !!subContractor.isSubContractor,
         isDesigner: !!subContractor.isDesigner,
         isSupplier: !!subContractor.isSupplier,
@@ -102,6 +105,7 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
         email: values.email,
         phone: values.phone || '',
         address: values.address || '',
+        color: values.color || null,
         isSubContractor: values.isSubContractor,
         isDesigner: values.isDesigner,
         isSupplier: values.isSupplier,
@@ -147,6 +151,29 @@ export function EditSubcontractorForm({ subContractor }: EditSubcontractorFormPr
               <FormField control={form.control} name="phone" render={({ field }) => (
                   <FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
               )} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                    control={form.control}
+                    name="color"
+                    render={({ field }) => (
+                        <FormItem>
+                            <div className="flex items-center gap-2">
+                                <Palette className="h-3.5 w-3.5 text-primary" />
+                                <FormLabel>Planner Brand Color</FormLabel>
+                            </div>
+                            <FormControl>
+                                <div className="flex gap-2">
+                                    <Input type="color" {...field} value={field.value || '#1e40af'} className="w-12 h-10 p-1 cursor-pointer" />
+                                    <Input {...field} value={field.value || '#1e40af'} placeholder="#000000" className="flex-1 font-mono text-xs uppercase" />
+                                </div>
+                            </FormControl>
+                            <FormDescription className="text-[10px]">Used for activity bars in the Gantt chart.</FormDescription>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
             </div>
 
             <FormField control={form.control} name="address" render={({ field }) => (
