@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -11,7 +10,8 @@ import {
     differenceInDays, 
     startOfWeek, 
     isValid,
-    endOfWeek
+    endOfWeek,
+    addDays
 } from 'date-fns';
 import { cn, parseDateString, calculateFinishDate } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
