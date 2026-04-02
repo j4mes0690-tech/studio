@@ -25,6 +25,7 @@ import {
   FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -161,7 +162,7 @@ export function NewTaskDialog({
 
         // Handle inline section creation
         if (isAddingNewSection && values.newSectionName?.trim() && selectedProject && currentPlanner) {
-            const name = values.newSectionName.trim();
+            const name = values.newSectionName.trim().toUpperCase();
             const existing = currentPlanner.sections?.find(s => s.name.toLowerCase() === name.toLowerCase());
             
             if (existing) {
@@ -342,7 +343,12 @@ export function NewTaskDialog({
                         <FormItem className="animate-in fade-in slide-in-from-top-1">
                             <FormControl>
                                 <div className="relative">
-                                    <Input placeholder="Enter new section name (e.g. Level 01)..." {...field} className="h-11 bg-primary/5 border-primary/20 pr-10" />
+                                    <Input 
+                                      placeholder="Enter new section name (e.g. LEVEL 01)..." 
+                                      {...field} 
+                                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                      className="h-11 bg-primary/5 border-primary/20 pr-10 uppercase font-bold" 
+                                    />
                                     <Plus className="absolute right-3 top-3.5 h-4 w-4 text-primary opacity-40" />
                                 </div>
                             </FormControl>

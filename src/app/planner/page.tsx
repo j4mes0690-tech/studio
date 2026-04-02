@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -252,7 +253,7 @@ function PlannerContent() {
     startTransition(async () => {
         const newSection: PlannerSection = {
             id: `sec-${Date.now()}`,
-            name: newSectionName.trim()
+            name: newSectionName.trim().toUpperCase()
         };
         const updatedPlanners = (currentProject.planners || []).map(p => 
             p.id === currentPlanner.id 
@@ -498,8 +499,9 @@ function PlannerContent() {
                                         <Input 
                                             placeholder="Section Name..." 
                                             value={newSectionName} 
-                                            onChange={e => setNewSectionName(e.target.value)}
+                                            onChange={e => setNewSectionName(e.target.value.toUpperCase())}
                                             onKeyDown={e => e.key === 'Enter' && handleAddSection()}
+                                            className="uppercase font-bold"
                                         />
                                         <Button size="icon" onClick={handleAddSection} disabled={isPending || !newSectionName.trim()}>
                                             <Plus className="h-4 w-4" />

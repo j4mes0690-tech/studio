@@ -189,7 +189,7 @@ export function EditTaskDialog({
 
         // Handle inline section creation
         if (isAddingNewSection && values.newSectionName?.trim() && selectedProject && currentPlanner) {
-            const name = values.newSectionName.trim();
+            const name = values.newSectionName.trim().toUpperCase();
             const existing = currentPlanner.sections?.find(s => s.name.toLowerCase() === name.toLowerCase());
             
             if (existing) {
@@ -356,7 +356,12 @@ export function EditTaskDialog({
                             <FormItem className="animate-in fade-in slide-in-from-top-1">
                                 <FormControl>
                                     <div className="relative">
-                                        <Input placeholder="Enter new section name..." {...field} className="h-11 bg-primary/5 border-primary/20 pr-10" />
+                                        <Input 
+                                          placeholder="Enter new section name..." 
+                                          {...field} 
+                                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                          className="h-11 bg-primary/5 border-primary/20 pr-10 uppercase font-bold" 
+                                        />
                                         <Plus className="absolute right-3 top-3.5 h-4 w-4 text-primary opacity-40" />
                                     </div>
                                 </FormControl>
