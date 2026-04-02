@@ -21,7 +21,7 @@ import Image from 'next/image';
 import { Layers } from 'lucide-react';
 
 const DAY_WIDTH = 40; // px per day
-const ROW_HEIGHT = 52; // px per task row
+const ROW_HEIGHT = 60; // px per task row
 const SECTION_HEADER_HEIGHT = 32; // px per section header row
 const MIN_WEEKS = 12; // Minimum timeline width if no tasks exist
 
@@ -343,9 +343,9 @@ export function GanttChart({
                                     const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
                                     const tradeColor = getTradeColor(task.subcontractorId || '', subContractors);
                                     return (
-                                        <div key={task.id} className="border-b px-4 py-2 flex flex-col justify-center min-w-0" style={{ height: ROW_HEIGHT }}>
-                                            <p className={cn("text-[11px] font-bold truncate", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
-                                            <Badge variant="outline" className="text-[8px] h-3.5 mt-0.5 bg-background truncate w-fit max-w-full" style={{ borderColor: `${tradeColor}40`, color: tradeColor }}>
+                                        <div key={task.id} className="border-b px-4 flex flex-col justify-center min-w-0 gap-1" style={{ height: ROW_HEIGHT }}>
+                                            <p className={cn("text-[11px] font-bold truncate leading-tight", task.status === 'completed' && "text-muted-foreground line-through")}>{task.title}</p>
+                                            <Badge variant="outline" className="text-[8px] h-4 bg-background truncate w-fit max-w-full px-1.5" style={{ borderColor: `${tradeColor}40`, color: tradeColor }}>
                                                 {tradeName}
                                             </Badge>
                                         </div>
@@ -412,7 +412,7 @@ export function GanttChart({
                                                 {baselineSegments.map((seg, sIdx) => (
                                                     <div 
                                                         key={`baseline-${sIdx}`}
-                                                        className="absolute h-4 top-1.5 opacity-20 bg-slate-400 border border-slate-500 z-0"
+                                                        className="absolute h-1.5 top-2 opacity-20 bg-slate-400 border border-slate-500 z-0"
                                                         style={{ 
                                                             left: seg.left, 
                                                             width: seg.width,
@@ -432,7 +432,7 @@ export function GanttChart({
                                                             <TooltipTrigger asChild>
                                                                 <div 
                                                                     className={cn(
-                                                                        "absolute h-7 top-4 shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
+                                                                        "absolute h-8 top-[14px] shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
                                                                         task.status === 'completed' ? "text-white opacity-80" : 
                                                                         task.status === 'in-progress' ? "text-white animate-pulse" : 
                                                                         "text-white",
