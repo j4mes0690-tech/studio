@@ -23,6 +23,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil, Loader2, Save, Palette } from 'lucide-react';
