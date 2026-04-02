@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation, ClientInstruction, Permit, QualityChecklist, PermitSignature } from '@/lib/types';
@@ -1631,7 +1630,24 @@ export async function generatePlannerPDF(
       logging: false,
       width: ganttElement.scrollWidth,
       height: ganttElement.scrollHeight,
-      windowWidth: ganttElement.scrollWidth
+      windowWidth: ganttElement.scrollWidth,
+      onclone: (clonedDoc) => {
+        // Find the captured element in the cloned document
+        const el = clonedDoc.getElementById('planner-gantt-capture');
+        if (el) {
+          // Force it to be a normal static block element so html2canvas doesn't clip
+          el.style.position = 'static';
+          el.style.width = `${ganttElement.scrollWidth}px`;
+          el.style.height = `${ganttElement.scrollHeight}px`;
+          
+          // Remove all interactive position styles that break snapshots
+          const stickies = el.querySelectorAll('.sticky');
+          stickies.forEach((s: any) => {
+            s.classList.remove('sticky', 'left-0', 'top-0', 'z-40', 'z-50', 'z-30');
+            s.style.position = 'static';
+          });
+        }
+      }
     });
     
     const ganttWidthInPdf = pdfWidth - 20;
