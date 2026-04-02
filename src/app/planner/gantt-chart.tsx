@@ -274,7 +274,7 @@ export function GanttChart({
                     <div className="w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end sticky left-0 z-50 bg-muted/30 backdrop-blur-md">
                         Work Activity
                     </div>
-                    <div className="flex">
+                    <div className="flex" style={{ width: chartWidth }}>
                         {timelineDays.map((day, i) => {
                             const isToday = isSameDay(day, new Date());
                             const dayOfWeek = day.getDay();
@@ -426,7 +426,7 @@ export function GanttChart({
                                                                     }}
                                                                     onClick={() => onTaskClick(task)}
                                                                 >
-                                                                    {seg.isFirst && seg.width > 40 && <span className="text-[9px] font-black truncate">{Math.round(seg.width / DAY_WIDTH)}d</span>}
+                                                                    {seg.isFirst && seg.width > 40 && <span className="text-[9px] font-black truncate">{task.durationDays}d</span>}
                                                                 </div>
                                                             </TooltipTrigger>
                                                             <TooltipContent className="p-3 w-64 z-[100]">
