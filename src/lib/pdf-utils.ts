@@ -1546,6 +1546,7 @@ export async function generateCleanUpPDF(
 
 /**
  * generatePlannerPDF - Renders the Gantt chart and task directory to a professional PDF report.
+ * Now handles multi-page "flow" for long schedules by slicing the rendered canvas.
  */
 export async function generatePlannerPDF(
   tasks: PlannerTask[],
@@ -1584,7 +1585,7 @@ export async function generatePlannerPDF(
     reportToStr = format(maxDate, 'yyyy-MM-dd');
   }
 
-  // 1. Capture Header & Summary
+  // 1. Capture Header & Summary via invisible element
   const headerElement = document.createElement('div');
   headerElement.style.padding = '40px';
   headerElement.style.width = '1000px';
@@ -1621,7 +1622,7 @@ export async function generatePlannerPDF(
   const headerHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
   pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, pdfWidth, headerHeightInPdf);
 
-  // 2. Capture Gantt Chart with anti-clipping clone logic
+  // 2. Capture Gantt Chart with robust cloning
   const ganttElement = document.getElementById('planner-gantt-capture');
   if (ganttElement) {
     const ganttCanvas = await html2canvas(ganttElement, { 
@@ -1635,9 +1636,11 @@ export async function generatePlannerPDF(
       onclone: (clonedDoc) => {
         const el = clonedDoc.getElementById('planner-gantt-capture');
         if (el) {
-          el.style.position = 'static';
+          el.style.position = 'absolute';
+          el.style.left = '0';
+          el.style.top = '0';
           el.style.width = `${ganttElement.scrollWidth}px`;
-          el.style.height = `${ganttElement.scrollHeight}px`;
+          el.style.height = 'auto';
           el.style.overflow = 'visible';
           
           // CRITICAL: Strip all clipping properties and force stable line-height
@@ -1649,39 +1652,69 @@ export async function generatePlannerPDF(
             
             if (node.tagName === 'SPAN' || node.tagName === 'P') {
                 node.style.lineHeight = '1.6';
-                node.style.display = 'inline-block'; // Force block container for spans to prevent half-line clipping
+                node.style.display = 'inline-block';
             }
           });
 
           const stickies = el.querySelectorAll('.sticky');
           stickies.forEach((s: any) => {
             s.classList.remove('sticky', 'left-0', 'top-0', 'z-40', 'z-50', 'z-30');
-            s.style.position = 'static';
+            s.style.position = 'relative';
           });
         }
       }
     });
     
+    // Vertical Slicing & Pagination Logic
+    const canvasWidth = ganttCanvas.width;
+    const canvasHeight = ganttCanvas.height;
     const ganttWidthInPdf = pdfWidth - 20;
-    const ganttHeightInPdf = (ganttCanvas.height * ganttWidthInPdf) / ganttCanvas.width;
+    const pxToPdfScale = ganttWidthInPdf / canvasWidth;
+
+    let currentYInCanvas = 0;
+    const firstPageRemainingHeightInPdf = pdfHeight - headerHeightInPdf - 20;
+    const firstPageMaxCanvasHeight = firstPageRemainingHeightInPdf / pxToPdfScale;
     
-    if (headerHeightInPdf + ganttHeightInPdf + 10 > pdfHeight) {
-      pdf.addPage();
-      pdf.addImage(ganttCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 10, 10, ganttWidthInPdf, ganttHeightInPdf);
-    } else {
-      pdf.addImage(ganttCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 10, headerHeightInPdf + 5, ganttWidthInPdf, ganttHeightInPdf);
+    const standardPageMaxHeightInPdf = pdfHeight - 20;
+    const standardPageMaxCanvasHeight = standardPageMaxHeightInPdf / pxToPdfScale;
+
+    let pageIndex = 0;
+
+    while (currentYInCanvas < canvasHeight) {
+      if (pageIndex > 0) {
+        pdf.addPage();
+      }
+
+      const isFirstPage = pageIndex === 0;
+      const maxCanvasHeightForThisPage = isFirstPage ? firstPageMaxCanvasHeight : standardPageMaxCanvasHeight;
+      const canvasHeightToDraw = Math.min(maxCanvasHeightForThisPage, canvasHeight - currentYInCanvas);
+      const pdfHeightToDraw = canvasHeightToDraw * pxToPdfScale;
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = canvasWidth;
+      tempCanvas.height = canvasHeightToDraw;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (tempCtx) {
+        tempCtx.drawImage(ganttCanvas, 0, currentYInCanvas, canvasWidth, canvasHeightToDraw, 0, 0, canvasWidth, canvasHeightToDraw);
+        const imgData = tempCanvas.toDataURL('image/jpeg', 0.95);
+        const yPos = isFirstPage ? headerHeightInPdf + 5 : 10;
+        pdf.addImage(imgData, 'JPEG', 10, yPos, ganttWidthInPdf, pdfHeightToDraw);
+      }
+
+      currentYInCanvas += canvasHeightToDraw;
+      pageIndex++;
     }
   }
 
-  // 3. Activity Directory
+  // 3. Activity Directory Appendix
   pdf.addPage();
   pdf.setFontSize(16);
   pdf.setTextColor(30, 41, 59);
+  pdf.setFont("helvetica", "bold");
   pdf.text("Activity Directory", 10, 20);
   
   let currentY = 30;
   pdf.setFontSize(10);
-  pdf.setFont("helvetica", "bold");
   pdf.text("Description", 15, currentY);
   pdf.text("Partner", 100, currentY);
   pdf.text("Start", 160, currentY);
@@ -1693,7 +1726,7 @@ export async function generatePlannerPDF(
   pdf.line(10, currentY, 280, currentY);
   currentY += 8;
 
-  tasks.forEach((task, idx) => {
+  tasks.forEach((task) => {
     if (currentY > pdfHeight - 20) { pdf.addPage(); currentY = 20; }
     
     const sub = subContractors.find(s => s.id === task.subcontractorId);
