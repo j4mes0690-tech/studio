@@ -1,13 +1,14 @@
+
 'use client';
 
 import { useMemo, useState } from 'react';
 import type { PlannerTask, SubContractor, Photo, Project, Planner, PlannerSection } from '@/lib/types';
 import { 
     format, 
-    addDays, 
+    eachDayOfInterval, 
+    parseISO, 
     isSameDay, 
     differenceInDays, 
-    eachDayOfInterval, 
     startOfWeek, 
     isValid,
     endOfWeek
@@ -21,7 +22,7 @@ import Image from 'next/image';
 import { Layers } from 'lucide-react';
 
 const DAY_WIDTH = 40; // px per day
-const ROW_HEIGHT = 64; // Increased height for robust PDF rendering
+const ROW_HEIGHT = 80; // Increased to 80px to prevent any possible clipping of text/badges
 const SECTION_HEADER_HEIGHT = 32; // px per section header row
 const MIN_WEEKS = 12; // Minimum timeline width if no tasks exist
 
@@ -334,14 +335,14 @@ export function GanttChart({
                                     const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
                                     const tradeColor = getTradeColor(task.subcontractorId || '', subContractors);
                                     return (
-                                        <div key={task.id} className="border-b px-4 flex flex-row items-center justify-between min-w-0 gap-3 pt-5 pb-5" style={{ height: ROW_HEIGHT, overflow: 'visible' }}>
+                                        <div key={task.id} className="border-b px-4 flex flex-row items-center justify-between min-w-0 gap-3" style={{ height: ROW_HEIGHT, overflow: 'visible' }}>
                                             <span className={cn(
-                                                "text-[11px] font-bold truncate leading-relaxed block flex-1", 
+                                                "text-[11px] font-bold truncate leading-normal block flex-1", 
                                                 task.status === 'completed' && "text-muted-foreground line-through"
                                             )}>
                                                 {task.title}
                                             </span>
-                                            <Badge variant="outline" className="text-[8px] h-4 bg-background truncate px-1.5 shrink-0" style={{ borderColor: `${tradeColor}40`, color: tradeColor }}>
+                                            <Badge variant="outline" className="text-[8px] font-black h-5 uppercase bg-background truncate px-1.5 shrink-0" style={{ borderColor: `${tradeColor}40`, color: tradeColor }}>
                                                 {tradeName}
                                             </Badge>
                                         </div>
@@ -401,10 +402,11 @@ export function GanttChart({
 
                                         return (
                                             <div key={task.id} className="border-b relative" style={{ height: ROW_HEIGHT, width: chartWidth }}>
+                                                {/* Baseline centering: ROW_HEIGHT 80, baseline h-1.5 (6px). (80/2 - 3) = top-37px or approx top-9 (36px) */}
                                                 {baselineSegments.map((seg, sIdx) => (
                                                     <div 
                                                         key={`baseline-${sIdx}`}
-                                                        className="absolute h-1.5 top-3 opacity-20 bg-slate-400 border border-slate-500 z-0"
+                                                        className="absolute h-1.5 top-6 opacity-20 bg-slate-400 border border-slate-500 z-0"
                                                         style={{ 
                                                             left: seg.left, 
                                                             width: seg.width,
@@ -418,13 +420,14 @@ export function GanttChart({
                                                     />
                                                 ))}
 
+                                                {/* Task Bar centering: ROW_HEIGHT 80, task h-6 (24px). (80/2 - 12) = top-28px or exactly top-7 */}
                                                 {segments.map((seg, sIdx) => (
                                                     <TooltipProvider key={`task-${sIdx}`}>
                                                         <Tooltip>
                                                             <TooltipTrigger asChild>
                                                                 <div 
                                                                     className={cn(
-                                                                        "absolute h-6 top-6 shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
+                                                                        "absolute h-6 top-10 shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
                                                                         task.status === 'completed' ? "text-white opacity-80" : 
                                                                         task.status === 'in-progress' ? "text-white animate-pulse" : 
                                                                         "text-white",

@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation, ClientInstruction, Permit, QualityChecklist, PermitSignature } from '@/lib/types';
@@ -1560,7 +1561,7 @@ export async function generatePlannerPDF(
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
 
-  // Tight Bounding Logic: If no range is set, find the absolute bounds of the task set.
+  // Tight Bounding Logic
   let reportFromStr = dateRange?.from;
   let reportToStr = dateRange?.to;
 
@@ -1620,7 +1621,7 @@ export async function generatePlannerPDF(
   const headerHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
   pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, pdfWidth, headerHeightInPdf);
 
-  // 2. Capture Gantt Chart
+  // 2. Capture Gantt Chart with anti-clipping clone logic
   const ganttElement = document.getElementById('planner-gantt-capture');
   if (ganttElement) {
     const ganttCanvas = await html2canvas(ganttElement, { 
@@ -1632,15 +1633,26 @@ export async function generatePlannerPDF(
       height: ganttElement.scrollHeight,
       windowWidth: ganttElement.scrollWidth,
       onclone: (clonedDoc) => {
-        // Find the captured element in the cloned document
         const el = clonedDoc.getElementById('planner-gantt-capture');
         if (el) {
-          // Force it to be a normal static block element so html2canvas doesn't clip
           el.style.position = 'static';
           el.style.width = `${ganttElement.scrollWidth}px`;
           el.style.height = `${ganttElement.scrollHeight}px`;
+          el.style.overflow = 'visible';
           
-          // Remove all interactive position styles that break snapshots
+          // CRITICAL: Strip all clipping properties and force stable line-height
+          const allElements = el.querySelectorAll('*');
+          allElements.forEach((node: any) => {
+            node.style.overflow = 'visible';
+            node.style.clipPath = 'none';
+            node.style.webkitClipPath = 'none';
+            
+            if (node.tagName === 'SPAN' || node.tagName === 'P') {
+                node.style.lineHeight = '1.6';
+                node.style.display = 'inline-block'; // Force block container for spans to prevent half-line clipping
+            }
+          });
+
           const stickies = el.querySelectorAll('.sticky');
           stickies.forEach((s: any) => {
             s.classList.remove('sticky', 'left-0', 'top-0', 'z-40', 'z-50', 'z-30');
@@ -1661,7 +1673,7 @@ export async function generatePlannerPDF(
     }
   }
 
-  // 3. Task Directory Appendix
+  // 3. Activity Directory
   pdf.addPage();
   pdf.setFontSize(16);
   pdf.setTextColor(30, 41, 59);
@@ -1701,7 +1713,7 @@ export async function generatePlannerPDF(
 }
 
 /**
- * Helper to generate simple date strings for formatting in PDF internal logic
+ * Helper to generate simple date strings
  */
 function format(date: Date, pattern: string): string {
     const y = date.getFullYear();
