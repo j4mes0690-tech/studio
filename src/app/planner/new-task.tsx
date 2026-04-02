@@ -27,10 +27,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { PlusCircle, Loader2, Save, HardHat, Layers, Calendar, Link as LinkIcon, Camera, Upload, X, RefreshCw } from 'lucide-react';
-import type { Project, SubContractor, PlannerTask, Photo } from '@/lib/types';
-import { useFirestore, useStorage } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { Textarea } from '@/components/ui/textarea';
+import { PlusCircle, Loader2, Save, HardHat, Layers, Calendar, Link as LinkIcon, Camera, Upload, X, RefreshCw, Plus } from 'lucide-react';
+import type { Project, SubContractor, PlannerTask, Photo, PlannerSection } from '@/lib/types';
+import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, addDoc, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -39,12 +40,13 @@ import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { addDays, parseISO, format, isValid } from 'date-fns';
 import { VoiceInput } from '@/components/voice-input';
 import { Separator } from '@/components/ui/separator';
-import { parseDateString, calculateFinishDate, calculateNextStartDate } from '@/lib/utils';
+import { parseDateString, calculateFinishDate, calculateNextStartDate, cn } from '@/lib/utils';
 
 const NewTaskSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   plannerId: z.string().min(1, 'Planner selection is required.'),
   sectionId: z.string().optional().nullable(),
+  newSectionName: z.string().optional(),
   title: z.string().min(3, 'Description of work is required.'),
   subcontractorId: z.string().min(1, 'Assigned partner is required.'),
   customSubcontractorName: z.string().optional(),
@@ -77,6 +79,7 @@ export function NewTaskDialog({
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
+  const [isAddingNewSection, setIsAddingNewSection] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -86,6 +89,7 @@ export function NewTaskDialog({
       projectId: initialProjectId || '',
       plannerId: initialPlannerId || '',
       sectionId: 'none',
+      newSectionName: '',
       title: '',
       subcontractorId: '',
       customSubcontractorName: '',
@@ -153,6 +157,35 @@ export function NewTaskDialog({
   const onSubmit = (values: NewTaskFormValues) => {
     startTransition(async () => {
       try {
+        let finalSectionId = values.sectionId === 'none' ? null : values.sectionId || null;
+
+        // Handle inline section creation
+        if (isAddingNewSection && values.newSectionName?.trim() && selectedProject && currentPlanner) {
+            const name = values.newSectionName.trim();
+            const existing = currentPlanner.sections?.find(s => s.name.toLowerCase() === name.toLowerCase());
+            
+            if (existing) {
+                finalSectionId = existing.id;
+            } else {
+                const newSectionId = `sec-${Date.now()}`;
+                const newSection: PlannerSection = { id: newSectionId, name };
+                
+                // Fetch fresh project doc
+                const projRef = doc(db, 'projects', selectedProject.id);
+                const projSnap = await getDoc(projRef);
+                if (projSnap.exists()) {
+                    const currentPlanners = projSnap.data().planners || [];
+                    const updatedPlanners = currentPlanners.map((p: any) => 
+                        p.id === selectedPlannerId 
+                            ? { ...p, sections: [...(p.sections || []), newSection] } 
+                            : p
+                    );
+                    await updateDoc(projRef, { planners: updatedPlanners });
+                    finalSectionId = newSectionId;
+                }
+            }
+        }
+
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -167,7 +200,7 @@ export function NewTaskDialog({
         const taskData: Omit<PlannerTask, 'id'> = {
           projectId: values.projectId,
           plannerId: values.plannerId,
-          sectionId: values.sectionId === 'none' ? null : values.sectionId || null,
+          sectionId: finalSectionId,
           areaId: values.plannerId,
           title: values.title,
           subcontractorId: values.subcontractorId,
@@ -190,8 +223,11 @@ export function NewTaskDialog({
             ...values,
             title: '',
             predecessorIds: [],
+            newSectionName: '',
+            sectionId: finalSectionId || 'none'
         });
         setPhotos([]);
+        setIsAddingNewSection(false);
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to schedule task.', variant: 'destructive' });
       }
@@ -204,6 +240,7 @@ export function NewTaskDialog({
             projectId: initialProjectId || '',
             plannerId: initialPlannerId || '',
             sectionId: 'none',
+            newSectionName: '',
             title: '',
             subcontractorId: '',
             customSubcontractorName: '',
@@ -212,6 +249,7 @@ export function NewTaskDialog({
             predecessorIds: [],
         });
         setPhotos([]);
+        setIsAddingNewSection(false);
     }
   }, [open, initialProjectId, initialPlannerId, form]);
 
@@ -227,7 +265,7 @@ export function NewTaskDialog({
     return () => stream?.getTracks().forEach(t => t.stop());
   }, [isCameraOpen, facingMode]);
 
-  const capturePhoto = async () => {
+  const capturePhoto = () => {
     if (videoRef.current && canvasRef.current) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
@@ -238,8 +276,7 @@ export function NewTaskDialog({
       canvas.height = 1200 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const raw = canvas.toDataURL('image/jpeg', 0.85);
-      const optimized = await optimizeImage(raw);
-      setPhotos([...photos, { url: optimized, takenAt: new Date().toISOString() }]);
+      setPhotos([...photos, { url: raw, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
   };
@@ -283,24 +320,48 @@ export function NewTaskDialog({
               )} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="sectionId" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Planner Section</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedPlannerId}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="General (No Section)" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="none">General (No Section)</SelectItem>
-                                {currentPlanner?.sections?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </FormItem>
-                )} />
-                <div className="flex items-end pb-2">
-                    <p className="text-[10px] text-muted-foreground leading-tight italic">
-                        Sections allow you to group tasks in the Gantt chart (e.g., By Level or Phase).
-                    </p>
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <FormLabel className="flex items-center gap-2">
+                        <Layers className="h-4 w-4 text-primary" />
+                        Activity Section
+                    </FormLabel>
+                    <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setIsAddingNewSection(!isAddingNewSection)}
+                        className="h-7 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5"
+                    >
+                        {isAddingNewSection ? "Select Existing" : "Create New"}
+                    </Button>
                 </div>
+                
+                {isAddingNewSection ? (
+                    <FormField control={form.control} name="newSectionName" render={({ field }) => (
+                        <FormItem className="animate-in fade-in slide-in-from-top-1">
+                            <FormControl>
+                                <div className="relative">
+                                    <Input placeholder="Enter new section name (e.g. Level 01)..." {...field} className="h-11 bg-primary/5 border-primary/20 pr-10" />
+                                    <Plus className="absolute right-3 top-3.5 h-4 w-4 text-primary opacity-40" />
+                                </div>
+                            </FormControl>
+                            <FormDescription className="text-[10px]">This section will be remembered for future tasks in this planner.</FormDescription>
+                        </FormItem>
+                    )} />
+                ) : (
+                    <FormField control={form.control} name="sectionId" render={({ field }) => (
+                        <FormItem>
+                            <Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedPlannerId}>
+                                <FormControl><SelectTrigger className="h-11"><SelectValue placeholder="General (No Section)" /></SelectTrigger></FormControl>
+                                <SelectContent>
+                                    <SelectItem value="none">General / No Specific Section</SelectItem>
+                                    {currentPlanner?.sections?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </FormItem>
+                    )} />
+                )}
             </div>
 
             <FormField control={form.control} name="title" render={({ field }) => (

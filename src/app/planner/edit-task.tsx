@@ -38,10 +38,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Save, HardHat, Link as LinkIcon, Camera, X, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react';
-import type { Project, SubContractor, PlannerTask, Photo } from '@/lib/types';
+import { Loader2, Save, HardHat, Link as LinkIcon, Camera, X, RefreshCw, Trash2, CheckCircle2, Layers, Plus } from 'lucide-react';
+import type { Project, SubContractor, PlannerTask, Photo, PlannerSection } from '@/lib/types';
 import { useFirestore, useStorage } from '@/firebase';
-import { doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, writeBatch, getDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useToast } from '@/hooks/use-toast';
@@ -57,6 +57,7 @@ const EditTaskSchema = z.object({
   title: z.string().min(3, 'Description of work is required.'),
   subcontractorId: z.string().min(1, 'Partner assignment is required.'),
   sectionId: z.string().optional().nullable(),
+  newSectionName: z.string().optional(),
   customSubcontractorName: z.string().optional(),
   startDate: z.string().min(1, 'Start date is required.'),
   durationDays: z.coerce.number().min(1, 'Duration must be at least 1 day.'),
@@ -89,6 +90,7 @@ export function EditTaskDialog({
 
   const [photos, setPhotos] = useState<Photo[]>(task.photos || []);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [isAddingNewSection, setIsAddingNewSection] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -99,6 +101,7 @@ export function EditTaskDialog({
       title: task.title,
       subcontractorId: task.subcontractorId || task.tradeId,
       sectionId: task.sectionId || 'none',
+      newSectionName: '',
       customSubcontractorName: task.customSubcontractorName || '',
       startDate: task.startDate,
       durationDays: task.durationDays,
@@ -114,6 +117,7 @@ export function EditTaskDialog({
         title: task.title,
         subcontractorId: task.subcontractorId || task.tradeId || '',
         sectionId: task.sectionId || 'none',
+        newSectionName: '',
         customSubcontractorName: task.customSubcontractorName || '',
         startDate: task.startDate,
         durationDays: task.durationDays,
@@ -122,6 +126,7 @@ export function EditTaskDialog({
         predecessorIds: task.predecessorIds || [],
       });
       setPhotos(task.photos || []);
+      setIsAddingNewSection(false);
     }
   }, [open, task, form]);
 
@@ -180,6 +185,34 @@ export function EditTaskDialog({
   const onSubmit = (values: EditTaskFormValues) => {
     startTransition(async () => {
       try {
+        let finalSectionId = values.sectionId === 'none' ? null : values.sectionId || null;
+
+        // Handle inline section creation
+        if (isAddingNewSection && values.newSectionName?.trim() && selectedProject && currentPlanner) {
+            const name = values.newSectionName.trim();
+            const existing = currentPlanner.sections?.find(s => s.name.toLowerCase() === name.toLowerCase());
+            
+            if (existing) {
+                finalSectionId = existing.id;
+            } else {
+                const newSectionId = `sec-${Date.now()}`;
+                const newSection: PlannerSection = { id: newSectionId, name };
+                
+                const projRef = doc(db, 'projects', selectedProject.id);
+                const projSnap = await getDoc(projRef);
+                if (projSnap.exists()) {
+                    const currentPlanners = projSnap.data().planners || [];
+                    const updatedPlanners = currentPlanners.map((p: any) => 
+                        p.id === currentPlanner.id 
+                            ? { ...p, sections: [...(p.sections || []), newSection] } 
+                            : p
+                    );
+                    await updateDoc(projRef, { planners: updatedPlanners });
+                    finalSectionId = newSectionId;
+                }
+            }
+        }
+
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -197,7 +230,7 @@ export function EditTaskDialog({
         const updates: any = {
           title: values.title,
           subcontractorId: values.subcontractorId,
-          sectionId: values.sectionId === 'none' ? null : values.sectionId || null,
+          sectionId: finalSectionId,
           customSubcontractorName: values.customSubcontractorName || null,
           startDate: values.startDate,
           durationDays: values.durationDays,
@@ -221,7 +254,7 @@ export function EditTaskDialog({
         });
 
         await batch.commit();
-        toast({ title: 'Schedule Optimised', description: 'All activities revised to follow the most efficient timeline.' });
+        toast({ title: 'Schedule Updated', description: 'Schedule optimised based on your changes.' });
         onOpenChange(false);
       } catch (err) {
         toast({ title: 'Error', description: 'Failed to update schedule.', variant: 'destructive' });
@@ -264,8 +297,7 @@ export function EditTaskDialog({
       canvas.height = 1200 / aspectRatio;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       const raw = canvas.toDataURL('image/jpeg', 0.85);
-      const optimised = await optimizeImage(raw);
-      setPhotos([...photos, { url: optimised, takenAt: new Date().toISOString() }]);
+      setPhotos([...photos, { url: raw, takenAt: new Date().toISOString() }]);
       setIsCameraOpen(false);
     }
   };
@@ -302,23 +334,53 @@ export function EditTaskDialog({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="sectionId" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Planner Section</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || 'none'}>
-                            <FormControl><SelectTrigger><SelectValue placeholder="General (No Section)" /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="none">General (No Section)</SelectItem>
-                                {currentPlanner?.sections?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </FormItem>
-                )} />
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <FormLabel className="flex items-center gap-2">
+                            <Layers className="h-4 w-4 text-primary" />
+                            Section
+                        </FormLabel>
+                        <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setIsAddingNewSection(!isAddingNewSection)}
+                            className="h-7 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/5"
+                        >
+                            {isAddingNewSection ? "Select Existing" : "Create New"}
+                        </Button>
+                    </div>
+                    
+                    {isAddingNewSection ? (
+                        <FormField control={form.control} name="newSectionName" render={({ field }) => (
+                            <FormItem className="animate-in fade-in slide-in-from-top-1">
+                                <FormControl>
+                                    <div className="relative">
+                                        <Input placeholder="Enter new section name..." {...field} className="h-11 bg-primary/5 border-primary/20 pr-10" />
+                                        <Plus className="absolute right-3 top-3.5 h-4 w-4 text-primary opacity-40" />
+                                    </div>
+                                </FormControl>
+                            </FormItem>
+                        )} />
+                    ) : (
+                        <FormField control={form.control} name="sectionId" render={({ field }) => (
+                            <FormItem>
+                                <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                                    <FormControl><SelectTrigger className="h-11"><SelectValue placeholder="General (No Section)" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="none">General (No Section)</SelectItem>
+                                        {currentPlanner?.sections?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </FormItem>
+                        )} />
+                    )}
+                </div>
                 <FormField control={form.control} name="status" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Activity Status</FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                            <FormControl><SelectTrigger className="h-11"><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>
                                 <SelectItem value="pending">Pending</SelectItem>
                                 <SelectItem value="in-progress">In Progress</SelectItem>
