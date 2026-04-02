@@ -1,10 +1,16 @@
 
+export type PlannerSection = {
+  id: string;
+  name: string;
+};
+
 export type Planner = {
   id: string;
   name: string;
   archived?: boolean;
   includeSaturday?: boolean;
   includeSunday?: boolean;
+  sections?: PlannerSection[];
 };
 
 export type Project = {
@@ -330,6 +336,7 @@ export type PlannerTask = {
   id: string;
   projectId: string;
   plannerId: string;
+  sectionId?: string | null;
   areaId?: string; // Keep for backward compatibility
   title: string;
   subcontractorId: string;

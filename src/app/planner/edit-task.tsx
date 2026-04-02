@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -22,7 +23,19 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Save, HardHat, Link as LinkIcon, Camera, X, RefreshCw, Trash2, CheckCircle2 } from 'lucide-react';
@@ -37,13 +50,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { addDays, format, isValid, parseISO } from 'date-fns';
 import { Separator } from '@/components/ui/separator';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { VoiceInput } from '@/components/voice-input';
 import { wouldCreateCycle, cn, parseDateString, calculateFinishDate, calculateNextStartDate, optimiseGlobalSchedule } from '@/lib/utils';
 
 const EditTaskSchema = z.object({
   title: z.string().min(3, 'Description of work is required.'),
   subcontractorId: z.string().min(1, 'Partner assignment is required.'),
+  sectionId: z.string().optional().nullable(),
   customSubcontractorName: z.string().optional(),
   startDate: z.string().min(1, 'Start date is required.'),
   durationDays: z.coerce.number().min(1, 'Duration must be at least 1 day.'),
@@ -85,6 +98,7 @@ export function EditTaskDialog({
     defaultValues: {
       title: task.title,
       subcontractorId: task.subcontractorId || task.tradeId,
+      sectionId: task.sectionId || 'none',
       customSubcontractorName: task.customSubcontractorName || '',
       startDate: task.startDate,
       durationDays: task.durationDays,
@@ -99,6 +113,7 @@ export function EditTaskDialog({
       form.reset({
         title: task.title,
         subcontractorId: task.subcontractorId || task.tradeId || '',
+        sectionId: task.sectionId || 'none',
         customSubcontractorName: task.customSubcontractorName || '',
         startDate: task.startDate,
         durationDays: task.durationDays,
@@ -182,6 +197,7 @@ export function EditTaskDialog({
         const updates: any = {
           title: values.title,
           subcontractorId: values.subcontractorId,
+          sectionId: values.sectionId === 'none' ? null : values.sectionId || null,
           customSubcontractorName: values.customSubcontractorName || null,
           startDate: values.startDate,
           durationDays: values.durationDays,
@@ -285,6 +301,34 @@ export function EditTaskDialog({
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="sectionId" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Planner Section</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || 'none'}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="General (No Section)" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="none">General (No Section)</SelectItem>
+                                {currentPlanner?.sections?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </FormItem>
+                )} />
+                <FormField control={form.control} name="status" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Activity Status</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="in-progress">In Progress</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </FormItem>
+                )} />
+            </div>
+
             <FormField control={form.control} name="title" render={({ field }) => (
               <FormItem>
                 <div className="flex justify-between items-center"><FormLabel>Activity Description</FormLabel><VoiceInput onResult={field.onChange} /></div>
@@ -306,19 +350,14 @@ export function EditTaskDialog({
                         </Select>
                     </FormItem>
                 )} />
-                <FormField control={form.control} name="status" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Activity Status</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                            <SelectContent>
-                                <SelectItem value="pending">Pending</SelectItem>
-                                <SelectItem value="in-progress">In Progress</SelectItem>
-                                <SelectItem value="completed">Completed</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </FormItem>
-                )} />
+                <div className="grid grid-cols-2 gap-2">
+                    <FormField control={form.control} name="startDate" render={({ field }) => (
+                        <FormItem><FormLabel>Current Forecast</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
+                    )} />
+                    <FormField control={form.control} name="durationDays" render={({ field }) => (
+                        <FormItem><FormLabel>Days</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl></FormItem>
+                    )} />
+                </div>
             </div>
 
             {selectedSubId === 'other' && (
@@ -331,25 +370,15 @@ export function EditTaskDialog({
                 )} />
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="grid grid-cols-2 gap-2">
-                    <FormField control={form.control} name="startDate" render={({ field }) => (
-                        <FormItem><FormLabel>Current Forecast</FormLabel><FormControl><Input type="date" {...field} /></FormControl></FormItem>
-                    )} />
-                    <FormField control={form.control} name="durationDays" render={({ field }) => (
-                        <FormItem><FormLabel>Days</FormLabel><FormControl><Input type="number" min="1" {...field} /></FormControl></FormItem>
-                    )} />
-                </div>
-                {currentStatus === 'completed' && (
-                    <FormField control={form.control} name="actualCompletionDate" render={({ field }) => (
-                        <FormItem className="animate-in fade-in bg-green-50 p-3 rounded-lg border border-green-100">
-                            <FormLabel className="text-green-800 font-black uppercase text-[10px]">Date Finished</FormLabel>
-                            <FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} className="bg-white border-green-200" /></FormControl>
-                            <FormDescription className="text-[10px] text-green-700">Successors will pull forward to this date.</FormDescription>
-                        </FormItem>
-                    )} />
-                )}
-            </div>
+            {currentStatus === 'completed' && (
+                <FormField control={form.control} name="actualCompletionDate" render={({ field }) => (
+                    <FormItem className="animate-in fade-in bg-green-50 p-3 rounded-lg border border-green-100">
+                        <FormLabel className="text-green-800 font-black uppercase text-[10px]">Date Finished</FormLabel>
+                        <FormControl><Input type="date" value={field.value || ''} onChange={field.onChange} className="bg-white border-green-200" /></FormControl>
+                        <FormDescription className="text-[10px] text-green-700">Successors will pull forward to this date.</FormDescription>
+                    </FormItem>
+                )} />
+            )}
 
             <Separator />
 

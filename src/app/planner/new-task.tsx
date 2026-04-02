@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo, useEffect, useRef } from 'react';
@@ -43,6 +44,7 @@ import { parseDateString, calculateFinishDate, calculateNextStartDate } from '@/
 const NewTaskSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
   plannerId: z.string().min(1, 'Planner selection is required.'),
+  sectionId: z.string().optional().nullable(),
   title: z.string().min(3, 'Description of work is required.'),
   subcontractorId: z.string().min(1, 'Assigned partner is required.'),
   customSubcontractorName: z.string().optional(),
@@ -83,6 +85,7 @@ export function NewTaskDialog({
     defaultValues: {
       projectId: initialProjectId || '',
       plannerId: initialPlannerId || '',
+      sectionId: 'none',
       title: '',
       subcontractorId: '',
       customSubcontractorName: '',
@@ -164,6 +167,7 @@ export function NewTaskDialog({
         const taskData: Omit<PlannerTask, 'id'> = {
           projectId: values.projectId,
           plannerId: values.plannerId,
+          sectionId: values.sectionId === 'none' ? null : values.sectionId || null,
           areaId: values.plannerId,
           title: values.title,
           subcontractorId: values.subcontractorId,
@@ -199,6 +203,7 @@ export function NewTaskDialog({
         form.reset({
             projectId: initialProjectId || '',
             plannerId: initialPlannerId || '',
+            sectionId: 'none',
             title: '',
             subcontractorId: '',
             customSubcontractorName: '',
@@ -276,6 +281,26 @@ export function NewTaskDialog({
                   </Select>
                 </FormItem>
               )} />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField control={form.control} name="sectionId" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Planner Section</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || 'none'} disabled={!selectedPlannerId}>
+                            <FormControl><SelectTrigger><SelectValue placeholder="General (No Section)" /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                <SelectItem value="none">General (No Section)</SelectItem>
+                                {currentPlanner?.sections?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </FormItem>
+                )} />
+                <div className="flex items-end pb-2">
+                    <p className="text-[10px] text-muted-foreground leading-tight italic">
+                        Sections allow you to group tasks in the Gantt chart (e.g., By Level or Phase).
+                    </p>
+                </div>
             </div>
 
             <FormField control={form.control} name="title" render={({ field }) => (

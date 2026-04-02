@@ -1,10 +1,11 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
 import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, arrayUnion, writeBatch, where, getDocs, getDoc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense, useTransition } from 'react';
-import type { PlannerTask, Project, Planner, DistributionUser, Photo, SubContractor } from '@/lib/types';
+import type { PlannerTask, Project, Planner, DistributionUser, Photo, SubContractor, PlannerSection } from '@/lib/types';
 import Image from 'next/image';
 import { 
     Loader2, 
@@ -27,7 +28,11 @@ import {
     ArchiveRestore,
     Eye,
     EyeOff,
-    Clock
+    Clock,
+    Layers,
+    Plus,
+    X,
+    Settings2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -66,6 +71,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { generatePlannerPDF } from '@/lib/pdf-utils';
 import { DistributePlannerButton } from './distribute-planner-button';
 
@@ -84,6 +90,9 @@ function PlannerContent() {
   
   const [isAddPlannerOpen, setIsAddPlannerOpen] = useState(false);
   const [newPlannerName, setNewPlannerName] = useState('');
+
+  const [isManageSectionsOpen, setIsManageSectionsOpen] = useState(false);
+  const [newSectionName, setNewSectionName] = useState('');
 
   const projectFilter = searchParams.get('project');
   const plannerFilter = searchParams.get('planner');
@@ -117,37 +126,6 @@ function PlannerContent() {
     const email = profile.email.toLowerCase().trim();
     return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
   }, [allProjects, profile]);
-
-  const projectStats = useMemo(() => {
-    const stats = new Map<string, { total: number, completed: number }>();
-    if (!allTasks) return stats;
-    
-    allTasks.forEach(task => {
-        const pId = task.projectId;
-        const current = stats.get(pId) || { total: 0, completed: 0 };
-        stats.set(pId, {
-            total: current.total + 1,
-            completed: current.completed + (task.status === 'completed' ? 1 : 0)
-        });
-    });
-    return stats;
-  }, [allTasks]);
-
-  const plannerStats = useMemo(() => {
-    const stats = new Map<string, { total: number, completed: number }>();
-    if (!allTasks || !projectFilter) return stats;
-    
-    allTasks.filter(t => t.projectId === projectFilter).forEach(task => {
-        const pId = task.plannerId || task.areaId;
-        if (!pId) return;
-        const current = stats.get(pId) || { total: 0, completed: 0 };
-        stats.set(pId, {
-            total: current.total + 1,
-            completed: current.completed + (task.status === 'completed' ? 1 : 0)
-        });
-    });
-    return stats;
-  }, [allTasks, projectFilter]);
 
   const currentProject = useMemo(() => allowedProjects.find(p => p.id === projectFilter), [allowedProjects, projectFilter]);
   const currentPlanner = useMemo(() => {
@@ -190,43 +168,6 @@ function PlannerContent() {
     router.push(`/planner?${params.toString()}`);
   };
 
-  const handleUpdateScheduleLogic = (key: 'includeSaturday' | 'includeSunday', val: boolean) => {
-    if (!currentProject || !currentPlanner) return;
-    
-    startTransition(async () => {
-        try {
-            const batch = writeBatch(db);
-            const projRef = doc(db, 'projects', currentProject.id);
-            
-            // 1. Update the planner definition
-            const updatedPlanners = (currentProject.planners || []).map(p => 
-                p.id === currentPlanner.id ? { ...p, [key]: val } : p
-            );
-            batch.update(projRef, { planners: updatedPlanners });
-
-            // 2. Trigger a global re-forecast for all tasks in this planner
-            const plannerTasks = allTasks.filter(t => t.projectId === currentProject.id && (t.plannerId === currentPlanner.id || t.areaId === currentPlanner.id));
-            
-            const sat = key === 'includeSaturday' ? val : !!currentPlanner.includeSaturday;
-            const sun = key === 'includeSunday' ? val : !!currentPlanner.includeSunday;
-
-            optimiseGlobalSchedule(plannerTasks, sat, sun, (taskId, updates) => {
-                const taskRef = doc(db, 'planner-tasks', taskId);
-                batch.update(taskRef, updates);
-            });
-
-            await batch.commit();
-            toast({ 
-                title: 'Schedule Reforecast', 
-                description: `${key === 'includeSaturday' ? 'Saturday' : 'Sunday'} logic ${val ? 'enabled' : 'disabled'}. All tasks shifted to follow the new working calendar.` 
-            });
-        } catch (err) {
-            console.error(err);
-            toast({ title: 'Error', description: 'Failed to reforecast schedule.', variant: 'destructive' });
-        }
-    });
-  };
-
   const handleAddPlanner = () => {
     if (!newPlannerName.trim() || !currentProject) return;
     startTransition(async () => {
@@ -235,83 +176,58 @@ function PlannerContent() {
             name: newPlannerName.trim(),
             archived: false,
             includeSaturday: false,
-            includeSunday: false
+            includeSunday: false,
+            sections: []
         };
         const projRef = doc(db, 'projects', currentProject.id);
         await updateDoc(projRef, {
             planners: arrayUnion(newPlanner)
         });
-        toast({ title: 'New Planner Added', description: `Planner "${newPlanner.name}" is ready for scheduling.` });
+        toast({ title: 'New Planner Added', description: `Planner "${newPlanner.name}" is ready.` });
         setNewPlannerName('');
         setIsAddPlannerOpen(false);
     });
   };
 
-  const handleToggleArchivePlanner = (plannerId: string, isArchived: boolean) => {
-    if (!currentProject) return;
+  const handleAddSection = () => {
+    if (!newSectionName.trim() || !currentProject || !currentPlanner) return;
     startTransition(async () => {
+        const newSection: PlannerSection = {
+            id: `sec-${Date.now()}`,
+            name: newSectionName.trim()
+        };
         const updatedPlanners = (currentProject.planners || []).map(p => 
-            p.id === plannerId ? { ...p, archived: !isArchived } : p
+            p.id === currentPlanner.id 
+                ? { ...p, sections: [...(p.sections || []), newSection] } 
+                : p
         );
         const projRef = doc(db, 'projects', currentProject.id);
         await updateDoc(projRef, { planners: updatedPlanners });
-        toast({ 
-            title: isArchived ? 'Record Restored' : 'Record Archived', 
-            description: `Schedule has been ${isArchived ? 'restored to active view' : 'moved to archives'}.` 
-        });
+        toast({ title: 'Section Added', description: `"${newSection.name}" created.` });
+        setNewSectionName('');
     });
   };
 
-  const handleDeletePlanner = (plannerId: string) => {
-    if (!projectFilter || !db) return;
-    
+  const handleRemoveSection = (sectionId: string) => {
+    if (!currentProject || !currentPlanner) return;
     startTransition(async () => {
-        try {
-            const projRef = doc(db, 'projects', projectFilter);
-            const projSnap = await getDoc(projRef);
-            
-            if (!projSnap.exists()) {
-                toast({ title: 'Error', description: 'Project not found.', variant: 'destructive' });
-                return;
-            }
-
-            const projData = projSnap.data();
-            const updates: any = {};
-            
-            if (projData.planners) {
-                updates.planners = projData.planners.filter((p: any) => p.id !== plannerId);
-            }
-            if (projData.areas) {
-                updates.areas = projData.areas.filter((a: any) => a.id !== plannerId);
-            }
-
-            await updateDoc(projRef, updates);
-
-            const tasksCollQuery = query(collection(db, 'planner-tasks'), where('plannerId', '==', plannerId));
-            const tasksSnap = await getDocs(tasksCollQuery);
-            
-            const batch = writeBatch(db);
-            tasksSnap.forEach((tDoc) => {
-                batch.delete(tDoc.ref);
-            });
-            
-            const legacyTasksQuery = query(collection(db, 'planner-tasks'), where('areaId', '==', plannerId));
-            const legacyTasksSnap = await getDocs(legacyTasksQuery);
-            legacyTasksSnap.forEach((tDoc) => {
-                batch.delete(tDoc.ref);
-            });
-
-            await batch.commit();
-
-            if (plannerFilter === plannerId) {
-                clearPlanner();
-            }
-            
-            toast({ title: 'Planner Deleted', description: 'Schedule and all associated tasks removed.' });
-        } catch (err) {
-            console.error("Delete planner error:", err);
-            toast({ title: 'Error', description: 'Failed to delete planner.', variant: 'destructive' });
-        }
+        const updatedPlanners = (currentProject.planners || []).map(p => 
+            p.id === currentPlanner.id 
+                ? { ...p, sections: (p.sections || []).filter(s => s.id !== sectionId) } 
+                : p
+        );
+        const projRef = doc(db, 'projects', currentProject.id);
+        await updateDoc(projRef, { planners: updatedPlanners });
+        
+        // Also unassign tasks from this section
+        const batch = writeBatch(db);
+        const sectionTasks = allTasks.filter(t => t.sectionId === sectionId);
+        sectionTasks.forEach(t => {
+            batch.update(doc(db, 'planner-tasks', t.id), { sectionId: null });
+        });
+        await batch.commit();
+        
+        toast({ title: 'Section Removed', description: 'Associated tasks have been moved to General.' });
     });
   };
 
@@ -349,7 +265,11 @@ function PlannerContent() {
             
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pb-20">
                 {allowedProjects.length > 0 ? allowedProjects.map(project => {
-                    const stats = projectStats.get(project.id) || { total: 0, completed: 0 };
+                    const stats = allTasks ? allTasks.filter(t => t.projectId === project.id).reduce((acc, t) => ({
+                        total: acc.total + 1,
+                        completed: acc.completed + (t.status === 'completed' ? 1 : 0)
+                    }), { total: 0, completed: 0 }) : { total: 0, completed: 0 };
+                    
                     const progress = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
                     return (
                         <Card key={project.id} className="cursor-pointer hover:border-primary/50 transition-all group hover:shadow-md" onClick={() => selectProject(project.id)}>
@@ -415,7 +335,7 @@ function PlannerContent() {
                                     {showArchived ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent><p>{showArchived ? 'View Active Planners' : 'View Archived Planners'}</p></TooltipContent>
+                            <TooltipContent><p>{showArchived ? 'View Active' : 'View Archived'}</p></TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
 
@@ -432,7 +352,7 @@ function PlannerContent() {
                                 <div className="py-4 space-y-4">
                                     <div className="space-y-2">
                                         <label className="text-xs font-bold uppercase text-muted-foreground">Planner Title</label>
-                                        <Input placeholder="e.g. Fit-out Schedule, Shell & Core" value={newPlannerName} onChange={e => setNewPlannerName(e.target.value)} />
+                                        <Input placeholder="e.g. Fit-out Schedule" value={newPlannerName} onChange={e => setNewPlannerName(e.target.value)} />
                                     </div>
                                 </div>
                                 <DialogFooter>
@@ -449,8 +369,12 @@ function PlannerContent() {
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 pb-20">
-                {visiblePlanners.length > 0 ? visiblePlanners.map(planner => {
-                    const stats = plannerStats.get(planner.id) || { total: 0, completed: 0 };
+                {visiblePlanners.map(planner => {
+                    const stats = allTasks ? allTasks.filter(t => t.plannerId === planner.id || t.areaId === planner.id).reduce((acc, t) => ({
+                        total: acc.total + 1,
+                        completed: acc.completed + (t.status === 'completed' ? 1 : 0)
+                    }), { total: 0, completed: 0 }) : { total: 0, completed: 0 };
+                    
                     const progress = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
                     return (
                         <Card 
@@ -464,59 +388,9 @@ function PlannerContent() {
                             <CardHeader className="pb-3">
                                 <div className="flex justify-between items-start">
                                     <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 mb-2 uppercase text-[9px] font-black tracking-widest">
-                                        {planner.archived ? 'Archived Planner' : 'Planner'}
+                                        {planner.archived ? 'Archived' : 'Planner'}
                                     </Badge>
-                                    <div className="flex items-center gap-1">
-                                        <TooltipProvider>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        className="h-7 w-7 text-muted-foreground hover:text-primary transition-colors"
-                                                        onClick={(e) => { e.stopPropagation(); handleToggleArchivePlanner(planner.id, !!planner.archived); }}
-                                                    >
-                                                        {planner.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
-                                                    </Button>
-                                                </TooltipTrigger>
-                                                <TooltipContent><p>{planner.archived ? 'Restore Planner' : 'Archive Planner'}</p></TooltipContent>
-                                            </Tooltip>
-                                        </TooltipProvider>
-
-                                        <AlertDialog>
-                                            <TooltipProvider>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <AlertDialogTrigger asChild>
-                                                            <Button 
-                                                                variant="ghost" 
-                                                                size="icon" 
-                                                                className="h-7 w-7 text-muted-foreground hover:text-destructive transition-colors"
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            >
-                                                                <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
-                                                        </AlertDialogTrigger>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent><p>Delete Planner</p></TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
-                                            <AlertDialogContent onClick={e => e.stopPropagation()}>
-                                                <AlertDialogHeader>
-                                                    <AlertDialogTitle>Delete Entire Planner?</AlertDialogTitle>
-                                                    <AlertDialogDescription>
-                                                        This will permanently delete the planner "<strong>{planner.name}</strong>" and ALL associated tasks. This action cannot be undone.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction className="bg-destructive" onClick={() => handleDeletePlanner(planner.id)}>Delete Everything</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-
-                                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                                    </div>
+                                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                 </div>
                                 <CardTitle className="text-xl group-hover:text-primary transition-colors">{planner.name}</CardTitle>
                                 <CardDescription>{stats.total} Active Activities</CardDescription>
@@ -527,20 +401,12 @@ function PlannerContent() {
                                         <span>Status</span>
                                         <span>{Math.round(progress)}% Complete</span>
                                     </div>
-                                    <Progress value={progress} className="h-1.5" indicatorClassName={progress === 100 ? "bg-green-500" : ""} />
+                                    <Progress value={progress} className="h-1.5" />
                                 </div>
                             </CardContent>
                         </Card>
                     );
-                }) : (
-                    <div className="col-span-full py-20 text-center border-2 border-dashed rounded-xl bg-muted/5">
-                        <Layout className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                        <p className="font-bold text-muted-foreground">
-                            {showArchived ? 'No archived planners.' : 'No active planners defined for this project.'}
-                        </p>
-                        {!showArchived && <p className="text-sm text-muted-foreground mt-1">Use "Add New Planner" to initialize a schedule.</p>}
-                    </div>
-                )}
+                })}
             </div>
         </main>
     );
@@ -556,35 +422,65 @@ function PlannerContent() {
                     </Button>
                     <span className="text-muted-foreground text-xs">&rsaquo;</span>
                     <Badge variant="secondary" className="bg-primary/10 text-primary uppercase text-[10px] font-black h-6">{currentPlanner?.name}</Badge>
-                    {currentPlanner?.archived && <Badge variant="outline" className="text-[10px] uppercase font-bold h-6 border-amber-200 text-amber-700 bg-amber-50">Archived</Badge>}
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
                         <Layout className="h-7 w-7 text-primary" />
                         Construction Schedule
                     </h2>
-                    <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-4 bg-muted/30 p-2 px-4 rounded-lg border-2 border-primary/10">
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor="sat-toggle" className="text-[9px] font-black uppercase tracking-widest text-muted-foreground cursor-pointer">Sat Work</Label>
-                                <Switch 
-                                    id="sat-toggle" 
-                                    checked={!!currentPlanner?.includeSaturday} 
-                                    onCheckedChange={(val) => handleUpdateScheduleLogic('includeSaturday', val)} 
-                                    disabled={isPending}
-                                />
-                            </div>
-                            <Separator orientation="vertical" className="h-4" />
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor="sun-toggle" className="text-[9px] font-black uppercase tracking-widest text-muted-foreground cursor-pointer">Sun Work</Label>
-                                <Switch 
-                                    id="sun-toggle" 
-                                    checked={!!currentPlanner?.includeSunday} 
-                                    onCheckedChange={(val) => handleUpdateScheduleLogic('includeSunday', val)} 
-                                    disabled={isPending}
-                                />
-                            </div>
-                        </div>
+                    <div className="flex items-center gap-2">
+                        <Dialog open={isManageSectionsOpen} onOpenChange={setIsManageSectionsOpen}>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DialogTrigger asChild>
+                                            <Button variant="outline" size="icon" className="h-10 w-10 text-primary border-primary/20">
+                                                <Layers className="h-5 w-5" />
+                                            </Button>
+                                        </DialogTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent><p>Manage Schedule Sections</p></TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Planner Sections</DialogTitle>
+                                    <DialogDescription>Define groupings for your tasks (e.g. By Floor or Phase).</DialogDescription>
+                                </DialogHeader>
+                                <div className="py-4 space-y-6">
+                                    <div className="flex gap-2">
+                                        <Input 
+                                            placeholder="Section Name..." 
+                                            value={newSectionName} 
+                                            onChange={e => setNewSectionName(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && handleAddSection()}
+                                        />
+                                        <Button size="icon" onClick={handleAddSection} disabled={isPending || !newSectionName.trim()}>
+                                            <Plus className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                    <ScrollArea className="h-64 border rounded-md p-2 bg-muted/5">
+                                        {currentPlanner?.sections?.length ? (
+                                            <div className="space-y-2">
+                                                {currentPlanner.sections.map(s => (
+                                                    <div key={s.id} className="flex items-center justify-between p-2 bg-background border rounded group shadow-sm">
+                                                        <span className="text-sm font-bold text-primary">{s.name}</span>
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive opacity-0 group-hover:opacity-100" onClick={() => handleRemoveSection(s.id)}>
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div className="py-10 text-center text-xs text-muted-foreground italic">No sections defined. Tasks will be grouped in "General".</div>
+                                        )}
+                                    </ScrollArea>
+                                </div>
+                                <DialogFooter>
+                                    <Button variant="outline" className="w-full" onClick={() => setIsManageSectionsOpen(false)}>Close</Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
 
                         <TooltipProvider>
                             <Tooltip>
@@ -611,7 +507,7 @@ function PlannerContent() {
                                 {isGanttView ? <List className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent><p>Switch to {isGanttView ? 'List' : 'Gantt'} View</p></TooltipContent>
+                            <TooltipContent><p>Switch View</p></TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
 
@@ -656,6 +552,12 @@ function PlannerContent() {
                                                     <p className={cn("font-bold truncate text-base", task.status === 'completed' && "line-through text-muted-foreground")}>{task.title}</p>
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <Badge variant="secondary" className="text-[9px] uppercase font-black bg-primary/5 text-primary border-primary/10 tracking-tight">{tradeName}</Badge>
+                                                        {task.sectionId && (
+                                                            <Badge variant="outline" className="text-[9px] h-4 gap-1 px-1.5 font-bold uppercase text-muted-foreground">
+                                                                <Layers className="h-2 w-2" />
+                                                                {currentPlanner?.sections?.find(s => s.id === task.sectionId)?.name}
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 
@@ -691,7 +593,7 @@ function PlannerContent() {
                         <div className="text-center py-20 border-2 border-dashed rounded-lg bg-muted/5 text-muted-foreground/40">
                             <CalendarRange className="h-12 w-12 mx-auto mb-4 opacity-20" />
                             <p className="text-lg font-semibold">No activities scheduled for this planner</p>
-                            <p className="text-sm">Click "Add Task" to begin building your project schedule.</p>
+                            <p className="text-sm">Click "Log Task" to begin building your project schedule.</p>
                         </div>
                     )}
                     </div>
