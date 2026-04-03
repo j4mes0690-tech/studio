@@ -1654,17 +1654,20 @@ export async function generatePlannerPDF(
           // Normalize SVGs for standard capture
           const svgs = el.querySelectorAll('svg');
           svgs.forEach((svg: any) => {
-            svg.style.position = 'absolute';
-            svg.style.top = '0';
-            svg.style.left = '0';
-            svg.style.width = `${svg.clientWidth}px`; // Fix width to pixels to avoid thick lines
+            svg.setAttribute('width', `${svg.clientWidth}px`);
+            svg.setAttribute('height', `${svg.clientHeight}px`);
+            svg.style.width = `${svg.clientWidth}px`;
             svg.style.height = `${svg.clientHeight}px`;
             svg.style.overflow = 'visible';
             svg.style.display = 'block';
+            svg.style.position = 'absolute';
+            svg.style.top = '0';
+            svg.style.left = '0';
           });
 
           const allElements = el.querySelectorAll('*');
           allElements.forEach((node: any) => {
+            node.style.overflow = 'visible';
             node.style.clipPath = 'none';
             if (node.tagName === 'SPAN' || node.tagName === 'P') {
                 node.style.lineHeight = '1.6';

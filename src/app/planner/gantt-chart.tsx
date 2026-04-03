@@ -23,7 +23,7 @@ import Image from 'next/image';
 import { Layers } from 'lucide-react';
 
 const DAY_WIDTH = 48;
-const ROW_HEIGHT = 52; 
+const ROW_HEIGHT = 64; 
 const SECTION_HEADER_HEIGHT = 32; 
 const MIN_WEEKS = 12;
 
@@ -258,16 +258,18 @@ export function GanttChart({
         const arrowHeadPath = `M ${successorX} ${successorY} L ${successorX - arrowHeadSize} ${successorY - arrowHeadSize / 1.5} L ${successorX - arrowHeadSize} ${successorY + arrowHeadSize / 1.5} Z`;
 
         arrows.push(
-          <g key={`${predId}-${task.id}`} className="dependency-line" style={{ opacity: 0.6 }}>
+          <g key={`${predId}-${task.id}`} className="dependency-line">
             <path
               d={`M ${predecessorEndX} ${predecessorY} L ${midX} ${predecessorY} L ${midX} ${successorY} L ${successorX} ${successorY}`}
               fill="none"
               stroke="#f26522"
               strokeWidth="2"
+              strokeOpacity="0.6"
             />
             <path 
               d={arrowHeadPath}
               fill="#f26522"
+              fillOpacity="0.6"
             />
           </g>
         );
@@ -351,16 +353,16 @@ export function GanttChart({
                                     return (
                                         <div key={task.id} className="border-b px-4 flex flex-row items-center justify-between min-w-0 gap-3" style={{ height: ROW_HEIGHT }}>
                                             <span className={cn(
-                                                "text-[11px] font-bold truncate leading-snug block flex-1", 
+                                                "text-[11px] font-bold truncate leading-relaxed block flex-1", 
                                                 task.status === 'completed' && "text-muted-foreground line-through"
                                             )}>
                                                 {task.title}
                                             </span>
                                             <div 
-                                                className="h-6 w-20 flex items-center justify-center rounded-full border bg-background shrink-0 px-2"
+                                                className="h-7 w-20 flex items-center justify-center rounded-full border bg-background shrink-0 px-2 shadow-sm"
                                                 style={{ borderColor: `${tradeColor}40` }}
                                             >
-                                                <span className="text-[8px] font-black uppercase truncate" style={{ color: tradeColor }}>{tradeName}</span>
+                                                <span className="text-[8px] font-black uppercase truncate text-center w-full" style={{ color: tradeColor }}>{tradeName}</span>
                                             </div>
                                         </div>
                                     );
@@ -386,12 +388,12 @@ export function GanttChart({
                             })}
                         </div>
 
-                        {/* Dependency arrows layer - Standardized for capture */}
                         <svg 
-                            className="dependency-svg-layer absolute top-0 left-0 pointer-events-none z-10 overflow-visible" 
+                            className="dependency-svg-layer absolute top-0 left-0 pointer-events-none z-10" 
                             style={{ 
-                                width: chartWidth, 
-                                height: chartHeight 
+                                width: '100%', 
+                                height: '100%',
+                                overflow: 'visible'
                             }}
                             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
                             xmlns="http://www.w3.org/2000/svg"
@@ -433,7 +435,7 @@ export function GanttChart({
                                                         key={`baseline-${sIdx}`}
                                                         className="absolute h-1.5 opacity-20 bg-slate-400 border border-slate-500 z-0"
                                                         style={{ 
-                                                            top: '23px',
+                                                            top: '31px',
                                                             left: seg.left, 
                                                             width: seg.width,
                                                             borderTopLeftRadius: seg.isFirst ? '2px' : '0',
@@ -460,7 +462,7 @@ export function GanttChart({
                                                                         seg.isLast && "rounded-r-md"
                                                                     )}
                                                                     style={{ 
-                                                                        top: '14px',
+                                                                        top: '20px',
                                                                         left: seg.left, 
                                                                         width: seg.width,
                                                                         backgroundColor: tradeColor,
