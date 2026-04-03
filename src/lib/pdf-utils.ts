@@ -1643,6 +1643,15 @@ export async function generatePlannerPDF(
           el.style.height = 'auto';
           el.style.overflow = 'visible';
           
+          // Force all SVG layers to maintain absolute positioning and visibility
+          const svgs = el.querySelectorAll('svg');
+          svgs.forEach((svg: any) => {
+            svg.style.position = 'absolute';
+            svg.style.top = '0';
+            svg.style.left = '0';
+            svg.style.overflow = 'visible';
+          });
+
           // CRITICAL: Strip all clipping properties and force stable line-height
           const allElements = el.querySelectorAll('*');
           allElements.forEach((node: any) => {

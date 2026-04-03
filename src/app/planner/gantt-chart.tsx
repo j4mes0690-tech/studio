@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -21,8 +22,8 @@ import { ImageLightbox } from '@/components/image-lightbox';
 import Image from 'next/image';
 import { Layers } from 'lucide-react';
 
-const DAY_WIDTH = 40; // px per day
-const ROW_HEIGHT = 52; // Reduced height for more compact desktop view
+const DAY_WIDTH = 48;
+const ROW_HEIGHT = 52; // Compact row height
 const SECTION_HEADER_HEIGHT = 32; // px per section header row
 const MIN_WEEKS = 12; // Minimum timeline width if no tasks exist
 
@@ -145,7 +146,6 @@ export function GanttChart({
   const flattenedTasks = useMemo(() => groupedData.flatMap(g => g.tasks), [groupedData]);
 
   const startDate = useMemo(() => {
-    // Force exact bounding during printing/export
     if (startDateOverride) {
         return isPrinting ? startDateOverride : startOfWeek(startDateOverride, { weekStartsOn: 1 });
     }
@@ -165,7 +165,6 @@ export function GanttChart({
   }, [tasks, startDateOverride, isPrinting]);
 
   const endDate = useMemo(() => {
-    // Force exact bounding during printing/export
     if (endDateOverride) {
         return isPrinting ? endDateOverride : endOfWeek(endDateOverride, { weekStartsOn: 1 });
     }
@@ -256,16 +255,20 @@ export function GanttChart({
 
         const midX = predecessorEndX + ((successorX - predecessorEndX) / 2);
         
+        // Define arrow head path for better html2canvas support than polygon
+        const arrowHeadPath = `M ${successorX} ${successorY} L ${successorX - arrowHeadSize} ${successorY - arrowHeadSize / 1.5} L ${successorX - arrowHeadSize} ${successorY + arrowHeadSize / 1.5} Z`;
+
         arrows.push(
-          <g key={`${predId}-${task.id}`} style={{ color: '#f26522' }} opacity={0.4}>
+          <g key={`${predId}-${task.id}`} style={{ opacity: 0.4 }}>
             <path
               d={`M ${predecessorEndX} ${predecessorY} L ${midX} ${predecessorY} L ${midX} ${successorY} L ${successorX} ${successorY}`}
               fill="none"
               stroke="#f26522"
               strokeWidth="1.5"
+              style={{ shapeRendering: 'crispEdges' }}
             />
-            <polygon 
-              points={`${successorX},${successorY} ${successorX-arrowHeadSize},${successorY-(arrowHeadSize/1.5)} ${successorX-arrowHeadSize},${successorY+(arrowHeadSize/1.5)}`}
+            <path 
+              d={arrowHeadPath}
               fill="#f26522"
             />
           </g>
@@ -330,7 +333,7 @@ export function GanttChart({
                 <div className="flex">
                     <div className={cn(
                         "flex flex-col border-r shrink-0 w-64 bg-background",
-                        !isPrinting && "sticky left-0 z-30 shadow-[2px_0_5px_rgba(0,0,0,0.05)]"
+                        !isPrinting && "sticky left-0 z-30 shadow-[2px_0_5px_rgba(0,0,0,0.02)]"
                     )}>
                         {groupedData.map((group, gIdx) => (
                             <div key={`g-left-${gIdx}`} className="flex flex-col">
@@ -348,20 +351,19 @@ export function GanttChart({
                                     const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
                                     const tradeColor = getTradeColor(task.subcontractorId || '', subContractors);
                                     return (
-                                        <div key={task.id} className="border-b px-4 flex flex-row items-center justify-between min-w-0 gap-3" style={{ height: ROW_HEIGHT, overflow: 'visible' }}>
+                                        <div key={task.id} className="border-b px-4 flex flex-row items-center justify-between min-w-0 gap-3" style={{ height: ROW_HEIGHT }}>
                                             <span className={cn(
                                                 "text-[11px] font-bold truncate leading-snug block flex-1", 
                                                 task.status === 'completed' && "text-muted-foreground line-through"
                                             )}>
                                                 {task.title}
                                             </span>
-                                            <Badge 
-                                                variant="outline" 
-                                                className="text-[8px] font-black h-5 uppercase bg-background px-2 flex items-center justify-center shrink-0 rounded-full" 
-                                                style={{ borderColor: `${tradeColor}40`, color: tradeColor }}
+                                            <div 
+                                                className="h-6 w-20 flex items-center justify-center rounded-full border bg-background shrink-0 px-2"
+                                                style={{ borderColor: `${tradeColor}40` }}
                                             >
-                                                {tradeName}
-                                            </Badge>
+                                                <span className="text-[8px] font-black uppercase truncate" style={{ color: tradeColor }}>{tradeName}</span>
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -386,7 +388,18 @@ export function GanttChart({
                             })}
                         </div>
 
-                        <svg className="absolute inset-0 pointer-events-none z-10" style={{ width: chartWidth, height: chartHeight }}>
+                        {/* Dependency arrows layer */}
+                        <svg 
+                            className="absolute pointer-events-none z-10" 
+                            style={{ 
+                                top: 0,
+                                left: 0,
+                                width: chartWidth, 
+                                height: chartHeight 
+                            }}
+                            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                            xmlns="http://www.w3.org/2000/svg"
+                        >
                             {dependencyArrows}
                         </svg>
 
