@@ -21,7 +21,7 @@ import {
 
 function VariationsContent() {
   const db = useFirestore();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCompact, setIsCompact] = useState(false);
@@ -40,8 +40,8 @@ function VariationsContent() {
     localStorage.setItem('sitecommand_view_variations', String(newVal));
   };
 
-  // Data Loading
-  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
+  // Load Data - Using email identity
+  const profileRef = useMemoFirebase(() => (db && email ? doc(db, 'users', email.toLowerCase().trim()) : null), [db, email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
@@ -61,8 +61,8 @@ function VariationsContent() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
-    const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
+    const userEmail = profile.email.toLowerCase().trim();
+    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === userEmail));
   }, [allProjects, profile]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
@@ -107,7 +107,7 @@ function VariationsContent() {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={toggleView}>
+                <Button variant="outline" size="icon" onClick={toggleView} className="h-10 w-10">
                   {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
                 </Button>
               </TooltipTrigger>

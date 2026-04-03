@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -34,7 +33,7 @@ function QualityControlContent() {
   const db = useFirestore();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
 
   const activeProjectId = searchParams.get('project');
   const activeAreaId = searchParams.get('area');
@@ -54,11 +53,11 @@ function QualityControlContent() {
     localStorage.setItem('sitecommand_view_quality_control', String(newVal));
   };
 
-  // Profile check
+  // Profile check - Using email identity
   const profileRef = useMemoFirebase(() => {
-    if (!db || !sessionUser?.email) return null;
-    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
-  }, [db, sessionUser?.email]);
+    if (!db || !email) return null;
+    return doc(db, 'users', email.toLowerCase().trim());
+  }, [db, email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Real-time data from Firestore
@@ -95,10 +94,10 @@ function QualityControlContent() {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
     
-    const email = profile.email.toLowerCase().trim();
+    const userEmail = profile.email.toLowerCase().trim();
     return allProjects.filter(p => {
         const assignments = p.assignedUsers || [];
-        return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+        return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === userEmail);
     });
   }, [allProjects, profile]);
 

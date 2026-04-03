@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -26,7 +25,7 @@ function SnaggingContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const db = useFirestore();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
   const projectId = searchParams.get('project') || undefined;
   const areaId = searchParams.get('area') || undefined;
   
@@ -57,11 +56,11 @@ function SnaggingContent() {
     localStorage.setItem('sitecommand_grouping_snagging', String(newVal));
   };
 
-  // Profile check
+  // Profile check - Using email identity
   const profileRef = useMemoFirebase(() => {
-    if (!db || !sessionUser?.email) return null;
-    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
-  }, [db, sessionUser?.email]);
+    if (!db || !email) return null;
+    return doc(db, 'users', email.toLowerCase().trim());
+  }, [db, email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Lookups
@@ -83,7 +82,7 @@ function SnaggingContent() {
   }, [db]);
   const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
 
-  // STABLE QUERY: Fetch all by date to avoid composite index requirements
+  // STABLE QUERY
   const snaggingQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'snagging-items'), orderBy('createdAt', 'desc'));
@@ -95,7 +94,7 @@ function SnaggingContent() {
   const filteredItems = useMemo(() => {
     if (!allItems || !profile || !allProjects) return [];
     
-    const email = profile.email.toLowerCase().trim();
+    const userEmail = profile.email.toLowerCase().trim();
     const subId = profile.subContractorId;
     const hasFullVisibility = !!profile.permissions?.hasFullVisibility;
 
@@ -103,7 +102,7 @@ function SnaggingContent() {
         .filter(p => {
             if (hasFullVisibility) return true;
             const assignments = p.assignedUsers || [];
-            return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+            return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === userEmail);
         })
         .map(p => p.id);
 
@@ -166,8 +165,8 @@ function SnaggingContent() {
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
   const allowedProjects = allProjects?.filter(p => {
       if (hasFullVisibility) return true;
-      const email = profile?.email.toLowerCase().trim();
-      return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email);
+      const userEmail = profile?.email.toLowerCase().trim();
+      return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === userEmail);
   }) || [];
 
   return (

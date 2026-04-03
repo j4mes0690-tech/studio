@@ -11,12 +11,12 @@ import { ProjectInsightsContent } from './project-insights-content';
 
 function InsightsPageContent() {
   const db = useFirestore();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
 
   const profileRef = useMemoFirebase(() => {
-    if (!db || !sessionUser?.email) return null;
-    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
-  }, [db, sessionUser?.email]);
+    if (!db || !email) return null;
+    return doc(db, 'users', email.toLowerCase().trim());
+  }, [db, email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   const projectsQuery = useMemoFirebase(() => {
@@ -29,10 +29,10 @@ function InsightsPageContent() {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
     
-    const email = profile.email.toLowerCase().trim();
+    const userEmail = profile.email.toLowerCase().trim();
     return allProjects.filter(p => {
         const assignments = p.assignedUsers || [];
-        return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+        return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === userEmail);
     });
   }, [allProjects, profile]);
 

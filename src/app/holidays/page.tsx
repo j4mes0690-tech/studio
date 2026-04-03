@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -20,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 function HolidayContent() {
   const db = useFirestore();
   const searchParams = useSearchParams();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
   const [isCompact, setIsCompact] = useState(false);
   
   const statusFilter = searchParams.get('status') || 'all';
@@ -38,8 +37,8 @@ function HolidayContent() {
     localStorage.setItem('sitecommand_view_holidays', String(newVal));
   };
 
-  // Load Data
-  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
+  // Load Data - Using email identity
+  const profileRef = useMemoFirebase(() => (db && email ? doc(db, 'users', email.toLowerCase().trim()) : null), [db, email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   const usersQuery = useMemoFirebase(() => {
@@ -60,14 +59,14 @@ function HolidayContent() {
   const targetUserProfile = allUsers?.find(u => u.email.toLowerCase() === targetUserEmail?.toLowerCase());
 
   // Balance Calculation Helper
-  const getRemainingDaysForUser = (userEmail: string) => {
+  const getRemainingDaysForUser = (targetEmail: string) => {
     if (!allUsers || !allRequests) return 0;
-    const user = allUsers.find(u => u.email.toLowerCase() === userEmail.toLowerCase());
+    const user = allUsers.find(u => u.email.toLowerCase() === targetEmail.toLowerCase());
     if (!user) return 0;
 
     const currentYear = new Date().getFullYear();
     const approvedHolidayDays = allRequests.filter(r => {
-        if (r.userEmail.toLowerCase() !== userEmail.toLowerCase()) return false;
+        if (r.userEmail.toLowerCase() !== targetEmail.toLowerCase()) return false;
         if (r.status !== 'approved' || r.type !== 'holiday') return false;
         const start = new Date(r.startDate);
         return start.getFullYear() === currentYear;
@@ -80,10 +79,10 @@ function HolidayContent() {
   const balance = useMemo(() => {
     if (!targetUserProfile || !allRequests) return { entitlement: 0, used: 0, pending: 0, remaining: 0, percentage: 0 };
     
-    const email = targetUserProfile.email.toLowerCase();
+    const emailKey = targetUserProfile.email.toLowerCase();
     const currentYear = new Date().getFullYear();
     
-    const targetRequests = allRequests.filter(r => r.userEmail.toLowerCase() === email);
+    const targetRequests = allRequests.filter(r => r.userEmail.toLowerCase() === emailKey);
     
     const approvedHolidayDays = targetRequests.filter(r => {
         if (r.status !== 'approved' || r.type !== 'holiday') return false;
@@ -113,13 +112,13 @@ function HolidayContent() {
   const filteredRequests = useMemo(() => {
     if (!allRequests || !profile) return [];
     
-    const email = profile.email.toLowerCase().trim();
+    const emailKey = profile.email.toLowerCase().trim();
     const isAdmin = !!profile.permissions?.hasFullVisibility;
     const canGlobalApprove = !!profile.permissions?.canApproveHolidays;
 
     // Filter by visibility first
     let base = allRequests.filter(r => {
-        const isOwn = r.userEmail.toLowerCase().trim() === email;
+        const isOwn = r.userEmail.toLowerCase().trim() === emailKey;
         if (isOwn) return true;
         
         // If admin or global approver, see others
@@ -127,7 +126,7 @@ function HolidayContent() {
 
         // If I am the assigned line manager for this user, I can see it
         const targetUser = allUsers?.find(u => u.email.toLowerCase().trim() === r.userEmail.toLowerCase().trim());
-        if (targetUser?.lineManagerEmail?.toLowerCase().trim() === email) return true;
+        if (targetUser?.lineManagerEmail?.toLowerCase().trim() === emailKey) return true;
 
         return false;
     });
@@ -135,7 +134,7 @@ function HolidayContent() {
     // Apply UI Filters
     return base.filter(r => {
         const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-        const matchesUser = userFilter === 'all' || r.userEmail === userFilter;
+        const matchesUser = userFilter === 'all' || r.userEmail.toLowerCase() === userFilter.toLowerCase();
         return matchesStatus && matchesUser;
     });
   }, [allRequests, profile, allUsers, statusFilter, userFilter]);

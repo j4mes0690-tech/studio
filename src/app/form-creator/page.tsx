@@ -55,7 +55,7 @@ function FormCreatorContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
   const [isPendingDelete, startTransition] = useTransition();
 
   const templateId = searchParams.get('id');
@@ -63,11 +63,11 @@ function FormCreatorContent() {
   const isCreatingNew = searchParams.get('new') === 'true';
   const [searchTerm, setSearchTerm] = useState('');
 
-  // 1. Fetch Profile
+  // 1. Fetch Profile - Using email identity
   const profileRef = useMemoFirebase(() => {
-    if (!db || !sessionUser?.email) return null;
-    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
-  }, [db, sessionUser?.email]);
+    if (!db || !email) return null;
+    return doc(db, 'users', email.toLowerCase().trim());
+  }, [db, email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // 2. Fetch Existing Template (if editing)

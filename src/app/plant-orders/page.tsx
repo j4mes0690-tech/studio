@@ -22,7 +22,7 @@ import {
 
 function PlantOrdersContent() {
   const db = useFirestore();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
   const [projectFilter, setProjectFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCompact, setIsCompact] = useState(false);
@@ -41,8 +41,8 @@ function PlantOrdersContent() {
     localStorage.setItem('sitecommand_view_plant_orders', String(newVal));
   };
 
-  // Load Data
-  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
+  // Load Data - Using email identity
+  const profileRef = useMemoFirebase(() => (db && email ? doc(db, 'users', email.toLowerCase().trim()) : null), [db, email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
@@ -61,8 +61,8 @@ function PlantOrdersContent() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
-    const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
+    const userEmail = profile.email.toLowerCase().trim();
+    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === userEmail));
   }, [allProjects, profile]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);

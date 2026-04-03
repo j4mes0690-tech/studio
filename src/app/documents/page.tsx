@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -16,14 +15,14 @@ import { DrawingCard } from './drawing-card';
 function DocumentsContent() {
   const db = useFirestore();
   const searchParams = useSearchParams();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
 
   // Filters
   const projectFilter = searchParams.get('project') || 'all';
   const statusFilter = searchParams.get('status') || 'active';
 
-  // Load Data
-  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
+  // Load Data - Using email identity
+  const profileRef = useMemoFirebase(() => (db && email ? doc(db, 'users', email.toLowerCase().trim()) : null), [db, email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
@@ -36,8 +35,8 @@ function DocumentsContent() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
-    const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
+    const userEmail = profile.email.toLowerCase().trim();
+    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === userEmail));
   }, [allProjects, profile]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
