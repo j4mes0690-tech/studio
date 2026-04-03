@@ -605,7 +605,31 @@ function PlannerContent() {
                                     <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 mb-2 uppercase text-[9px] font-black tracking-widest">
                                         {planner.archived ? 'Archived' : 'Planner'}
                                     </Badge>
-                                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                                    <div className="flex items-center gap-1">
+                                        {canEdit && (
+                                            <TooltipProvider>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 text-muted-foreground hover:text-primary transition-all"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setPlannerToEdit(planner);
+                                                                setEditPlannerName(planner.name);
+                                                                setIsEditPlannerOpen(true);
+                                                            }}
+                                                        >
+                                                            <Pencil className="h-3.5 w-3.5" />
+                                                        </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent><p>Rename Planner</p></TooltipContent>
+                                                </Tooltip>
+                                            </TooltipProvider>
+                                        )}
+                                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                                    </div>
                                 </div>
                                 <CardTitle className="text-xl group-hover:text-primary transition-colors pr-8">{planner.name}</CardTitle>
                                 <CardDescription>{stats.total} Active Activities</CardDescription>
@@ -619,31 +643,6 @@ function PlannerContent() {
                                     <Progress value={progress} className="h-1.5" />
                                 </div>
                             </CardContent>
-                            
-                            {canEdit && (
-                                <div className="absolute bottom-2 right-2">
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button 
-                                                    variant="ghost" 
-                                                    size="icon" 
-                                                    className="h-8 w-8 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setPlannerToEdit(planner);
-                                                        setEditPlannerName(planner.name);
-                                                        setIsEditPlannerOpen(true);
-                                                    }}
-                                                >
-                                                    <Pencil className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent><p>Rename Planner</p></TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                </div>
-                            )}
                         </Card>
                     );
                 })}
