@@ -55,10 +55,12 @@ import {
   CloudUpload 
 } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 import { useFirestore, useStorage, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
-import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { cn, getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { generateSnaggingPDF } from '@/lib/pdf-utils';
