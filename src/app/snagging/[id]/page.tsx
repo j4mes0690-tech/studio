@@ -11,6 +11,12 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useDoc, useCollection, useUser, useStorage, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection, query, orderBy, deleteDoc } from 'firebase/firestore';
@@ -62,6 +68,7 @@ import { VoiceInput } from '@/components/voice-input';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ClientDate } from '@/components/client-date';
 import { CameraOverlay } from '@/components/camera-overlay';
+import Link from 'next/link';
 
 /**
  * sanitizeSnagItem - Ensures all fields are Firestore-compliant (no undefined).
