@@ -241,7 +241,7 @@ function PlannerContent() {
         } finally {
             setIsProcessingExport(false);
         }
-    }, 500);
+    }, 1000);
   };
 
   const handleGlobalProjectExport = async () => {
@@ -291,7 +291,7 @@ function PlannerContent() {
         } finally {
             setIsProcessingGlobalExport(false);
         }
-    }, 500);
+    }, 1000);
   };
 
   const selectProject = (id: string) => {
@@ -613,9 +613,12 @@ function PlannerContent() {
                 })}
             </div>
 
-            {/* Hidden chart for bulk export capture */}
+            {/* Hidden chart for bulk export capture - Must be in DOM and technically 'visible' for html2canvas */}
             {isProcessingGlobalExport && (
-                <div className="fixed left-[-9999px] top-0 w-[1200px]" style={{ visibility: 'hidden' }}>
+                <div 
+                    className="fixed top-0 z-[-1] w-[1400px] pointer-events-none" 
+                    style={{ left: '-10000px', opacity: 0 }}
+                >
                     <GanttChart 
                         tasks={allTasks.filter(t => t.projectId === currentProject?.id && selectedPlannerIds.includes(t.plannerId || t.areaId || ''))}
                         subContractors={allSubContractors || []}

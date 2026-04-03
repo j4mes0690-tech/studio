@@ -1642,16 +1642,20 @@ export async function generatePlannerPDF(
           el.style.width = `${originalWidth}px`;
           el.style.height = `${originalHeight}px`;
           el.style.overflow = 'visible';
+          el.style.opacity = '1';
+          el.style.visibility = 'visible';
           
-          // Surgical unmasking: Only parents of the chart are unrolled
+          // Surgical unmasking: Recursively strip overflow from all parents
           let currentParent = el.parentElement;
           while (currentParent && currentParent.tagName !== 'HTML') {
             currentParent.style.overflow = 'visible';
             currentParent.style.clipPath = 'none';
+            currentParent.style.opacity = '1';
+            currentParent.style.visibility = 'visible';
             currentParent = currentParent.parentElement;
           }
 
-          // Normalize SVGs for standard capture
+          // Normalize SVGs for capture
           const svgs = el.querySelectorAll('svg');
           svgs.forEach((svg: any) => {
             const w = svg.clientWidth || originalWidth;
