@@ -32,7 +32,7 @@ import {
     Maximize2, 
     ListChecks, 
     CloudOff, 
-    CloudCheck,
+    Cloud,
     CloudUpload,
     Building2,
     MapPin
@@ -70,12 +70,20 @@ const sanitizeSnagItem = (itm: any): SnaggingListItem => ({
     id: itm.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
     description: itm.description || 'No description',
     status: itm.status || 'open',
-    photos: itm.photos || [],
+    photos: (itm.photos || []).map(sanitizePhoto),
     subContractorId: itm.subContractorId || null,
     subContractorComment: itm.subContractorComment || null,
-    completionPhotos: itm.completionPhotos || [],
+    completionPhotos: (itm.completionPhotos || []).map(sanitizePhoto),
     provisionallyCompletedAt: itm.provisionallyCompletedAt || null,
     closedAt: itm.closedAt || null
+});
+
+/**
+ * sanitizePhoto - Ensures no undefined fields in photo objects.
+ */
+const sanitizePhoto = (p: any): Photo => ({
+    url: p.url || '',
+    takenAt: p.takenAt || new Date().toISOString()
 });
 
 function EditSnaggingContent() {
@@ -173,7 +181,6 @@ function EditSnaggingContent() {
   const projectSubs = selectedProject ? (subContractors || []).filter(sub => (selectedProject.assignedSubContractors || []).includes(sub.id)) : [];
 
   const unsyncedCount = localPhotos.filter(p => p.url.startsWith('data:')).length + localItems.reduce((acc, itm) => acc + (itm.photos || []).filter(p => p.url.startsWith('data:')).length, 0);
-  const hasUnsavedChanges = localTitle !== item.title || localProjectId !== item.projectId || (localAreaId || '') !== (item.areaId || '') || JSON.stringify(localItems) !== JSON.stringify(item.items) || localPhotos.length !== (item.photos?.length || 0);
 
   const handleAddItem = () => {
     if (!newItemText.trim() && pendingItemPhotos.length === 0) return;
@@ -199,14 +206,14 @@ function EditSnaggingContent() {
     setLocalItems(prev => prev.map(i => i.id === itemId ? { ...i, status: (i.status === 'open' ? 'closed' : 'open') as any } : i));
   };
 
-  const onCaptureGeneral = (photo: Photo) => setLocalPhotos(prev => [...prev, photo]);
+  const onCaptureGeneral = (photo: Photo) => setLocalPhotos(prev => [...prev, sanitizePhoto(photo)]);
 
   const onCaptureItem = (photo: Photo) => {
     if (itemPhotoTargetId) {
-      setLocalItems(prev => prev.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), photo] } : itm));
+      setLocalItems(prev => prev.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), sanitizePhoto(photo)] } : itm));
       setItemPhotoTargetId(null);
     } else {
-        setPendingItemPhotos(prev => [...prev, photo]);
+        setPendingItemPhotos(prev => [...prev, sanitizePhoto(photo)]);
     }
   };
 
@@ -219,9 +226,9 @@ function EditSnaggingContent() {
             if (p.url.startsWith('data:')) {
               const blob = await dataUriToBlob(p.url);
               const url = await uploadFile(storage, `snagging/general/${id}-${Date.now()}-${i}.jpg`, blob);
-              return { ...p, url };
+              return sanitizePhoto({ ...p, url });
             }
-            return p;
+            return sanitizePhoto(p);
         }));
 
         const syncedItems = await Promise.all(localItems.map(async (itm) => {
@@ -229,9 +236,9 @@ function EditSnaggingContent() {
                 if (p.url.startsWith('data:')) {
                     const blob = await dataUriToBlob(p.url);
                     const url = await uploadFile(storage, `snagging/items/${itm.id}-${Date.now()}-${pi}.jpg`, blob);
-                    return { ...p, url };
+                    return sanitizePhoto({ ...p, url });
                 }
-                return p;
+                return sanitizePhoto(p);
             }));
             
             return sanitizeSnagItem({
@@ -281,7 +288,7 @@ function EditSnaggingContent() {
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <div className="bg-green-100 text-green-600 p-2 rounded-full">
-                                <CloudCheck className="h-4 w-4" />
+                                <Cloud className="h-4 w-4" />
                             </div>
                         </TooltipTrigger>
                         <TooltipContent><p>All changes synced</p></TooltipContent>
@@ -338,7 +345,7 @@ function EditSnaggingContent() {
                         <div className="flex gap-2 items-end">
                             <div className="flex-1 space-y-2">
                                 <div className="flex justify-between items-center">
-                                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">New Defect</Label>
+                                    <Label className="text-[10px] font-bold">New Defect</Label>
                                     <VoiceInput onResult={(text) => setNewItemText(text)} />
                                 </div>
                                 <Input placeholder="Describe issue..." value={newItemText} onChange={(e) => setNewItemText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}} className="bg-background h-11" />
