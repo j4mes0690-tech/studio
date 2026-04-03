@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState, useEffect, useTransition, Suspense } from 'react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -20,7 +20,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useDoc, useCollection, useUser, useStorage, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc, collection, query, orderBy, deleteDoc, arrayUnion } from 'firebase/firestore';
-import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord, ChatMessage } from '@/lib/types';
+import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord } from '@/lib/types';
 import { 
     ChevronLeft, 
     Camera, 
@@ -168,7 +168,7 @@ function EditSnaggingContent() {
     }
   }, [item]);
 
-  // Automatic Accordion Logic
+  // Automatic Accordion Logic: Collapse once location is chosen
   useEffect(() => {
     if (localProjectId && localAreaId && localAreaId !== 'none' && localAreaId !== '') {
         setLocationExpanded(undefined);
@@ -208,7 +208,7 @@ function EditSnaggingContent() {
   const handleAddItem = () => {
     if (!newItemText.trim() && pendingItemPhotos.length === 0) return;
     const newItem = sanitizeSnagItem({
-        id: `item-${Date.now()}`,
+        id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         description: newItemText.trim() || 'No description',
         status: 'open',
         photos: [...pendingItemPhotos],
@@ -240,11 +240,16 @@ function EditSnaggingContent() {
     }
   };
 
-  const handleSyncToCloud = () => {
+  /**
+   * handleSyncToCloud - Performs the data persistence.
+   * If redirectPath is provided, navigates after successful save.
+   */
+  const handleSyncToCloud = (redirectPath?: string) => {
     if (!snagRef) return;
     startTransition(async () => {
       try {
         toast({ title: 'Syncing to Cloud', description: 'Processing site media...' });
+        
         const syncedGlobalPhotos = await Promise.all(localPhotos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
               const blob = await dataUriToBlob(p.url);
@@ -275,12 +280,18 @@ function EditSnaggingContent() {
           projectId: localProjectId, 
           areaId: localAreaId === 'none' ? null : (localAreaId || null), 
           items: syncedItems, 
-          photos: syncedGlobalPhotos 
+          photos: syncedGlobalPhotos,
+          status: 'draft' // Ensure it remains/becomes a draft when stashing
         };
+        
         await updateDoc(snagRef, updates);
         setLocalItems(syncedItems);
         setLocalPhotos(syncedGlobalPhotos);
         toast({ title: 'Success', description: 'Changes saved to project mainframe.' });
+        
+        if (redirectPath) {
+            router.push(redirectPath);
+        }
       } catch (err) {
         console.error(err);
         toast({ title: 'Sync Failed', description: 'Check your connection and try again.', variant: 'destructive' });
@@ -288,10 +299,19 @@ function EditSnaggingContent() {
     });
   };
 
+  const handleBackToLog = () => {
+    // If there's staged data, sync it as a draft before leaving
+    if (unsyncedCount > 0 || localTitle !== item.title || localItems.length !== item.items?.length) {
+        handleSyncToCloud('/snagging');
+    } else {
+        router.push('/snagging');
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={() => router.push('/snagging')} className="gap-2">
+        <Button variant="ghost" onClick={handleBackToLog} className="gap-2">
             <ChevronLeft className="h-4 w-4" /> Back to Log
         </Button>
         <div className="flex items-center gap-3">
@@ -299,22 +319,22 @@ function EditSnaggingContent() {
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <div className="bg-primary/10 text-primary p-2 rounded-full animate-pulse">
+                            <div className="bg-primary/10 text-primary p-2 rounded-full animate-pulse cursor-help">
                                 <CloudOff className="h-4 w-4" />
                             </div>
                         </TooltipTrigger>
-                        <TooltipContent><p>{unsyncedCount} unsynced items</p></TooltipContent>
+                        <TooltipContent><p>{unsyncedCount} items staged for cloud sync</p></TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
             ) : (
                 <TooltipProvider>
                     <Tooltip>
                         <TooltipTrigger asChild>
-                            <div className="bg-green-100 text-green-600 p-2 rounded-full">
+                            <div className="bg-green-100 text-green-600 p-2 rounded-full cursor-help">
                                 <Cloud className="h-4 w-4" />
                             </div>
                         </TooltipTrigger>
-                        <TooltipContent><p>All changes synced</p></TooltipContent>
+                        <TooltipContent><p>Local state matches cloud</p></TooltipContent>
                     </Tooltip>
                 </TooltipProvider>
             )}
@@ -461,8 +481,8 @@ function EditSnaggingContent() {
             </Card>
 
             <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
-                <Button variant="outline" className="flex-1 h-12 font-bold" onClick={() => router.push('/snagging')}>Discard Changes</Button>
-                <Button className="flex-[2] h-12 font-black uppercase tracking-widest shadow-lg shadow-primary/20 gap-2" onClick={handleSyncToCloud} disabled={isPending}>
+                <Button variant="outline" className="flex-1 h-12 font-bold" onClick={handleBackToLog}>Discard & Return</Button>
+                <Button className="flex-[2] h-12 font-black uppercase tracking-widest shadow-lg shadow-primary/20 gap-2" onClick={() => handleSyncToCloud()} disabled={isPending}>
                     {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <CloudUpload className="h-5 w-5" />}
                     Save & Sync to Cloud
                 </Button>
@@ -513,7 +533,7 @@ function EditSnaggingContent() {
               <div className='flex-1 overflow-y-auto px-6 py-4'>
                   <div className="space-y-4">
                       {viewingHistoryRecord?.items.map((histItem, idx) => (
-                          <div key={idx} className="p-3 border rounded-lg bg-background flex items-center justify-between"><span className={cn("text-sm font-medium", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span><Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold'>{histStatus}</Badge></div>
+                          <div key={idx} className="p-3 border rounded-lg bg-background flex items-center justify-between"><span className={cn("text-sm font-medium", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span><Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold'>{histItem.status?.toUpperCase()}</Badge></div>
                       ))}
                   </div>
               </div>
