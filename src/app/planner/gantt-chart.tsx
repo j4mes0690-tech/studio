@@ -259,12 +259,12 @@ export function GanttChart({
         const arrowHeadPath = `M ${successorX} ${successorY} L ${successorX - arrowHeadSize} ${successorY - arrowHeadSize / 1.5} L ${successorX - arrowHeadSize} ${successorY + arrowHeadSize / 1.5} Z`;
 
         arrows.push(
-          <g key={`${predId}-${task.id}`} style={{ opacity: 0.4 }}>
+          <g key={`${predId}-${task.id}`} style={{ opacity: 0.6 }}>
             <path
               d={`M ${predecessorEndX} ${predecessorY} L ${midX} ${predecessorY} L ${midX} ${successorY} L ${successorX} ${successorY}`}
               fill="none"
               stroke="#f26522"
-              strokeWidth="1.5"
+              strokeWidth="2"
               style={{ shapeRendering: 'crispEdges' }}
             />
             <path 
@@ -390,7 +390,7 @@ export function GanttChart({
 
                         {/* Dependency arrows layer */}
                         <svg 
-                            className="absolute pointer-events-none z-10" 
+                            className="absolute pointer-events-none z-10 overflow-visible" 
                             style={{ 
                                 top: 0,
                                 left: 0,
@@ -398,6 +398,7 @@ export function GanttChart({
                                 height: chartHeight 
                             }}
                             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                            preserveAspectRatio="xMinYMin meet"
                             xmlns="http://www.w3.org/2000/svg"
                         >
                             {dependencyArrows}

@@ -1649,7 +1649,19 @@ export async function generatePlannerPDF(
             svg.style.position = 'absolute';
             svg.style.top = '0';
             svg.style.left = '0';
+            svg.style.width = '100%';
+            svg.style.height = '100%';
             svg.style.overflow = 'visible';
+            svg.style.display = 'block';
+            svg.style.visibility = 'visible';
+            
+            // Critical fix for arrows: Ensure parents don't clip
+            let parent = svg.parentElement;
+            while (parent && parent !== el) {
+                parent.style.overflow = 'visible';
+                parent.style.clipPath = 'none';
+                parent = parent.parentElement;
+            }
           });
 
           // CRITICAL: Strip all clipping properties and force stable line-height
