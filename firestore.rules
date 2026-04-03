@@ -3,81 +3,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * CORE SECURITY PHILOSOPHY
-     * This ruleset prioritizes accessibility for the prototyping phase while 
-     * maintaining basic authentication requirements.
-     * 
-     * 1. Authentication: Users must be signed in (including anonymous) to access data.
-     * 
-     * 2. Prototyping Flexibility: While the backend schema defines denormalized 
-     *    auth fields, these rules allow global read access to authenticated users 
-     *    to ensure the UI remains functional even if metadata is partially missing.
-     * 
-     * 3. Write Protection: Create/Update operations still require authentication.
+     * CORE SECURITY PHILOSOPHY (PROTOTYPING)
+     * To ensure maximum reliability during the walkthrough and development,
+     * we allow all authenticated users (including anonymous) full access 
+     * to the database.
      */
 
-    // --- Helper Functions ---
-
-    /** @description Checks if the request is from an authenticated user. */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /** @description Checks if the user's UID matches the provided owner ID. */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    // --- Collection Rules ---
-
-    /**
-     * @description Rules for the Client collection.
-     */
-    match /clients/{clientId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
-    }
-
-    /**
-     * @description Rules for Projects.
-     */
-    match /projects/{projectId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
-    }
-
-    /**
-     * @description Rules for Instructions. 
-     */
-    match /instructions/{instructionId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
-
-      /**
-       * @description Rules for Summaries subcollection.
-       */
-      match /summaries/{summaryId} {
-        allow get, list: if isSignedIn();
-        allow create, update, delete: if isSignedIn();
-      }
-
-      /**
-       * @description Rules for ActionItems subcollection.
-       */
-      match /actionItems/{actionItemId} {
-        allow get, list: if isSignedIn();
-        allow create, update, delete: if isSignedIn();
-      }
-    }
-
-    /**
-     * @description Fallback for other collections used in the app (users, site-diary, etc.)
-     */
-    match /{path=**} {
-      allow read, write: if isSignedIn();
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
