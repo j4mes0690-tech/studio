@@ -35,7 +35,8 @@ import {
     Calendar,
     ArrowRight,
     FileStack,
-    Check
+    Check,
+    Pencil
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -107,6 +108,10 @@ function PlannerContent() {
 
   const [isAddPlannerOpen, setIsAddPlannerOpen] = useState(false);
   const [newPlannerName, setNewPlannerName] = useState('');
+
+  const [isEditPlannerOpen, setIsEditPlannerOpen] = useState(false);
+  const [plannerToEdit, setPlannerToEdit] = useState<Planner | null>(null);
+  const [editPlannerName, setEditPlannerName] = useState('');
 
   const [isManageSectionsOpen, setIsManageSectionsOpen] = useState(false);
   const [newSectionName, setNewSectionName] = useState('');
@@ -305,7 +310,7 @@ function PlannerContent() {
             sections: []
         };
         const projRef = doc(db, 'projects', currentProject.id);
-        const snap = await getDoc(projRef);
+        const projSnap = await getDoc(projRef);
         if (projSnap.exists()) {
             await updateDoc(projRef, {
                 planners: arrayUnion(newPlanner)
@@ -313,6 +318,32 @@ function PlannerContent() {
             toast({ title: 'New Planner Added', description: `Planner "${newPlanner.name}" is ready.` });
             setNewPlannerName('');
             setIsAddPlannerOpen(false);
+        }
+    });
+  };
+
+  const handleRenamePlanner = () => {
+    if (!plannerToEdit || !editPlannerName.trim() || !currentProject) return;
+    startTransition(async () => {
+        try {
+            const projRef = doc(db, 'projects', currentProject.id);
+            const projSnap = await getDoc(projRef);
+            if (projSnap.exists()) {
+                const data = projSnap.data();
+                const planners = (data.planners || []).map((p: Planner) => 
+                    p.id === plannerToEdit.id ? { ...p, name: editPlannerName.trim() } : p
+                );
+                const areas = (data.areas || []).map((p: Planner) => 
+                    p.id === plannerToEdit.id ? { ...p, name: editPlannerName.trim() } : p
+                );
+                
+                await updateDoc(projRef, { planners, areas });
+                toast({ title: 'Planner Renamed', description: 'Changes persisted successfully.' });
+                setIsEditPlannerOpen(false);
+                setPlannerToEdit(null);
+            }
+        } catch (err) {
+            toast({ title: 'Error', description: 'Failed to rename planner.', variant: 'destructive' });
         }
     });
   };
@@ -559,26 +590,27 @@ function PlannerContent() {
                     }), { total: 0, completed: 0 }) : { total: 0, completed: 0 };
                     
                     const progress = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
+                    const canEdit = profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility;
+
                     return (
                         <Card 
                             key={planner.id} 
                             className={cn(
-                                "cursor-pointer hover:border-primary/50 transition-all group hover:shadow-md flex flex-col",
+                                "transition-all group hover:shadow-md flex flex-col relative",
                                 planner.archived && "opacity-75 grayscale"
                             )} 
-                            onClick={() => selectPlanner(planner.id)}
                         >
-                            <CardHeader className="pb-3">
+                            <CardHeader className="pb-3 cursor-pointer hover:border-primary/50" onClick={() => selectPlanner(planner.id)}>
                                 <div className="flex justify-between items-start">
                                     <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 mb-2 uppercase text-[9px] font-black tracking-widest">
                                         {planner.archived ? 'Archived' : 'Planner'}
                                     </Badge>
                                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                 </div>
-                                <CardTitle className="text-xl group-hover:text-primary transition-colors">{planner.name}</CardTitle>
+                                <CardTitle className="text-xl group-hover:text-primary transition-colors pr-8">{planner.name}</CardTitle>
                                 <CardDescription>{stats.total} Active Activities</CardDescription>
                             </CardHeader>
-                            <CardContent className="space-y-4 flex-1">
+                            <CardContent className="space-y-4 flex-1 cursor-pointer" onClick={() => selectPlanner(planner.id)}>
                                 <div className="space-y-2">
                                     <div className="flex justify-between text-[10px] font-bold text-muted-foreground uppercase">
                                         <span>Status</span>
@@ -587,10 +619,63 @@ function PlannerContent() {
                                     <Progress value={progress} className="h-1.5" />
                                 </div>
                             </CardContent>
+                            
+                            {canEdit && (
+                                <div className="absolute bottom-2 right-2">
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setPlannerToEdit(planner);
+                                                        setEditPlannerName(planner.name);
+                                                        setIsEditPlannerOpen(true);
+                                                    }}
+                                                >
+                                                    <Pencil className="h-3.5 w-3.5" />
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent><p>Rename Planner</p></TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                </div>
+                            )}
                         </Card>
                     );
                 })}
             </div>
+
+            {/* Rename Planner Dialog */}
+            <Dialog open={isEditPlannerOpen} onOpenChange={setIsEditPlannerOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Rename Planner</DialogTitle>
+                        <DialogDescription>Update the title for this construction schedule.</DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4 space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-muted-foreground">Planner Title</label>
+                            <Input 
+                                placeholder="Enter new title..." 
+                                value={editPlannerName} 
+                                onChange={e => setEditPlannerName(e.target.value)} 
+                                onKeyDown={e => e.key === 'Enter' && handleRenamePlanner()}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsEditPlannerOpen(false)}>Cancel</Button>
+                        <Button onClick={handleRenamePlanner} disabled={isPending || !editPlannerName.trim() || editPlannerName === plannerToEdit?.name}>
+                            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                            Update Title
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Background Rendering Layer for PDF Capture */}
             {isProcessingGlobalExport && (
