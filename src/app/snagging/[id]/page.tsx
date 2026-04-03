@@ -41,7 +41,8 @@ import {
     Cloud,
     CloudUpload,
     Building2,
-    MapPin
+    MapPin,
+    ExternalLink
 } from 'lucide-react';
 import Image from 'next/image';
 import { cn, scrollToFirstError, parseDateString } from '@/lib/utils';
@@ -273,7 +274,7 @@ function EditSnaggingContent() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-32">
+    <div className="max-w-6xl mx-auto space-y-6 pb-12">
       <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={() => router.push('/snagging')} className="gap-2">
             <ChevronLeft className="h-4 w-4" /> Back to Log
@@ -429,6 +430,14 @@ function EditSnaggingContent() {
                     </div>
                 </CardContent>
             </Card>
+
+            <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t">
+                <Button variant="outline" className="flex-1 h-12 font-bold" onClick={() => router.push('/snagging')}>Discard Changes</Button>
+                <Button className="flex-[2] h-12 font-black uppercase tracking-widest shadow-lg shadow-primary/20 gap-2" onClick={handleSyncToCloud} disabled={isPending}>
+                    {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <CloudUpload className="h-5 w-5" />}
+                    Save & Sync to Cloud
+                </Button>
+            </div>
         </div>
 
         <div className="space-y-6">
@@ -467,16 +476,6 @@ function EditSnaggingContent() {
                 </CardContent>
             </Card>
         </div>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t shadow-2xl z-50">
-          <div className="max-w-6xl mx-auto flex gap-3">
-              <Button variant="outline" className="flex-1 h-12 font-bold" onClick={() => router.push('/snagging')}>Discard Changes</Button>
-              <Button className="flex-[2] h-12 font-black uppercase tracking-widest shadow-lg shadow-primary/20 gap-2" onClick={handleSyncToCloud} disabled={isPending}>
-                  {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <CloudUpload className="h-5 w-5" />}
-                  Save & Sync to Cloud
-              </Button>
-          </div>
       </div>
 
       <Dialog open={!!viewingHistoryRecord} onOpenChange={() => setViewingHistoryRecord(null)}>
