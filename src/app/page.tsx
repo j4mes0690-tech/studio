@@ -5,6 +5,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import { Header } from '@/components/layout/header';
 import { 
@@ -22,6 +23,7 @@ import {
   GraduationCap,
   Loader2,
   ShieldCheck,
+  ShieldAlert,
   Banknote,
   ArrowRight,
   LayoutGrid,
