@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, useTransition, Suspense } from 'react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -19,8 +19,8 @@ import {
 } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useDoc, useCollection, useUser, useStorage, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection, query, orderBy, deleteDoc } from 'firebase/firestore';
-import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord } from '@/lib/types';
+import { doc, updateDoc, collection, query, orderBy, deleteDoc, arrayUnion } from 'firebase/firestore';
+import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord, ChatMessage } from '@/lib/types';
 import { 
     ChevronLeft, 
     Camera, 
@@ -42,7 +42,8 @@ import {
     CloudUpload,
     Building2,
     MapPin,
-    ExternalLink
+    ExternalLink,
+    Clock
 } from 'lucide-react';
 import Image from 'next/image';
 import { cn, scrollToFirstError, parseDateString } from '@/lib/utils';
@@ -65,6 +66,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { 
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 import { VoiceInput } from '@/components/voice-input';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ClientDate } from '@/components/client-date';
@@ -136,6 +143,7 @@ function EditSnaggingContent() {
   const [newItemText, setNewItemText] = useState('');
   const [pendingSubId, setPendingSubId] = useState<string>('unassigned');
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
+  const [locationExpanded, setLocationExpanded] = useState<string | undefined>('location');
   
   // Item Editing State
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -159,6 +167,13 @@ function EditSnaggingContent() {
       setLocalPhotos(item.photos || []);
     }
   }, [item]);
+
+  // Automatic Accordion Logic
+  useEffect(() => {
+    if (localProjectId && localAreaId && localAreaId !== 'none' && localAreaId !== '') {
+        setLocationExpanded(undefined);
+    }
+  }, [localProjectId, localAreaId]);
 
   const isLoading = itemLoading || projectsLoading || usersLoading || subsLoading || profileLoading || historyLoading;
 
@@ -308,38 +323,52 @@ function EditSnaggingContent() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-            <Card className="shadow-sm border-primary/10">
-                <CardHeader className="pb-4">
-                    <CardTitle className="text-lg">Audit Location</CardTitle>
-                    <CardDescription>Identify project and plot.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Project</Label>
-                            <Select value={localProjectId} onValueChange={setLocalProjectId}>
-                                <SelectTrigger className="bg-background h-10"><SelectValue /></SelectTrigger>
-                                <SelectContent>{allowedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
-                            </Select>
+            <Accordion type="single" collapsible value={locationExpanded} onValueChange={setLocationExpanded} className="w-full">
+                <AccordionItem value="location" className="border rounded-xl bg-background shadow-sm overflow-hidden border-primary/10">
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline">
+                        <div className="flex items-center gap-3">
+                            <Building2 className="h-5 w-5 text-primary" />
+                            <div className="text-left">
+                                <h3 className="text-sm font-bold uppercase tracking-widest text-primary">Audit Location</h3>
+                                {localProjectId && (
+                                    <p className="text-[10px] text-muted-foreground font-medium normal-case tracking-normal">
+                                        {allProjects?.find(p => p.id === localProjectId)?.name} 
+                                        {localAreaId && localAreaId !== 'none' && ` > ${availableAreas.find(a => a.id === localAreaId)?.name || localAreaId}`}
+                                    </p>
+                                )}
+                            </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Area / Plot</Label>
-                            <Select value={localAreaId} onValueChange={setLocalAreaId}>
-                                <SelectTrigger className="bg-background h-10"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="site-wide">General Site</SelectItem>
-                                    {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
-                                    <Separator className="my-1" /><SelectItem value="other">Manual Entry</SelectItem>
-                                </SelectContent>
-                            </Select>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-6 pb-6">
+                        <div className="space-y-4 pt-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Project</Label>
+                                    <Select value={localProjectId} onValueChange={setLocalProjectId}>
+                                        <SelectTrigger className="bg-background h-10"><SelectValue /></SelectTrigger>
+                                        <SelectContent>{allowedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Area / Plot</Label>
+                                    <Select value={localAreaId} onValueChange={setLocalAreaId}>
+                                        <SelectTrigger className="bg-background h-10"><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="site-wide">General Site</SelectItem>
+                                            {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                            <Separator className="my-1" /><SelectItem value="other">Manual Entry</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Title</Label>
+                                <Input value={localTitle} onChange={(e) => setLocalTitle(e.target.value)} className="h-10" />
+                            </div>
                         </div>
-                    </div>
-                    <div className="space-y-2">
-                        <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Title</Label>
-                        <Input value={localTitle} onChange={(e) => setLocalTitle(e.target.value)} className="h-10" />
-                    </div>
-                </CardContent>
-            </Card>
+                    </AccordionContent>
+                </AccordionItem>
+            </Accordion>
 
             <Card className="shadow-sm border-primary/10 overflow-hidden">
                 <CardHeader className="bg-muted/10 border-b">
@@ -484,7 +513,7 @@ function EditSnaggingContent() {
               <div className='flex-1 overflow-y-auto px-6 py-4'>
                   <div className="space-y-4">
                       {viewingHistoryRecord?.items.map((histItem, idx) => (
-                          <div key={idx} className="p-3 border rounded-lg bg-background flex items-center justify-between"><span className={cn("text-sm font-medium", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span><Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold'>{histItem.status}</Badge></div>
+                          <div key={idx} className="p-3 border rounded-lg bg-background flex items-center justify-between"><span className={cn("text-sm font-medium", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span><Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold'>{histStatus}</Badge></div>
                       ))}
                   </div>
               </div>
