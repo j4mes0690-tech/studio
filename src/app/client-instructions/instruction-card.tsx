@@ -43,7 +43,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { ClientDate } from '../../components/client-date';
+import { ClientDate } from '@/components/client-date';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -222,7 +222,7 @@ function AcceptInstructionButton({
 
     const handleAddInst = () => {
         if (siteInsts.length > 0) {
-            const lastInst = siteInsts[siteInsts.length - 1];
+            const lastInst = siteInsts[lastInsts.length - 1];
             if (!lastInst.subcontractorId) {
                 toast({
                     title: "Partner Required",

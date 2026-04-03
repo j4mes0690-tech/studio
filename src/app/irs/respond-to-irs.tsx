@@ -44,7 +44,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useFirestore, useStorage } from '@/firebase';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
 import { ClientDate } from '@/components/client-date';
 import { Badge } from '@/components/ui/badge';
@@ -257,7 +257,7 @@ export function RespondToIRS({ item, currentUser }: RespondToIRSProps) {
               ) : (
                   <div className="flex flex-col gap-4">
                       {showResolutionForm ? (
-                          <div className="bg-green-50/50 p-4 rounded-xl border-2 border-green-200 space-y-4 animate-in slide-in-from-top-2">
+                          <div className="bg-green-50/50 p-4 rounded-xl border-2 border-green-100 space-y-4 animate-in slide-in-from-top-2">
                               <div className="flex items-center justify-between">
                                   <p className="text-[10px] font-black uppercase text-green-700 tracking-widest">Formal Resolution Form</p>
                                   <Button variant="ghost" size="sm" className="h-6 w-6 text-muted-foreground" onClick={() => setShowResolutionForm(false)}><X className="h-3 w-3" /></Button>

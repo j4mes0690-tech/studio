@@ -41,7 +41,7 @@ import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
-import { ClientDate } from '../../components/client-date';
+import { ClientDate } from '@/components/client-date';
 import { Badge } from '@/components/ui/badge';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
@@ -311,7 +311,7 @@ export function RespondToRequest({ item, currentUser }: RespondToRequestProps) {
 
                   {(photos.length > 0 || files.length > 0 || isReadingFiles || isPending) && (
                     <div className="flex flex-wrap gap-2 border rounded-md p-2 bg-muted/20">
-                      {isReadingFiles && <div className="flex items-center gap-2 text-[10px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Processing...</div>}
+                      {isReadingFiles && <div className="flex items-center gap-2 text-[10px] text-muted-foreground"><Loader2 className="h-3 w-3 animate-spin" /> Processing files...</div>}
                       {isPending && <div className="flex items-center gap-2 text-[10px] text-primary"><Loader2 className="h-3 w-3 animate-spin" /> Persisting...</div>}
                       {photos.map((p, i) => (
                         <div key={i} className="relative w-12 h-12">

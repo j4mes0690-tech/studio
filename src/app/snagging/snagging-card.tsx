@@ -47,7 +47,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
-import { ClientDate } from '../../components/client-date';
+import { ClientDate } from '@/components/client-date';
 import { cn } from '@/lib/utils';
 import { useState, useMemo } from 'react';
 import { useFirestore, useUser, useDoc, useMemoFirebase, useCollection } from '@/firebase';

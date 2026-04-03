@@ -47,7 +47,7 @@ import {
   } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { ClientDate } from '../../components/client-date';
+import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc, deleteDoc, arrayUnion, collection } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';

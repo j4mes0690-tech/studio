@@ -6,9 +6,9 @@ import Image from 'next/image';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import {
   Accordion,
@@ -25,7 +25,7 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from '@/components/ui/carousel';
-import { ClientDate } from '../../components/client-date';
+import { ClientDate } from '@/components/client-date';
 import { useTransition, useMemo } from 'react';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc, updateDoc } from 'firebase/firestore';

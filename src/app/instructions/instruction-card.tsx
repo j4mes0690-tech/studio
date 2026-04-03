@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
@@ -33,7 +32,7 @@ import {
   Circle
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { ClientDate } from '../../components/client-date';
+import { ClientDate } from '@/components/client-date';
 import { useFirestore } from '@/firebase';
 import { doc, deleteDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';

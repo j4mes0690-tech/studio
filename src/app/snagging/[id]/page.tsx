@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { VoiceInput } from '@/components/voice-input';
 import { ImageLightbox } from '@/components/image-lightbox';
-import { ClientDate } from '../../components/client-date';
+import { ClientDate } from '@/components/client-date';
 import { CameraOverlay } from '@/components/camera-overlay';
 
 function EditSnaggingContent() {
@@ -61,10 +61,16 @@ function EditSnaggingContent() {
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  const usersQuery = useMemoFirebase(() => (db ? collection(db, 'users') : null), [db]);
+  const usersQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'users');
+  }, [db]);
   const { data: distributionUsers, isLoading: usersLoading } = useCollection<DistributionUser>(usersQuery);
 
-  const subsQuery = useMemoFirebase(() => (db ? collection(db, 'sub-contractors') : null), [db]);
+  const subsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, 'sub-contractors');
+  }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
