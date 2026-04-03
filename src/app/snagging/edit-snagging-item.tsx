@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
-import Image from 'next/image';
+import Image from 'next/next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -46,7 +46,8 @@ import {
   Send,
   Check,
   Circle,
-  CheckCircle2
+  CheckCircle2,
+  CloudUpload
 } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
@@ -75,7 +76,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const { user: sessionUser } = useUser();
   
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>(item.photos || []);
@@ -226,12 +226,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
 
         const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : values.status);
 
-        // Fetch fresh data before writing back the whole array to avoid overwriting items from other users
         const docRef = doc(db, 'snagging-items', item.id);
-        const docSnap = await getDoc(docRef);
-        
-        // Note: For a list edit dialog, we use the local 'items' state as it represents the current intentional state
-        // whereas for background photos we must be more careful.
         const updates: any = {
           ...values,
           areaId: values.areaId || null,
@@ -296,6 +291,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
     });
   };
 
+  const unsyncedCount = items.reduce((acc, itm) => acc + (itm.photos || []).filter(p => p.url.startsWith('data:')).length, 0) + photos.filter(p => p.url.startsWith('data:')).length;
+
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -304,9 +301,17 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
           className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/5">
-            <DialogTitle>Edit Snagging List</DialogTitle>
-            <DialogDescription>Modify area metadata or add specific defects.</DialogDescription>
+          <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/5 flex items-center justify-between">
+            <div>
+                <DialogTitle>Edit Snagging List</DialogTitle>
+                <DialogDescription>Capture defects instantly. Media is held locally until you click Save & Sync.</DialogDescription>
+            </div>
+            {unsyncedCount > 0 && (
+                <Badge variant="secondary" className="gap-2 h-7 px-3 bg-primary/10 text-primary border-primary/20 animate-in fade-in">
+                    <CloudUpload className="h-3.5 w-3.5" />
+                    {unsyncedCount} Assets Staged
+                </Badge>
+            )}
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -463,7 +468,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                             disabled={isPending} 
                             onClick={() => { setSubmitMode('save'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
-                            <CheckCircle2 className="h-4 w-4" /> Save
+                            <CloudUpload className="h-4 w-4" /> Save & Sync
                         </Button>
                         <Button 
                             type="button" 
@@ -471,7 +476,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                             disabled={isPending} 
                             onClick={() => { setSubmitMode('issue'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
-                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Save & Send
+                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Sync & Send
                         </Button>
                     </div>
                   </form>

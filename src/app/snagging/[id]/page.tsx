@@ -17,9 +17,9 @@ import { doc, updateDoc, collection, query, orderBy, arrayUnion, deleteDoc, getD
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord } from '@/lib/types';
-import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, RefreshCw, Loader2, Save, History, Eye, FileSearch, Check, Link as LinkIcon, Pencil, Maximize2, ListChecks } from 'lucide-react';
+import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, User, RefreshCw, Loader2, Save, History, Eye, FileSearch, Check, Link as LinkIcon, Pencil, Maximize2, ListChecks, CloudUpload, ShieldCheck, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
-import { cn } from '@/lib/utils';
+import { cn, getPartnerEmails } from '@/lib/utils';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import {
   Dialog,
@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { VoiceInput } from '@/components/voice-input';
 import { ImageLightbox } from '@/components/image-lightbox';
-import { ClientDate } from '@/components/client-date';
+import { ClientDate } from '../../components/client-date';
 import { CameraOverlay } from '@/components/camera-overlay';
 
 function EditSnaggingContent() {
@@ -77,14 +77,15 @@ function EditSnaggingContent() {
   }, [db, id]);
   const { data: history, isLoading: historyLoading } = useCollection<SnaggingHistoryRecord>(historyQuery);
 
-  // Form State
-  const [title, setTitle] = useState('');
-  const [projectId, setProjectId] = useState('');
-  const [areaId, setAreaId] = useState('');
-  const [items, setItems] = useState<SnaggingListItem[]>([]);
-  const [photos, setPhotos] = useState<Photo[]>([]);
+  // --- LOCAL STAGING STATE ---
+  // To avoid lag, we keep everything in local state first and sync periodically.
+  const [localTitle, setLocalTitle] = useState('');
+  const [localProjectId, setLocalProjectId] = useState('');
+  const [localAreaId, setLocalAreaId] = useState('');
+  const [localItems, setLocalItems] = useState<SnaggingListItem[]>([]);
+  const [localPhotos, setLocalPhotos] = useState<Photo[]>([]);
   
-  // Local UI State
+  // UI Staging
   const [newItemText, setNewItemText] = useState('');
   const [pendingSubId, setPendingSubId] = useState<string>('unassigned');
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
@@ -94,26 +95,41 @@ function EditSnaggingContent() {
   const [editItemText, setEditItemText] = useState('');
   const [editItemSubId, setEditItemSubId] = useState<string>('unassigned');
 
-  // Camera State
+  // Camera & Viewer State
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [isItemCameraOpen, setIsItemCameraOpen] = useState(false);
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
   const [viewingHistoryRecord, setViewingHistoryRecord] = useState<SnaggingHistoryRecord | null>(null);
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
-  // Sync initial data - defensive to prevent clearing local state during updates
+  // Sync Logic
+  const unsyncedCount = useMemo(() => {
+    const unsyncedPhotos = localPhotos.filter(p => p.url.startsWith('data:')).length;
+    const itemsWithUnsyncedPhotos = localItems.reduce((acc, itm) => acc + (itm.photos || []).filter(p => p.url.startsWith('data:')).length, 0);
+    return unsyncedPhotos + itemsWithUnsyncedPhotos;
+  }, [localPhotos, localItems]);
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!item) return false;
+    return localTitle !== item.title || 
+           localProjectId !== item.projectId || 
+           localAreaId !== item.areaId || 
+           JSON.stringify(localItems) !== JSON.stringify(item.items) ||
+           localPhotos.length !== (item.photos?.length || 0);
+  }, [item, localTitle, localProjectId, localAreaId, localItems, localPhotos]);
+
+  // Initial Data Load
   useEffect(() => {
     if (item) {
-      setTitle(t => t || item.title || '');
-      setProjectId(p => p || item.projectId || '');
-      setAreaId(a => a || item.areaId || '');
-      setItems(item.items || []);
-      setPhotos(item.photos || []);
+      setLocalTitle(t => t || item.title || '');
+      setLocalProjectId(p => p || item.projectId || '');
+      setLocalAreaId(a => a || item.areaId || '');
+      setLocalItems(item.items || []);
+      setLocalPhotos(item.photos || []);
     }
   }, [item]);
 
-  // Derived
-  const selectedProject = useMemo(() => allProjects?.find(p => p.id === projectId), [allProjects, projectId]);
+  const selectedProject = useMemo(() => allProjects?.find(p => p.id === localProjectId), [allProjects, localProjectId]);
   const availableAreas = selectedProject?.areas || [];
 
   const allowedProjects = useMemo(() => {
@@ -124,10 +140,10 @@ function EditSnaggingContent() {
   }, [allProjects, profile]);
 
   const projectSubs = useMemo(() => {
-    if (!projectId || !selectedProject) return [];
+    if (!localProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
     return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
-  }, [projectId, selectedProject, subContractors]);
+  }, [localProjectId, selectedProject, subContractors]);
 
   const isAuthorized = useMemo(() => {
     if (!profile || !item) return false;
@@ -135,189 +151,101 @@ function EditSnaggingContent() {
     return allowedProjects.some(p => p.id === item.projectId);
   }, [profile, item, allowedProjects]);
 
-  const onCaptureGeneral = (photo: Photo) => {
-    if (snagRef) {
-      startTransition(async () => {
-        try {
-          const blob = await dataUriToBlob(photo.url);
-          const url = await uploadFile(storage, `snagging/general/${id}-${Date.now()}.jpg`, blob);
-          const updatedPhoto = { ...photo, url };
-          await updateDoc(snagRef, {
-            photos: arrayUnion(updatedPhoto)
-          });
-          setPhotos(prev => [...prev, updatedPhoto]);
-        } catch (err) {
-          toast({ title: 'Upload Failed', description: 'Could not sync photo to cloud.', variant: 'destructive' });
-        }
-      });
-    }
-  };
-
-  const onCaptureItem = (photo: Photo) => {
-    if (itemPhotoTargetId && snagRef) {
-      startTransition(async () => {
-        try {
-          const blob = await dataUriToBlob(photo.url);
-          const url = await uploadFile(storage, `snagging/items/${itemPhotoTargetId}-${Date.now()}.jpg`, blob);
-          const updatedPhoto = { ...photo, url };
-          
-          // Re-fetch document to avoid overwriting other people's items
-          const docSnap = await getDoc(snagRef);
-          if (!docSnap.exists()) return;
-          const currentItems = docSnap.data().items || [];
-
-          const newItemsList = currentItems.map((itm: any) => 
-            itm.id === itemPhotoTargetId 
-              ? { ...itm, photos: [...(itm.photos || []), updatedPhoto] } 
-              : itm
-          );
-          
-          setItems(newItemsList);
-          await updateDoc(snagRef, { items: newItemsList });
-        } catch (err) {
-          toast({ title: 'Error', description: 'Failed to sync item photo.', variant: 'destructive' });
-        }
-      });
-      setItemPhotoTargetId(null);
-    } else {
-        setPendingItemPhotos(prev => [...prev, photo]);
-    }
-  };
-
-  const handleMetadataChange = (key: string, value: any) => {
-    if (!snagRef) return;
-    updateDoc(snagRef, { [key]: value });
-  };
-
   const handleAddItem = () => {
     if (!newItemText.trim() && pendingItemPhotos.length === 0) return;
-    if (!snagRef) return;
-
-    startTransition(async () => {
-        try {
-            const uploadedPhotos = await Promise.all(
-                pendingItemPhotos.map(async (p, i) => {
-                    const blob = await dataUriToBlob(p.url);
-                    const url = await uploadFile(storage, `snagging/items/${Date.now()}-${i}.jpg`, blob);
-                    return { ...p, url };
-                })
-            );
-
-            const newItem: SnaggingListItem = {
-                id: `item-${Date.now()}`,
-                description: newItemText.trim() || 'No description',
-                status: 'open',
-                photos: uploadedPhotos,
-                subContractorId: pendingSubId === 'unassigned' ? null : pendingSubId,
-                completionPhotos: []
-            };
-
-            // Re-fetch document to avoid overwriting other people's items
-            const docSnap = await getDoc(snagRef);
-            if (!docSnap.exists()) return;
-            const currentItems = docSnap.data().items || [];
-
-            const newItemsList = [...currentItems, newItem];
-            setItems(newItemsList);
-            await updateDoc(snagRef, { items: newItemsList });
-            
-            setNewItemText('');
-            setPendingSubId('unassigned');
-            setPendingItemPhotos([]);
-            toast({ title: 'Item Added', description: 'Saved to snagging list.' });
-        } catch (err) {
-            toast({ title: 'Error', description: 'Failed to add item.', variant: 'destructive' });
-        }
-    });
-  };
-
-  const handleStartEdit = (snag: SnaggingListItem) => {
-    setEditingItemId(snag.id);
-    setEditItemText(snag.description);
-    setEditItemSubId(snag.subContractorId || 'unassigned');
+    const newItem: SnaggingListItem = {
+        id: `item-${Date.now()}`,
+        description: newItemText.trim() || 'No description',
+        status: 'open',
+        photos: [...pendingItemPhotos],
+        subContractorId: pendingSubId === 'unassigned' ? null : pendingSubId,
+        completionPhotos: []
+    };
+    setLocalItems(prev => [...prev, newItem]);
+    setNewItemText('');
+    setPendingSubId('unassigned');
+    setPendingItemPhotos([]);
   };
 
   const handleSaveItemEdit = (itemId: string) => {
-    if (!snagRef) return;
-    
-    startTransition(async () => {
-        try {
-            const docSnap = await getDoc(snagRef);
-            if (!docSnap.exists()) return;
-            const currentItems = docSnap.data().items || [];
+    setLocalItems(prev => prev.map(i => 
+      i.id === itemId 
+        ? { ...i, description: editItemText, subContractorId: editItemSubId === 'unassigned' ? null : editItemSubId } 
+        : i
+    ));
+    setEditingItemId(null);
+  };
 
-            const newItemsList = currentItems.map((i: any) => 
-              i.id === itemId 
-                ? { ...i, description: editItemText, subContractorId: editItemSubId === 'unassigned' ? null : editItemSubId } 
-                : i
-            );
-            
-            setItems(newItemsList);
-            await updateDoc(snagRef, { items: newItemsList });
-            setEditingItemId(null);
-        } catch (err) {
-            toast({ title: 'Error', description: 'Failed to save changes.', variant: 'destructive' });
+  const handleToggleStatus = (itemId: string) => {
+    setLocalItems(prev => prev.map(i => 
+        i.id === itemId 
+            ? { ...i, status: (i.status === 'open' ? 'closed' : 'open') as any } 
+            : i
+    ));
+  };
+
+  const handleRemovePhoto = (itemId: string, photoIdx: number) => {
+    setLocalItems(prev => prev.map(itm => {
+        if (itm.id === itemId) {
+            return { ...itm, photos: (itm.photos || []).filter((_, i) => i !== photoIdx) };
         }
-    });
+        return itm;
+    }));
   };
 
-  const handleRemoveItem = (e: React.MouseEvent, itemId: string) => {
-    e.stopPropagation();
+  // --- SYNC ACTION ---
+  const handleSyncToCloud = () => {
     if (!snagRef) return;
 
     startTransition(async () => {
-        try {
-            const docSnap = await getDoc(snagRef);
-            if (!docSnap.exists()) return;
-            const currentItems = docSnap.data().items || [];
+      try {
+        toast({ title: 'Syncing to Cloud', description: `Processing ${unsyncedCount} new visual assets...` });
 
-            const newItemsList = currentItems.filter((i: any) => i.id !== itemId);
-            setItems(newItemsList);
-            await updateDoc(snagRef, { items: newItemsList });
-        } catch (err) {}
-    });
-  };
+        // 1. Upload unsynced global photos
+        const syncedGlobalPhotos = await Promise.all(
+          localPhotos.map(async (p, i) => {
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `snagging/general/${id}-${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
+          })
+        );
 
-  const handleToggleStatus = (e: React.MouseEvent, itemId: string) => {
-    e.stopPropagation();
-    if (!snagRef) return;
-
-    startTransition(async () => {
-        try {
-            const docSnap = await getDoc(snagRef);
-            if (!docSnap.exists()) return;
-            const currentItems = docSnap.data().items || [];
-
-            const newItemsList = currentItems.map((i: any) => 
-                i.id === itemId 
-                    ? { ...i, status: (i.status === 'open' ? 'closed' : 'open') as any } 
-                    : i
-            );
-            setItems(newItemsList);
-            await updateDoc(snagRef, { items: newItemsList });
-        } catch (err) {}
-    });
-  };
-
-  const handleRemovePhoto = (e: React.MouseEvent, itemId: string, photoIdx: number) => {
-    e.stopPropagation();
-    if (!snagRef) return;
-
-    startTransition(async () => {
-        try {
-            const docSnap = await getDoc(snagRef);
-            if (!docSnap.exists()) return;
-            const currentItems = docSnap.data().items || [];
-
-            const newItemsList = currentItems.map((itm: any) => {
-                if (itm.id === itemId) {
-                    return { ...itm, photos: (itm.photos || []).filter((_: any, i: number) => i !== photoIdx) };
+        // 2. Upload unsynced item photos
+        const syncedItems = await Promise.all(localItems.map(async (itm) => {
+            if (!itm.photos || itm.photos.length === 0) return itm;
+            const updatedPhotos = await Promise.all(itm.photos.map(async (p, pi) => {
+                if (p.url.startsWith('data:')) {
+                    const blob = await dataUriToBlob(p.url);
+                    const url = await uploadFile(storage, `snagging/items/${itm.id}-${Date.now()}-${pi}.jpg`, blob);
+                    return { ...p, url };
                 }
-                return itm;
-            });
-            setItems(newItemsList);
-            await updateDoc(snagRef, { items: newItemsList });
-        } catch (err) {}
+                return p;
+            }));
+            return { ...itm, photos: updatedPhotos };
+        }));
+
+        // 3. Update Firestore
+        const updates = {
+          title: localTitle,
+          projectId: localProjectId,
+          areaId: localAreaId || null,
+          items: syncedItems,
+          photos: syncedGlobalPhotos,
+        };
+
+        await updateDoc(snagRef, updates);
+        
+        setLocalItems(syncedItems);
+        setLocalPhotos(syncedGlobalPhotos);
+        
+        toast({ title: 'Sync Complete', description: 'Site records and media are now persisted in the cloud.' });
+      } catch (err) {
+        console.error(err);
+        toast({ title: 'Sync Failed', description: 'Media upload error. Check your connection.', variant: 'destructive' });
+      }
     });
   };
 
@@ -340,13 +268,45 @@ function EditSnaggingContent() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-20 px-4 md:px-0">
+    <div className="max-w-6xl mx-auto space-y-6 pb-32 px-4 md:px-0">
+      {/* SYNC HUD */}
+      <div className="sticky top-16 z-40 animate-in slide-in-from-top-4 duration-500">
+          {(unsyncedCount > 0 || hasUnsavedChanges) ? (
+              <div className="bg-primary p-3 rounded-xl shadow-2xl flex items-center justify-between gap-4 border border-white/20">
+                  <div className="flex items-center gap-3">
+                      <div className="bg-white/20 p-2 rounded-lg text-white">
+                          <CloudUpload className="h-5 w-5 animate-pulse" />
+                      </div>
+                      <div className="text-white">
+                          <p className="text-xs font-black uppercase tracking-widest leading-none mb-1">Local Staging Active</p>
+                          <p className="text-[10px] font-medium opacity-90">
+                              {unsyncedCount} unsynced media assets • {hasUnsavedChanges ? 'Metadata changes pending' : 'Metadata synced'}
+                          </p>
+                      </div>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    className="bg-white text-primary hover:bg-neutral-100 font-black uppercase text-[10px] tracking-widest h-9 px-6 gap-2 shadow-lg"
+                    onClick={handleSyncToCloud}
+                    disabled={isPending}
+                  >
+                      {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CloudUpload className="h-3.5 w-3.5" />}
+                      Sync to Cloud
+                  </Button>
+              </div>
+          ) : (
+              <div className="bg-green-600/90 backdrop-blur-md p-2 rounded-full shadow-lg border border-white/10 w-fit mx-auto px-4 flex items-center gap-2">
+                  <CheckCircle2 className="h-3 w-3 text-white" />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-white">All changes synced to project mainframe</span>
+              </div>
+          )}
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => router.push('/snagging')} className="gap-2">
                 <ChevronLeft className="h-4 w-4" /> Back to Log
             </Button>
-            {isPending && <Badge variant="secondary" className="animate-pulse">Syncing changes...</Badge>}
         </div>
       </div>
 
@@ -354,21 +314,21 @@ function EditSnaggingContent() {
         <div className="lg:col-span-2 space-y-6">
             <Card className="shadow-sm border-primary/10">
                 <CardHeader className="pb-4">
-                    <CardTitle className="text-lg">Audit Metadata</CardTitle>
+                    <CardTitle className="text-lg">Audit Location</CardTitle>
                     <CardDescription>Target area and project identification.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Project</Label>
-                            <Select value={projectId} onValueChange={(v) => { setProjectId(v); handleMetadataChange('projectId', v); }}>
+                            <Select value={localProjectId} onValueChange={setLocalProjectId}>
                                 <SelectTrigger className="bg-background h-10"><SelectValue placeholder="Select project" /></SelectTrigger>
                                 <SelectContent>{allowedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
                             <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Plot / Level</Label>
-                            <Select value={areaId} onValueChange={(v) => { setAreaId(v); handleMetadataChange('areaId', v); }}>
+                            <Select value={localAreaId} onValueChange={setLocalAreaId}>
                                 <SelectTrigger className="bg-background h-10"><SelectValue placeholder="Select area" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="site-wide">General Site</SelectItem>
@@ -381,7 +341,7 @@ function EditSnaggingContent() {
                     </div>
                     <div className="space-y-2">
                         <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">List Reference Title</Label>
-                        <Input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={() => handleMetadataChange('title', title)} placeholder="e.g. Plot 4 - First Fix Completion" className="h-10" />
+                        <Input value={localTitle} onChange={(e) => setLocalTitle(e.target.value)} placeholder="e.g. Plot 4 - First Fix Completion" className="h-10" />
                     </div>
                 </CardContent>
             </Card>
@@ -443,12 +403,12 @@ function EditSnaggingContent() {
                     </div>
 
                     <div className="divide-y overflow-hidden">
-                        {items.length === 0 ? (
+                        {localItems.length === 0 ? (
                             <div className="py-20 text-center text-muted-foreground opacity-40">
                                 <ListChecks className="h-12 w-12 mx-auto mb-2" />
                                 <p className="text-sm font-medium">No defects recorded for this area.</p>
                             </div>
-                        ) : items.map((listItem, idx) => {
+                        ) : localItems.map((listItem, idx) => {
                             const sub = subContractors?.find(s => s.id === listItem.subContractorId);
                             const isEditing = editingItemId === listItem.id;
 
@@ -459,7 +419,13 @@ function EditSnaggingContent() {
                                         "p-4 transition-all",
                                         isEditing ? "bg-primary/[0.03] ring-2 ring-inset ring-primary/20" : "hover:bg-muted/5 cursor-pointer"
                                     )}
-                                    onClick={() => !isEditing && handleStartEdit(listItem)}
+                                    onClick={() => {
+                                        if (!isEditing) {
+                                            setEditingItemId(listItem.id);
+                                            setEditItemText(listItem.description);
+                                            setEditItemSubId(listItem.subContractorId || 'unassigned');
+                                        }
+                                    }}
                                 >
                                     {isEditing ? (
                                         <div className="space-y-4 animate-in slide-in-from-top-1" onClick={e => e.stopPropagation()}>
@@ -488,7 +454,7 @@ function EditSnaggingContent() {
                                                     </Button>
                                                     <Button variant="ghost" size="sm" onClick={() => setEditingItemId(null)} className="h-9">Cancel</Button>
                                                     <Button size="sm" onClick={() => handleSaveItemEdit(listItem.id)} className="h-9 gap-2 px-4 font-bold shadow-sm">
-                                                        <Check className="h-4 w-4" /> Save
+                                                        <Check className="h-4 w-4" /> Done
                                                     </Button>
                                                 </div>
                                             </div>
@@ -499,13 +465,13 @@ function EditSnaggingContent() {
                                                     {(listItem.photos || []).map((p, pIdx) => (
                                                         <div key={pIdx} className="relative w-20 h-16 rounded-md border-2 border-primary/10 overflow-hidden group/img cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
                                                             <Image src={p.url} alt="Defect" fill className="object-cover" />
-                                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 flex items-center justify-center transition-opacity">
                                                                 <Maximize2 className="h-4 w-4 text-white" />
                                                             </div>
                                                             <button 
                                                                 type="button" 
                                                                 className="absolute top-0 right-0 bg-destructive text-white p-1 shadow-md transition-opacity z-10"
-                                                                onClick={(e) => handleRemovePhoto(e, listItem.id, pIdx)}
+                                                                onClick={(e) => handleRemovePhoto(listItem.id, pIdx)}
                                                             >
                                                                 <X className="h-3 w-3" />
                                                             </button>
@@ -522,7 +488,7 @@ function EditSnaggingContent() {
                                             <div className="flex items-start gap-3 min-w-0 flex-1">
                                                 <button 
                                                     type="button" 
-                                                    onClick={(e) => handleToggleStatus(e, listItem.id)}
+                                                    onClick={(e) => handleToggleStatus(listItem.id)}
                                                     className="mt-1 flex-shrink-0 transition-transform active:scale-90 hover:scale-110"
                                                 >
                                                     {listItem.status === 'closed' ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-4 w-4 text-muted-foreground" />}
@@ -550,7 +516,7 @@ function EditSnaggingContent() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-1">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => handleRemoveItem(e, listItem.id)}><Trash2 className="h-4 w-4" /></Button>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setLocalItems(prev => prev.filter(i => i.id !== listItem.id)); }}><Trash2 className="h-4 w-4" /></Button>
                                             </div>
                                         </div>
                                     )}
@@ -572,7 +538,7 @@ function EditSnaggingContent() {
                 </CardHeader>
                 <CardContent className="pt-4">
                     <div className="grid grid-cols-2 gap-3">
-                        {photos.map((p, i) => (
+                        {localPhotos.map((p, i) => (
                             <div key={i} className="relative aspect-video rounded-lg border-2 border-muted overflow-hidden group cursor-pointer" onClick={() => setViewingPhoto(p)}>
                                 <Image src={p.url} alt="Context" fill className="object-cover" />
                                 <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -581,7 +547,7 @@ function EditSnaggingContent() {
                                 <button 
                                     type="button" 
                                     className="absolute top-1 right-1 h-5 w-5 bg-destructive text-white rounded-full flex items-center justify-center shadow-md z-10 transition-opacity" 
-                                    onClick={(e) => { e.stopPropagation(); handleMetadataChange('photos', photos.filter((_, idx) => idx !== i)); }}
+                                    onClick={(e) => { e.stopPropagation(); setLocalPhotos(localPhotos.filter((_, idx) => idx !== i)); }}
                                 >
                                     <X className="h-2.5 w-2.5" />
                                 </button>
@@ -611,7 +577,7 @@ function EditSnaggingContent() {
                         <div className="space-y-4 pr-4">
                             {history && history.length > 0 ? history.map((record, idx) => (
                                 <div 
-                                    key={`${record.id}-${idx}`} 
+                                    key={record.id} 
                                     className="relative pl-4 border-l-2 border-primary/20 pb-4 last:pb-0 cursor-pointer group/hist transition-all hover:bg-muted/30 rounded-r-md"
                                     onClick={() => setViewingHistoryRecord(record)}
                                 >

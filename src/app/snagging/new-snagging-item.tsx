@@ -34,7 +34,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, CheckCircle2, Send, Pencil, Check, Circle, Link as LinkIcon } from 'lucide-react';
+import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, CheckCircle2, Send, Pencil, Check, Circle, Link as LinkIcon, CloudUpload } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
 import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
@@ -184,14 +184,17 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
 
     startTransition(async () => {
       try {
-        toast({ title: 'Recording', description: 'Persisting daily log and evidence...' });
+        toast({ title: 'Recording', description: 'Processing daily log and visual evidence...' });
 
-        // 1. Finalize media uploads
+        // 1. Finalize media uploads - THIS IS THE ONLY TIME WE WAIT
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
-            const blob = await dataUriToBlob(p.url);
-            const url = await uploadFile(storage, `snagging/general/${Date.now()}-${i}.jpg`, blob);
-            return { ...p, url };
+            if (p.url.startsWith('data:')) {
+              const blob = await dataUriToBlob(p.url);
+              const url = await uploadFile(storage, `snagging/general/${Date.now()}-${i}.jpg`, blob);
+              return { ...p, url };
+            }
+            return p;
           })
         );
 
@@ -290,6 +293,8 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
     }
   }, [open, form]);
 
+  const localUnsyncedCount = items.reduce((acc, itm) => acc + (itm.photos || []).length, 0) + photos.length;
+
   return (
     <>
       <Dialog open={open} onOpenChange={setOpen}>
@@ -298,9 +303,17 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
           className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
           onInteractOutside={(e) => e.preventDefault()}
         >
-          <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0">
-              <DialogTitle>Create Snagging List</DialogTitle>
-              <DialogDescription>Define an area audit. Save & Send will distribute individual trade reports.</DialogDescription>
+          <DialogHeader className="p-6 pb-4 bg-primary/5 border-b shrink-0 flex items-center justify-between">
+              <div>
+                <DialogTitle>Create Snagging List</DialogTitle>
+                <DialogDescription>Capture defects instantly. All items are held in local staging until you Save.</DialogDescription>
+              </div>
+              {localUnsyncedCount > 0 && (
+                  <Badge variant="secondary" className="gap-2 h-7 px-3 bg-primary/10 text-primary border-primary/20 animate-in fade-in">
+                      <CloudUpload className="h-3.5 w-3.5" />
+                      {localUnsyncedCount} Items Staged
+                  </Badge>
+              )}
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -408,7 +421,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                       </div>
 
                       <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
-                          <FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Area Photos</FormLabel>
+                          <FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Global List Photos</FormLabel>
                           <div className="flex flex-wrap gap-3">
                               {photos.map((p, i) => (
                                   <div key={i} className="relative w-24 h-24 group">
@@ -430,7 +443,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                         <Button 
                             type="button" 
                             variant="outline" 
-                            className="w-full sm:w-auto h-12 gap-2" 
+                            className="w-full h-12 gap-2" 
                             disabled={isPending} 
                             onClick={() => { setSubmitMode('draft'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
@@ -443,7 +456,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                             disabled={isPending} 
                             onClick={() => { setSubmitMode('save'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
-                            <CheckCircle2 className="h-4 w-4" /> Save
+                            <CheckCircle2 className="h-4 w-4" /> Save List
                         </Button>
                         <Button 
                             type="button" 
@@ -451,7 +464,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                             disabled={isPending} 
                             onClick={() => { setSubmitMode('issue'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
-                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Save & Send
+                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Save & Send Reports
                         </Button>
                     </div>
                   </form>
