@@ -85,7 +85,7 @@ function PlannerContent() {
   const db = useFirestore();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user: sessionUser } = useUser();
+  const { user: sessionUser, isLoading: userLoading } = useUser();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isGanttView, setIsGanttView] = useState(true);
@@ -126,7 +126,7 @@ function PlannerContent() {
   };
 
   const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
-  const { data: profile } = useDoc<DistributionUser>(profileRef);
+  const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
   const { data: allProjects } = useCollection<Project>(projectsQuery);
