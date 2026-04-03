@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -97,7 +96,7 @@ function FlashingBadge({ count }: { count: number }) {
 }
 
 export default function Dashboard() {
-  const { user, isLoading: userLoading } = useUser();
+  const { user, email, sessionId, isLoading: userLoading } = useUser();
   const db = useFirestore();
   const pathname = usePathname();
   const [isCompact, setIsCompact] = useState(false);
@@ -113,21 +112,21 @@ export default function Dashboard() {
   const { data: allProjects } = useCollection<Project>(projectsQuery);
 
   const rfiQuery = useMemoFirebase(() => {
-    if (!db || !user?.email) return null;
+    if (!db || !email) return null;
     return query(collection(db, 'information-requests'), where('status', '==', 'open'));
-  }, [db, user?.email]);
+  }, [db, email]);
   const { data: rawRequests } = useCollection<InformationRequest>(rfiQuery);
 
   const ciQuery = useMemoFirebase(() => {
-    if (!db || !user?.email) return null;
+    if (!db || !email) return null;
     return query(collection(db, 'client-instructions'), where('status', '==', 'open'));
-  }, [db, user?.email]);
+  }, [db, email]);
   const { data: rawClientInstructions } = useCollection<ClientInstruction>(ciQuery);
 
   const holidayQuery = useMemoFirebase(() => {
-    if (!db || !user?.email) return null;
+    if (!db || !email) return null;
     return query(collection(db, 'holiday-requests'), where('status', '==', 'pending'));
-  }, [db, user?.email]);
+  }, [db, email]);
   const { data: rawHolidays } = useCollection<HolidayRequest>(holidayQuery);
 
   useEffect(() => {
@@ -154,24 +153,23 @@ export default function Dashboard() {
   };
 
   const profileRef = useMemoFirebase(() => {
-    if (!db || !user?.email) return null;
-    return doc(db, 'users', user.email.toLowerCase().trim());
-  }, [db, user?.email]);
+    if (!db || !email) return null;
+    return doc(db, 'users', email);
+  }, [db, email]);
 
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   const allowedProjectIds = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects.map(p => p.id);
-    const email = profile.email.toLowerCase().trim();
+    const userEmail = profile.email.toLowerCase().trim();
     return allProjects
-      .filter(p => (p.assignedUsers || []).some(uEmail => uEmail.toLowerCase().trim() === email))
+      .filter(p => (p.assignedUsers || []).some(uEmail => uEmail.toLowerCase().trim() === userEmail))
       .map(p => p.id);
   }, [allProjects, profile]);
 
   const pendingCounts = useMemo(() => {
-    if (!profile || !user?.email || !allowedProjectIds) return {};
-    const email = user.email.toLowerCase().trim();
+    if (!profile || !email || !allowedProjectIds) return {};
     
     const rfiCount = (rawRequests || []).filter(req => {
         if (!allowedProjectIds.includes(req.projectId)) return false;
@@ -211,7 +209,7 @@ export default function Dashboard() {
         'client-instructions': ciCount,
         'holidays': hCount
     };
-  }, [rawRequests, rawClientInstructions, rawHolidays, profile, user?.email, allowedProjectIds]);
+  }, [rawRequests, rawClientInstructions, rawHolidays, profile, email, allowedProjectIds]);
 
   const allowedCards = useMemo(() => {
     if (!profile || orderedCardIds.length === 0) return [];
@@ -245,6 +243,30 @@ export default function Dashboard() {
         <div className="flex flex-col w-full h-screen">
             <Header title="Dashboard" />
             <main className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></main>
+        </div>
+    );
+  }
+
+  // If session exists but no profile found in Firestore (e.g. wiped database)
+  if (email && !profile) {
+    return (
+        <div className="flex flex-col w-full h-screen">
+            <Header title="Identity Required" />
+            <main className="flex flex-1 items-center justify-center p-6">
+                <Card className="max-w-md w-full border-2 border-primary/20 shadow-xl text-center p-8 space-y-6">
+                    <div className="bg-primary/10 p-4 rounded-full w-fit mx-auto">
+                        <ShieldAlert className="h-12 w-12 text-primary" />
+                    </div>
+                    <div className="space-y-2">
+                        <CardTitle className="text-2xl font-black">Profile Not Found</CardTitle>
+                        <CardDescription>You are logged in as <strong>{email}</strong>, but your internal system profile is missing.</CardDescription>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                        An administrator needs to re-register your account in <strong>System Settings</strong> to restore access to project modules.
+                    </p>
+                    <Button variant="outline" className="w-full font-bold" onClick={() => window.location.assign('/logout')}>Log Out & Switch User</Button>
+                </Card>
+            </main>
         </div>
     );
   }

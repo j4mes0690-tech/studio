@@ -13,15 +13,15 @@ import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 
 export function Header({ title }: { title: string }) {
-  const { user: sessionUser, isLoading: sessionLoading } = useUser();
+  const { user: firebaseUser, email: sessionEmail, isLoading: sessionLoading } = useUser();
   const db = useFirestore();
   const pathname = usePathname();
 
   // Fetch the full user profile for permission checks
   const profileRef = useMemoFirebase(() => {
-    if (!db || !sessionUser?.email) return null;
-    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
-  }, [db, sessionUser?.email]);
+    if (!db || !sessionEmail) return null;
+    return doc(db, 'users', sessionEmail.toLowerCase().trim());
+  }, [db, sessionEmail]);
 
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
@@ -49,10 +49,10 @@ export function Header({ title }: { title: string }) {
       <div className="flex items-center gap-2 md:gap-4">
         {isLoading ? (
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        ) : sessionUser ? (
+        ) : sessionEmail ? (
           <>
             <div className="text-xs text-muted-foreground hidden lg:block font-medium">
-              {profile?.name || sessionUser.email}
+              {profile?.name || sessionEmail}
             </div>
 
             <Button asChild variant="ghost" size="icon" className={cn(pathname === '/' && "hidden")}>
@@ -62,7 +62,7 @@ export function Header({ title }: { title: string }) {
               </Link>
             </Button>
 
-            <NotificationsMenu userEmail={sessionUser.email} />
+            <NotificationsMenu userEmail={sessionEmail} />
 
             {hasAnyAdminPermission && (
               <Button asChild variant="ghost" size="icon">
@@ -73,7 +73,7 @@ export function Header({ title }: { title: string }) {
               </Button>
             )}
 
-            <UserMenu profile={profile} email={sessionUser.email} />
+            <UserMenu profile={profile} email={sessionEmail} />
           </>
         ) : (
           <div className="text-sm text-muted-foreground">
