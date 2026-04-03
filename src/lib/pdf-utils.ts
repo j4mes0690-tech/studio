@@ -1654,10 +1654,12 @@ export async function generatePlannerPDF(
           // Normalize SVGs for standard capture
           const svgs = el.querySelectorAll('svg');
           svgs.forEach((svg: any) => {
-            svg.setAttribute('width', `${svg.clientWidth}px`);
-            svg.setAttribute('height', `${svg.clientHeight}px`);
-            svg.style.width = `${svg.clientWidth}px`;
-            svg.style.height = `${svg.clientHeight}px`;
+            const w = svg.clientWidth || originalWidth;
+            const h = svg.clientHeight || originalHeight;
+            svg.setAttribute('width', `${w}px`);
+            svg.setAttribute('height', `${h}px`);
+            svg.style.width = `${w}px`;
+            svg.style.height = `${h}px`;
             svg.style.overflow = 'visible';
             svg.style.display = 'block';
             svg.style.position = 'absolute';

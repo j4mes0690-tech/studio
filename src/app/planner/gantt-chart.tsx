@@ -6,7 +6,6 @@ import type { PlannerTask, SubContractor, Photo, Project, Planner, PlannerSectio
 import { 
     format, 
     eachDayOfInterval, 
-    parseISO, 
     isSameDay, 
     differenceInDays, 
     startOfWeek, 
@@ -47,60 +46,6 @@ function getTradeColor(id: string, subContractors: SubContractor[]) {
   
   const index = Math.abs(hash) % colors.length;
   return colors[index];
-}
-
-function getTaskSegments(
-    startDateStr: string, 
-    duration: number, 
-    status: string,
-    actualFinishStr: string | null | undefined,
-    timelineStart: Date,
-    planner?: Planner
-) {
-    const start = parseDateString(startDateStr);
-    const sat = !!planner?.includeSaturday;
-    const sun = !!planner?.includeSunday;
-    
-    const finishDateStr = status === 'completed' && actualFinishStr
-        ? actualFinishStr 
-        : calculateFinishDate(startDateStr, duration, sat, sun);
-    
-    const end = parseDateString(finishDateStr);
-    
-    if (!isValid(start) || !isValid(end) || start > end) return [];
-    
-    const days = eachDayOfInterval({ start, end });
-    const segments: { start: Date; days: number }[] = [];
-    let currentSegment: { start: Date; days: number } | null = null;
-    
-    days.forEach(day => {
-        const dayOfWeek = day.getDay();
-        const isWorking = !((dayOfWeek === 6 && !sat) || (dayOfWeek === 0 && !sun));
-        
-        if (isWorking) {
-            if (!currentSegment) {
-                currentSegment = { start: day, days: 1 };
-            } else {
-                currentSegment.days++;
-            }
-        } else {
-            if (currentSegment) {
-                segments.push(currentSegment);
-                currentSegment = null;
-            }
-        }
-    });
-    
-    if (currentSegment) {
-        segments.push(currentSegment);
-    }
-    
-    return segments.map(seg => ({
-        left: (differenceInDays(seg.start, timelineStart) * DAY_WIDTH),
-        width: seg.days * DAY_WIDTH,
-        isFirst: isSameDay(seg.start, start),
-        isLast: isSameDay(addDays(seg.start, seg.days - 1), end)
-    }));
 }
 
 export function GanttChart({ 
@@ -224,6 +169,8 @@ export function GanttChart({
   const dependencyArrows = useMemo(() => {
     const arrows: React.ReactNode[] = [];
     const arrowHeadSize = 6;
+    const sat = !!planner?.includeSaturday;
+    const sun = !!planner?.includeSunday;
     
     flattenedTasks.forEach((task) => {
       const taskData = taskMap.get(task.id);
@@ -243,8 +190,6 @@ export function GanttChart({
         const predStart = parseDateString(pred.startDate);
         if (!isValid(predStart)) return;
         
-        const sat = !!planner?.includeSaturday;
-        const sun = !!planner?.includeSunday;
         const finishDateStr = pred.status === 'completed' && pred.actualCompletionDate 
             ? pred.actualCompletionDate 
             : calculateFinishDate(pred.startDate, pred.durationDays, sat, sun);
@@ -253,9 +198,11 @@ export function GanttChart({
         const predecessorEndX = (differenceInDays(predFinish, startDate) + 1) * DAY_WIDTH;
         const predecessorY = predData.yOffset + (ROW_HEIGHT / 2);
 
-        const midX = predecessorEndX + ((successorX - predecessorEndX) / 2);
+        // midX calculation handles cases where tasks overlap or point backwards
+        const xDiff = successorX - predecessorEndX;
+        const midX = xDiff > 20 ? predecessorEndX + (xDiff / 2) : predecessorEndX + 10;
         
-        const arrowHeadPath = `M ${successorX} ${successorY} L ${successorX - arrowHeadSize} ${successorY - arrowHeadSize / 1.5} L ${successorX - arrowHeadSize} ${successorY + arrowHeadSize / 1.5} Z`;
+        const arrowHeadPath = `M ${successorX} ${successorY} L ${successorX - arrowHeadSize} ${successorY - 4} L ${successorX - arrowHeadSize} ${successorY + 4} Z`;
 
         arrows.push(
           <g key={`${predId}-${task.id}`} className="dependency-line">
@@ -348,7 +295,7 @@ export function GanttChart({
                                 </div>
                                 {group.tasks.map(task => {
                                     const sub = subContractors.find(s => s.id === task.subcontractorId);
-                                    const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
+                                    const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'TBC');
                                     const tradeColor = getTradeColor(task.subcontractorId || '', subContractors);
                                     return (
                                         <div key={task.id} className="border-b px-4 flex flex-row items-center justify-between min-w-0 gap-3" style={{ height: ROW_HEIGHT }}>
@@ -359,10 +306,12 @@ export function GanttChart({
                                                 {task.title}
                                             </span>
                                             <div 
-                                                className="h-7 w-20 flex items-center justify-center rounded-full border bg-background shrink-0 px-2 shadow-sm"
+                                                className="h-7 w-20 flex items-center justify-center rounded-full border bg-background shrink-0 shadow-sm"
                                                 style={{ borderColor: `${tradeColor}40` }}
                                             >
-                                                <span className="text-[8px] font-black uppercase truncate text-center w-full" style={{ color: tradeColor }}>{tradeName}</span>
+                                                <span className="text-[8px] font-black uppercase truncate text-center w-full px-1.5 flex items-center justify-center h-full" style={{ color: tradeColor }}>
+                                                    {tradeName}
+                                                </span>
                                             </div>
                                         </div>
                                     );
@@ -391,8 +340,8 @@ export function GanttChart({
                         <svg 
                             className="dependency-svg-layer absolute top-0 left-0 pointer-events-none z-10" 
                             style={{ 
-                                width: '100%', 
-                                height: '100%',
+                                width: chartWidth, 
+                                height: chartHeight,
                                 overflow: 'visible'
                             }}
                             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
@@ -407,99 +356,79 @@ export function GanttChart({
                                     <div className="bg-muted/30 border-b w-full" style={{ height: SECTION_HEADER_HEIGHT }} />
                                     {group.tasks.map((task) => {
                                         const tradeColor = getTradeColor(task.subcontractorId || '', subContractors);
-                                        const sub = subContractors.find(s => s.id === task.subcontractorId);
-                                        const tradeName = task.subcontractorId === 'other' ? (task.customSubcontractorName || 'Other') : (sub?.name || 'Unassigned');
+                                        const sat = !!planner?.includeSaturday;
+                                        const sun = !!planner?.includeSunday;
+                                        
+                                        const start = parseDateString(task.startDate);
+                                        const finishStr = task.status === 'completed' && task.actualCompletionDate 
+                                            ? task.actualCompletionDate 
+                                            : calculateFinishDate(task.startDate, task.durationDays, sat, sun);
+                                        const end = parseDateString(finishStr);
 
-                                        const segments = getTaskSegments(
-                                            task.startDate, 
-                                            task.durationDays, 
-                                            task.status, 
-                                            task.actualCompletionDate, 
-                                            startDate, 
-                                            planner
-                                        );
+                                        const left = differenceInDays(start, startDate) * DAY_WIDTH;
+                                        const width = (differenceInDays(end, start) + 1) * DAY_WIDTH;
 
-                                        const baselineSegments = task.originalStartDate && task.originalDurationDays ? getTaskSegments(
-                                            task.originalStartDate,
-                                            task.originalDurationDays,
-                                            'pending',
-                                            null,
-                                            startDate,
-                                            planner
-                                        ) : [];
+                                        const baselineStart = task.originalStartDate ? parseDateString(task.originalStartDate) : null;
+                                        const baselineEnd = task.originalStartDate && task.originalDurationDays 
+                                            ? parseDateString(calculateFinishDate(task.originalStartDate, task.originalDurationDays, sat, sun))
+                                            : null;
 
                                         return (
                                             <div key={task.id} className="border-b relative" style={{ height: ROW_HEIGHT, width: chartWidth }}>
-                                                {baselineSegments.map((seg, sIdx) => (
+                                                {baselineStart && baselineEnd && (
                                                     <div 
-                                                        key={`baseline-${sIdx}`}
-                                                        className="absolute h-1.5 opacity-20 bg-slate-400 border border-slate-500 z-0"
+                                                        className="absolute h-1.5 opacity-20 bg-slate-400 border border-slate-500 z-0 rounded-full"
                                                         style={{ 
-                                                            top: '31px',
-                                                            left: seg.left, 
-                                                            width: seg.width,
-                                                            borderTopLeftRadius: seg.isFirst ? '2px' : '0',
-                                                            borderBottomLeftRadius: seg.isFirst ? '2px' : '0',
-                                                            borderTopRightRadius: seg.isLast ? '2px' : '0',
-                                                            borderBottomRightRadius: seg.isLast ? '2px' : '0',
-                                                            borderLeft: seg.isFirst ? '' : 'none',
-                                                            borderRight: seg.isLast ? '' : 'none'
+                                                            top: '44px',
+                                                            left: differenceInDays(baselineStart, startDate) * DAY_WIDTH, 
+                                                            width: (differenceInDays(baselineEnd, baselineStart) + 1) * DAY_WIDTH,
                                                         }}
                                                     />
-                                                ))}
+                                                )}
 
-                                                {segments.map((seg, sIdx) => (
-                                                    <TooltipProvider key={`task-${sIdx}`}>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <div 
-                                                                    className={cn(
-                                                                        "absolute h-6 shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 pointer-events-auto",
-                                                                        task.status === 'completed' ? "text-white opacity-80" : 
-                                                                        task.status === 'in-progress' ? "text-white animate-pulse" : 
-                                                                        "text-white",
-                                                                        seg.isFirst && "rounded-l-md",
-                                                                        seg.isLast && "rounded-r-md"
+                                                <TooltipProvider>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <div 
+                                                                className={cn(
+                                                                    "absolute h-6 shadow-sm border-2 flex items-center px-2 transition-all hover:scale-[1.02] cursor-pointer z-10 rounded-md",
+                                                                    task.status === 'completed' ? "text-white opacity-80" : 
+                                                                    task.status === 'in-progress' ? "text-white animate-pulse" : 
+                                                                    "text-white",
+                                                                )}
+                                                                style={{ 
+                                                                    top: '20px',
+                                                                    left: left, 
+                                                                    width: width,
+                                                                    backgroundColor: tradeColor,
+                                                                    borderColor: `${tradeColor}cc`,
+                                                                }}
+                                                                onClick={() => onTaskClick(task)}
+                                                            >
+                                                                {width > 40 && <span className="text-[9px] font-black truncate">{task.durationDays}d</span>}
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent className="p-3 w-64 z-[100]">
+                                                            <div className="space-y-2 text-left">
+                                                                <div className='flex justify-between items-start'>
+                                                                    <div>
+                                                                        <p className="font-bold text-sm">{task.title}</p>
+                                                                        <p className="text-[10px] font-black uppercase opacity-70" style={{ color: tradeColor }}>{task.customSubcontractorName || 'Assigned Partner'}</p>
+                                                                    </div>
+                                                                    <Badge variant="outline" className="text-[8px] uppercase font-black">{task.status}</Badge>
+                                                                </div>
+                                                                <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
+                                                                    <span className='flex justify-between'>Forecast: <strong>{format(start, 'PP')} ({task.durationDays}d)</strong></span>
+                                                                    {task.status === 'completed' && task.actualCompletionDate && (
+                                                                        <span className='flex justify-between text-green-600 font-bold'>Actual Finish: <strong>{format(parseDateString(task.actualCompletionDate), 'PP')}</strong></span>
                                                                     )}
-                                                                    style={{ 
-                                                                        top: '20px',
-                                                                        left: seg.left, 
-                                                                        width: seg.width,
-                                                                        backgroundColor: tradeColor,
-                                                                        borderColor: `${tradeColor}cc`,
-                                                                        borderLeft: seg.isFirst ? '' : 'none',
-                                                                        borderRight: seg.isLast ? '' : 'none'
-                                                                    }}
-                                                                    onClick={() => onTaskClick(task)}
-                                                                >
-                                                                    {seg.isFirst && seg.width > 40 && <span className="text-[9px] font-black truncate">{task.durationDays}d</span>}
                                                                 </div>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent className="p-3 w-64 z-[100]">
-                                                                <div className="space-y-2">
-                                                                    <div className='flex justify-between items-start'>
-                                                                        <div>
-                                                                            <p className="font-bold text-sm">{task.title}</p>
-                                                                            <p className="text-xs font-semibold" style={{ color: tradeColor }}>{tradeName}</p>
-                                                                        </div>
-                                                                        <Badge variant="outline" className="text-[8px] uppercase font-black">{task.status}</Badge>
-                                                                    </div>
-                                                                    <div className="flex flex-col gap-1 text-[10px] text-muted-foreground">
-                                                                        <span className='flex justify-between'>Forecast: <strong>{format(parseDateString(task.startDate), 'PP')} ({task.durationDays}d)</strong></span>
-                                                                        {task.status === 'completed' && task.actualCompletionDate && (
-                                                                            <span className='flex justify-between text-green-600 font-bold'>Actual Finish: <strong>{format(parseDateString(task.actualCompletionDate), 'PP')}</strong></span>
-                                                                        )}
-                                                                        {task.originalStartDate && (
-                                                                            <span className='flex justify-between opacity-60'>Baseline: <strong>{format(parseDateString(task.originalStartDate), 'PP')}</strong></span>
-                                                                        )}
-                                                                    </div>
-                                                                    <Separator className="my-1" />
-                                                                    <p className="text-[9px] text-center font-bold text-primary italic">Click to edit reforecast</p>
-                                                                </div>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                ))}
+                                                                <Separator className="my-1" />
+                                                                <p className="text-[9px] text-center font-bold text-primary italic">Click to edit reforecast</p>
+                                                            </div>
+                                                        </TooltipContent>
+                                                    </Tooltip>
+                                                </TooltipProvider>
                                             </div>
                                         );
                                     })}
