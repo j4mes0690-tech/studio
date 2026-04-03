@@ -11,18 +11,18 @@ import {
 } from '@/components/ui/card';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import type { DistributionUser } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ShieldAlert } from 'lucide-react';
 import { doc } from 'firebase/firestore';
 
 export default function AccountPage() {
-  const { user } = useUser();
+  const { email } = useUser();
   const db = useFirestore();
 
-  // We look up the user profile by their email, which we used as the document ID
+  // We look up the user profile by their registered system email
   const profileRef = useMemoFirebase(() => {
-    if (!db || !user?.email) return null;
-    return doc(db, 'users', user.email.toLowerCase().trim());
-  }, [db, user?.email]);
+    if (!db || !email) return null;
+    return doc(db, 'users', email.toLowerCase().trim());
+  }, [db, email]);
 
   const { data: profile, isLoading } = useDoc<DistributionUser>(profileRef);
 
@@ -39,11 +39,18 @@ export default function AccountPage() {
         <div className="flex flex-col w-full">
             <Header title="My Account" />
             <main className="flex-1 p-4 md:p-8 flex justify-center items-start">
-                <div className="text-center space-y-4 max-w-md mx-auto">
-                    <p className="text-lg font-semibold">Profile Not Found</p>
-                    <p>You are logged in as <strong>{user?.email}</strong>, but we couldn't find a matching profile in the system.</p>
-                    <p className="text-sm text-muted-foreground">An administrator needs to add your email to the <strong>Distribution List</strong> in Settings before you can manage your account profile here.</p>
-                </div>
+                <Card className="max-w-md w-full border-2 border-primary/20 shadow-xl text-center p-8 space-y-6">
+                    <div className="bg-primary/10 p-4 rounded-full w-fit mx-auto">
+                        <ShieldAlert className="h-12 w-12 text-primary" />
+                    </div>
+                    <div className="space-y-2">
+                        <CardTitle className="text-2xl font-black">Profile Not Found</CardTitle>
+                        <CardDescription>You are logged in as <strong>{email}</strong>, but your internal system profile is missing.</CardDescription>
+                    </div>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                        An administrator needs to re-register your account in <strong>System Settings</strong> to restore access to your profile management.
+                    </p>
+                </Card>
             </main>
         </div>
     );

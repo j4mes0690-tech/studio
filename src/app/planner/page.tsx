@@ -86,7 +86,7 @@ function PlannerContent() {
   const db = useFirestore();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user: sessionUser, isLoading: userLoading } = useUser();
+  const { email, isLoading: userLoading } = useUser();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
   const [isGanttView, setIsGanttView] = useState(true);
@@ -130,7 +130,7 @@ function PlannerContent() {
     localStorage.setItem('sitecommand_view_planner', String(newVal));
   };
 
-  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
+  const profileRef = useMemoFirebase(() => (db && email ? doc(db, 'users', email.toLowerCase().trim()) : null), [db, email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
@@ -146,8 +146,8 @@ function PlannerContent() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
-    const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
+    const userEmail = profile.email.toLowerCase().trim();
+    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === userEmail));
   }, [allProjects, profile]);
 
   const currentProject = useMemo(() => allowedProjects.find(p => p.id === projectFilter), [allowedProjects, projectFilter]);
@@ -171,7 +171,6 @@ function PlannerContent() {
       .sort((a, b) => a.startDate.localeCompare(b.startDate));
   }, [allTasks, projectFilter, plannerFilter]);
 
-  // Project Bounds for Export Tight Fitting
   const projectBounds = useMemo(() => {
     if (!rawFilteredTasks || rawFilteredTasks.length === 0) return null;
     
@@ -439,7 +438,7 @@ function PlannerContent() {
                                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                 </div>
                                 <CardTitle className="text-xl group-hover:text-primary transition-colors">{project.name}</CardTitle>
-                                <CardDescription>{(project.planners?.length || 0) + (project.areas?.length || 0)} Standalone Planners</CardDescription>
+                                <CardDescription>{(project.planners?.length || 0) + (project.areas?.length || 0)} Planners</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
@@ -518,7 +517,7 @@ function PlannerContent() {
                                     <FileStack className="h-6 w-6" />
                                 </div>
                                 <DialogTitle>Global Project Audit</DialogTitle>
-                                <DialogDescription>Generate a consolidated PDF containing all selected schedules as distinct reports.</DialogDescription>
+                                <DialogDescription>Generate a consolidated PDF containing all selected schedules.</DialogDescription>
                             </DialogHeader>
                             <div className="py-4 space-y-4">
                                 <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest px-1">Included Schedules</Label>
@@ -553,7 +552,7 @@ function PlannerContent() {
                         </DialogContent>
                     </Dialog>
 
-                    {(profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) && (
+                    {(profile?.permissions?.canManageProjects || profile?.permissions?.hasFullVisibility) && (
                         <Dialog open={isAddPlannerOpen} onOpenChange={setIsAddPlannerOpen}>
                             <DialogTrigger asChild>
                                 <Button className="gap-2 h-10 font-bold"><PlusCircle className="h-4 w-4" /> New Planner</Button>
@@ -590,7 +589,7 @@ function PlannerContent() {
                     }), { total: 0, completed: 0 }) : { total: 0, completed: 0 };
                     
                     const progress = stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
-                    const canEdit = profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility;
+                    const canEdit = profile?.permissions?.canManageProjects || profile?.permissions?.hasFullVisibility;
 
                     return (
                         <Card 
@@ -600,39 +599,34 @@ function PlannerContent() {
                                 planner.archived && "opacity-75 grayscale"
                             )} 
                         >
-                            <CardHeader className="pb-3 cursor-pointer hover:border-primary/50" onClick={() => selectPlanner(planner.id)}>
+                            <CardHeader className="pb-3">
                                 <div className="flex justify-between items-start">
                                     <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 mb-2 uppercase text-[9px] font-black tracking-widest">
                                         {planner.archived ? 'Archived' : 'Planner'}
                                     </Badge>
                                     <div className="flex items-center gap-1">
                                         {canEdit && (
-                                            <TooltipProvider>
-                                                <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="h-8 w-8 text-muted-foreground hover:text-primary transition-all"
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setPlannerToEdit(planner);
-                                                                setEditPlannerName(planner.name);
-                                                                setIsEditPlannerOpen(true);
-                                                            }}
-                                                        >
-                                                            <Pencil className="h-3.5 w-3.5" />
-                                                        </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent><p>Rename Planner</p></TooltipContent>
-                                                </Tooltip>
-                                            </TooltipProvider>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-primary transition-all"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setPlannerToEdit(planner);
+                                                    setEditPlannerName(planner.name);
+                                                    setIsEditPlannerOpen(true);
+                                                }}
+                                            >
+                                                <Pencil className="h-3.5 w-3.5" />
+                                            </Button>
                                         )}
                                         <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                                     </div>
                                 </div>
-                                <CardTitle className="text-xl group-hover:text-primary transition-colors pr-8">{planner.name}</CardTitle>
-                                <CardDescription>{stats.total} Active Activities</CardDescription>
+                                <div className="cursor-pointer" onClick={() => selectPlanner(planner.id)}>
+                                    <CardTitle className="text-xl group-hover:text-primary transition-colors pr-8">{planner.name}</CardTitle>
+                                    <CardDescription>{stats.total} Activities Logged</CardDescription>
+                                </div>
                             </CardHeader>
                             <CardContent className="space-y-4 flex-1 cursor-pointer" onClick={() => selectPlanner(planner.id)}>
                                 <div className="space-y-2">
@@ -669,34 +663,12 @@ function PlannerContent() {
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setIsEditPlannerOpen(false)}>Cancel</Button>
                         <Button onClick={handleRenamePlanner} disabled={isPending || !editPlannerName.trim() || editPlannerName === plannerToEdit?.name}>
-                            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                            {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2 h-4 w-4 mr-2" />}
                             Update Title
                         </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
-
-            {/* Background Rendering Layer for PDF Capture */}
-            {isProcessingGlobalExport && (
-                <div 
-                    className="fixed top-0 z-[-1] w-[1400px] pointer-events-none" 
-                    style={{ left: '-10000px', opacity: 0 }}
-                >
-                    {planners.filter(p => selectedPlannerIds.includes(p.id)).map(p => (
-                        <div key={p.id} className="mb-20" id={`gantt-capture-${p.id}`}>
-                            <GanttChart 
-                                tasks={allTasks.filter(t => t.projectId === currentProject?.id && (t.plannerId === p.id || t.areaId === p.id))}
-                                subContractors={allSubContractors || []}
-                                projects={allowedProjects}
-                                planner={p}
-                                onTaskClick={() => {}}
-                                isPrinting={true}
-                                captureId={`gantt-capture-${p.id}`}
-                            />
-                        </div>
-                    ))}
-                </div>
-            )}
         </main>
     );
   }

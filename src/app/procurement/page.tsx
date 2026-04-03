@@ -5,7 +5,7 @@ import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useEffect, Suspense } from 'react';
 import type { ProcurementItem, Project, DistributionUser, SubContractor } from '@/lib/types';
-import { Loader2, ShoppingCart, ShieldCheck, Building2, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Loader2, ShoppingCart, ShieldCheck, Building2, ChevronRight, ArrowLeft } from 'lucide-center';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ProcurementTable } from './procurement-table';
@@ -18,12 +18,12 @@ function ProcurementContent() {
   const db = useFirestore();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
   
   const activeProjectId = searchParams.get('project');
 
   // Load Data
-  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
+  const profileRef = useMemoFirebase(() => (db && email ? doc(db, 'users', email.toLowerCase().trim()) : null), [db, email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   const projectsQuery = useMemoFirebase(() => (db) ? collection(db, 'projects') : null, [db]);
@@ -39,8 +39,8 @@ function ProcurementContent() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
-    const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
+    const userEmail = profile.email.toLowerCase().trim();
+    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === userEmail));
   }, [allProjects, profile]);
 
   const projectStats = useMemo(() => {
@@ -80,7 +80,6 @@ function ProcurementContent() {
 
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
 
-  // LEVEL 2: Project-Specific Schedule
   if (activeProjectId && currentProject) {
     return (
       <div className="flex flex-col w-full gap-6 p-4 md:p-8">
@@ -137,7 +136,6 @@ function ProcurementContent() {
     );
   }
 
-  // LEVEL 1: Project Directory
   return (
     <div className="flex flex-col w-full gap-6 p-4 md:p-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

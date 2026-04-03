@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -20,7 +19,7 @@ import { ChecklistTemplatesList } from './checklist-templates-list';
 import { useCollection, useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, query, where, orderBy, deleteDoc } from 'firebase/firestore';
 import type { DistributionUser, SubContractor, Project, QualityChecklist, PermitTemplate, Invitation, ToolboxTalkTemplate } from '@/lib/types';
-import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck, BookOpen, Pencil, Trash2, Plus, PlusCircle, Database } from 'lucide-react';
+import { Loader2, ShieldAlert, FileCheck, Tag, Users, ShieldCheck, MailPlus, Sparkles, Building2, HardHat, ClipboardCheck, BookOpen, Pencil, Trash2, PlusCircle, Database } from 'lucide-react';
 import { PermitTemplatesList } from './permit-templates-list';
 import { ManageTrades } from './manage-trades';
 import { Separator } from '@/components/ui/separator';
@@ -43,19 +42,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 
 function SettingsContent() {
   const db = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
   
   const currentUserRef = useMemoFirebase(() => {
-    if (!db || !sessionUser?.email) return null;
-    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
-  }, [db, sessionUser?.email]);
+    if (!db || !email) return null;
+    return doc(db, 'users', email.toLowerCase().trim());
+  }, [db, email]);
 
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(currentUserRef);
 
@@ -112,7 +110,8 @@ function SettingsContent() {
   }
 
   const permissions = profile?.permissions;
-  const isAdmin = profile?.email.toLowerCase().trim() === 'admin@example.com';
+  const adminEmail = 'admin@example.com';
+  const isAdmin = email?.toLowerCase().trim() === adminEmail;
   
   const canManageBranding = !!permissions?.canManageBranding || isAdmin;
   const canManageUsers = !!permissions?.canManageUsers || isAdmin;

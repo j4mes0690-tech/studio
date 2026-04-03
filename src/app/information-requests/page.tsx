@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/tooltip';
 
 function InfoRequestsContent() {
-  const { user: firebaseUser } = useUser();
+  const { email } = useUser();
   const db = useFirestore();
   const searchParams = useSearchParams();
   const projectId = searchParams.get('project') || undefined;
@@ -44,9 +44,9 @@ function InfoRequestsContent() {
 
   // Fetch current user profile
   const currentUserRef = useMemoFirebase(() => {
-    if (!db || !firebaseUser?.email) return null;
-    return doc(db, 'users', firebaseUser.email.toLowerCase().trim());
-  }, [db, firebaseUser?.email]);
+    if (!db || !email) return null;
+    return doc(db, 'users', email.toLowerCase().trim());
+  }, [db, email]);
   const { data: currentUser, isLoading: profileLoading } = useDoc<DistributionUser>(currentUserRef);
 
   // Fetch lookups
@@ -68,7 +68,7 @@ function InfoRequestsContent() {
   }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
-  // STABLE QUERY: We fetch all items ordered by date to avoid composite index requirements
+  // STABLE QUERY
   const itemsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'information-requests'), orderBy('createdAt', 'desc'));
@@ -80,7 +80,7 @@ function InfoRequestsContent() {
   const filteredItems = useMemo(() => {
     if (!allItems || !currentUser || !allProjects) return [];
     
-    const email = currentUser.email.toLowerCase().trim();
+    const userEmail = currentUser.email.toLowerCase().trim();
     const subId = currentUser.subContractorId;
     const subEmail = subContractors?.find(s => s.id === subId)?.email.toLowerCase().trim();
     
@@ -90,7 +90,7 @@ function InfoRequestsContent() {
         .filter(p => {
             if (hasFullVisibility) return true;
             const assignments = p.assignedUsers || [];
-            return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+            return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === userEmail);
         })
         .map(p => p.id);
 
@@ -98,59 +98,43 @@ function InfoRequestsContent() {
         const isProjectAllowed = allowedProjectIds.includes(item.projectId);
         if (!isProjectAllowed) return false;
 
-        // If internal with full visibility, allow
         if (hasFullVisibility) return true;
 
-        // If partner user, only show if specifically assigned to them OR their company
         const assigned = item.assignedTo.map(e => e.toLowerCase().trim());
-        const isAssignedDirectly = assigned.includes(email);
+        const isAssignedDirectly = assigned.includes(userEmail);
         const isAssignedToCompany = subEmail ? assigned.includes(subEmail) : false;
-        const raisedByMe = item.raisedBy.toLowerCase().trim() === email;
+        const raisedByMe = item.raisedBy.toLowerCase().trim() === userEmail;
 
-        // Internal staff without full visibility see all RFIs in their projects
         if (currentUser.userType === 'internal') return true;
-
-        // Partners only see what they are part of
         return isAssignedDirectly || isAssignedToCompany || raisedByMe;
     }).filter(item => projectId ? item.projectId === projectId : true);
   }, [allItems, currentUser, allProjects, projectId, subContractors]);
 
-  // Sort for display (Priority sorting: Attention Required first, then active/open status, then newest)
+  // Sort for display
   const sortedItems = useMemo(() => {
     if (!filteredItems || !currentUser) return [];
-    const email = currentUser.email.toLowerCase().trim();
+    const userEmail = currentUser.email.toLowerCase().trim();
 
     const isAttentionRequired = (item: InformationRequest) => {
         if (item.status !== 'open') return false;
-        if (item.dismissedBy?.includes(email)) return false;
+        if (item.dismissedBy?.includes(userEmail)) return false;
         
-        const isAssignedToMe = item.assignedTo.some(e => e.toLowerCase().trim() === email);
+        const isAssignedToMe = item.assignedTo.some(e => e.toLowerCase().trim() === userEmail);
         const messages = item.messages || [];
         const lastMessage = messages.length > 0 ? [...messages].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] : null;
         
-        // Needs action if:
-        // 1. Assigned to me AND (new OR someone else spoke last)
-        const assigneeAction = isAssignedToMe && (!lastMessage || lastMessage.senderEmail.toLowerCase().trim() !== email);
-        
-        // 2. Raised by me AND someone else spoke last
-        const raiserAction = item.raisedBy.toLowerCase().trim() === email && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== email;
+        const assigneeAction = isAssignedToMe && (!lastMessage || lastMessage.senderEmail.toLowerCase().trim() !== userEmail);
+        const raiserAction = item.raisedBy.toLowerCase().trim() === userEmail && lastMessage && lastMessage.senderEmail.toLowerCase().trim() !== userEmail;
         
         return assigneeAction || raiserAction;
     };
 
     return [...filteredItems].sort((a, b) => {
-      // 1. Attention Required Priority
       const aReq = isAttentionRequired(a);
       const bReq = isAttentionRequired(b);
       if (aReq && !bReq) return -1;
       if (!aReq && bReq) return 1;
-
-      // 2. Status Priority
-      if (a.status !== b.status) {
-        return a.status === 'open' ? -1 : 1;
-      }
-
-      // 3. Newest first
+      if (a.status !== b.status) return a.status === 'open' ? -1 : 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [filteredItems, currentUser]);
@@ -169,7 +153,7 @@ function InfoRequestsContent() {
     return (
         <div className="text-center py-12 space-y-4">
             <p className="text-lg font-semibold">Profile Required</p>
-            <p>Access to documentation requires an internal profile for: <strong>{firebaseUser?.email}</strong></p>
+            <p>Access to documentation requires an internal profile for: <strong>{email}</strong></p>
         </div>
     );
   }
@@ -177,8 +161,8 @@ function InfoRequestsContent() {
   const hasFullVisibility = !!currentUser?.permissions?.hasFullVisibility;
   const allowedProjects = allProjects?.filter(p => {
       if (hasFullVisibility) return true;
-      const email = currentUser?.email.toLowerCase().trim();
-      return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email);
+      const userEmail = currentUser?.email.toLowerCase().trim();
+      return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === userEmail);
   }) || [];
 
   return (

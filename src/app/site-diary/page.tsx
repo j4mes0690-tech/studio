@@ -22,7 +22,7 @@ function SiteDiaryContent() {
   const db = useFirestore();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
   const [isCompact, setIsCompact] = useState(false);
 
   // Filters from URL
@@ -43,7 +43,7 @@ function SiteDiaryContent() {
   };
 
   // Load Data
-  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
+  const profileRef = useMemoFirebase(() => (db && email ? doc(db, 'users', email.toLowerCase().trim()) : null), [db, email]);
   const { data: profile } = useDoc<DistributionUser>(profileRef);
 
   const projectsQuery = useMemoFirebase(() => (db ? collection(db, 'projects') : null), [db]);
@@ -59,8 +59,8 @@ function SiteDiaryContent() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
-    const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
+    const userEmail = profile.email.toLowerCase().trim();
+    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === userEmail));
   }, [allProjects, profile]);
 
   const allowedProjectIds = useMemo(() => allowedProjects.map(p => p.id), [allowedProjects]);
@@ -82,7 +82,6 @@ function SiteDiaryContent() {
       return isAuthorised && matchesProject && matchesDate;
     });
 
-    // Default sort: Chronological (earliest date first)
     return results.sort((a, b) => a.date.localeCompare(b.date));
   }, [allEntries, allowedProjectIds, projectFilter, fromFilter, toFilter]);
 

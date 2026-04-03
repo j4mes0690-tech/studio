@@ -23,7 +23,7 @@ import {
 function InstructionsContent() {
   const searchParams = useSearchParams();
   const db = useFirestore();
-  const { user: sessionUser } = useUser();
+  const { email } = useUser();
   const projectId = searchParams.get('project') || undefined;
   
   const [isCompact, setIsCompact] = useState(false);
@@ -44,9 +44,9 @@ function InstructionsContent() {
 
   // Fetch profile for permission check
   const profileRef = useMemoFirebase(() => {
-    if (!db || !sessionUser?.email) return null;
-    return doc(db, 'users', sessionUser.email.toLowerCase().trim());
-  }, [db, sessionUser?.email]);
+    if (!db || !email) return null;
+    return doc(db, 'users', email.toLowerCase().trim());
+  }, [db, email]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Fetch static lookups
@@ -56,7 +56,7 @@ function InstructionsContent() {
   }, [db]);
   const { data: allProjects, isLoading: projectsLoading } = useCollection<Project>(projectsQuery);
 
-  // REFERENCES DATA: Fetch site instructions and RFIs to calculate sequential references in Accept Workspace
+  // REFERENCES DATA
   const siteInstructionsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return collection(db, 'instructions');
@@ -69,7 +69,7 @@ function InstructionsContent() {
   }, [db]);
   const { data: allRfis } = useCollection<InformationRequest>(rfisQuery);
 
-  // STABLE QUERY: Fetch all by date to avoid composite index requirements
+  // STABLE QUERY
   const instructionsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, 'client-instructions'), orderBy('createdAt', 'desc'));
@@ -82,14 +82,14 @@ function InstructionsContent() {
     if (!allInstructions) return [];
     if (!profile || !allProjects) return allInstructions;
 
-    const email = profile.email.toLowerCase().trim();
+    const userEmail = profile.email.toLowerCase().trim();
     const hasFullVisibility = !!profile.permissions?.hasFullVisibility;
 
     const allowedProjectIds = allProjects
         .filter(p => {
             if (hasFullVisibility) return true;
             const assignments = p.assignedUsers || [];
-            return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === email);
+            return assignments.some(assignedEmail => assignedEmail.toLowerCase().trim() === userEmail);
         })
         .map(p => p.id);
 
@@ -100,30 +100,23 @@ function InstructionsContent() {
     });
   }, [allInstructions, profile, allProjects, projectId]);
 
-  // Sort for display (Priority sorting: Attention Required first, then Open status, then Newest)
+  // Sort for display
   const sortedInstructions = useMemo(() => {
     if (!filteredInstructions || !profile) return [];
-    const email = profile.email.toLowerCase().trim();
+    const userEmail = profile.email.toLowerCase().trim();
 
     const isAttentionRequired = (ci: ClientInstruction) => {
         if (ci.status !== 'open') return false;
-        if (ci.dismissedBy?.includes(email)) return false;
-        return (ci.recipients || []).some(e => e.toLowerCase().trim() === email);
+        if (ci.dismissedBy?.includes(userEmail)) return false;
+        return (ci.recipients || []).some(e => e.toLowerCase().trim() === userEmail);
     };
 
     return [...filteredInstructions].sort((a, b) => {
-        // 1. Attention Required Priority
         const aReq = isAttentionRequired(a);
         const bReq = isAttentionRequired(b);
         if (aReq && !bReq) return -1;
         if (!aReq && bReq) return 1;
-
-        // 2. Status Priority
-        if (a.status !== b.status) {
-            return a.status === 'open' ? -1 : 1;
-        }
-
-        // 3. Newest first
+        if (a.status !== b.status) return a.status === 'open' ? -1 : 1;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [filteredInstructions, profile]);
@@ -142,7 +135,7 @@ function InstructionsContent() {
     return (
         <div className="text-center py-12 space-y-4">
             <p className="text-lg font-semibold">Profile Required</p>
-            <p>Access to client documentation requires an internal profile for: <strong>{sessionUser?.email}</strong></p>
+            <p>Access to client documentation requires an internal profile for: <strong>{email}</strong></p>
         </div>
     );
   }
@@ -150,8 +143,8 @@ function InstructionsContent() {
   const hasFullVisibility = !!profile?.permissions?.hasFullVisibility;
   const allowedProjects = allProjects?.filter(p => {
       if (hasFullVisibility) return true;
-      const email = profile?.email.toLowerCase().trim();
-      return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email);
+      const userEmail = profile?.email.toLowerCase().trim();
+      return (p.assignedUsers || []).some(u => u.toLowerCase().trim() === userEmail);
   }) || [];
 
   return (
