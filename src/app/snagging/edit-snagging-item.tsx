@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
-import Image from 'next/next/image';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -368,7 +368,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                   <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                               </Select>
                               <Button type="button" variant="outline" className="h-10" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
-                              <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim() && pendingItemPhotos.length === 0} size="icon" className="h-10 w-10"><Plus className="h-4 w-4" /></Button>
+                              <Button type="button" onClick={handleAddItems} disabled={!newItemText.trim() && pendingItemPhotos.length === 0} size="icon" className="h-10 w-10"><Plus className="h-4 w-4" /></Button>
                           </div>
                       </div>
 
@@ -444,7 +444,13 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                               {photos.map((p, i) => (
                                   <div key={i} className="relative w-24 h-24 group">
                                       <Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" />
-                                      <button type="button" className="absolute -top-2 -right-2 bg-destructive text-white h-6 w-6 rounded-full flex items-center justify-center shadow-lg" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}><X className="h-3.5 w-3.5" /></button>
+                                      <button 
+                                          type="button" 
+                                          className="absolute -top-2 -right-2 bg-destructive text-white h-6 w-6 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95" 
+                                          onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}
+                                      >
+                                          <X className="h-3.5 w-3.5" />
+                                      </button>
                                   </div>
                               ))}
                               <Button type="button" variant="outline" className="w-24 h-24 flex flex-col gap-2 rounded-xl border-dashed" onClick={() => setIsCameraOpen(true)}><Camera className="h-6 w-6 text-muted-foreground" /><span className="text-[10px] font-bold uppercase">Photo</span></Button>
