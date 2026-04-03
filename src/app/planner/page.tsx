@@ -1,7 +1,8 @@
+
 'use client';
 
 import { Header } from '@/components/layout/header';
-import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, doc, updateDoc, arrayUnion, writeBatch, where, getDoc } from 'firebase/firestore';
 import { useMemo, useState, useEffect, Suspense, useTransition } from 'react';
 import type { PlannerTask, Project, Planner, DistributionUser, Photo, SubContractor, PlannerSection } from '@/lib/types';
@@ -561,7 +562,7 @@ function PlannerContent() {
                                 <DialogFooter>
                                     <Button variant="ghost" onClick={() => setIsAddPlannerOpen(false)}>Cancel</Button>
                                     <Button onClick={handleAddPlanner} disabled={isPending || !newPlannerName.trim()}>
-                                        {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                                        {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                                         Create Planner
                                     </Button>
                                 </DialogFooter>
@@ -611,6 +612,26 @@ function PlannerContent() {
                     );
                 })}
             </div>
+
+            {/* Hidden chart for bulk export capture */}
+            {isProcessingGlobalExport && (
+                <div className="fixed left-[-9999px] top-0 w-[1200px]" style={{ visibility: 'hidden' }}>
+                    <GanttChart 
+                        tasks={allTasks.filter(t => t.projectId === currentProject?.id && selectedPlannerIds.includes(t.plannerId || t.areaId || ''))}
+                        subContractors={allSubContractors || []}
+                        projects={allowedProjects}
+                        planner={{
+                            id: 'global-audit',
+                            name: 'Consolidated Project Schedule',
+                            includeSaturday: false,
+                            includeSunday: false,
+                            sections: []
+                        }}
+                        onTaskClick={() => {}}
+                        isPrinting={true}
+                    />
+                </div>
+            )}
         </main>
     );
   }
