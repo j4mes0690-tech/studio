@@ -29,7 +29,7 @@ export interface FirebaseContextState {
   auth: Auth | null;
   storage: FirebaseStorage | null;
   // Auth state
-  user: User | null; // The Firebase Auth User
+  user: User | null; // The Firebase Auth User object
   email: string | null; // The System Identity (Email)
   sessionId: string | null;
   isUserLoading: boolean;
@@ -83,17 +83,29 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   // Effect 2: Handle Local Session (V3 Namespace)
   useEffect(() => {
     const resolveSession = () => {
+      if (typeof window === 'undefined') return;
+      
       const email = localStorage.getItem('sitecommand_v3_identity');
       const sessionId = localStorage.getItem('sitecommand_v3_token');
+      
       setSession({ 
         email: email ? email.toLowerCase().trim() : null, 
         sessionId 
       });
     };
 
+    // Initial resolve
     resolveSession();
-    window.addEventListener('storage', resolveSession);
-    return () => window.removeEventListener('storage', resolveSession);
+
+    // Listen for storage changes (login/logout in other tabs)
+    const handleStorage = (e: StorageEvent) => {
+        if (e.key?.startsWith('sitecommand_v3_')) {
+            resolveSession();
+        }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
   // Effect 3: Sync Session to Firebase Auth (Anonymous Login)
@@ -166,12 +178,17 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
  * useUser - Returns the current system identity and auth status.
  */
 export const useUser = (): UserHookResult => { 
-  const { user, email, sessionId, isUserLoading, userError } = useFirebase(); 
+  const context = useContext(FirebaseContext);
+  if (context === undefined) {
+    // Return a default loading state if used outside provider
+    return { user: null, email: null, sessionId: null, isLoading: true, userError: null };
+  }
+  
   return { 
-    user, 
-    email, 
-    sessionId, 
-    isLoading: isUserLoading, 
-    userError 
+    user: context.user, 
+    email: context.email, 
+    sessionId: context.sessionId, 
+    isLoading: context.isUserLoading, 
+    userError: context.userError 
   };
 };

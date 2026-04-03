@@ -9,14 +9,11 @@ import { usePathname } from 'next/navigation';
 /**
  * AuthBoundary - Protects routes and ensures Firebase services are ready.
  * 
- * V3 UPDATE: Implements a specific wait state for the onboarding (/join) route.
- * Even though /join doesn't require a system user account, it MUST wait for 
- * the Firebase auth state (anonymous sign-in) to initialize, or Firestore 
- * security rules will block the invitation lookup.
+ * Standardizes on the system identity (email) for protection logic while 
+ * ensuring Firebase Auth is synchronized.
  */
 export function AuthBoundary({ children }: { children: React.ReactNode }) {
-  const { user, sessionId, isLoading: isSessionLoading } = useUser();
-  const { isUserLoading: isFirebaseLoading } = useFirebase();
+  const { user, email, sessionId, isLoading } = useUser();
   const pathname = usePathname();
   
   const [isMinimumTimeElapsed, setIsMinimumTimeElapsed] = useState(false);
@@ -24,27 +21,26 @@ export function AuthBoundary({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsMinimumTimeElapsed(true);
-    }, 2000); 
+    }, 1500); 
 
     return () => clearTimeout(timer);
   }, []);
 
-  // ALWAYS wait for Firebase Auth and Session state to finish initial load.
-  // This prevents race conditions where /join tries to read from DB before anonymous auth is ready.
-  if (isSessionLoading || isFirebaseLoading || !isMinimumTimeElapsed) {
+  // Show branding splash during initial boot
+  if (isLoading || !isMinimumTimeElapsed) {
     return <LoadingScreen />;
   }
 
-  // Bypassing for Onboarding: Now safe because we know Firebase is ready.
+  // Bypassing for Onboarding route
   if (pathname === '/join') {
     return <>{children}</>;
   }
 
-  // Standard protection for the rest of the app.
-  if (!user) {
+  // Redirect to login if no system identity exists in local storage
+  if (!email) {
     return <LoginPage />;
   }
 
-  // Keying the children by sessionId ensures NO stale React state survives a logout/login cycle
-  return <div key={sessionId || 'empty'} className="contents">{children}</div>;
+  // Ensure children are keyed by sessionId to force a fresh React tree on identity change
+  return <div key={sessionId || 'anonymous'} className="contents">{children}</div>;
 }
