@@ -1558,11 +1558,10 @@ export async function generatePlannerPDF(
   const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
 
-  const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape for Gantt
+  const pdf = new jsPDF('l', 'mm', 'a4'); 
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
 
-  // Tight Bounding Logic
   let reportFromStr = dateRange?.from;
   let reportToStr = dateRange?.to;
 
@@ -1585,7 +1584,6 @@ export async function generatePlannerPDF(
     reportToStr = format(maxDate, 'yyyy-MM-dd');
   }
 
-  // 1. Capture Header & Summary via invisible element
   const headerElement = document.createElement('div');
   headerElement.style.padding = '40px';
   headerElement.style.width = '1000px';
@@ -1622,58 +1620,54 @@ export async function generatePlannerPDF(
   const headerHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
   pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, pdfWidth, headerHeightInPdf);
 
-  // 2. Capture Gantt Chart with robust cloning
   const ganttElement = document.getElementById('planner-gantt-capture');
   if (ganttElement) {
+    const originalWidth = ganttElement.scrollWidth;
+    const originalHeight = ganttElement.scrollHeight;
+
     const ganttCanvas = await html2canvas(ganttElement, { 
       scale: 2, 
       useCORS: true, 
       backgroundColor: '#ffffff',
       logging: false,
-      width: ganttElement.scrollWidth,
-      height: ganttElement.scrollHeight,
-      windowWidth: ganttElement.scrollWidth,
+      width: originalWidth,
+      height: originalHeight,
+      windowWidth: originalWidth,
       onclone: (clonedDoc) => {
         const el = clonedDoc.getElementById('planner-gantt-capture');
         if (el) {
           el.style.position = 'absolute';
           el.style.left = '0';
           el.style.top = '0';
-          el.style.width = `${ganttElement.scrollWidth}px`;
-          el.style.height = 'auto';
+          el.style.width = `${originalWidth}px`;
+          el.style.height = `${originalHeight}px`;
           el.style.overflow = 'visible';
           
-          // Force all SVG layers to maintain absolute positioning and visibility
+          // Surgical unmasking: Only parents of the chart are unrolled
+          let currentParent = el.parentElement;
+          while (currentParent && currentParent.tagName !== 'HTML') {
+            currentParent.style.overflow = 'visible';
+            currentParent.style.clipPath = 'none';
+            currentParent = currentParent.parentElement;
+          }
+
+          // Normalize SVGs for standard capture
           const svgs = el.querySelectorAll('svg');
           svgs.forEach((svg: any) => {
             svg.style.position = 'absolute';
             svg.style.top = '0';
             svg.style.left = '0';
-            svg.style.width = '100%';
-            svg.style.height = '100%';
+            svg.style.width = `${svg.clientWidth}px`; // Fix width to pixels to avoid thick lines
+            svg.style.height = `${svg.clientHeight}px`;
             svg.style.overflow = 'visible';
             svg.style.display = 'block';
-            svg.style.visibility = 'visible';
-            
-            // Critical fix for arrows: Ensure parents don't clip
-            let parent = svg.parentElement;
-            while (parent && parent !== el) {
-                parent.style.overflow = 'visible';
-                parent.style.clipPath = 'none';
-                parent = parent.parentElement;
-            }
           });
 
-          // CRITICAL: Strip all clipping properties and force stable line-height
           const allElements = el.querySelectorAll('*');
           allElements.forEach((node: any) => {
-            node.style.overflow = 'visible';
             node.style.clipPath = 'none';
-            node.style.webkitClipPath = 'none';
-            
             if (node.tagName === 'SPAN' || node.tagName === 'P') {
                 node.style.lineHeight = '1.6';
-                node.style.display = 'inline-block';
             }
           });
 
@@ -1686,7 +1680,6 @@ export async function generatePlannerPDF(
       }
     });
     
-    // Vertical Slicing & Pagination Logic
     const canvasWidth = ganttCanvas.width;
     const canvasHeight = ganttCanvas.height;
     const ganttWidthInPdf = pdfWidth - 20;
@@ -1727,7 +1720,6 @@ export async function generatePlannerPDF(
     }
   }
 
-  // 3. Activity Directory Appendix
   pdf.addPage();
   pdf.setFontSize(16);
   pdf.setTextColor(30, 41, 59);

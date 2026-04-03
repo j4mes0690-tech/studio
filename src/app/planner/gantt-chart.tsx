@@ -23,9 +23,9 @@ import Image from 'next/image';
 import { Layers } from 'lucide-react';
 
 const DAY_WIDTH = 48;
-const ROW_HEIGHT = 52; // Compact row height
-const SECTION_HEADER_HEIGHT = 32; // px per section header row
-const MIN_WEEKS = 12; // Minimum timeline width if no tasks exist
+const ROW_HEIGHT = 52; 
+const SECTION_HEADER_HEIGHT = 32; 
+const MIN_WEEKS = 12;
 
 function getTradeColor(id: string, subContractors: SubContractor[]) {
   const sub = subContractors.find(s => s.id === id);
@@ -160,8 +160,8 @@ export function GanttChart({
     
     if (!minDate) return startOfWeek(new Date(), { weekStartsOn: 1 });
 
-    const baseDate = isPrinting ? minDate : addDays(minDate, -7);
-    return isPrinting ? baseDate : startOfWeek(baseDate, { weekStartsOn: 1 });
+    const buffered = addDays(minDate, -7);
+    return isPrinting ? buffered : startOfWeek(buffered, { weekStartsOn: 1 });
   }, [tasks, startDateOverride, isPrinting]);
 
   const endDate = useMemo(() => {
@@ -255,17 +255,15 @@ export function GanttChart({
 
         const midX = predecessorEndX + ((successorX - predecessorEndX) / 2);
         
-        // Define arrow head path for better html2canvas support than polygon
         const arrowHeadPath = `M ${successorX} ${successorY} L ${successorX - arrowHeadSize} ${successorY - arrowHeadSize / 1.5} L ${successorX - arrowHeadSize} ${successorY + arrowHeadSize / 1.5} Z`;
 
         arrows.push(
-          <g key={`${predId}-${task.id}`} style={{ opacity: 0.6 }}>
+          <g key={`${predId}-${task.id}`} className="dependency-line" style={{ opacity: 0.6 }}>
             <path
               d={`M ${predecessorEndX} ${predecessorY} L ${midX} ${predecessorY} L ${midX} ${successorY} L ${successorX} ${successorY}`}
               fill="none"
               stroke="#f26522"
               strokeWidth="2"
-              style={{ shapeRendering: 'crispEdges' }}
             />
             <path 
               d={arrowHeadPath}
@@ -330,7 +328,7 @@ export function GanttChart({
                     </div>
                 </div>
 
-                <div className="flex">
+                <div className="flex relative">
                     <div className={cn(
                         "flex flex-col border-r shrink-0 w-64 bg-background",
                         !isPrinting && "sticky left-0 z-30 shadow-[2px_0_5px_rgba(0,0,0,0.02)]"
@@ -371,7 +369,7 @@ export function GanttChart({
                         ))}
                     </div>
 
-                    <div className="relative flex-1" style={{ width: chartWidth }}>
+                    <div className="relative flex-1" style={{ width: chartWidth, height: chartHeight }}>
                         <div className="absolute inset-0 flex z-0 pointer-events-none">
                             {timelineDays.map((day, i) => {
                                 const dayOfWeek = day.getDay();
@@ -388,17 +386,14 @@ export function GanttChart({
                             })}
                         </div>
 
-                        {/* Dependency arrows layer */}
+                        {/* Dependency arrows layer - Standardized for capture */}
                         <svg 
-                            className="absolute pointer-events-none z-10 overflow-visible" 
+                            className="dependency-svg-layer absolute top-0 left-0 pointer-events-none z-10 overflow-visible" 
                             style={{ 
-                                top: 0,
-                                left: 0,
                                 width: chartWidth, 
                                 height: chartHeight 
                             }}
                             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                            preserveAspectRatio="xMinYMin meet"
                             xmlns="http://www.w3.org/2000/svg"
                         >
                             {dependencyArrows}
@@ -433,7 +428,6 @@ export function GanttChart({
 
                                         return (
                                             <div key={task.id} className="border-b relative" style={{ height: ROW_HEIGHT, width: chartWidth }}>
-                                                {/* Baseline centering: ROW_HEIGHT 52, baseline h-1.5 (6px). (52/2 - 3) = 23px */}
                                                 {baselineSegments.map((seg, sIdx) => (
                                                     <div 
                                                         key={`baseline-${sIdx}`}
@@ -452,7 +446,6 @@ export function GanttChart({
                                                     />
                                                 ))}
 
-                                                {/* Task Bar centering: ROW_HEIGHT 52, task h-6 (24px). (52/2 - 12) = 14px */}
                                                 {segments.map((seg, sIdx) => (
                                                     <TooltipProvider key={`task-${sIdx}`}>
                                                         <Tooltip>
