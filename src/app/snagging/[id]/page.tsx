@@ -19,7 +19,7 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord } from '@/lib/types';
 import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, RefreshCw, Loader2, Save, History, FileSearch, Check, Link as LinkIcon, Pencil, Maximize2, ListChecks, CloudUpload } from 'lucide-react';
 import Image from 'next/image';
-import { cn, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
+import { cn, getPartnerEmails, scrollToFirstError, parseDateString } from '@/lib/utils';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import {
   Dialog,
@@ -121,7 +121,6 @@ function EditSnaggingContent() {
     );
   }
 
-  // Robust null check for the item itself
   if (!item || !profile) {
     return (
       <div className="text-center py-12 space-y-4">
@@ -168,6 +167,18 @@ function EditSnaggingContent() {
     setLocalItems(prev => prev.map(i => i.id === itemId ? { ...i, status: (i.status === 'open' ? 'closed' : 'open') as any } : i));
   };
 
+  const handleRemovePhoto = (itemId: string, photoIdx: number) => {
+    setLocalItems(prev => prev.map(itm => {
+      if (itm.id === itemId) {
+        return {
+          ...itm,
+          photos: (itm.photos || []).filter((_, i) => i !== photoIdx)
+        };
+      }
+      return itm;
+    }));
+  };
+
   const onCaptureGeneral = (photo: Photo) => setLocalPhotos(prev => [...prev, photo]);
 
   const onCaptureItem = (photo: Photo) => {
@@ -202,6 +213,8 @@ function EditSnaggingContent() {
                 }
                 return p;
             }));
+            
+            // Strictly map fields to avoid Firestore undefined errors
             return {
                 id: itm.id,
                 description: itm.description || 'No description',
@@ -215,7 +228,13 @@ function EditSnaggingContent() {
             } as SnaggingListItem;
         }));
 
-        const updates = { title: localTitle, projectId: localProjectId, areaId: localAreaId === 'none' ? null : (localAreaId || null), items: syncedItems, photos: syncedGlobalPhotos };
+        const updates = { 
+          title: localTitle, 
+          projectId: localProjectId, 
+          areaId: localAreaId === 'none' ? null : (localAreaId || null), 
+          items: syncedItems, 
+          photos: syncedGlobalPhotos 
+        };
         await updateDoc(snagRef, updates);
         setLocalItems(syncedItems);
         setLocalPhotos(syncedGlobalPhotos);

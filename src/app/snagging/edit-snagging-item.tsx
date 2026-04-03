@@ -33,7 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Pencil, 
@@ -58,7 +58,7 @@ import {
   AlertTriangle,
   Maximize2
 } from 'lucide-react';
-import type { Project, SnaggingItem, SnaggingListItem, DistributionUser, Photo, SubContractor, FileAttachment, ClientInstruction } from '@/lib/types';
+import type { Project, SnaggingItem, SnaggingListItem, DistributionUser, Photo, SubContractor, FileAttachment, ClientInstruction, Area } from '@/lib/types';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
@@ -237,7 +237,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
     const isDrafting = submitMode === 'draft';
 
     if (items.length === 0) {
-        toast({ title: 'List Empty', description: 'Add at least one snagging item before issuing reports.', variant: 'destructive' });
+        toast({ title: 'List Empty', description: 'Add at least one snagging item before saving.', variant: 'destructive' });
         return;
     }
 
@@ -270,7 +270,19 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
                 }
                 return p;
             }));
-            return { ...snag, photos: updatedPhotos };
+            
+            // Strictly map fields to avoid Firestore undefined errors
+            return {
+                id: snag.id,
+                description: snag.description || 'No description',
+                status: snag.status || 'open',
+                photos: updatedPhotos,
+                subContractorId: snag.subContractorId || null,
+                subContractorComment: snag.subContractorComment || null,
+                completionPhotos: snag.completionPhotos || [],
+                provisionallyCompletedAt: snag.provisionallyCompletedAt || null,
+                closedAt: snag.closedAt || null
+            } as SnaggingListItem;
         }));
 
         const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : values.status);
@@ -278,7 +290,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
         const docRef = doc(db, 'snagging-items', item.id);
         const updates: any = {
           projectId: values.projectId,
-          areaId: values.areaId || null,
+          areaId: values.areaId === 'none' ? null : (values.areaId || null),
           title: values.title,
           description: values.description || null,
           items: uploadedItems,
@@ -317,7 +329,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
                     });
 
                     const pdfBase64 = pdf.output('datauristring').split(',')[1];
-                    const fileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${values.title.replace(/\s+/g, '-')}.pdf`;
+                    const reportFileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${values.title.replace(/\s+/g, '-')}.pdf`;
 
                     const result = await sendSubcontractorReportAction({
                         email: sub.email,
@@ -325,7 +337,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
                         projectName: selectedProject?.name || 'Project',
                         areaName: area?.name || 'General Area',
                         pdfBase64,
-                        fileName
+                        fileName: reportFileName
                     });
 
                     if (result.success) {
@@ -483,7 +495,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
                                                   {listItem.photos && listItem.photos.length > 0 && (
                                                       <div className="flex gap-1.5 mt-2 flex-wrap">
                                                           {listItem.photos.map((p, pi) => (
-                                                              <div key={pi} className="relative w-8 h-6 rounded border bg-muted overflow-hidden">
+                                                              <div key={pi} className="relative w-8 h-6 rounded border bg-muted overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
                                                                   <Image src={p.url} alt="Defect" fill className="object-cover" />
                                                               </div>
                                                           ))}
@@ -507,12 +519,12 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
                           <FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Area Photos</FormLabel>
                           <div className="flex flex-wrap gap-3">
                               {photos.map((p, i) => (
-                                  <div key={i} className="relative w-24 h-24 group">
+                                  <div key={i} className="relative w-24 h-24 group cursor-pointer" onClick={() => setViewingPhoto(p)}>
                                       <Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" />
                                       <button 
                                           type="button" 
                                           className="absolute -top-2 -right-2 bg-destructive text-white h-6 w-6 rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-110 active:scale-95" 
-                                          onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))}
+                                          onClick={(e) => { e.stopPropagation(); setPhotos(photos.filter((_, idx) => idx !== i)); }}
                                       >
                                           <X className="h-3.5 w-3.5" />
                                       </button>
