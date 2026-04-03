@@ -51,7 +51,7 @@ function EditSnaggingContent() {
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const { user: sessionUser } = useUser();
+  const { user: sessionUser, email: sessionEmail } = useUser();
   const [isPending, startTransition] = useTransition();
 
   // Data
@@ -73,7 +73,7 @@ function EditSnaggingContent() {
   }, [db]);
   const { data: subContractors, isLoading: subsLoading } = useCollection<SubContractor>(subsQuery);
 
-  const profileRef = useMemoFirebase(() => (db && sessionUser?.email ? doc(db, 'users', sessionUser.email.toLowerCase().trim()) : null), [db, sessionUser?.email]);
+  const profileRef = useMemoFirebase(() => (db && sessionEmail ? doc(db, 'users', sessionEmail.toLowerCase().trim()) : null), [db, sessionEmail]);
   const { data: profile, isLoading: profileLoading } = useDoc<DistributionUser>(profileRef);
 
   // Version History Fetching
@@ -84,7 +84,6 @@ function EditSnaggingContent() {
   const { data: history, isLoading: historyLoading } = useCollection<SnaggingHistoryRecord>(historyQuery);
 
   // --- LOCAL STAGING STATE ---
-  // To avoid lag, we keep everything in local state first and sync periodically.
   const [localTitle, setLocalTitle] = useState('');
   const [localProjectId, setLocalProjectId] = useState('');
   const [localAreaId, setLocalAreaId] = useState('');
@@ -141,8 +140,8 @@ function EditSnaggingContent() {
   const allowedProjects = useMemo(() => {
     if (!allProjects || !profile) return [];
     if (profile.permissions?.hasFullVisibility) return allProjects;
-    const email = profile.email.toLowerCase().trim();
-    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === email));
+    const userEmail = profile.email.toLowerCase().trim();
+    return allProjects.filter(p => (p.assignedUsers || []).some(u => u.toLowerCase().trim() === userEmail));
   }, [allProjects, profile]);
 
   const projectSubs = useMemo(() => {
@@ -190,6 +189,19 @@ function EditSnaggingContent() {
     ));
   };
 
+  const onCaptureGeneral = (photo: Photo) => {
+    setLocalPhotos(prev => [...prev, photo]);
+  };
+
+  const onCaptureItem = (photo: Photo) => {
+    if (itemPhotoTargetId) {
+      setLocalItems(prev => prev.map(itm => itm.id === itemPhotoTargetId ? { ...itm, photos: [...(itm.photos || []), photo] } : itm));
+      setItemPhotoTargetId(null);
+    } else {
+        setPendingItemPhotos(prev => [...prev, photo]);
+    }
+  };
+
   const handleRemovePhoto = (itemId: string, photoIdx: number) => {
     setLocalItems(prev => prev.map(itm => {
         if (itm.id === itemId) {
@@ -199,7 +211,6 @@ function EditSnaggingContent() {
     }));
   };
 
-  // --- SYNC ACTION ---
   const handleSyncToCloud = () => {
     if (!snagRef) return;
 
@@ -219,10 +230,9 @@ function EditSnaggingContent() {
           })
         );
 
-        // 2. Upload unsynced item photos
+        // 2. Upload unsynced item photos and clean objects for Firestore
         const syncedItems = await Promise.all(localItems.map(async (itm) => {
-            if (!itm.photos || itm.photos.length === 0) return itm;
-            const updatedPhotos = await Promise.all(itm.photos.map(async (p, pi) => {
+            const updatedPhotos = await Promise.all((itm.photos || []).map(async (p, pi) => {
                 if (p.url.startsWith('data:')) {
                     const blob = await dataUriToBlob(p.url);
                     const url = await uploadFile(storage, `snagging/items/${itm.id}-${Date.now()}-${pi}.jpg`, blob);
@@ -230,14 +240,26 @@ function EditSnaggingContent() {
                 }
                 return p;
             }));
-            return { ...itm, photos: updatedPhotos };
+            
+            // Clean object to avoid 'undefined' values
+            return {
+                id: itm.id,
+                description: itm.description || 'No description',
+                status: itm.status || 'open',
+                photos: updatedPhotos,
+                subContractorId: itm.subContractorId || null,
+                subContractorComment: itm.subContractorComment || null,
+                completionPhotos: itm.completionPhotos || [],
+                provisionallyCompletedAt: itm.provisionallyCompletedAt || null,
+                closedAt: itm.closedAt || null
+            } as SnaggingListItem;
         }));
 
         // 3. Update Firestore
         const updates = {
           title: localTitle,
           projectId: localProjectId,
-          areaId: localAreaId || null,
+          areaId: localAreaId === 'none' ? null : (localAreaId || null),
           items: syncedItems,
           photos: syncedGlobalPhotos,
         };
@@ -254,24 +276,6 @@ function EditSnaggingContent() {
       }
     });
   };
-
-  if (itemLoading || projectsLoading || subsLoading || profileLoading) {
-    return (
-      <div className="flex h-[50vh] w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-
-  if (!item || !isAuthorized) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
-        <p className="text-lg font-semibold">Access Denied</p>
-        <p className="text-muted-foreground">You do not have permission to edit this record.</p>
-        <Button onClick={() => router.push('/snagging')}>Return to Log</Button>
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-32 px-4 md:px-0">

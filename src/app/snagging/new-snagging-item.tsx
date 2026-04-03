@@ -61,7 +61,7 @@ import { Badge } from '@/components/ui/badge';
 import { useFirestore, useStorage, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { cn, getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { generateSnaggingPDF } from '@/lib/pdf-utils';
@@ -250,7 +250,19 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                 }
                 return p;
             }));
-            return { ...snag, photos: updatedPhotos };
+            
+            // Strictly map fields to avoid Firestore undefined errors
+            return {
+                id: snag.id,
+                description: snag.description || 'No description',
+                status: snag.status || 'open',
+                photos: updatedPhotos,
+                subContractorId: snag.subContractorId || null,
+                subContractorComment: snag.subContractorComment || null,
+                completionPhotos: snag.completionPhotos || [],
+                provisionallyCompletedAt: snag.provisionallyCompletedAt || null,
+                closedAt: snag.closedAt || null
+            } as SnaggingListItem;
         }));
 
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
@@ -262,7 +274,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
         const snagData = {
           reference,
           projectId: values.projectId,
-          areaId: values.areaId || null,
+          areaId: values.areaId === 'other' ? null : (values.areaId || null),
           title: values.title,
           description: values.description || null,
           items: uploadedItems,
