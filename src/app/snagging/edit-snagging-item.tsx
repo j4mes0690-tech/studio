@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import z from 'zod';
+import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -27,37 +27,48 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Pencil, 
   Camera, 
+  Image as ImageIcon, 
+  Paperclip, 
   X, 
-  Trash2, 
-  Plus, 
-  UserPlus, 
+  ShieldCheck, 
+  FileText, 
+  Users2, 
   Loader2, 
   Save, 
   Send,
+  Link as LinkIcon,
+  Building2,
   Check,
-  Circle,
   CheckCircle2,
+  Circle,
+  Plus,
+  UserPlus,
   CloudUpload,
-  AlertTriangle
+  AlertTriangle,
+  Maximize2
 } from 'lucide-react';
-import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
+import type { Project, SnaggingItem, SnaggingListItem, DistributionUser, Photo, SubContractor, FileAttachment, ClientInstruction } from '@/lib/types';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
+import { doc, updateDoc, collection, query, where } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { useFirestore, useStorage, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, collection } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
-import { getPartnerEmails, cn, scrollToFirstError } from '@/lib/utils';
+import { getPartnerEmails, getProjectInitials, cn, scrollToFirstError } from '@/lib/utils';
 import { generateSnaggingPDF } from '@/lib/pdf-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { sendSubcontractorReportAction } from './actions';
@@ -71,6 +82,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
 
 const EditSnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -82,7 +94,11 @@ const EditSnaggingListSchema = z.object({
 
 type EditSnaggingListFormValues = z.infer<typeof EditSnaggingListSchema>;
 
-export function EditSnaggingItem({ item, projects, subContractors }: { item: SnaggingItem, projects: Project[], subContractors: SubContractor[] }) {
+export function EditSnaggingItem({ item, projects, subContractors }: { 
+  item: SnaggingItem; 
+  projects: Project[]; 
+  subContractors: SubContractor[];
+}) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const db = useFirestore();
@@ -158,7 +174,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
         description: newItemText.trim() || 'No description',
         status: 'open',
         photos: [...pendingItemPhotos],
-        subContractorId: pendingSubId === 'unassigned' ? null : pendingSubId,
+        subContractorId: (pendingSubId === 'unassigned' || !pendingSubId) ? null : pendingSubId,
         completionPhotos: []
     };
     setItems(prev => [...prev, newItem]);
@@ -175,7 +191,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   };
 
   const handleSaveEditItem = (idx: number) => {
-    setItems(prev => prev.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: editItemSubId === 'unassigned' ? null : editItemSubId } : it));
+    setItems(prev => prev.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: (editItemSubId === 'unassigned' || !editItemSubId) ? null : editItemSubId } : it));
     setEditingItemIdx(null);
   };
 
@@ -261,8 +277,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
 
         const docRef = doc(db, 'snagging-items', item.id);
         const updates: any = {
-          ...values,
+          projectId: values.projectId,
           areaId: values.areaId || null,
+          title: values.title,
+          description: values.description || null,
           items: uploadedItems,
           photos: uploadedPhotos,
           status: targetStatus
@@ -408,9 +426,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                   <SelectTrigger className="w-40 bg-background h-11 px-2 justify-center">
                                       <div className="flex items-center gap-2">
                                           {pendingSubId !== 'unassigned' ? (
-                                              <Badge variant="secondary" className="hidden md:block h-6 text-[9px] font-black max-w-[100px] truncate uppercase">
-                                                  {projectSubs.find(s => s.id === pendingSubId)?.name}
-                                              </Badge>
+                                              <Badge variant="secondary" className="hidden md:block h-6 text-[9px] font-black max-w-[100px] truncate uppercase">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge>
                                           ) : <UserPlus className="h-4 w-4 text-primary" />}
                                       </div>
                                   </SelectTrigger>
@@ -579,6 +595,8 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
         onCapture={onCaptureItem}
         title="Specific Defect Documentation"
       />
+
+      <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
     </>
   );
 }

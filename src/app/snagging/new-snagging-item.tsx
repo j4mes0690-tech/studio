@@ -92,7 +92,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const { user: sessionUser } = useUser();
+  const { user: sessionUser, email: sessionEmail } = useUser();
   
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -159,7 +159,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
       description: newItemText.trim() || 'No description',
       status: 'open',
       photos: [...pendingItemPhotos],
-      subContractorId: pendingSubId === 'unassigned' ? null : pendingSubId,
+      subContractorId: (pendingSubId === 'unassigned' || !pendingSubId) ? null : pendingSubId,
       completionPhotos: []
     };
 
@@ -177,7 +177,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   };
 
   const handleSaveEditItem = (idx: number) => {
-    setItems(items.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: editItemSubId || null } : it));
+    setItems(items.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: (editItemSubId === 'unassigned' || !editItemSubId) ? null : editItemSubId } : it));
     setEditingItemIdx(null);
   };
 
@@ -269,7 +269,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
           photos: uploadedPhotos,
           status: targetStatus,
           createdAt: new Date().toISOString(),
-          createdByEmail: sessionUser?.email || 'Unknown'
+          createdByEmail: sessionEmail || 'Unknown'
         };
 
         await addDoc(collection(db, 'snagging-items'), snagData);

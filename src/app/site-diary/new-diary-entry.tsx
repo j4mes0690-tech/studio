@@ -139,7 +139,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
   const projectSubs = useMemo(() => {
     if (!selectedProjectId || !selectedProject) return [];
     const assignedIds = selectedProject.assignedSubContractors || [];
-    return (subContractors || []).filter(sub => assignedIds.includes(sub.id));
+    return (subContractors || []).filter(sub => assignedIds.includes(sub.id) && !!sub.isSubContractor);
   }, [selectedProjectId, selectedProject, subContractors]);
 
   const checkForDuplicate = (projId: string, dateStr: string) => {
@@ -176,7 +176,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
             date: values.date,
             weather: {
                 condition: values.weatherCondition,
-                temp: values.temp,
+                temp: values.temp ?? null,
             },
             subcontractorLogs: logs as any,
             generalComments: values.generalComments || '',
@@ -202,7 +202,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
             date: values.date,
             weather: {
                 condition: values.weatherCondition,
-                temp: values.temp,
+                temp: values.temp ?? null,
             },
             generalComments: values.generalComments || '',
         });
@@ -358,7 +358,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
                 date: values.date,
                 weather: {
                     condition: values.weatherCondition,
-                    temp: values.temp,
+                    temp: values.temp ?? null,
                 },
                 subcontractorLogs: logs as any,
                 generalComments: values.generalComments || '',
@@ -380,7 +380,7 @@ export function NewDiaryEntry({ projects, subContractors, currentUser, allEntrie
                 date: values.date,
                 weather: {
                     condition: values.weatherCondition,
-                    temp: values.temp,
+                    temp: values.temp ?? null,
                 },
                 subcontractorLogs: logs as any,
                 generalComments: values.generalComments || '',
