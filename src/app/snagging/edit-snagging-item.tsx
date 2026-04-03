@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import z from 'zod';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -47,19 +47,30 @@ import {
   Check,
   Circle,
   CheckCircle2,
-  CloudUpload
+  CloudUpload,
+  AlertTriangle
 } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { useFirestore, useStorage, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, updateDoc, collection, arrayUnion, getDoc } from 'firebase/firestore';
+import { useFirestore, useStorage, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, updateDoc, collection } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { getPartnerEmails, cn, scrollToFirstError } from '@/lib/utils';
 import { generateSnaggingPDF } from '@/lib/pdf-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { sendSubcontractorReportAction } from './actions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const EditSnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -95,6 +106,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
   const [isItemCameraOpen, setIsItemCameraOpen] = useState(false);
   const [itemPhotoTargetId, setItemPhotoTargetId] = useState<string | null>(null);
   const [submitMode, setSubmitMode] = useState<'draft' | 'save' | 'issue'>('save');
+  const [showDiscardAlert, setShowDiscardAlert] = useState(false);
 
   const usersQuery = useMemoFirebase(() => db ? collection(db, 'users') : null, [db]);
   const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
@@ -185,6 +197,22 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
       setItemPhotoTargetId(null);
     } else {
         setPendingItemPhotos(prev => [...prev, photo]);
+    }
+  };
+
+  const hasUnsavedChanges = useMemo(() => {
+    return JSON.stringify(items) !== JSON.stringify(item.items) || 
+           photos.length !== (item.photos?.length || 0) ||
+           form.getValues().title !== item.title ||
+           form.getValues().areaId !== (item.areaId || '') ||
+           form.getValues().projectId !== item.projectId;
+  }, [items, photos, form, item]);
+
+  const handleRequestClose = () => {
+    if (hasUnsavedChanges) {
+      setShowDiscardAlert(true);
+    } else {
+      setOpen(false);
     }
   };
 
@@ -310,7 +338,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(val) => { if(!val) handleRequestClose(); else setOpen(true); }}>
         <DialogTrigger asChild><Button variant="ghost" size="icon"><Pencil className="h-4 w-4" /></Button></DialogTrigger>
         <DialogContent 
           className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
@@ -376,7 +404,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                               <Input placeholder="Describe the issue..." value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}} className="bg-background" />
                           </div>
                           <div className="flex gap-1">
-                              <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
+                              <Select value={pendingSubId || 'unassigned'} onValueChange={setPendingSubId}>
                                   <SelectTrigger className="w-40 bg-background h-11 px-2 justify-center">
                                       <div className="flex items-center gap-2">
                                           {pendingSubId !== 'unassigned' ? (
@@ -511,6 +539,32 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showDiscardAlert} onOpenChange={setShowDiscardAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2 text-destructive">
+              <AlertTriangle className="h-6 w-6" />
+              <AlertDialogTitle>Discard Unsaved Changes?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription>
+              You have modified this snagging list. Closing will lose any staged defects or photos that haven't been synced to the project mainframe.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDiscardAlert(false)}>Stay in Editor</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                setShowDiscardAlert(false);
+                setOpen(false);
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Discard & Close
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CameraOverlay 
         isOpen={isCameraOpen} 

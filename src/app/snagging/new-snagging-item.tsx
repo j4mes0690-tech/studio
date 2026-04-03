@@ -52,7 +52,8 @@ import {
   Check, 
   Circle, 
   Link as LinkIcon, 
-  CloudUpload 
+  CloudUpload,
+  AlertTriangle 
 } from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
@@ -65,6 +66,16 @@ import { cn, getProjectInitials, getNextReference, getPartnerEmails, scrollToFir
 import { CameraOverlay } from '@/components/camera-overlay';
 import { generateSnaggingPDF } from '@/lib/pdf-utils';
 import { sendSubcontractorReportAction } from './actions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const SnaggingListSchema = z.object({
   projectId: z.string().min(1, 'Project is required.'),
@@ -89,8 +100,8 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   
   const [items, setItems] = useState<SnaggingListItem[]>([]);
   const [newItemText, setNewItemText] = useState('');
-  const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
+  const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   
   // Item Editing State
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
@@ -101,6 +112,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   const [isItemCameraOpen, setIsItemCameraOpen] = useState(false); 
   const [itemPhotoTargetIdx, setItemPhotoTargetIdx] = useState<number | null>(null);
   const [submitMode, setSubmitMode] = useState<'draft' | 'save' | 'issue'>('save');
+  const [showDiscardAlert, setShowDiscardAlert] = useState(false);
 
   const usersQuery = useMemoFirebase(() => db ? collection(db, 'users') : null, [db]);
   const { data: allUsers } = useCollection<DistributionUser>(usersQuery);
@@ -187,6 +199,16 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
         setItemPhotoTargetIdx(null);
     } else {
         setPendingItemPhotos(prev => [...prev, photo]);
+    }
+  };
+
+  const hasUnsavedChanges = items.length > 0 || photos.length > 0 || (form.watch('title') && form.watch('title').length > 5);
+
+  const handleRequestClose = () => {
+    if (hasUnsavedChanges) {
+      setShowDiscardAlert(true);
+    } else {
+      setOpen(false);
     }
   };
 
@@ -326,7 +348,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(val) => { if(!val) handleRequestClose(); else setOpen(true); }}>
         <DialogTrigger asChild><Button className="font-bold"><PlusCircle className="mr-2 h-4 w-4" />New List</Button></DialogTrigger>
         <DialogContent 
           className="sm:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl"
@@ -501,6 +523,32 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={showDiscardAlert} onOpenChange={setShowDiscardAlert}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2 text-destructive">
+              <AlertTriangle className="h-6 w-6" />
+              <AlertDialogTitle>Discard Unsaved Changes?</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription>
+              You have captured data or defect photos that haven't been saved to the cloud. Closing will permanently delete this progress.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowDiscardAlert(false)}>Stay in List</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                setShowDiscardAlert(false);
+                setOpen(false);
+              }}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Discard & Close
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <CameraOverlay 
         isOpen={isCameraOpen} 
