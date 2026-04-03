@@ -38,13 +38,9 @@ import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw,
 import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
 import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 import { VoiceInput } from '@/components/voice-input';
-import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { cn, getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
-import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
+import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import { getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { generateSnaggingPDF } from '@/lib/pdf-utils';
 import { sendSubcontractorReportAction } from './actions';
@@ -184,9 +180,8 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
 
     startTransition(async () => {
       try {
-        toast({ title: 'Recording', description: 'Processing daily log and visual evidence...' });
+        toast({ title: 'Recording', description: 'Processing visual documentation...' });
 
-        // 1. Finalize media uploads - THIS IS THE ONLY TIME WE WAIT
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
             if (p.url.startsWith('data:')) {
@@ -229,11 +224,11 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
           createdByEmail: sessionUser?.email || 'Unknown'
         };
 
-        const colRef = collection(db, 'snagging-items');
-        const newDocRef = await addDoc(colRef, snagData);
+        await addDoc(collection(db, 'snagging-items'), snagData);
+        toast({ title: 'Success', description: isDrafting ? 'Draft snag list saved.' : 'Snagging record created.' });
 
-        // 2. Issuance Logic
         if (isIssuing && allUsers) {
+            toast({ title: 'Distributing', description: 'Generating trade-specific reports...' });
             const area = selectedProject?.areas?.find(a => a.id === values.areaId);
             const subIds = Array.from(new Set(uploadedItems.map(i => i.subContractorId).filter(id => !!id))) as string[];
             let sentCount = 0;
@@ -273,14 +268,15 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                     sentCount++;
                 }
             }
-            toast({ title: 'Success', description: `List issued. ${sentCount} trade partners notified.` });
-        } else {
-            toast({ title: 'Success', description: isDrafting ? 'Draft snag list saved.' : 'Snagging record created.' });
+            if (sentCount > 0) {
+                toast({ title: 'Distribution Done', description: `${sentCount} trade partners notified.` });
+            }
         }
 
         setOpen(false);
       } catch (err) {
-        toast({ title: 'Error', description: 'Failed to save snagging record.', variant: 'destructive' });
+        console.error(err);
+        toast({ title: 'Error', description: 'Failed to record snagging data. Check connection.', variant: 'destructive' });
       }
     });
   };
@@ -358,7 +354,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                               <div className="flex gap-1">
                                   <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
                                       <SelectTrigger className={cn("px-2 border-none h-11 transition-all", pendingSubId ? "w-auto" : "w-10 justify-center")}>
-                                          {pendingSubId ? <Badge variant="secondary" className="h-6 text-[9px] font-black max-w-[100px] truncate uppercase">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge> : <UserPlus className="h-4 w-4 text-primary" />}
+                                          {pendingSubId ? <Badge variant="secondary" className="hidden md:block h-6 text-[9px] font-black max-w-[100px] truncate uppercase">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge> : <UserPlus className="h-4 w-4 text-primary" />}
                                       </SelectTrigger>
                                       <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                   </Select>

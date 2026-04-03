@@ -5,7 +5,7 @@ import { useFirestore, useCollection, useUser, useDoc, useMemoFirebase } from '@
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import { useMemo, useEffect, Suspense } from 'react';
 import type { ProcurementItem, Project, DistributionUser, SubContractor } from '@/lib/types';
-import { Loader2, ShoppingCart, ShieldCheck, Building2, ChevronRight, ArrowLeft } from 'lucide-center';
+import { Loader2, ShoppingCart, ShieldCheck, Building2, ChevronRight, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ProcurementTable } from './procurement-table';

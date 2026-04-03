@@ -199,7 +199,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
 
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Persisting changes and distributing reports...' });
+        toast({ title: 'Processing', description: 'Updating records and visual documentation...' });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -236,8 +236,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
         };
 
         await updateDoc(docRef, updates);
+        toast({ title: 'Success', description: 'Snagging list updated successfully.' });
 
         if (isIssuing && allUsers) {
+            toast({ title: 'Distributing', description: 'Sending reports to partners...' });
             const area = selectedProject?.areas?.find(a => a.id === values.areaId);
             const subIds = Array.from(new Set(uploadedItems.map(i => i.subContractorId).filter(id => !!id))) as string[];
             let sentCount = 0;
@@ -279,14 +281,15 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                     sentCount++;
                 }
             }
-            toast({ title: 'Success', description: `List updated and ${sentCount} trade reports issued.` });
-        } else {
-            toast({ title: 'Success', description: 'Snagging list updated.' });
+            if (sentCount > 0) {
+                toast({ title: 'Distribution Complete', description: `${sentCount} trade reports sent.` });
+            }
         }
 
         setOpen(false);
       } catch (err) {
-        toast({ title: 'Error', description: 'Failed to update record.', variant: 'destructive' });
+        console.error(err);
+        toast({ title: 'Error', description: 'Failed to update record. Check connection.', variant: 'destructive' });
       }
     });
   };
@@ -304,7 +307,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
           <DialogHeader className="p-6 pb-4 border-b shrink-0 bg-muted/5 flex items-center justify-between">
             <div>
                 <DialogTitle>Edit Snagging List</DialogTitle>
-                <DialogDescription>Capture defects instantly. Media is held locally until you click Save & Sync.</DialogDescription>
+                <DialogDescription>Modify defects and area documentation. Changes sync when you click Save.</DialogDescription>
             </div>
             {unsyncedCount > 0 && (
                 <Badge variant="secondary" className="gap-2 h-7 px-3 bg-primary/10 text-primary border-primary/20 animate-in fade-in">
@@ -368,7 +371,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                                   <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                               </Select>
                               <Button type="button" variant="outline" className="h-10" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
-                              <Button type="button" onClick={handleAddItems} disabled={!newItemText.trim() && pendingItemPhotos.length === 0} size="icon" className="h-10 w-10"><Plus className="h-4 w-4" /></Button>
+                              <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim() && pendingItemPhotos.length === 0} size="icon" className="h-10 w-10"><Plus className="h-4 w-4" /></Button>
                           </div>
                       </div>
 
