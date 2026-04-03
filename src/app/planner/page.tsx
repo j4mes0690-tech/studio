@@ -33,7 +33,9 @@ import {
     X,
     Settings2,
     Calendar,
-    ArrowRight
+    ArrowRight,
+    FileStack,
+    Check
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -77,6 +79,7 @@ import { generatePlannerPDF } from '@/lib/pdf-utils';
 import { DistributePlannerButton } from './distribute-planner-button';
 import { isValid, startOfDay, endOfDay, isWithinInterval, parseISO, format, addWeeks } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 
 function PlannerContent() {
   const db = useFirestore();
@@ -90,12 +93,17 @@ function PlannerContent() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   
-  // Export Settings
+  // Export Settings (Individual)
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [exportScope, setExportScope] = useState<'full' | 'range'>('full');
   const [exportStart, setExportFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [exportEnd, setExportTo] = useState('');
   const [isProcessingExport, setIsProcessingExport] = useState(false);
+
+  // Global Project Export Settings
+  const [isGlobalExportOpen, setIsGlobalExportOpen] = useState(false);
+  const [selectedPlannerIds, setSelectedPlannerIds] = useState<string[]>([]);
+  const [isProcessingGlobalExport, setIsProcessingGlobalExport] = useState(false);
 
   const [isAddPlannerOpen, setIsAddPlannerOpen] = useState(false);
   const [newPlannerName, setNewPlannerName] = useState('');
@@ -138,10 +146,15 @@ function PlannerContent() {
   }, [allProjects, profile]);
 
   const currentProject = useMemo(() => allowedProjects.find(p => p.id === projectFilter), [allowedProjects, projectFilter]);
+  
+  const allProjectPlanners = useMemo(() => {
+    if (!currentProject) return [];
+    return [...(currentProject.planners || []), ...(currentProject.areas || [])];
+  }, [currentProject]);
+
   const currentPlanner = useMemo(() => {
-    const planners = [...(currentProject?.planners || []), ...(currentProject?.areas || [])];
-    return planners.find(p => p.id === plannerFilter);
-  }, [currentProject, plannerFilter]);
+    return allProjectPlanners.find(p => p.id === plannerFilter);
+  }, [allProjectPlanners, plannerFilter]);
 
   const rawFilteredTasks = useMemo(() => {
     if (!allTasks || !projectFilter || !plannerFilter) return [];
@@ -226,6 +239,56 @@ function PlannerContent() {
             toast({ title: "Export Error", description: "Failed to capture visual schedule.", variant: "destructive" });
         } finally {
             setIsProcessingExport(false);
+        }
+    }, 500);
+  };
+
+  const handleGlobalProjectExport = async () => {
+    if (!currentProject || selectedPlannerIds.length === 0) return;
+
+    setIsProcessingGlobalExport(true);
+    toast({ title: "Generating Project Audit", description: "Aggregating multiple schedules into document..." });
+
+    setTimeout(async () => {
+        try {
+            // Collect all tasks for selected planners
+            const aggregatedTasks = allTasks.filter(t => 
+                t.projectId === currentProject.id && 
+                selectedPlannerIds.includes(t.plannerId || t.areaId || '')
+            );
+
+            if (aggregatedTasks.length === 0) {
+                toast({ title: "Empty Selection", description: "Selected schedules contain no activities.", variant: "destructive" });
+                setIsProcessingGlobalExport(false);
+                return;
+            }
+
+            // Create a virtual "Full Project" planner for settings
+            // We use standard Mon-Fri logic for global audits usually
+            const virtualPlanner: Planner = {
+                id: 'global-audit',
+                name: 'Consolidated Project Schedule',
+                includeSaturday: false,
+                includeSunday: false,
+                sections: []
+            };
+
+            const pdf = await generatePlannerPDF(
+                aggregatedTasks,
+                currentProject,
+                virtualPlanner,
+                allSubContractors || []
+            );
+
+            const timestamp = new Date().toISOString().split('T')[0];
+            pdf.save(`FullProjectAudit-${currentProject.name.replace(/\s+/g, '-')}-${timestamp}.pdf`);
+            toast({ title: "Success", description: "Consolidated project report generated." });
+            setIsGlobalExportOpen(false);
+        } catch (err) {
+            console.error(err);
+            toast({ title: "Aggregation Error", description: "Failed to build global schedule audit.", variant: "destructive" });
+        } finally {
+            setIsProcessingGlobalExport(false);
         }
     }, 500);
   };
@@ -321,16 +384,23 @@ function PlannerContent() {
     setExportTo(format(newEnd, 'yyyy-MM-dd'));
   };
 
+  const togglePlannerSelection = (id: string) => {
+    setSelectedPlannerIds(prev => 
+        prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
   const editingTask = useMemo(() => 
     allTasks?.find(t => t.id === editingTaskId), 
     [allTasks, editingTaskId]
   );
 
-  if (tasksLoading || !profile) {
+  if (userLoading || profileLoading) {
     return (
-      <div className="flex h-[50vh] w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+        <div className="flex flex-col w-full h-screen">
+            <Header title="Dashboard" />
+            <main className="flex flex-1 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></main>
+        </div>
     );
   }
 
@@ -418,10 +488,64 @@ function PlannerContent() {
                         </Tooltip>
                     </TooltipProvider>
 
+                    <Dialog open={isGlobalExportOpen} onOpenChange={(val) => { setIsGlobalExportOpen(val); if(val) setSelectedPlannerIds(planners.filter(p => !p.archived).map(p => p.id)); }}>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" size="icon" className="h-10 w-10 text-primary border-primary/20">
+                                            <FileStack className="h-5 w-5" />
+                                        </Button>
+                                    </DialogTrigger>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Project Bulk Export</p></TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <div className="bg-primary/10 p-2.5 rounded-xl w-fit mb-2 text-primary">
+                                    <FileStack className="h-6 w-6" />
+                                </div>
+                                <DialogTitle>Global Project Export</DialogTitle>
+                                <DialogDescription>Generate a consolidated PDF containing all selected schedules for this project.</DialogDescription>
+                            </DialogHeader>
+                            <div className="py-4 space-y-4">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest px-1">Included Schedules</Label>
+                                <ScrollArea className="h-64 rounded-xl border bg-muted/5 p-4">
+                                    <div className="space-y-3">
+                                        {planners.map((p) => {
+                                            const isSelected = selectedPlannerIds.includes(p.id);
+                                            return (
+                                                <div key={p.id} className={cn("flex items-center space-x-3 p-2 rounded-lg border bg-background shadow-sm transition-opacity", !isSelected && "opacity-50 grayscale")}>
+                                                    <Checkbox 
+                                                        id={`glob-p-${p.id}`} 
+                                                        checked={isSelected}
+                                                        onCheckedChange={() => togglePlannerSelection(p.id)}
+                                                    />
+                                                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => togglePlannerSelection(p.id)}>
+                                                        <Label htmlFor={`glob-p-${p.id}`} className="text-sm font-bold truncate cursor-pointer">{p.name}</Label>
+                                                        {p.archived && <Badge variant="secondary" className="ml-2 text-[8px] h-4">Archived</Badge>}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                            <DialogFooter className="bg-muted/10 p-6 border-t rounded-b-lg">
+                                <Button variant="ghost" onClick={() => setIsGlobalExportOpen(false)}>Cancel</Button>
+                                <Button className="gap-2 font-bold shadow-lg shadow-primary/20 flex-1 h-12" onClick={handleGlobalProjectExport} disabled={isProcessingGlobalExport || selectedPlannerIds.length === 0}>
+                                    {isProcessingGlobalExport ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+                                    Generate Bulk Audit
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
                     {(profile.permissions?.canManageProjects || profile.permissions?.hasFullVisibility) && (
                         <Dialog open={isAddPlannerOpen} onOpenChange={setIsAddPlannerOpen}>
                             <DialogTrigger asChild>
-                                <Button className="gap-2"><PlusCircle className="h-4 w-4" /> Add New Planner</Button>
+                                <Button className="gap-2 h-10 font-bold"><PlusCircle className="h-4 w-4" /> New Planner</Button>
                             </DialogTrigger>
                             <DialogContent>
                                 <DialogHeader>
@@ -588,7 +712,7 @@ function PlannerContent() {
                                         <div className={cn("p-4 rounded-xl border-2 transition-all cursor-pointer", exportScope === 'full' ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/30")} onClick={() => setExportScope('full')}>
                                             <RadioGroupItem value="full" id="exp-full" className="sr-only" />
                                             <Label htmlFor="exp-full" className="font-bold flex flex-col gap-1 cursor-pointer">
-                                                <span>Full Project</span>
+                                                <span>Full Schedule</span>
                                                 <span className="text-[10px] text-muted-foreground font-normal">Entire schedule timeline.</span>
                                             </Label>
                                         </div>
