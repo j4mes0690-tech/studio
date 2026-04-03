@@ -38,37 +38,25 @@ import { useToast } from '@/hooks/use-toast';
 import { 
   Pencil, 
   Camera, 
-  Image as ImageIcon, 
-  Paperclip, 
   X, 
-  ShieldCheck, 
-  FileText, 
-  Users2, 
   Loader2, 
   Save, 
-  Send,
-  Link as LinkIcon,
-  Building2,
-  Check,
-  CheckCircle2,
-  Circle,
-  Plus,
-  UserPlus,
-  CloudUpload,
-  AlertTriangle,
-  Maximize2
+  Send, 
+  Check, 
+  CheckCircle2, 
+  Circle, 
+  Plus, 
+  UserPlus, 
+  CloudUpload, 
+  AlertTriangle 
 } from 'lucide-react';
-import type { Project, SnaggingItem, SnaggingListItem, DistributionUser, Photo, SubContractor, FileAttachment, ClientInstruction, Area } from '@/lib/types';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { Project, SnaggingItem, SnaggingListItem, DistributionUser, Photo, SubContractor, Area } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection, query, where } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
+import { doc, updateDoc, collection } from 'firebase/firestore';
+import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { Separator } from '@/components/ui/separator';
 import { VoiceInput } from '@/components/voice-input';
-import { getPartnerEmails, getProjectInitials, cn, scrollToFirstError } from '@/lib/utils';
+import { getPartnerEmails, cn, scrollToFirstError } from '@/lib/utils';
 import { generateSnaggingPDF } from '@/lib/pdf-utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { sendSubcontractorReportAction } from './actions';
@@ -93,6 +81,21 @@ const EditSnaggingListSchema = z.object({
 });
 
 type EditSnaggingListFormValues = z.infer<typeof EditSnaggingListSchema>;
+
+/**
+ * sanitizeSnagItem - Ensures all fields are Firestore-compliant (no undefined).
+ */
+const sanitizeSnagItem = (itm: any): SnaggingListItem => ({
+    id: itm.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    description: itm.description || 'No description',
+    status: itm.status || 'open',
+    photos: itm.photos || [],
+    subContractorId: itm.subContractorId || null,
+    subContractorComment: itm.subContractorComment || null,
+    completionPhotos: itm.completionPhotos || [],
+    provisionallyCompletedAt: itm.provisionallyCompletedAt || null,
+    closedAt: itm.closedAt || null
+});
 
 export function EditSnaggingItem({ item, projects, subContractors }: { 
   item: SnaggingItem; 
@@ -169,14 +172,13 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
 
   const handleAddItem = () => {
     if (!newItemText.trim() && pendingItemPhotos.length === 0) return;
-    const newItem: SnaggingListItem = {
+    const newItem = sanitizeSnagItem({
         id: `item-${Date.now()}`,
         description: newItemText.trim() || 'No description',
         status: 'open',
         photos: [...pendingItemPhotos],
         subContractorId: (pendingSubId === 'unassigned' || !pendingSubId) ? null : pendingSubId,
-        completionPhotos: []
-    };
+    });
     setItems(prev => [...prev, newItem]);
     setNewItemText('');
     setPendingSubId('unassigned');
@@ -191,7 +193,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
   };
 
   const handleSaveEditItem = (idx: number) => {
-    setItems(prev => prev.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: (editItemSubId === 'unassigned' || !editItemSubId) ? null : editItemSubId } : it));
+    setItems(prev => prev.map((it, i) => i === idx ? sanitizeSnagItem({ ...it, description: editItemText, subContractorId: (editItemSubId === 'unassigned' || !editItemSubId) ? null : editItemSubId }) : it));
     setEditingItemIdx(null);
   };
 
@@ -200,7 +202,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
   };
 
   const handleToggleStatus = (idx: number) => {
-    setItems(prev => prev.map((it, i) => i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as any } : i));
+    setItems(prev => prev.map((it, i) => i === idx ? sanitizeSnagItem({ ...it, status: (it.status === 'open' ? 'closed' : 'open') as any }) : it));
   };
 
   const onCaptureGeneral = (photo: Photo) => {
@@ -271,18 +273,10 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
                 return p;
             }));
             
-            // Strictly map fields to avoid Firestore undefined errors
-            return {
-                id: snag.id,
-                description: snag.description || 'No description',
-                status: snag.status || 'open',
-                photos: updatedPhotos,
-                subContractorId: snag.subContractorId || null,
-                subContractorComment: snag.subContractorComment || null,
-                completionPhotos: snag.completionPhotos || [],
-                provisionallyCompletedAt: snag.provisionallyCompletedAt || null,
-                closedAt: snag.closedAt || null
-            } as SnaggingListItem;
+            return sanitizeSnagItem({
+                ...snag,
+                photos: updatedPhotos
+            });
         }));
 
         const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : values.status);
@@ -495,9 +489,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
                                                   {listItem.photos && listItem.photos.length > 0 && (
                                                       <div className="flex gap-1.5 mt-2 flex-wrap">
                                                           {listItem.photos.map((p, pi) => (
-                                                              <div key={pi} className="relative w-8 h-6 rounded border bg-muted overflow-hidden cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}>
-                                                                  <Image src={p.url} alt="Defect" fill className="object-cover" />
-                                                              </div>
+                                                              <div key={pi} className="relative w-8 h-6 rounded border bg-muted overflow-hidden cursor-pointer"><Image src={p.url} alt="Defect" fill className="object-cover" /></div>
                                                           ))}
                                                       </div>
                                                   )}
@@ -519,7 +511,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
                           <FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Area Photos</FormLabel>
                           <div className="flex flex-wrap gap-3">
                               {photos.map((p, i) => (
-                                  <div key={i} className="relative w-24 h-24 group cursor-pointer" onClick={() => setViewingPhoto(p)}>
+                                  <div key={i} className="relative w-24 h-24 group">
                                       <Image src={p.url} alt="Site" fill className="rounded-xl object-cover border-2" />
                                       <button 
                                           type="button" 

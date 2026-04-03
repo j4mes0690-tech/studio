@@ -59,7 +59,7 @@ import type { Project, Photo, Area, SnaggingListItem, SubContractor, Distributio
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useStorage, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { cn, getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
@@ -86,6 +86,21 @@ const SnaggingListSchema = z.object({
 });
 
 type NewSnaggingListFormValues = z.infer<typeof SnaggingListSchema>;
+
+/**
+ * sanitizeSnagItem - Ensures all fields are Firestore-compliant (no undefined).
+ */
+const sanitizeSnagItem = (itm: any): SnaggingListItem => ({
+    id: itm.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    description: itm.description || 'No description',
+    status: itm.status || 'open',
+    photos: itm.photos || [],
+    subContractorId: itm.subContractorId || null,
+    subContractorComment: itm.subContractorComment || null,
+    completionPhotos: itm.completionPhotos || [],
+    provisionallyCompletedAt: itm.provisionallyCompletedAt || null,
+    closedAt: itm.closedAt || null
+});
 
 export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: { projects: Project[], subContractors: SubContractor[], allSnaggingLists: SnaggingItem[] }) {
   const [open, setOpen] = useState(false);
@@ -154,14 +169,13 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   const handleAddItem = () => {
     if (!newItemText.trim() && pendingItemPhotos.length === 0) return;
 
-    const newItem: SnaggingListItem = {
+    const newItem = sanitizeSnagItem({
       id: `item-${Date.now()}`,
       description: newItemText.trim() || 'No description',
       status: 'open',
       photos: [...pendingItemPhotos],
       subContractorId: (pendingSubId === 'unassigned' || !pendingSubId) ? null : pendingSubId,
-      completionPhotos: []
-    };
+    });
 
     setItems([...items, newItem]);
     setNewItemText('');
@@ -177,7 +191,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   };
 
   const handleSaveEditItem = (idx: number) => {
-    setItems(items.map((it, i) => i === idx ? { ...it, description: editItemText, subContractorId: (editItemSubId === 'unassigned' || !editItemSubId) ? null : editItemSubId } : it));
+    setItems(items.map((it, i) => i === idx ? sanitizeSnagItem({ ...it, description: editItemText, subContractorId: (editItemSubId === 'unassigned' || !editItemSubId) ? null : editItemSubId }) : it));
     setEditingItemIdx(null);
   };
 
@@ -186,7 +200,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   };
 
   const handleToggleStatus = (idx: number) => {
-    setItems(items.map((it, i) => i === idx ? { ...it, status: (it.status === 'open' ? 'closed' : 'open') as any } : i));
+    setItems(items.map((it, i) => i === idx ? sanitizeSnagItem({ ...it, status: (it.status === 'open' ? 'closed' : 'open') as any }) : it));
   };
 
   const onCaptureGeneral = (photo: Photo) => {
@@ -251,18 +265,10 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                 return p;
             }));
             
-            // Strictly map fields to avoid Firestore undefined errors
-            return {
-                id: snag.id,
-                description: snag.description || 'No description',
-                status: snag.status || 'open',
-                photos: updatedPhotos,
-                subContractorId: snag.subContractorId || null,
-                subContractorComment: snag.subContractorComment || null,
-                completionPhotos: snag.completionPhotos || [],
-                provisionallyCompletedAt: snag.provisionallyCompletedAt || null,
-                closedAt: snag.closedAt || null
-            } as SnaggingListItem;
+            return sanitizeSnagItem({
+                ...snag,
+                photos: updatedPhotos
+            });
         }));
 
         const initials = getProjectInitials(selectedProject?.name || 'PRJ');
@@ -425,7 +431,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                       </SelectTrigger>
                                       <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                   </Select>
-                                  <Button type="button" variant="ghost" className="h-11" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
+                                  <Button type="button" variant="outline" className="h-11" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
                                   <Button type="button" size="icon" className="h-11 rounded-lg" onClick={handleAddItem} disabled={isPending}>
                                       {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
                                   </Button>

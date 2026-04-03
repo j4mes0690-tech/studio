@@ -13,13 +13,32 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useFirestore, useDoc, useCollection, useUser, useStorage, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection, query, orderBy, arrayUnion, deleteDoc, getDoc } from 'firebase/firestore';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { doc, updateDoc, collection, query, orderBy, deleteDoc } from 'firebase/firestore';
 import type { SnaggingItem, Project, SubContractor, SnaggingListItem, Photo, Area, DistributionUser, SnaggingHistoryRecord } from '@/lib/types';
-import { ChevronLeft, Camera, Upload, X, Trash2, CheckCircle2, Circle, Plus, UserPlus, RefreshCw, Loader2, Save, History, FileSearch, Check, Link as LinkIcon, Pencil, Maximize2, ListChecks, CloudUpload } from 'lucide-react';
+import { 
+    ChevronLeft, 
+    Camera, 
+    X, 
+    Trash2, 
+    CheckCircle2, 
+    Circle, 
+    Plus, 
+    UserPlus, 
+    Loader2, 
+    Save, 
+    History, 
+    Check, 
+    Link as LinkIcon, 
+    Maximize2, 
+    ListChecks, 
+    CloudOff, 
+    CloudCheck,
+    CloudUpload,
+    Building2,
+    MapPin
+} from 'lucide-react';
 import Image from 'next/image';
-import { cn, getPartnerEmails, scrollToFirstError, parseDateString } from '@/lib/utils';
+import { cn, scrollToFirstError, parseDateString } from '@/lib/utils';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import {
   Dialog,
@@ -38,12 +57,26 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { VoiceInput } from '@/components/voice-input';
 import { ImageLightbox } from '@/components/image-lightbox';
 import { ClientDate } from '@/components/client-date';
 import { CameraOverlay } from '@/components/camera-overlay';
+
+/**
+ * sanitizeSnagItem - Ensures all fields are Firestore-compliant (no undefined).
+ */
+const sanitizeSnagItem = (itm: any): SnaggingListItem => ({
+    id: itm.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    description: itm.description || 'No description',
+    status: itm.status || 'open',
+    photos: itm.photos || [],
+    subContractorId: itm.subContractorId || null,
+    subContractorComment: itm.subContractorComment || null,
+    completionPhotos: itm.completionPhotos || [],
+    provisionallyCompletedAt: itm.provisionallyCompletedAt || null,
+    closedAt: itm.closedAt || null
+});
 
 function EditSnaggingContent() {
   const { id } = useParams() as { id: string };
@@ -144,14 +177,13 @@ function EditSnaggingContent() {
 
   const handleAddItem = () => {
     if (!newItemText.trim() && pendingItemPhotos.length === 0) return;
-    const newItem: SnaggingListItem = {
+    const newItem = sanitizeSnagItem({
         id: `item-${Date.now()}`,
         description: newItemText.trim() || 'No description',
         status: 'open',
         photos: [...pendingItemPhotos],
         subContractorId: pendingSubId === 'unassigned' ? null : pendingSubId,
-        completionPhotos: []
-    };
+    });
     setLocalItems(prev => [...prev, newItem]);
     setNewItemText('');
     setPendingSubId('unassigned');
@@ -165,18 +197,6 @@ function EditSnaggingContent() {
 
   const handleToggleStatus = (itemId: string) => {
     setLocalItems(prev => prev.map(i => i.id === itemId ? { ...i, status: (i.status === 'open' ? 'closed' : 'open') as any } : i));
-  };
-
-  const handleRemovePhoto = (itemId: string, photoIdx: number) => {
-    setLocalItems(prev => prev.map(itm => {
-      if (itm.id === itemId) {
-        return {
-          ...itm,
-          photos: (itm.photos || []).filter((_, i) => i !== photoIdx)
-        };
-      }
-      return itm;
-    }));
   };
 
   const onCaptureGeneral = (photo: Photo) => setLocalPhotos(prev => [...prev, photo]);
@@ -214,18 +234,10 @@ function EditSnaggingContent() {
                 return p;
             }));
             
-            // Strictly map fields to avoid Firestore undefined errors
-            return {
-                id: itm.id,
-                description: itm.description || 'No description',
-                status: itm.status || 'open',
-                photos: updatedPhotos,
-                subContractorId: itm.subContractorId || null,
-                subContractorComment: itm.subContractorComment || null,
-                completionPhotos: itm.completionPhotos || [],
-                provisionallyCompletedAt: itm.provisionallyCompletedAt || null,
-                closedAt: itm.closedAt || null
-            } as SnaggingListItem;
+            return sanitizeSnagItem({
+                ...itm,
+                photos: updatedPhotos
+            });
         }));
 
         const updates = { 
@@ -238,41 +250,45 @@ function EditSnaggingContent() {
         await updateDoc(snagRef, updates);
         setLocalItems(syncedItems);
         setLocalPhotos(syncedGlobalPhotos);
-        toast({ title: 'Sync Complete' });
+        toast({ title: 'Success', description: 'Changes saved to project mainframe.' });
       } catch (err) {
-        toast({ title: 'Sync Failed', variant: 'destructive' });
+        console.error(err);
+        toast({ title: 'Sync Failed', description: 'Check your connection and try again.', variant: 'destructive' });
       }
     });
   };
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-32">
-      <div className="sticky top-16 z-40 animate-in slide-in-from-top-4">
-          {(unsyncedCount > 0 || hasUnsavedChanges) ? (
-              <div className="bg-primary p-3 rounded-xl shadow-2xl flex items-center justify-between gap-4 border border-white/20">
-                  <div className="flex items-center gap-3">
-                      <div className="bg-white/20 p-2 rounded-lg text-white"><CloudUpload className="h-5 w-5 animate-pulse" /></div>
-                      <div className="text-white">
-                          <p className="text-xs font-black uppercase tracking-widest leading-none mb-1">Local Staging Active</p>
-                          <p className="text-[10px] font-medium opacity-90">{unsyncedCount} unsynced assets • Metadata changes pending</p>
-                      </div>
-                  </div>
-                  <Button size="sm" className="bg-white text-primary hover:bg-neutral-100 font-black uppercase text-[10px] tracking-widest h-9 px-6 gap-2" onClick={handleSyncToCloud} disabled={isPending}>
-                      {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CloudUpload className="h-3.5 w-3.5" />} Sync to Cloud
-                  </Button>
-              </div>
-          ) : (
-              <div className="bg-green-600/90 backdrop-blur-md p-2 rounded-full shadow-lg border border-white/10 w-fit mx-auto px-4 flex items-center gap-2">
-                  <CheckCircle2 className="h-3 w-3 text-white" />
-                  <span className="text-[9px] font-black uppercase tracking-widest text-white">All changes synced</span>
-              </div>
-          )}
-      </div>
-
-      <div className="flex items-center">
+      <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={() => router.push('/snagging')} className="gap-2">
             <ChevronLeft className="h-4 w-4" /> Back to Log
         </Button>
+        <div className="flex items-center gap-3">
+            {unsyncedCount > 0 ? (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className="bg-primary/10 text-primary p-2 rounded-full animate-pulse">
+                                <CloudOff className="h-4 w-4" />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent><p>{unsyncedCount} unsynced items</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            ) : (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <div className="bg-green-100 text-green-600 p-2 rounded-full">
+                                <CloudCheck className="h-4 w-4" />
+                            </div>
+                        </TooltipTrigger>
+                        <TooltipContent><p>All changes synced</p></TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -374,7 +390,7 @@ function EditSnaggingContent() {
                                             </div>
                                             <div className="flex flex-wrap gap-2 pt-2">
                                                 {(listItem.photos || []).map((p, pIdx) => (
-                                                    <div key={pIdx} className="relative w-20 h-16 rounded-md border-2 border-primary/10 overflow-hidden group/img cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}><Image src={p.url} alt="Defect" fill className="object-cover" /><button className="absolute top-0 right-0 bg-destructive text-white p-1" onClick={(e) => { e.stopPropagation(); handleRemovePhoto(listItem.id, pIdx); }}><X className="h-3 w-3" /></button></div>
+                                                    <div key={pIdx} className="relative w-20 h-16 rounded-md border-2 border-primary/10 overflow-hidden group/img cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}><Image src={p.url} alt="Defect" fill className="object-cover" /><button className="absolute top-0 right-0 bg-destructive text-white p-1" onClick={(e) => { e.stopPropagation(); setLocalItems(prev => prev.map(itm => itm.id === listItem.id ? { ...itm, photos: (itm.photos || []).filter((_, i) => i !== pIdx) } : itm)); }}><X className="h-3 w-3" /></button></div>
                                                 ))}
                                             </div>
                                         </div>
@@ -437,6 +453,16 @@ function EditSnaggingContent() {
                 </CardContent>
             </Card>
         </div>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-background border-t shadow-2xl z-50">
+          <div className="max-w-6xl mx-auto flex gap-3">
+              <Button variant="outline" className="flex-1 h-12 font-bold" onClick={() => router.push('/snagging')}>Discard Changes</Button>
+              <Button className="flex-[2] h-12 font-black uppercase tracking-widest shadow-lg shadow-primary/20 gap-2" onClick={handleSyncToCloud} disabled={isPending}>
+                  {isPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <CloudUpload className="h-5 w-5" />}
+                  Save & Sync to Cloud
+              </Button>
+          </div>
       </div>
 
       <Dialog open={!!viewingHistoryRecord} onOpenChange={() => setViewingHistoryRecord(null)}>
