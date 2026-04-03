@@ -75,7 +75,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { generatePlannerPDF } from '@/lib/pdf-utils';
 import { DistributePlannerButton } from './distribute-planner-button';
-import { isValid, startOfDay, endOfDay, isWithinInterval, parseISO } from 'date-fns';
+import { isValid, startOfDay, endOfDay, isWithinInterval, parseISO, format, addWeeks } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 function PlannerContent() {
@@ -93,7 +93,7 @@ function PlannerContent() {
   // Export Settings
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [exportScope, setExportScope] = useState<'full' | 'range'>('full');
-  const [exportStart, setExportFrom] = useState('');
+  const [exportStart, setExportFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [exportEnd, setExportTo] = useState('');
   const [isProcessingExport, setIsProcessingExport] = useState(false);
 
@@ -107,7 +107,6 @@ function PlannerContent() {
   const plannerFilter = searchParams.get('planner');
 
   useEffect(() => {
-    const savedDensity = localStorage.getItem('sitecommand_dashboard_compact');
     const savedView = localStorage.getItem('sitecommand_view_planner');
     if (savedView !== null) setIsGanttView(savedView === 'true');
   }, [searchParams]);
@@ -314,6 +313,12 @@ function PlannerContent() {
         
         toast({ title: 'Section Removed', description: 'Associated tasks have been moved to General.' });
     });
+  };
+
+  const setQuickExportEnd = (weeks: number) => {
+    const base = exportStart ? parseISO(exportStart) : new Date();
+    const newEnd = addWeeks(base, weeks);
+    setExportTo(format(newEnd, 'yyyy-MM-dd'));
   };
 
   const editingTask = useMemo(() => 
@@ -597,13 +602,19 @@ function PlannerContent() {
                                     </RadioGroup>
 
                                     {exportScope === 'range' && (
-                                        <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2">
+                                        <div className="grid grid-cols-1 gap-4 animate-in fade-in slide-in-from-top-2">
                                             <div className="space-y-1.5">
                                                 <Label className="text-[10px] font-black uppercase text-muted-foreground">Start Date</Label>
                                                 <Input type="date" value={exportStart} onChange={e => setExportFrom(e.target.value)} />
                                             </div>
                                             <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase text-muted-foreground">End Date</Label>
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-[10px] font-black uppercase text-muted-foreground">End Date</Label>
+                                                    <div className="flex gap-1">
+                                                        <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-bold text-primary hover:bg-primary/5" onClick={() => setQuickExportEnd(2)}>+2 Weeks</Button>
+                                                        <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px] font-bold text-primary hover:bg-primary/5" onClick={() => setQuickExportEnd(3)}>+3 Weeks</Button>
+                                                    </div>
+                                                </div>
                                                 <Input type="date" value={exportEnd} onChange={e => setExportTo(e.target.value)} />
                                             </div>
                                         </div>

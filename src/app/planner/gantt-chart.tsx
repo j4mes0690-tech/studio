@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -368,24 +367,8 @@ export function GanttChart({
                                         const left = differenceInDays(start, startDate) * DAY_WIDTH;
                                         const width = (differenceInDays(end, start) + 1) * DAY_WIDTH;
 
-                                        const baselineStart = task.originalStartDate ? parseDateString(task.originalStartDate) : null;
-                                        const baselineEnd = task.originalStartDate && task.originalDurationDays 
-                                            ? parseDateString(calculateFinishDate(task.originalStartDate, task.originalDurationDays, sat, sun))
-                                            : null;
-
                                         return (
                                             <div key={task.id} className="border-b relative" style={{ height: ROW_HEIGHT, width: chartWidth }}>
-                                                {baselineStart && baselineEnd && (
-                                                    <div 
-                                                        className="absolute h-1.5 opacity-20 bg-slate-400 border border-slate-500 z-0 rounded-full"
-                                                        style={{ 
-                                                            top: '44px',
-                                                            left: differenceInDays(baselineStart, startDate) * DAY_WIDTH, 
-                                                            width: (differenceInDays(baselineEnd, baselineStart) + 1) * DAY_WIDTH,
-                                                        }}
-                                                    />
-                                                )}
-
                                                 <TooltipProvider>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
