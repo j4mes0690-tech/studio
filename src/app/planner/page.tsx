@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Header } from '@/components/layout/header';
@@ -76,7 +75,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { generatePlannerPDF } from '@/lib/pdf-utils';
+import { generatePlannerPDF, generateBulkPlannerPDF } from '@/lib/pdf-utils';
 import { DistributePlannerButton } from './distribute-planner-button';
 import { isValid, startOfDay, endOfDay, isWithinInterval, parseISO, format, addWeeks } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -219,7 +218,7 @@ function PlannerContent() {
     
     setIsProcessingExport(true);
     setIsExportDialogOpen(false);
-    toast({ title: "Generating PDF", description: "Reforecasting view for export..." });
+    toast({ title: "Generating PDF", description: "Preparing high-fidelity export..." });
 
     setTimeout(async () => {
         try {
@@ -248,41 +247,21 @@ function PlannerContent() {
     if (!currentProject || selectedPlannerIds.length === 0) return;
 
     setIsProcessingGlobalExport(true);
-    toast({ title: "Generating Project Audit", description: "Aggregating multiple schedules into document..." });
+    toast({ title: "Generating Project Audit", description: "Aggregating multiple distinct reports..." });
 
     setTimeout(async () => {
         try {
-            // Collect all tasks for selected planners
-            const aggregatedTasks = allTasks.filter(t => 
-                t.projectId === currentProject.id && 
-                selectedPlannerIds.includes(t.plannerId || t.areaId || '')
-            );
-
-            if (aggregatedTasks.length === 0) {
-                toast({ title: "Empty Selection", description: "Selected schedules contain no activities.", variant: "destructive" });
-                setIsProcessingGlobalExport(false);
-                return;
-            }
-
-            // Create a virtual "Full Project" planner for settings
-            // We use standard Mon-Fri logic for global audits usually
-            const virtualPlanner: Planner = {
-                id: 'global-audit',
-                name: 'Consolidated Project Schedule',
-                includeSaturday: false,
-                includeSunday: false,
-                sections: []
-            };
-
-            const pdf = await generatePlannerPDF(
-                aggregatedTasks,
+            const selectedPlanners = allProjectPlanners.filter(p => selectedPlannerIds.includes(p.id));
+            
+            const pdf = await generateBulkPlannerPDF(
                 currentProject,
-                virtualPlanner,
+                selectedPlanners,
+                allTasks,
                 allSubContractors || []
             );
 
             const timestamp = new Date().toISOString().split('T')[0];
-            pdf.save(`FullProjectAudit-${currentProject.name.replace(/\s+/g, '-')}-${timestamp}.pdf`);
+            pdf.save(`GlobalAudit-${currentProject.name.replace(/\s+/g, '-')}-${timestamp}.pdf`);
             toast({ title: "Success", description: "Consolidated project report generated." });
             setIsGlobalExportOpen(false);
         } catch (err) {
@@ -291,7 +270,7 @@ function PlannerContent() {
         } finally {
             setIsProcessingGlobalExport(false);
         }
-    }, 1000);
+    }, 1500);
   };
 
   const selectProject = (id: string) => {
@@ -327,7 +306,7 @@ function PlannerContent() {
         };
         const projRef = doc(db, 'projects', currentProject.id);
         const snap = await getDoc(projRef);
-        if (snap.exists()) {
+        if (projSnap.exists()) {
             await updateDoc(projRef, {
                 planners: arrayUnion(newPlanner)
             });
@@ -499,7 +478,7 @@ function PlannerContent() {
                                         </Button>
                                     </DialogTrigger>
                                 </TooltipTrigger>
-                                <TooltipContent><p>Project Bulk Export</p></TooltipContent>
+                                <TooltipContent><p>Global Project Audit</p></TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
                         <DialogContent className="sm:max-w-md">
@@ -507,8 +486,8 @@ function PlannerContent() {
                                 <div className="bg-primary/10 p-2.5 rounded-xl w-fit mb-2 text-primary">
                                     <FileStack className="h-6 w-6" />
                                 </div>
-                                <DialogTitle>Global Project Export</DialogTitle>
-                                <DialogDescription>Generate a consolidated PDF containing all selected schedules for this project.</DialogDescription>
+                                <DialogTitle>Global Project Audit</DialogTitle>
+                                <DialogDescription>Generate a consolidated PDF containing all selected schedules as distinct reports.</DialogDescription>
                             </DialogHeader>
                             <div className="py-4 space-y-4">
                                 <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest px-1">Included Schedules</Label>
@@ -537,7 +516,7 @@ function PlannerContent() {
                                 <Button variant="ghost" onClick={() => setIsGlobalExportOpen(false)}>Cancel</Button>
                                 <Button className="gap-2 font-bold shadow-lg shadow-primary/20 flex-1 h-12" onClick={handleGlobalProjectExport} disabled={isProcessingGlobalExport || selectedPlannerIds.length === 0}>
                                     {isProcessingGlobalExport ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-                                    Generate Bulk Audit
+                                    Generate Global Audit
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -613,26 +592,25 @@ function PlannerContent() {
                 })}
             </div>
 
-            {/* Hidden chart for bulk export capture - Must be in DOM and technically 'visible' for html2canvas */}
+            {/* Background Rendering Layer for PDF Capture */}
             {isProcessingGlobalExport && (
                 <div 
                     className="fixed top-0 z-[-1] w-[1400px] pointer-events-none" 
                     style={{ left: '-10000px', opacity: 0 }}
                 >
-                    <GanttChart 
-                        tasks={allTasks.filter(t => t.projectId === currentProject?.id && selectedPlannerIds.includes(t.plannerId || t.areaId || ''))}
-                        subContractors={allSubContractors || []}
-                        projects={allowedProjects}
-                        planner={{
-                            id: 'global-audit',
-                            name: 'Consolidated Project Schedule',
-                            includeSaturday: false,
-                            includeSunday: false,
-                            sections: []
-                        }}
-                        onTaskClick={() => {}}
-                        isPrinting={true}
-                    />
+                    {planners.filter(p => selectedPlannerIds.includes(p.id)).map(p => (
+                        <div key={p.id} className="mb-20" id={`gantt-capture-${p.id}`}>
+                            <GanttChart 
+                                tasks={allTasks.filter(t => t.projectId === currentProject?.id && (t.plannerId === p.id || t.areaId === p.id))}
+                                subContractors={allSubContractors || []}
+                                projects={allowedProjects}
+                                planner={p}
+                                onTaskClick={() => {}}
+                                isPrinting={true}
+                                captureId={`gantt-capture-${p.id}`}
+                            />
+                        </div>
+                    ))}
                 </div>
             )}
         </main>

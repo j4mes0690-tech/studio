@@ -21,7 +21,7 @@ import Image from 'next/image';
 import { Layers } from 'lucide-react';
 
 const DAY_WIDTH = 48;
-const ROW_HEIGHT = 64; 
+const ROW_HEIGHT = 52; 
 const SECTION_HEADER_HEIGHT = 32; 
 const MIN_WEEKS = 12;
 
@@ -55,7 +55,8 @@ export function GanttChart({
   onTaskClick,
   startDateOverride,
   endDateOverride,
-  isPrinting = false
+  isPrinting = false,
+  captureId = "planner-gantt-capture"
 }: { 
   tasks: PlannerTask[]; 
   subContractors: SubContractor[]; 
@@ -65,6 +66,7 @@ export function GanttChart({
   startDateOverride?: Date;
   endDateOverride?: Date;
   isPrinting?: boolean;
+  captureId?: string;
 }) {
   const [viewingPhoto, setViewingPhoto] = useState<Photo | null>(null);
 
@@ -197,7 +199,6 @@ export function GanttChart({
         const predecessorEndX = (differenceInDays(predFinish, startDate) + 1) * DAY_WIDTH;
         const predecessorY = predData.yOffset + (ROW_HEIGHT / 2);
 
-        // midX calculation handles cases where tasks overlap or point backwards
         const xDiff = successorX - predecessorEndX;
         const midX = xDiff > 20 ? predecessorEndX + (xDiff / 2) : predecessorEndX + 10;
         
@@ -236,13 +237,13 @@ export function GanttChart({
   return (
     <>
         <div 
-            id="planner-gantt-container"
+            id={isPrinting ? undefined : "planner-gantt-container"}
             className={cn(
                 "bg-background border rounded-xl shadow-sm overflow-x-auto overflow-y-hidden select-none",
                 isPrinting && "overflow-visible border-none shadow-none rounded-none"
             )}
         >
-            <div id="planner-gantt-capture" className="min-w-max flex flex-col relative" style={{ width: chartWidth + 256 }}>
+            <div id={captureId} className="min-w-max flex flex-col relative" style={{ width: chartWidth + 256 }}>
                 <div className={cn("flex border-b bg-muted/30", !isPrinting && "sticky top-0 z-40")}>
                     <div className={cn(
                         "w-64 border-r p-4 font-bold text-[10px] uppercase tracking-widest text-muted-foreground shrink-0 flex items-end bg-muted/30",
@@ -305,10 +306,10 @@ export function GanttChart({
                                                 {task.title}
                                             </span>
                                             <div 
-                                                className="h-7 w-20 flex items-center justify-center rounded-full border bg-background shrink-0 shadow-sm"
+                                                className="h-7 w-20 flex items-center justify-center rounded-full border bg-background shrink-0 shadow-sm overflow-hidden"
                                                 style={{ borderColor: `${tradeColor}40` }}
                                             >
-                                                <span className="text-[8px] font-black uppercase truncate text-center w-full px-1.5 flex items-center justify-center h-full" style={{ color: tradeColor }}>
+                                                <span className="text-[8px] font-black uppercase truncate text-center w-full px-1.5 flex items-center justify-center h-full leading-none" style={{ color: tradeColor }}>
                                                     {tradeName}
                                                 </span>
                                             </div>
@@ -380,7 +381,7 @@ export function GanttChart({
                                                                     "text-white",
                                                                 )}
                                                                 style={{ 
-                                                                    top: '20px',
+                                                                    top: '14px',
                                                                     left: left, 
                                                                     width: width,
                                                                     backgroundColor: tradeColor,

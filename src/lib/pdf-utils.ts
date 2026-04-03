@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Instruction, Project, SubContractor, SnaggingListItem, Photo, PlannerTask, Planner, PurchaseOrder, PlantOrder, SystemSettings, InformationRequest, CleanUpListItem, SiteDiaryEntry, ProcurementItem, SubContractOrder, Variation, ClientInstruction, Permit, QualityChecklist, PermitSignature } from '@/lib/types';
@@ -1553,12 +1552,15 @@ export async function generatePlannerPDF(
   project?: Project,
   planner?: Planner,
   subContractors: SubContractor[] = [],
-  dateRange?: { from: string, to: string }
+  dateRange?: { from: string, to: string },
+  captureId: string = "planner-gantt-capture",
+  existingPdf?: any
 ) {
   const { jsPDF } = await import('jspdf');
   const html2canvas = (await import('html2canvas')).default;
+  const branding = await getSystemBranding();
 
-  const pdf = new jsPDF('l', 'mm', 'a4'); 
+  const pdf = existingPdf || new jsPDF('l', 'mm', 'a4'); 
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
 
@@ -1592,14 +1594,20 @@ export async function generatePlannerPDF(
   headerElement.style.fontFamily = 'sans-serif';
 
   headerElement.innerHTML = `
-    <div style="border-bottom: 4px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px;">
-      <h1 style="margin: 0; color: #1e40af; font-size: 32px;">Project Schedule Update</h1>
-      <p style="margin: 5px 0 0 0; color: #64748b; font-size: 16px; font-weight: bold;">${project?.name || 'Project'} &rsaquo; ${planner?.name || 'Schedule'}</p>
-      ${reportFromStr ? `<p style="margin: 5px 0 0 0; color: #1e40af; font-size: 12px; font-weight: bold;">Report Window: ${new Date(reportFromStr).toLocaleDateString()} to ${new Date(reportToStr || '').toLocaleDateString()}</p>` : ''}
+    <div style="border-bottom: 4px solid #1e40af; padding-bottom: 20px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: flex-end;">
+      <div>
+        <h1 style="margin: 0; color: #1e40af; font-size: 32px;">Site Schedule Update</h1>
+        <p style="margin: 5px 0 0 0; color: #64748b; font-size: 16px; font-weight: bold;">${project?.name || 'Project'} &rsaquo; ${planner?.name || 'Schedule'}</p>
+        ${reportFromStr ? `<p style="margin: 5px 0 0 0; color: #1e40af; font-size: 12px; font-weight: bold;">Window: ${new Date(reportFromStr).toLocaleDateString()} to ${new Date(reportToStr || '').toLocaleDateString()}</p>` : ''}
+      </div>
+      <div style="text-align: right;">
+        ${branding.logoUri ? `<img src="${branding.logoUri}" style="max-height: 50px; max-width: 180px; margin-bottom: 5px;" />` : ''}
+        <p style="margin: 0; font-size: 10px; color: #94a3b8;">Printed: ${new Date().toLocaleDateString()}</p>
+      </div>
     </div>
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 20px;">
       <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Visible Activities</p>
+        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Activities</p>
         <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold;">${tasks.length}</p>
       </div>
       <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
@@ -1607,8 +1615,8 @@ export async function generatePlannerPDF(
         <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold; color: #16a34a;">${tasks.filter(t => t.status === 'completed').length} Complete</p>
       </div>
       <div style="background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0;">
-        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Generated</p>
-        <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold;">${new Date().toLocaleDateString()}</p>
+        <p style="margin: 0; font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 10px;">Plan Progress</p>
+        <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold;">${tasks.length > 0 ? Math.round((tasks.filter(t => t.status === 'completed').length / tasks.length) * 100) : 0}%</p>
       </div>
     </div>
   `;
@@ -1620,7 +1628,7 @@ export async function generatePlannerPDF(
   const headerHeightInPdf = (headerCanvas.height * pdfWidth) / headerCanvas.width;
   pdf.addImage(headerCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, pdfWidth, headerHeightInPdf);
 
-  const ganttElement = document.getElementById('planner-gantt-capture');
+  const ganttElement = document.getElementById(captureId);
   if (ganttElement) {
     const originalWidth = ganttElement.scrollWidth;
     const originalHeight = ganttElement.scrollHeight;
@@ -1634,7 +1642,7 @@ export async function generatePlannerPDF(
       height: originalHeight,
       windowWidth: originalWidth,
       onclone: (clonedDoc) => {
-        const el = clonedDoc.getElementById('planner-gantt-capture');
+        const el = clonedDoc.getElementById(captureId);
         if (el) {
           el.style.position = 'absolute';
           el.style.left = '0';
@@ -1645,7 +1653,6 @@ export async function generatePlannerPDF(
           el.style.opacity = '1';
           el.style.visibility = 'visible';
           
-          // Surgical unmasking: Recursively strip overflow from all parents
           let currentParent = el.parentElement;
           while (currentParent && currentParent.tagName !== 'HTML') {
             currentParent.style.overflow = 'visible';
@@ -1655,7 +1662,6 @@ export async function generatePlannerPDF(
             currentParent = currentParent.parentElement;
           }
 
-          // Normalize SVGs for capture
           const svgs = el.querySelectorAll('svg');
           svgs.forEach((svg: any) => {
             const w = svg.clientWidth || originalWidth;
@@ -1763,6 +1769,42 @@ export async function generatePlannerPDF(
     
     currentY += 10;
   });
+
+  return pdf;
+}
+
+/**
+ * generateBulkPlannerPDF - Aggregates multiple separate schedules into one multi-report PDF document.
+ */
+export async function generateBulkPlannerPDF(
+  project: Project,
+  selectedPlanners: Planner[],
+  allTasks: PlannerTask[],
+  subContractors: SubContractor[]
+) {
+  const { jsPDF } = await import('jspdf');
+  const pdf = new jsPDF('l', 'mm', 'a4');
+
+  for (let i = 0; i < selectedPlanners.length; i++) {
+    if (i > 0) pdf.addPage();
+    
+    const planner = selectedPlanners[i];
+    const plannerTasks = allTasks.filter(t => 
+        t.projectId === project.id && 
+        (t.plannerId === planner.id || t.areaId === planner.id)
+    );
+
+    // Reuse individual generation logic but pass the ongoing pdf object
+    await generatePlannerPDF(
+        plannerTasks,
+        project,
+        planner,
+        subContractors,
+        undefined,
+        `gantt-capture-${planner.id}`,
+        pdf
+    );
+  }
 
   return pdf;
 }
