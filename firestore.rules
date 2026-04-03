@@ -6,7 +6,8 @@ service cloud.firestore {
      * CORE SECURITY PHILOSOPHY (PROTOTYPING)
      * To ensure maximum reliability during the walkthrough and development,
      * we allow all authenticated users (including anonymous) full access 
-     * to the database.
+     * to the database. This avoids permission denials during data aggregation
+     * and project directory listings.
      */
 
     match /{document=**} {
