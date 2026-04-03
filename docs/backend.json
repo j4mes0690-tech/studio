@@ -1,195 +1,312 @@
-
 {
   "entities": {
-    "User": {
-      "title": "User",
-      "description": "Represents a user of the application, such as a site team member or administrator.",
+    "Client": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Client",
       "type": "object",
+      "description": "Represents a client for whom construction projects are undertaken.",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "password": { "type": "string" },
-        "userType": { "type": "string", "enum": ["internal", "partner"] },
-        "subContractorId": { "type": "string", "description": "Association with an external partner or designer company." },
-        "requirePasswordChange": { "type": "boolean" },
-        "permissions": {
-          "type": "object",
-          "properties": {
-            "canManageUsers": { "type": "boolean" },
-            "canManageSubcontractors": { "type": "boolean" },
-            "canManageProjects": { "type": "boolean" },
-            "canManageChecklists": { "type": "boolean" },
-            "canManageMaterials": { "type": "boolean" },
-            "canManagePermitTemplates": { "type": "boolean" },
-            "canManageTraining": { "type": "boolean" },
-            "canManageIRS": { "type": "boolean" },
-            "canApproveHolidays": { "type": "boolean" },
-            "hasFullVisibility": { "type": "boolean" },
-            "accessMaterials": { "type": "boolean" },
-            "accessPlant": { "type": "boolean" },
-            "accessVariations": { "type": "boolean" },
-            "accessPermits": { "type": "boolean" },
-            "accessTraining": { "type": "boolean" },
-            "accessClientInstructions": { "type": "boolean" },
-            "accessSiteInstructions": { "type": "boolean" },
-            "accessCleanupNotices": { "type": "boolean" },
-            "accessSnagging": { "type": "boolean" },
-            "accessQualityControl": { "type": "boolean" },
-            "accessInfoRequests": { "type": "boolean" },
-            "accessPaymentNotices": { "type": "boolean" },
-            "accessSubContractOrders": { "type": "boolean" },
-            "accessIRS": { "type": "boolean" },
-            "accessPlanner": { "type": "boolean" },
-            "accessProcurement": { "type": "boolean" },
-            "accessHolidays": { "type": "boolean" },
-            "accessSiteDiary": { "type": "boolean" },
-            "accessDocuments": { "type": "boolean" },
-            "accessSitePhotos": { "type": "boolean" }
-          }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Client entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the client organization or individual."
+        },
+        "contactPerson": {
+          "type": "string",
+          "description": "The primary contact person for this client."
+        },
+        "contactEmail": {
+          "type": "string",
+          "description": "The email address of the primary contact person.",
+          "format": "email"
+        },
+        "contactPhone": {
+          "type": "string",
+          "description": "The phone number of the primary contact person."
+        },
+        "address": {
+          "type": "string",
+          "description": "The physical address of the client."
         }
       },
-      "required": ["id", "name", "email"]
+      "required": [
+        "id",
+        "name",
+        "contactPerson"
+      ]
     },
-    "SiteProgressPhoto": {
-      "title": "Site Progress Photo",
-      "description": "A record of site progress photos linked to a project and optional area.",
+    "Project": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Project",
       "type": "object",
+      "description": "Represents a construction project associated with a client.",
       "properties": {
-        "id": { "type": "string" },
-        "projectId": { "type": "string" },
-        "areaId": { "type": "string", "nullable": true },
-        "description": { "type": "string" },
-        "photos": { "type": "array", "items": { "$ref": "#/backend/entities/Photo" } },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "createdByEmail": { "type": "string" }
-      },
-      "required": ["id", "projectId", "photos", "createdAt"]
-    },
-    "DrawingDocument": {
-      "title": "Drawing Document",
-      "description": "A technical drawing or project document managed in the register.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "projectId": { "type": "string" },
-        "title": { "type": "string" },
-        "reference": { "type": "string" },
-        "revision": { "type": "string" },
-        "status": { "type": "string", "enum": ["active", "superseded", "draft"] },
-        "approvalStatus": { "type": "string", "enum": ["awaiting", "status-a", "status-b", "status-c"] },
-        "messages": { "type": "array", "items": { "$ref": "#/backend/entities/ChatMessage" } },
-        "file": { "$ref": "#/backend/entities/FileAttachment" },
-        "sharepointUrl": { "type": "string", "format": "uri" },
-        "lastSyncedAt": { "type": "string", "format": "date-time" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "createdByEmail": { "type": "string" }
-      }
-    },
-    "ChatMessage": {
-      "title": "Chat Message",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "sender": { "type": "string" },
-        "senderEmail": { "type": "string" },
-        "message": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "photos": { "type": "array", "items": { "$ref": "#/backend/entities/Photo" } },
-        "files": { "type": "array", "items": { "$ref": "#/backend/entities/FileAttachment" } }
-      }
-    },
-    "Photo": {
-      "title": "Photo",
-      "type": "object",
-      "properties": {
-        "url": { "type": "string", "format": "uri" },
-        "takenAt": { "type": "string", "format": "date-time" }
-      }
-    },
-    "FileAttachment": {
-      "title": "File Attachment",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "url": { "type": "string", "format": "uri" },
-        "type": { "type": "string" },
-        "size": { "type": "number" }
-      }
-    },
-    "HolidayRequest": {
-      "title": "Holiday Request",
-      "description": "A staff leave or holiday request.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "userEmail": { "type": "string" },
-        "startDate": { "type": "string", "format": "date" },
-        "endDate": { "type": "string", "format": "date" },
-        "totalDays": { "type": "number" },
-        "type": { "type": "string", "enum": ["holiday", "sick", "other"] },
-        "notes": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
-        "approvedByEmail": { "type": "string" },
-        "approvedByName": { "type": "string" },
-        "lineManagerEmail": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "dismissedBy": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "SystemSettings": {
-      "title": "System Settings",
-      "description": "Global application configurations such as branding and company metadata.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "logoUrl": { "type": "string", "format": "uri" },
-        "companyName": { "type": "string" },
-        "companyAddress": { "type": "string" }
-      }
-    },
-    "ToolboxTalkTemplate": {
-      "title": "Toolbox Talk Template",
-      "description": "A template for site educational safety briefings.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "topic": { "type": "string" },
-        "content": { "type": "string" },
-        "trade": { "type": "string" },
-        "verificationItems": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "id": { "type": "string" },
-              "text": { "type": "string" }
-            }
-          }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Project entity."
         },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "createdByEmail": { "type": "string" }
-      }
+        "name": {
+          "type": "string",
+          "description": "The name or title of the construction project."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the project's scope and objectives."
+        },
+        "clientId": {
+          "type": "string",
+          "description": "Reference to Client. (Relationship: Client 1:N Project)"
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The planned or actual start date of the project.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "The planned or actual end date of the project.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the project (e.g., 'active', 'completed', 'on-hold')."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "clientId",
+        "startDate",
+        "status"
+      ]
+    },
+    "Instruction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Instruction",
+      "type": "object",
+      "description": "Records a specific instruction given by a client on a construction site.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Instruction entity."
+        },
+        "rawText": {
+          "type": "string",
+          "description": "The original, unedited text of the client instruction."
+        },
+        "recordedAt": {
+          "type": "string",
+          "description": "The date and time when the instruction was recorded.",
+          "format": "date-time"
+        },
+        "clientId": {
+          "type": "string",
+          "description": "Reference to Client. (Relationship: Client 1:N Instruction)"
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to Project. (Relationship: Project 1:N Instruction)"
+        },
+        "location": {
+          "type": "string",
+          "description": "Specific location on the construction site where the instruction was given."
+        },
+        "isUrgent": {
+          "type": "boolean",
+          "description": "Indicates whether this instruction is marked as urgent."
+        },
+        "recordedByUserId": {
+          "type": "string",
+          "description": "The ID of the user who recorded this instruction, assuming an external user authentication system."
+        }
+      },
+      "required": [
+        "id",
+        "rawText",
+        "recordedAt",
+        "clientId",
+        "projectId",
+        "recordedByUserId"
+      ]
+    },
+    "InstructionSummary": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "InstructionSummary",
+      "type": "object",
+      "description": "Stores the AI-generated summary of a client instruction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the InstructionSummary entity."
+        },
+        "instructionId": {
+          "type": "string",
+          "description": "Reference to Instruction. (Relationship: Instruction 1:N InstructionSummary)"
+        },
+        "summaryText": {
+          "type": "string",
+          "description": "The concise, AI-generated summary of the instruction."
+        },
+        "generatedAt": {
+          "type": "string",
+          "description": "The date and time when the summary was generated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "instructionId",
+        "summaryText",
+        "generatedAt"
+      ]
+    },
+    "ActionItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ActionItem",
+      "type": "object",
+      "description": "Represents an actionable task extracted from a client instruction.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ActionItem entity."
+        },
+        "instructionId": {
+          "type": "string",
+          "description": "Reference to Instruction. (Relationship: Instruction 1:N ActionItem)"
+        },
+        "description": {
+          "type": "string",
+          "description": "A clear description of the actionable task."
+        },
+        "assignedTo": {
+          "type": "string",
+          "description": "The individual or role assigned to complete this action item."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The date by which the action item is expected to be completed.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the action item (e.g., 'pending', 'in progress', 'completed', 'blocked')."
+        },
+        "extractedAt": {
+          "type": "string",
+          "description": "The date and time when the action item was extracted.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "instructionId",
+        "description",
+        "status",
+        "extractedAt"
+      ]
     }
   },
   "auth": {
-    "providers": ["password", "anonymous"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
-    "/users/{userId}": { "schema": { "$ref": "#/backend/entities/User" }, "description": "System user profiles." },
-    "/projects/{projectId}": { "schema": { "$ref": "#/backend/entities/Project" }, "description": "Construction site project metadata." },
-    "/irs-items/{id}": { "schema": { "$ref": "#/backend/entities/IRSItem" }, "description": "Information Required Schedule tracking items." },
-    "/planner-tasks/{id}": { "schema": { "$ref": "#/backend/entities/PlannerTask" }, "description": "Short term construction planning tasks." },
-    "/procurement-items/{id}": { "schema": { "$ref": "#/backend/entities/ProcurementItem" }, "description": "Trade procurement scheduling and tracking." },
-    "/system-settings/{id}": { "schema": { "$ref": "#/backend/entities/SystemSettings" }, "description": "Global app configurations." },
-    "/holiday-requests/{id}": { "schema": { "$ref": "#/backend/entities/HolidayRequest" }, "description": "Staff leave and holiday requests." },
-    "/site-diary/{id}": { "schema": { "$ref": "#/backend/entities/SiteDiaryEntry" }, "description": "Daily site logs and labour records." },
-    "/drawings/{id}": { "schema": { "$ref": "#/backend/entities/DrawingDocument" }, "description": "Project drawings and technical document register." },
-    "/snagging-items/{id}": { "schema": { "$ref": "#/backend/entities/SnaggingItem" }, "description": "Area snagging and defect management lists." },
-    "/toolbox-talk-templates/{id}": { "schema": { "$ref": "#/backend/entities/ToolboxTalkTemplate" }, "description": "Master library of safety briefings." },
-    "/site-photos/{id}": { "schema": { "$ref": "#/backend/entities/SiteProgressPhoto" }, "description": "Standalone site progress photos." }
+    "structure": [
+      {
+        "path": "clients/{clientId}",
+        "definition": {
+          "entityName": "Client",
+          "schema": {
+            "$ref": "#/backend/entities/Client"
+          },
+          "description": "Top-level collection for client entities. Each document includes `ownerId` (UID of creator) and a `members` map for client-specific authorization, facilitating authorization independence.",
+          "params": [
+            {
+              "name": "clientId",
+              "description": "Unique identifier for the client."
+            }
+          ]
+        }
+      },
+      {
+        "path": "projects/{projectId}",
+        "definition": {
+          "entityName": "Project",
+          "schema": {
+            "$ref": "#/backend/entities/Project"
+          },
+          "description": "Top-level collection for construction projects. Documents include `clientId`, and denormalize `clientOwnerId` and `clientMembers` map (from the associated Client) to achieve authorization independence and support QAPs.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "Unique identifier for the project."
+            }
+          ]
+        }
+      },
+      {
+        "path": "instructions/{instructionId}",
+        "definition": {
+          "entityName": "Instruction",
+          "schema": {
+            "$ref": "#/backend/entities/Instruction"
+          },
+          "description": "Top-level collection for client instructions. Documents include `clientId`, `projectId`, and denormalize `clientOwnerId` and `clientMembers` map (from the associated Client) for authorization independence and QAPs.",
+          "params": [
+            {
+              "name": "instructionId",
+              "description": "Unique identifier for the instruction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "instructions/{instructionId}/summaries/{summaryId}",
+        "definition": {
+          "entityName": "InstructionSummary",
+          "schema": {
+            "$ref": "#/backend/entities/InstructionSummary"
+          },
+          "description": "Subcollection for AI-generated summaries of instructions. Documents denormalize `instructionId`, `clientId`, `projectId`, `clientOwnerId`, and `clientMembers` for authorization independence.",
+          "params": [
+            {
+              "name": "instructionId",
+              "description": "Unique identifier of the parent instruction."
+            },
+            {
+              "name": "summaryId",
+              "description": "Unique identifier for the instruction summary."
+            }
+          ]
+        }
+      },
+      {
+        "path": "instructions/{instructionId}/actionItems/{actionItemId}",
+        "definition": {
+          "entityName": "ActionItem",
+          "schema": {
+            "$ref": "#/backend/entities/ActionItem"
+          },
+          "description": "Subcollection for action items extracted from instructions. Documents denormalize `instructionId`, `clientId`, `projectId`, `clientOwnerId`, and `clientMembers` for authorization independence.",
+          "params": [
+            {
+              "name": "instructionId",
+              "description": "Unique identifier of the parent instruction."
+            },
+            {
+              "name": "actionItemId",
+              "description": "Unique identifier for the action item."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure prioritizes **Authorization Independence** and enables **Query-Assisted Path security (QAPs)** by heavily employing denormalization of authorization context. This design minimizes the use of `get()` operations in security rules, making them simpler, more robust, and easier to debug, while supporting atomic writes.\n\n1.  **Clients (`/clients/{clientId}`):** This top-level collection stores client information. Each client document will include an `ownerId` (the UID of the user who created it) and a `members` map (e.g., `{ 'uid1': 'admin', 'uid2': 'viewer' }`). This membership map directly dictates who has access to the client and all its associated projects, instructions, summaries, and action items. This ensures direct, in-document authorization for clients.\n\n2.  **Projects (`/projects/{projectId}`):** Projects are stored in a top-level collection. To maintain **Authorization Independence** from the parent client, each project document will **denormalize** `clientId`, `clientOwnerId`, and the `clientMembers` map from its corresponding client. This means that a project document contains all the necessary authorization information within itself, allowing security rules to evaluate access without needing to `get()` the parent client document. This also directly supports **QAPs** for projects, as rules can check `request.auth.uid in resource.data.clientMembers` for any `list` or `get` operation on `/projects`, enabling secure client-filtered queries without additional server-side logic.\n\n3.  **Instructions (`/instructions/{instructionId}`):** Similar to projects, instructions are stored in a top-level collection. Each instruction document will **denormalize** `clientId`, `projectId`, `clientOwnerId`, and the `clientMembers` map. This ensures that authorization for any instruction can be determined solely by inspecting the instruction document, without requiring a `get()` call to its parent project or client. This again directly supports **QAPs** for instructions, allowing users to efficiently query all instructions belonging to clients or projects they have access to.\n\n4.  **Instruction Summaries (`/instructions/{instructionId}/summaries/{summaryId}`):** Instruction summaries are stored as a subcollection of their parent instruction. To maintain **Authorization Independence**, each summary document will **denormalize** `instructionId`, `clientId`, `projectId`, `clientOwnerId`, and the `clientMembers` map. This ensures that access to a summary can be determined independently from its parent instruction or any higher-level entity.\n\n5.  **Action Items (`/instructions/{instructionId}/actionItems/{actionItemId}`):** Action items are also stored as a subcollection of their parent instruction. Similar to summaries, each action item document will **denormalize** `instructionId`, `clientId`, `projectId`, `clientOwnerId`, and the `clientMembers` map. This allows for straightforward authorization rules that do not rely on `get()` operations.\n\nThis architecture ensures that security rules are simple, looking only at `request.auth.uid` and the `resource.data` of the document being accessed, thereby eliminating complex and often problematic `get()` calls across document hierarchies. It also inherently supports `list` queries with security rules, as all required authorization fields are present in the queried documents, enabling robust and performant data retrieval patterns based on user access."
   }
 }

@@ -1,51 +1,126 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * PROTOTYPE SECURITY RULES:
-     * These rules allow authenticated users (including anonymous ones) to access
-     * all collections for internal site management. 
+     * CORE SECURITY PHILOSOPHY
+     * This ruleset implements a robust "Authorization Independence" model through data denormalization.
+     * 
+     * 1. Denormalization for Performance: Instead of performing costly 'get()' lookups across the document 
+     *    hierarchy to check for parent-level permissions, authorization metadata (owner IDs and member maps) 
+     *    is copied directly onto every child document (Projects, Instructions, Action Items).
+     * 
+     * 2. Shared Access via Maps: Access control is managed through a 'members' map on the documents, 
+     *    enabling efficient 'Query-Assisted Path' (QAP) security. This allows users to perform list queries 
+     *    that automatically filter based on their membership status.
+     * 
+     * 3. Prototyping Flexibility: While authorization is strictly enforced based on the denormalized 
+     *    context, the internal data schema (except for relational IDs and ownership fields) is not 
+     *    validated to allow for rapid frontend development and iteration.
      */
 
+    // --- Helper Functions ---
+
+    /** @description Checks if the request is from an authenticated user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Allow all authenticated access to core collections for prototype development
-    match /users/{userId} { allow read, write: if isSignedIn(); }
-    match /projects/{projectId} { allow read, write: if isSignedIn(); }
-    match /sub-contractors/{subId} { allow read, write: if isSignedIn(); }
-    match /subcontract-orders/{id} { allow read, write: if isSignedIn(); }
-    match /client-instructions/{id} { allow read, write: if isSignedIn(); }
-    match /instructions/{id} { allow read, write: if isSignedIn(); }
-    match /cleanup-notices/{id} { allow read, write: if isSignedIn(); }
-    match /snagging-items/{id} { allow read, write: if isSignedIn(); }
-    match /snagging-items/{id}/history/{historyId} { allow read, write: if isSignedIn(); }
-    match /information-requests/{id} { allow read, write: if isSignedIn(); }
-    match /quality-checklists/{id} { allow read, write: if isSignedIn(); }
-    match /suppliers/{supplierId} { allow read, write: if isSignedIn(); }
-    match /materials/{materialId} { allow read, write: if isSignedIn(); }
-    match /purchase-orders/{orderId} { allow read, write: if isSignedIn(); }
-    match /trades/{tradeId} { allow read, write: if isSignedIn(); }
-    match /permits/{permitId} { allow read, write: if isSignedIn(); }
-    match /permit-templates/{templateId} { allow read, write: if isSignedIn(); }
-    match /plant-orders/{orderId} { allow read, write: if isSignedIn(); }
-    match /variations/{id} { allow read, write: if isSignedIn(); }
-    match /training-records/{id} { allow read, write: if isSignedIn(); }
-    match /training-needs/{id} { allow read, write: if isSignedIn(); }
-    match /payment-notices/{id} { allow read, write: if isSignedIn(); }
-    match /valuation-periods/{id} { allow read, write: if isSignedIn(); }
-    match /invitations/{id} { allow read, write: if isSignedIn(); }
-    match /irs-items/{id} { allow read, write: if isSignedIn(); }
-    match /planner-tasks/{id} { allow read, write: if isSignedIn(); }
-    match /procurement-items/{id} { allow read, write: if isSignedIn(); }
-    match /system-settings/{id} { allow read, write: if isSignedIn(); }
-    match /holiday-requests/{id} { allow read, write: if isSignedIn(); }
-    match /site-diary/{id} { allow read, write: if isSignedIn(); }
-    match /drawings/{id} { allow read, write: if isSignedIn(); }
-    match /toolbox-talk-templates/{id} { allow read, write: if isSignedIn(); }
-    match /site-photos/{id} { allow read, write: if isSignedIn(); }
+    /** @description Checks if the user's UID matches the provided owner ID. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** @description Checks if the user is a member of the document based on a denormalized members map. */
+    function isMember(membersMap) {
+      return isSignedIn() && membersMap != null && request.auth.uid in membersMap;
+    }
+
+    /** @description Combined check for ownership or membership. */
+    function hasAccess(ownerId, membersMap) {
+      return isOwner(ownerId) || isMember(membersMap);
+    }
+
+    /** @description Validates relational integrity: path ID must match internal data ID. */
+    function matchesPath(id, internalId) {
+      return internalId == id;
+    }
+
+    /** @description Ensures the document exists before performing update/delete operations. */
+    function existsAndAuthorized(ownerId, membersMap) {
+      return resource != null && hasAccess(ownerId, membersMap);
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for the Client collection. The creator becomes the owner.
+     * @path /clients/{clientId}
+     * @allow (get) If user is the owner or listed in the members map.
+     * @deny (list) If user is not authenticated or not a member/owner of any client.
+     * @principle Ownership and Shared Access (Map-based).
+     */
+    match /clients/{clientId} {
+      allow get, list: if hasAccess(resource.data.ownerId, resource.data.members);
+      allow create: if isSignedIn() && isOwner(request.resource.data.ownerId) && matchesPath(clientId, request.resource.data.id);
+      allow update: if existsAndAuthorized(resource.data.ownerId, resource.data.members) && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if existsAndAuthorized(resource.data.ownerId, resource.data.members);
+    }
+
+    /**
+     * @description Rules for Projects. Inherits access via denormalized client authorization fields.
+     * @path /projects/{projectId}
+     * @allow (create) If the user is the clientOwnerId or a member of clientMembers.
+     * @deny (update) If user attempts to change the clientOwnerId or clientId.
+     * @principle Authorization Independence via denormalization.
+     */
+    match /projects/{projectId} {
+      allow get, list: if hasAccess(resource.data.clientOwnerId, resource.data.clientMembers);
+      allow create: if isSignedIn() && hasAccess(request.resource.data.clientOwnerId, request.resource.data.clientMembers) && matchesPath(projectId, request.resource.data.id);
+      allow update: if existsAndAuthorized(resource.data.clientOwnerId, resource.data.clientMembers) && request.resource.data.clientOwnerId == resource.data.clientOwnerId && request.resource.data.clientId == resource.data.clientId;
+      allow delete: if existsAndAuthorized(resource.data.clientOwnerId, resource.data.clientMembers);
+    }
+
+    /**
+     * @description Rules for Instructions. Access is dictated by denormalized Client ownership/membership.
+     * @path /instructions/{instructionId}
+     * @allow (list) Automatically filters to instructions where user is in clientMembers.
+     * @deny (create) If the recordedByUserId does not match the authenticated user.
+     * @principle Relational Integrity and Shared Access.
+     */
+    match /instructions/{instructionId} {
+      allow get, list: if hasAccess(resource.data.clientOwnerId, resource.data.clientMembers);
+      allow create: if isSignedIn() && isOwner(request.resource.data.recordedByUserId) && hasAccess(request.resource.data.clientOwnerId, request.resource.data.clientMembers) && matchesPath(instructionId, request.resource.data.id);
+      allow update: if existsAndAuthorized(resource.data.clientOwnerId, resource.data.clientMembers) && request.resource.data.clientOwnerId == resource.data.clientOwnerId;
+      allow delete: if existsAndAuthorized(resource.data.clientOwnerId, resource.data.clientMembers);
+
+      /**
+       * @description Rules for Summaries subcollection. Fully independent authorization.
+       * @path /instructions/{instructionId}/summaries/{summaryId}
+       * @allow (get) If user has client-level access denormalized on the summary.
+       * @deny (create) If instructionId in path does not match denormalized instructionId in data.
+       * @principle Authorization Independence.
+       */
+      match /summaries/{summaryId} {
+        allow get, list: if hasAccess(resource.data.clientOwnerId, resource.data.clientMembers);
+        allow create: if isSignedIn() && hasAccess(request.resource.data.clientOwnerId, request.resource.data.clientMembers) && matchesPath(summaryId, request.resource.data.id) && request.resource.data.instructionId == instructionId;
+        allow update: if existsAndAuthorized(resource.data.clientOwnerId, resource.data.clientMembers) && request.resource.data.instructionId == resource.data.instructionId;
+        allow delete: if existsAndAuthorized(resource.data.clientOwnerId, resource.data.clientMembers);
+      }
+
+      /**
+       * @description Rules for ActionItems subcollection.
+       * @path /instructions/{instructionId}/actionItems/{actionItemId}
+       * @allow (update) By any authorized client member (e.g., to change status).
+       * @deny (delete) If the document does not exist.
+       * @principle Shared Access (Closed Collaborators).
+       */
+      match /actionItems/{actionItemId} {
+        allow get, list: if hasAccess(resource.data.clientOwnerId, resource.data.clientMembers);
+        allow create: if isSignedIn() && hasAccess(request.resource.data.clientOwnerId, request.resource.data.clientMembers) && matchesPath(actionItemId, request.resource.data.id) && request.resource.data.instructionId == instructionId;
+        allow update: if existsAndAuthorized(resource.data.clientOwnerId, resource.data.clientMembers) && request.resource.data.instructionId == resource.data.instructionId;
+        allow delete: if existsAndAuthorized(resource.data.clientOwnerId, resource.data.clientMembers);
+      }
+    }
   }
 }
