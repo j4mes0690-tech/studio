@@ -197,6 +197,11 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
         return;
     }
 
+    if (isIssuing && !allUsers) {
+        toast({ title: 'System Loading', description: 'User registry is still syncing. Please wait a moment and try again.', variant: 'destructive' });
+        return;
+    }
+
     startTransition(async () => {
       try {
         toast({ title: 'Processing', description: 'Updating records and visual documentation...' });
@@ -268,17 +273,24 @@ export function EditSnaggingItem({ item, projects, subContractors }: { item: Sna
                     const pdfBase64 = pdf.output('datauristring').split(',')[1];
                     const fileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${values.title.replace(/\s+/g, '-')}.pdf`;
 
-                    for (const email of recipientEmails) {
-                        await sendSubcontractorReportAction({
-                            email,
-                            name: sub.name,
-                            projectName: selectedProject?.name || 'Project',
-                            areaName: area?.name || 'General Area',
-                            pdfBase64,
-                            fileName
+                    const result = await sendSubcontractorReportAction({
+                        email: sub.email,
+                        name: sub.name,
+                        projectName: selectedProject?.name || 'Project',
+                        areaName: area?.name || 'General Area',
+                        pdfBase64,
+                        fileName
+                    });
+
+                    if (result.success) {
+                        sentCount++;
+                    } else {
+                        toast({ 
+                            title: `Report Failed (${sub.name})`, 
+                            description: result.message || 'Check your email configuration.', 
+                            variant: 'destructive' 
                         });
                     }
-                    sentCount++;
                 }
             }
             if (sentCount > 0) {

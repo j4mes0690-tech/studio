@@ -34,13 +34,32 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { PlusCircle, Camera, Upload, X, Trash2, Plus, UserPlus, User, RefreshCw, Loader2, Save, CheckCircle2, Send, Pencil, Check, Circle, Link as LinkIcon, CloudUpload } from 'lucide-react';
+import { 
+  PlusCircle, 
+  Camera, 
+  Upload, 
+  X, 
+  Trash2, 
+  Plus, 
+  UserPlus, 
+  User, 
+  RefreshCw, 
+  Loader2, 
+  Save, 
+  CheckCircle2, 
+  Send, 
+  Pencil, 
+  Check, 
+  Circle, 
+  Link as LinkIcon, 
+  CloudUpload 
+} from 'lucide-react';
 import type { Project, Photo, Area, SnaggingListItem, SubContractor, DistributionUser, SnaggingItem } from '@/lib/types';
-import { useFirestore, useStorage, useDoc, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirestore, useStorage, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
-import { getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
+import { cn, getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
 import { CameraOverlay } from '@/components/camera-overlay';
 import { generateSnaggingPDF } from '@/lib/pdf-utils';
 import { sendSubcontractorReportAction } from './actions';
@@ -126,7 +145,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
       description: newItemText.trim() || 'No description',
       status: 'open',
       photos: [...pendingItemPhotos],
-      subContractorId: pendingSubId || null,
+      subContractorId: pendingSubId === 'unassigned' ? null : pendingSubId,
       completionPhotos: []
     };
 
@@ -175,6 +194,11 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
 
     if (items.length === 0) {
         toast({ title: 'List Empty', description: 'Add at least one snagging item before saving.', variant: 'destructive' });
+        return;
+    }
+
+    if (isIssuing && !allUsers) {
+        toast({ title: 'System Loading', description: 'User registry is still syncing. Please wait a moment and try again.', variant: 'destructive' });
         return;
     }
 
@@ -255,17 +279,24 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                     const pdfBase64 = pdf.output('datauristring').split(',')[1];
                     const fileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${values.title.replace(/\s+/g, '-')}.pdf`;
 
-                    for (const email of recipientEmails) {
-                        await sendSubcontractorReportAction({
-                            email,
-                            name: sub.name,
-                            projectName: selectedProject?.name || 'Project',
-                            areaName: area?.name || 'General Area',
-                            pdfBase64,
-                            fileName
+                    const result = await sendSubcontractorReportAction({
+                        email: sub.email,
+                        name: sub.name,
+                        projectName: selectedProject?.name || 'Project',
+                        areaName: area?.name || 'General Area',
+                        pdfBase64,
+                        fileName
+                    });
+
+                    if (result.success) {
+                        sentCount++;
+                    } else {
+                        toast({ 
+                            title: `Send Failed (${sub.name})`, 
+                            description: result.message || 'Check your email configuration.', 
+                            variant: 'destructive' 
                         });
                     }
-                    sentCount++;
                 }
             }
             if (sentCount > 0) {
