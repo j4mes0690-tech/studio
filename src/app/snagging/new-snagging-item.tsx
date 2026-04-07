@@ -391,7 +391,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                       <FormLabel>Project</FormLabel>
                                       <Select onValueChange={field.onChange} value={field.value}>
                                           <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
-                                          <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                          <SelectContent position="popper">{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                                       </Select>
                                   </FormItem>
                               )} />
@@ -402,7 +402,8 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                       <FormControl>
                                         <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
                                       </FormControl>
-                                      <SelectContent>
+                                      <SelectContent position="popper">
+                                        <SelectItem value="none">General Site</SelectItem>
                                         {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                                         {availableAreas.length > 0 && <Separator className="my-1" />}
                                         <SelectItem value="other">Other / Not Listed</SelectItem>
@@ -417,7 +418,10 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                       </div>
 
                       <div className="space-y-4">
-                          <div className="flex justify-between items-center"><FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Identify Defects</FormLabel><VoiceInput onResult={setNewItemText} /></div>
+                          <div className="flex justify-between items-center">
+                              <Label className="text-xs font-black uppercase text-muted-foreground tracking-widest">Identify Defects</Label>
+                              <VoiceInput onResult={setNewItemText} />
+                          </div>
                           <div className="flex gap-2 items-end bg-background p-4 rounded-xl border shadow-sm">
                               <div className="flex-1 space-y-2">
                                   <div className="flex justify-between items-center">
@@ -435,7 +439,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                               ) : <UserPlus className="h-4 w-4 text-primary" />}
                                           </div>
                                       </SelectTrigger>
-                                      <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                      <SelectContent position="popper"><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                   </Select>
                                   <Button type="button" variant="outline" className="h-11" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
                                   <Button type="button" size="icon" className="h-11 rounded-lg" onClick={handleAddItem} disabled={isPending}>
@@ -463,7 +467,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                               <div className="flex justify-between items-center">
                                                   <Select value={editItemSubId || 'unassigned'} onValueChange={setEditItemSubId}>
                                                       <SelectTrigger className="w-40 h-8 text-[10px] uppercase font-bold"><SelectValue placeholder="Assign" /></SelectTrigger>
-                                                      <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                                      <SelectContent position="popper"><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                                   </Select>
                                                   <div className="flex gap-1">
                                                       <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setItemPhotoTargetIdx(idx)}><Camera className="h-4 w-4" /></Button>

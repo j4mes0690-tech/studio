@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -70,7 +69,7 @@ export function SnaggingFilters({ projects }: SnaggingFiltersProps) {
           <SelectTrigger>
             <SelectValue placeholder="Filter by project..." />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             <SelectItem value="all">All Projects</SelectItem>
             {projects.map((project) => (
               <SelectItem key={project.id} value={project.id}>
@@ -90,7 +89,7 @@ export function SnaggingFilters({ projects }: SnaggingFiltersProps) {
           <SelectTrigger>
             <SelectValue placeholder="Filter by area..." />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             <SelectItem value="all">All Areas</SelectItem>
             {projectAreas.map((area) => (
               <SelectItem key={area.id} value={area.id}>

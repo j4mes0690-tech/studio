@@ -84,7 +84,7 @@ const sanitizeSnagItem = (itm: any): SnaggingListItem => ({
     description: itm.description || 'No description',
     status: itm.status || 'open',
     photos: (itm.photos || []).map(sanitizePhoto),
-    subContractorId: itm.subContractorId || null,
+    subContractorId: (itm.subContractorId === 'unassigned' || !itm.subContractorId) ? null : itm.subContractorId,
     subContractorComment: itm.subContractorComment || null,
     completionPhotos: (itm.completionPhotos || []).map(sanitizePhoto),
     provisionallyCompletedAt: itm.provisionallyCompletedAt || null,
@@ -368,14 +368,16 @@ function EditSnaggingContent() {
                                     <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Project</Label>
                                     <Select value={localProjectId} onValueChange={setLocalProjectId}>
                                         <SelectTrigger className="bg-background h-10"><SelectValue /></SelectTrigger>
-                                        <SelectContent>{allowedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                        <SelectContent position="popper">
+                                            {allowedProjects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                        </SelectContent>
                                     </Select>
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Area / Plot</Label>
                                     <Select value={localAreaId} onValueChange={setLocalAreaId}>
                                         <SelectTrigger className="bg-background h-10"><SelectValue /></SelectTrigger>
-                                        <SelectContent>
+                                        <SelectContent position="popper">
                                             <SelectItem value="site-wide">General Site</SelectItem>
                                             {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                                             <Separator className="my-1" /><SelectItem value="other">Manual Entry</SelectItem>
@@ -414,7 +416,10 @@ function EditSnaggingContent() {
                                     <SelectTrigger className="w-10 md:w-40 bg-background h-11 px-2 justify-center">
                                         {pendingSubId !== 'unassigned' ? <Badge variant="secondary" className="hidden md:block h-6 text-[9px] font-black max-w-[100px] truncate uppercase">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge> : <UserPlus className="h-4 w-4 text-primary" />}
                                     </SelectTrigger>
-                                    <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                    <SelectContent position="popper">
+                                        <SelectItem value="unassigned">Unassigned</SelectItem>
+                                        {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                    </SelectContent>
                                 </Select>
                                 <Button variant="outline" className="h-11" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
                                 <Button onClick={handleAddItem} disabled={!newItemText.trim() && pendingItemPhotos.length === 0} className="h-11 w-11"><Plus className="h-5 w-5" /></Button>
@@ -446,7 +451,7 @@ function EditSnaggingContent() {
                                             <div className="flex justify-between items-center gap-4">
                                                 <Select value={editItemSubId} onValueChange={setEditItemSubId}>
                                                     <SelectTrigger className="w-full sm:w-64 bg-background h-9 text-xs"><SelectValue /></SelectTrigger>
-                                                    <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                                    <SelectContent position="popper"><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                                 </Select>
                                                 <div className="flex gap-2">
                                                     <Button variant="outline" size="sm" onClick={() => { setItemPhotoTargetId(listItem.id); setIsItemCameraOpen(true); }} className="h-9 gap-2"><Camera className="h-4 w-4" /> Evidence</Button>
