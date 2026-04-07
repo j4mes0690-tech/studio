@@ -32,7 +32,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { 
   PlusCircle, 
@@ -42,7 +41,6 @@ import {
   Trash2, 
   Plus, 
   UserPlus, 
-  User, 
   RefreshCw, 
   Loader2, 
   Save, 
@@ -51,7 +49,6 @@ import {
   Pencil, 
   Check, 
   Circle, 
-  Link as LinkIcon, 
   CloudUpload,
   AlertTriangle 
 } from 'lucide-react';
@@ -59,7 +56,7 @@ import type { Project, Photo, Area, SnaggingListItem, SubContractor, Distributio
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useFirestore, useStorage, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { VoiceInput } from '@/components/voice-input';
 import { uploadFile, dataUriToBlob, optimizeImage } from '@/lib/storage-utils';
 import { cn, getProjectInitials, getNextReference, getPartnerEmails, scrollToFirstError } from '@/lib/utils';
@@ -94,10 +91,10 @@ const sanitizeSnagItem = (itm: any): SnaggingListItem => ({
     id: itm.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
     description: itm.description || 'No description',
     status: itm.status || 'open',
-    photos: itm.photos || [],
+    photos: (itm.photos || []).map((p: any) => ({ url: p.url || '', takenAt: p.takenAt || new Date().toISOString() })),
     subContractorId: itm.subContractorId || null,
     subContractorComment: itm.subContractorComment || null,
-    completionPhotos: itm.completionPhotos || [],
+    completionPhotos: (itm.completionPhotos || []).map((p: any) => ({ url: p.url || '', takenAt: p.takenAt || new Date().toISOString() })),
     provisionallyCompletedAt: itm.provisionallyCompletedAt || null,
     closedAt: itm.closedAt || null
 });
@@ -107,7 +104,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   const { toast } = useToast();
   const db = useFirestore();
   const storage = useStorage();
-  const { user: sessionUser, email: sessionEmail } = useUser();
+  const { email: sessionEmail } = useUser();
   
   const [isPending, startTransition] = useTransition();
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -242,7 +239,14 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
 
     startTransition(async () => {
       try {
-        toast({ title: 'Recording', description: 'Processing visual documentation...' });
+        // 1. Check for existing list in this area to enforce "One List Per Area" rule
+        const normalizedAreaId = values.areaId === 'none' ? null : (values.areaId || null);
+        const existingList = allSnaggingLists.find(l => 
+            l.projectId === values.projectId && 
+            l.areaId === normalizedAreaId
+        );
+
+        toast({ title: existingList ? 'Merging Records' : 'Recording', description: 'Processing visual documentation...' });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -271,27 +275,39 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
             });
         }));
 
-        const initials = getProjectInitials(selectedProject?.name || 'PRJ');
-        const existingRefs = allSnaggingLists.map(l => ({ reference: l.reference, projectId: l.projectId }));
-        const reference = getNextReference(existingRefs, values.projectId, 'SNAG', initials);
-
         const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : values.status);
 
-        const snagData = {
-          reference,
-          projectId: values.projectId,
-          areaId: values.areaId === 'other' ? null : (values.areaId || null),
-          title: values.title,
-          description: values.description || null,
-          items: uploadedItems,
-          photos: uploadedPhotos,
-          status: targetStatus,
-          createdAt: new Date().toISOString(),
-          createdByEmail: sessionEmail || 'Unknown'
-        };
+        if (existingList) {
+            // MERGE Logic
+            const docRef = doc(db, 'snagging-items', existingList.id);
+            await updateDoc(docRef, {
+                items: arrayUnion(...uploadedItems),
+                photos: arrayUnion(...uploadedPhotos),
+                status: targetStatus === 'issued' ? 'issued' : existingList.status
+            });
+            toast({ title: 'Items Merged', description: `Added to existing list for ${existingList.title}.` });
+        } else {
+            // CREATE Logic
+            const initials = getProjectInitials(selectedProject?.name || 'PRJ');
+            const existingRefs = allSnaggingLists.map(l => ({ reference: l.reference, projectId: l.projectId }));
+            const reference = getNextReference(existingRefs, values.projectId, 'SNAG', initials);
 
-        await addDoc(collection(db, 'snagging-items'), snagData);
-        toast({ title: 'Success', description: isDrafting ? 'Draft snag list saved.' : 'Snagging record created.' });
+            const snagData = {
+              reference,
+              projectId: values.projectId,
+              areaId: normalizedAreaId,
+              title: values.title,
+              description: values.description || null,
+              items: uploadedItems,
+              photos: uploadedPhotos,
+              status: targetStatus,
+              createdAt: new Date().toISOString(),
+              createdByEmail: sessionEmail || 'Unknown'
+            };
+
+            await addDoc(collection(db, 'snagging-items'), snagData);
+            toast({ title: 'Success', description: isDrafting ? 'Draft snag list saved.' : 'Snagging record created.' });
+        }
 
         if (isIssuing && allUsers) {
             toast({ title: 'Distributing', description: 'Generating trade-specific reports...' });
@@ -354,14 +370,6 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
     });
   };
 
-  useEffect(() => {
-    if (!open) {
-      setPhotos([]);
-      setItems([]);
-      form.reset();
-    }
-  }, [open, form]);
-
   const localUnsyncedCount = items.reduce((acc, itm) => acc + (itm.photos || []).length, 0) + photos.length;
 
   return (
@@ -423,11 +431,21 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                       <div className="space-y-4">
                           <div className="flex justify-between items-center"><FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Identify Defects</FormLabel><VoiceInput onResult={setNewItemText} /></div>
                           <div className="flex gap-2 items-end bg-background p-4 rounded-xl border shadow-sm">
-                              <div className="flex-1"><Input placeholder="Describe the issue..." value={newItemText} onChange={e => setNewItemText(e.target.value)} className="h-11 border-none shadow-none focus-visible:ring-0 px-0" /></div>
+                              <div className="flex-1 space-y-2">
+                                  <div className="flex justify-between items-center">
+                                      <Label className="text-[10px] font-bold">New Defect</Label>
+                                      <VoiceInput onResult={setNewItemText} />
+                                  </div>
+                                  <Input placeholder="Describe the issue..." value={newItemText} onChange={e => setNewItemText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddItem(); }}} className="bg-background" />
+                              </div>
                               <div className="flex gap-1">
-                                  <Select value={pendingSubId || 'unassigned'} onValueChange={v => setPendingSubId(v === 'unassigned' ? undefined : v)}>
+                                  <Select value={pendingSubId || 'unassigned'} onValueChange={setPendingSubId}>
                                       <SelectTrigger className={cn("px-2 border-none h-11 transition-all", pendingSubId ? "w-auto" : "w-10 justify-center")}>
-                                          {pendingSubId ? <Badge variant="secondary" className="hidden md:block h-6 text-[9px] font-black max-w-[100px] truncate uppercase">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge> : <UserPlus className="h-4 w-4 text-primary" />}
+                                          <div className="flex items-center gap-2">
+                                              {pendingSubId !== 'unassigned' && pendingSubId ? (
+                                                  <Badge variant="secondary" className="hidden md:block h-6 text-[9px] font-black max-w-[100px] truncate uppercase">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge>
+                                              ) : <UserPlus className="h-4 w-4 text-primary" />}
+                                          </div>
                                       </SelectTrigger>
                                       <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                   </Select>
@@ -455,7 +473,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                           <div className="space-y-4">
                                               <Input value={editItemText} onChange={e => setEditItemText(e.target.value)} className="h-9" autoFocus />
                                               <div className="flex justify-between items-center">
-                                                  <Select value={editItemSubId || 'unassigned'} onValueChange={v => setEditItemSubId(v === 'unassigned' ? undefined : v)}>
+                                                  <Select value={editItemSubId || 'unassigned'} onValueChange={setEditItemSubId}>
                                                       <SelectTrigger className="w-40 h-8 text-[10px] uppercase font-bold"><SelectValue placeholder="Assign" /></SelectTrigger>
                                                       <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                                   </Select>
@@ -533,7 +551,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                             disabled={isPending} 
                             onClick={() => { setSubmitMode('issue'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
-                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Save & Send Reports
+                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Sync & Send Reports
                         </Button>
                     </div>
                   </form>

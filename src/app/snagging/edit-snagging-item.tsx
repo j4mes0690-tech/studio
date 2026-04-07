@@ -52,7 +52,7 @@ import {
 } from 'lucide-react';
 import type { Project, SnaggingItem, SnaggingListItem, DistributionUser, Photo, SubContractor, Area } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc, collection } from 'firebase/firestore';
+import { doc, updateDoc, collection, arrayUnion, deleteDoc } from 'firebase/firestore';
 import { uploadFile, dataUriToBlob } from '@/lib/storage-utils';
 import { Separator } from '@/components/ui/separator';
 import { VoiceInput } from '@/components/voice-input';
@@ -77,7 +77,7 @@ const EditSnaggingListSchema = z.object({
   areaId: z.string().optional(),
   title: z.string().min(3, 'List title is required.'),
   description: z.string().optional(),
-  status: z.enum(['draft', 'issued']).default('issued'),
+  status: z.enum(['draft', 'issued', 'closed']).default('issued'),
 });
 
 type EditSnaggingListFormValues = z.infer<typeof EditSnaggingListSchema>;
@@ -89,18 +89,19 @@ const sanitizeSnagItem = (itm: any): SnaggingListItem => ({
     id: itm.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
     description: itm.description || 'No description',
     status: itm.status || 'open',
-    photos: itm.photos || [],
+    photos: (itm.photos || []).map((p: any) => ({ url: p.url || '', takenAt: p.takenAt || new Date().toISOString() })),
     subContractorId: itm.subContractorId || null,
     subContractorComment: itm.subContractorComment || null,
-    completionPhotos: itm.completionPhotos || [],
+    completionPhotos: (itm.completionPhotos || []).map((p: any) => ({ url: p.url || '', takenAt: p.takenAt || new Date().toISOString() })),
     provisionallyCompletedAt: itm.provisionallyCompletedAt || null,
     closedAt: itm.closedAt || null
 });
 
-export function EditSnaggingItem({ item, projects, subContractors }: { 
+export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLists }: { 
   item: SnaggingItem; 
   projects: Project[]; 
   subContractors: SubContractor[];
+  allSnaggingLists: SnaggingItem[];
 }) {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
@@ -243,14 +244,17 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
         return;
     }
 
-    if (isIssuing && !allUsers) {
-        toast({ title: 'System Loading', description: 'User registry is still syncing. Please wait a moment and try again.', variant: 'destructive' });
-        return;
-    }
-
     startTransition(async () => {
       try {
-        toast({ title: 'Processing', description: 'Updating records and visual documentation...' });
+        // Check if changing area to one that already has a list
+        const normalizedAreaId = values.areaId === 'none' ? null : (values.areaId || null);
+        const existingList = allSnaggingLists.find(l => 
+            l.projectId === values.projectId && 
+            l.areaId === normalizedAreaId && 
+            l.id !== item.id
+        );
+
+        toast({ title: existingList ? 'Merging with existing area list' : 'Updating', description: 'Processing visual documentation...' });
 
         const uploadedPhotos = await Promise.all(
           photos.map(async (p, i) => {
@@ -281,19 +285,31 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
 
         const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : values.status);
 
-        const docRef = doc(db, 'snagging-items', item.id);
-        const updates: any = {
-          projectId: values.projectId,
-          areaId: values.areaId === 'none' ? null : (values.areaId || null),
-          title: values.title,
-          description: values.description || null,
-          items: uploadedItems,
-          photos: uploadedPhotos,
-          status: targetStatus
-        };
-
-        await updateDoc(docRef, updates);
-        toast({ title: 'Success', description: 'Snagging list updated successfully.' });
+        if (existingList) {
+            // MERGE with target area list and DELETE this one
+            const targetDocRef = doc(db, 'snagging-items', existingList.id);
+            await updateDoc(targetDocRef, {
+                items: arrayUnion(...uploadedItems),
+                photos: arrayUnion(...uploadedPhotos),
+                status: targetStatus === 'issued' ? 'issued' : existingList.status
+            });
+            await deleteDoc(doc(db, 'snagging-items', item.id));
+            toast({ title: 'Lists Consolidated', description: `Items merged into ${existingList.title}.` });
+        } else {
+            // Standard update
+            const docRef = doc(db, 'snagging-items', item.id);
+            const updates: any = {
+              projectId: values.projectId,
+              areaId: normalizedAreaId,
+              title: values.title,
+              description: values.description || null,
+              items: uploadedItems,
+              photos: uploadedPhotos,
+              status: targetStatus
+            };
+            await updateDoc(docRef, updates);
+            toast({ title: 'Success', description: 'Snagging list updated.' });
+        }
 
         if (isIssuing && allUsers) {
             toast({ title: 'Distributing', description: 'Sending reports to partners...' });
@@ -319,7 +335,7 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
                             snag
                         })),
                         generalPhotos: uploadedPhotos,
-                        scopeLabel: `Trade: ${sub.name} (Outstanding Items)`
+                        scopeLabel: `Trade: ${sub.name} (Update)`
                     });
 
                     const pdfBase64 = pdf.output('datauristring').split(',')[1];
@@ -336,17 +352,11 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
 
                     if (result.success) {
                         sentCount++;
-                    } else {
-                        toast({ 
-                            title: `Report Failed (${sub.name})`, 
-                            description: result.message || 'Check your email configuration.', 
-                            variant: 'destructive' 
-                        });
                     }
                 }
             }
             if (sentCount > 0) {
-                toast({ title: 'Distribution Complete', description: `${sentCount} trade reports sent.` });
+                toast({ title: 'Reports Issued', description: `${sentCount} trade partners notified.` });
             }
         }
 
@@ -429,9 +439,9 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
                           </div>
                           <div className="flex gap-1">
                               <Select value={pendingSubId || 'unassigned'} onValueChange={setPendingSubId}>
-                                  <SelectTrigger className="w-40 bg-background h-11 px-2 justify-center">
+                                  <SelectTrigger className={cn("px-2 border-none h-11 transition-all", pendingSubId && pendingSubId !== 'unassigned' ? "w-auto" : "w-10 justify-center")}>
                                       <div className="flex items-center gap-2">
-                                          {pendingSubId !== 'unassigned' ? (
+                                          {pendingSubId !== 'unassigned' && pendingSubId ? (
                                               <Badge variant="secondary" className="hidden md:block h-6 text-[9px] font-black max-w-[100px] truncate uppercase">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge>
                                           ) : <UserPlus className="h-4 w-4 text-primary" />}
                                       </div>
@@ -599,8 +609,6 @@ export function EditSnaggingItem({ item, projects, subContractors }: {
         onCapture={onCaptureItem}
         title="Specific Defect Documentation"
       />
-
-      <ImageLightbox photo={viewingPhoto} onClose={() => setViewingPhoto(null)} />
-    </>
+    </Dialog>
   );
 }

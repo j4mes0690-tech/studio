@@ -113,7 +113,7 @@ function SnaggingContent() {
         if (hasFullVisibility || profile.userType === 'internal') return true;
 
         // For partners, only show if at least one item in the list is assigned to their company
-        return subId ? list.items.some(item => item.subContractorId === subId) : false;
+        return subId ? (list.items || []).some(item => item.subContractorId === subId) : false;
     }).filter(item => {
         const matchesProject = projectId ? item.projectId === projectId : true;
         const matchesArea = areaId ? (areaId === 'other' ? (!item.areaId || item.areaId === 'other') : item.areaId === areaId) : true;
