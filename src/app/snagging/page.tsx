@@ -6,6 +6,7 @@ import { NewSnaggingItem } from './new-snagging-item';
 import { SnaggingFilters } from './snagging-filters';
 import { SnaggingTable } from './snagging-table';
 import { ProjectReportButton } from './project-report-button';
+import { ConsolidateListsButton } from './consolidate-lists-button';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useMemo, useState, useEffect, Suspense } from 'react';
 import type { SnaggingItem, Project, SubContractor, DistributionUser } from '@/lib/types';
@@ -154,7 +155,7 @@ function SnaggingContent() {
 
   const isLoading = projectsLoading || snaggingLoading || subsLoading || profileLoading;
 
-  if (isLoading && !allItems) {
+  if (isLoading && !allChecklists) {
     return (
         <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -191,6 +192,10 @@ function SnaggingContent() {
               subContractors={subContractors || []} 
               allSnaggingLists={allItems || []}
             />
+
+            {profile?.permissions?.hasFullVisibility && (
+                <ConsolidateListsButton allLists={allItems || []} profile={profile} />
+            )}
 
             {allowedProjects.length > 0 && (
               <ProjectReportButton 

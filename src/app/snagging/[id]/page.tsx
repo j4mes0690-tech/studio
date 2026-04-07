@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState, useEffect, useTransition, Suspense } from 'react';
 import { Header } from '@/components/layout/header';
 import { Button } from '@/components/ui/button';
@@ -229,6 +229,15 @@ function EditSnaggingContent() {
     setLocalItems(prev => prev.map(i => i.id === itemId ? { ...i, status: (i.status === 'open' ? 'closed' : 'open') as any } : i));
   };
 
+  const handleRemovePhoto = (itemId: string, photoIdx: number) => {
+    setLocalItems(prev => prev.map(itm => {
+        if (itm.id === itemId) {
+            return { ...itm, photos: (itm.photos || []).filter((_, i) => i !== photoIdx) };
+        }
+        return itm;
+    }));
+  };
+
   const onCaptureGeneral = (photo: Photo) => setLocalPhotos(prev => [...prev, sanitizePhoto(photo)]);
 
   const onCaptureItem = (photo: Photo) => {
@@ -449,7 +458,7 @@ function EditSnaggingContent() {
                                             </div>
                                             <div className="flex flex-wrap gap-2 pt-2">
                                                 {(listItem.photos || []).map((p, pIdx) => (
-                                                    <div key={pIdx} className="relative w-20 h-16 rounded-md border-2 border-primary/10 overflow-hidden group/img cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}><Image src={p.url} alt="Defect" fill className="object-cover" /><button className="absolute top-0 right-0 bg-destructive text-white p-1" onClick={(e) => { e.stopPropagation(); setLocalItems(prev => prev.map(itm => itm.id === listItem.id ? { ...itm, photos: (itm.photos || []).filter((_, i) => i !== pIdx) } : itm)); }}><X className="h-3 w-3" /></button></div>
+                                                    <div key={pIdx} className="relative w-20 h-16 rounded-md border-2 border-primary/10 overflow-hidden group/img cursor-pointer" onClick={(e) => { e.stopPropagation(); setViewingPhoto(p); }}><Image src={p.url} alt="Defect" fill className="object-cover" /><button className="absolute top-0 right-0 bg-destructive text-white p-1" onClick={(e) => { e.stopPropagation(); handleRemovePhoto(listItem.id, pIdx); }}><X className="h-3 w-3" /></button></div>
                                                 ))}
                                             </div>
                                         </div>
@@ -528,7 +537,7 @@ function EditSnaggingContent() {
               <div className='flex-1 overflow-y-auto px-6 py-4'>
                   <div className="space-y-4">
                       {viewingHistoryRecord?.items.map((histItem, idx) => (
-                          <div key={idx} className="p-3 border rounded-lg bg-background flex items-center justify-between"><span className={cn("text-sm font-medium", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span><Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold'>{histItem.status?.toUpperCase()}</Badge></div>
+                          <div key={idx} className="p-3 border rounded-lg bg-background flex items-center justify-between"><span className={cn("text-sm font-medium", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span><Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold'>{histStatus.toUpperCase()}</Badge></div>
                       ))}
                   </div>
               </div>

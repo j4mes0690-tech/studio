@@ -93,7 +93,7 @@ const sanitizeSnagItem = (itm: any): SnaggingListItem => ({
     description: itm.description || 'No description',
     status: itm.status || 'open',
     photos: (itm.photos || []).map((p: any) => ({ url: p.url || '', takenAt: p.takenAt || new Date().toISOString() })),
-    subContractorId: itm.subContractorId || null,
+    subContractorId: (itm.subContractorId === 'unassigned' || !itm.subContractorId) ? null : itm.subContractorId,
     subContractorComment: itm.subContractorComment || null,
     completionPhotos: (itm.completionPhotos || []).map((p: any) => ({ url: p.url || '', takenAt: p.takenAt || new Date().toISOString() })),
     provisionallyCompletedAt: itm.provisionallyCompletedAt || null,
