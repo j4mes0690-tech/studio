@@ -240,10 +240,6 @@ function EditSnaggingContent() {
     }
   };
 
-  /**
-   * handleSyncToCloud - Performs the data persistence.
-   * If redirectPath is provided, navigates after successful save.
-   */
   const handleSyncToCloud = (redirectPath?: string) => {
     if (!snagRef) return;
     startTransition(async () => {
@@ -281,7 +277,7 @@ function EditSnaggingContent() {
           areaId: localAreaId === 'none' ? null : (localAreaId || null), 
           items: syncedItems, 
           photos: syncedGlobalPhotos,
-          status: 'draft' // Ensure it remains/becomes a draft when stashing
+          status: 'draft' 
         };
         
         await updateDoc(snagRef, updates);
@@ -300,8 +296,7 @@ function EditSnaggingContent() {
   };
 
   const handleBackToLog = () => {
-    // If there's staged data, sync it as a draft before leaving
-    if (unsyncedCount > 0 || localTitle !== item.title || localItems.length !== item.items?.length) {
+    if (unsyncedCount > 0 || localTitle !== item.title || localItems.length !== (item.items?.length || 0)) {
         handleSyncToCloud('/snagging');
     } else {
         router.push('/snagging');

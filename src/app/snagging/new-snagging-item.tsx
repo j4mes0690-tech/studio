@@ -232,14 +232,8 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
         return;
     }
 
-    if (isIssuing && !allUsers) {
-        toast({ title: 'System Loading', description: 'User registry is still syncing. Please wait a moment and try again.', variant: 'destructive' });
-        return;
-    }
-
     startTransition(async () => {
       try {
-        // 1. Check for existing list in this area to enforce "One List Per Area" rule
         const normalizedAreaId = values.areaId === 'none' ? null : (values.areaId || null);
         const existingList = allSnaggingLists.find(l => 
             l.projectId === values.projectId && 
@@ -278,7 +272,6 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
         const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : values.status);
 
         if (existingList) {
-            // MERGE Logic
             const docRef = doc(db, 'snagging-items', existingList.id);
             await updateDoc(docRef, {
                 items: arrayUnion(...uploadedItems),
@@ -287,7 +280,6 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
             });
             toast({ title: 'Items Merged', description: `Added to existing list for ${existingList.title}.` });
         } else {
-            // CREATE Logic
             const initials = getProjectInitials(selectedProject?.name || 'PRJ');
             const existingRefs = allSnaggingLists.map(l => ({ reference: l.reference, projectId: l.projectId }));
             const reference = getNextReference(existingRefs, values.projectId, 'SNAG', initials);
@@ -335,7 +327,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                     });
 
                     const pdfBase64 = pdf.output('datauristring').split(',')[1];
-                    const fileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${values.title.replace(/\s+/g, '-')}.pdf`;
+                    const reportFileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${values.title.replace(/\s+/g, '-')}.pdf`;
 
                     const result = await sendSubcontractorReportAction({
                         email: sub.email,
@@ -343,17 +335,11 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                         projectName: selectedProject?.name || 'Project',
                         areaName: area?.name || 'General Area',
                         pdfBase64,
-                        fileName
+                        fileName: reportFileName
                     });
 
                     if (result.success) {
                         sentCount++;
-                    } else {
-                        toast({ 
-                            title: `Send Failed (${sub.name})`, 
-                            description: result.message || 'Check your email configuration.', 
-                            variant: 'destructive' 
-                        });
                     }
                 }
             }
@@ -370,7 +356,14 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
     });
   };
 
-  const localUnsyncedCount = items.reduce((acc, itm) => acc + (itm.photos || []).length, 0) + photos.length;
+  useEffect(() => {
+    if (!open) {
+      setItems([]);
+      setPhotos([]);
+      setEditingItemIdx(null);
+      form.reset();
+    }
+  }, [open, form]);
 
   return (
     <>
@@ -385,12 +378,6 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                 <DialogTitle>Create Snagging List</DialogTitle>
                 <DialogDescription>Capture defects instantly. All items are held in local staging until you Save.</DialogDescription>
               </div>
-              {localUnsyncedCount > 0 && (
-                  <Badge variant="secondary" className="gap-2 h-7 px-3 bg-primary/10 text-primary border-primary/20 animate-in fade-in">
-                      <CloudUpload className="h-3.5 w-3.5" />
-                      {localUnsyncedCount} Items Staged
-                  </Badge>
-              )}
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto px-6 py-6">
@@ -440,7 +427,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                               </div>
                               <div className="flex gap-1">
                                   <Select value={pendingSubId || 'unassigned'} onValueChange={setPendingSubId}>
-                                      <SelectTrigger className={cn("px-2 border-none h-11 transition-all", pendingSubId ? "w-auto" : "w-10 justify-center")}>
+                                      <SelectTrigger className={cn("px-2 border-none h-11 transition-all", pendingSubId && pendingSubId !== 'unassigned' ? "w-auto" : "w-10 justify-center")}>
                                           <div className="flex items-center gap-2">
                                               {pendingSubId !== 'unassigned' && pendingSubId ? (
                                                   <Badge variant="secondary" className="hidden md:block h-6 text-[9px] font-black max-w-[100px] truncate uppercase">{projectSubs.find(s => s.id === pendingSubId)?.name}</Badge>

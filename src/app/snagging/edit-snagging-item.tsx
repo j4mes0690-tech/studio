@@ -39,16 +39,17 @@ import {
   Pencil, 
   Camera, 
   X, 
-  Loader2, 
-  Save, 
-  Send, 
-  Check, 
-  CheckCircle2, 
-  Circle, 
+  Trash2, 
   Plus, 
-  UserPlus, 
-  CloudUpload, 
-  AlertTriangle 
+  Loader2, 
+  Check, 
+  Circle, 
+  CheckCircle2,
+  CloudUpload,
+  Save,
+  Send,
+  UserPlus,
+  AlertTriangle
 } from 'lucide-react';
 import type { Project, SnaggingItem, SnaggingListItem, DistributionUser, Photo, SubContractor, Area } from '@/lib/types';
 import { useFirestore, useStorage, useCollection, useMemoFirebase } from '@/firebase';
@@ -246,7 +247,6 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
 
     startTransition(async () => {
       try {
-        // Check if changing area to one that already has a list
         const normalizedAreaId = values.areaId === 'none' ? null : (values.areaId || null);
         const existingList = allSnaggingLists.find(l => 
             l.projectId === values.projectId && 
@@ -286,7 +286,6 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
         const targetStatus = isIssuing ? 'issued' : (isDrafting ? 'draft' : values.status);
 
         if (existingList) {
-            // MERGE with target area list and DELETE this one
             const targetDocRef = doc(db, 'snagging-items', existingList.id);
             await updateDoc(targetDocRef, {
                 items: arrayUnion(...uploadedItems),
@@ -296,7 +295,6 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
             await deleteDoc(doc(db, 'snagging-items', item.id));
             toast({ title: 'Lists Consolidated', description: `Items merged into ${existingList.title}.` });
         } else {
-            // Standard update
             const docRef = doc(db, 'snagging-items', item.id);
             const updates: any = {
               projectId: values.projectId,
@@ -481,7 +479,7 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
                                                   <SelectContent><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                               </Select>
                                               <div className="flex gap-1">
-                                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setItemPhotoTargetId(listItem.id)}><Camera className="h-4 w-4" /></Button>
+                                                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => { setItemPhotoTargetId(listItem.id); setIsItemCameraOpen(true); }}><Camera className="h-4 w-4" /></Button>
                                                   <Button type="button" variant="ghost" size="sm" onClick={() => setEditingItemIdx(null)}>Cancel</Button>
                                                   <Button type="button" size="sm" className="h-8 gap-1.5" onClick={() => handleSaveEditItem(idx)}><Check className="h-3.5 w-3.5" /> Done</Button>
                                               </div>
@@ -518,7 +516,7 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
                     </div>
 
                     <div className="space-y-4 bg-background p-6 rounded-xl border shadow-sm">
-                          <FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Area Photos</FormLabel>
+                          <FormLabel className="font-black text-xs uppercase text-muted-foreground tracking-widest">Global List Photos</FormLabel>
                           <div className="flex flex-wrap gap-3">
                               {photos.map((p, i) => (
                                   <div key={i} className="relative w-24 h-24 group">
@@ -609,6 +607,6 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
         onCapture={onCaptureItem}
         title="Specific Defect Documentation"
       />
-    </Dialog>
+    </>
   );
 }
