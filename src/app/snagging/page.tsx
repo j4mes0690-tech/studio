@@ -177,7 +177,7 @@ function SnaggingContent() {
                 {isGroupedByProject ? 'Project Snagging Status' : 'Snagging Log'}
             </h2>
             {hasFullVisibility && (
-                <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary uppercase tracking-widest">
+                <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-widest">
                     <ShieldCheck className="h-3 w-3" />
                     <span className="hidden xs:inline">Administrative Visibility Active</span>
                     <span className="xs:hidden">Admin Access</span>

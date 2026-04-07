@@ -400,7 +400,7 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
                                     <FormLabel>Project</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Select project" /></SelectTrigger></FormControl>
-                                        <SelectContent position="popper">{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                                        <SelectContent position="popper" className="max-h-[300px]">{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                                     </Select>
                                 </FormItem>
                             )} />
@@ -409,7 +409,7 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
                                   <FormLabel>Area / Level</FormLabel>
                                   <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl><SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger></FormControl>
-                                    <SelectContent position="popper">
+                                    <SelectContent position="popper" className="max-h-[300px]">
                                       {availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                                       {availableAreas.length > 0 && <Separator className="my-1" />}
                                       <SelectItem value="other">Other / Manual</SelectItem>
@@ -445,7 +445,7 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
                                           ) : <UserPlus className="h-4 w-4 text-primary" />}
                                       </div>
                                   </SelectTrigger>
-                                  <SelectContent position="popper"><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                  <SelectContent position="popper" className="max-h-[300px]"><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                               </Select>
                               <Button type="button" variant="outline" className="h-10" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
                               <Button type="button" onClick={handleAddItem} disabled={!newItemText.trim() && pendingItemPhotos.length === 0} size="icon" className="h-10 w-10"><Plus className="h-4 w-4" /></Button>
@@ -477,7 +477,7 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
                                           <div className="flex justify-between items-center">
                                               <Select value={editItemSubId} onValueChange={setEditItemSubId}>
                                                   <SelectTrigger className="w-48 h-8 text-xs"><SelectValue /></SelectTrigger>
-                                                  <SelectContent position="popper"><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                                  <SelectContent position="popper" className="max-h-[300px]"><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
                                               </Select>
                                               <div className="flex gap-1">
                                                   <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => { setItemPhotoTargetId(listItem.id); setIsItemCameraOpen(true); }}><Camera className="h-4 w-4" /></Button>
