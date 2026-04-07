@@ -296,7 +296,7 @@ function EditSnaggingContent() {
   };
 
   const handleBackToLog = () => {
-    if (unsyncedCount > 0 || localTitle !== item.title || localItems.length !== (item.items?.length || 0)) {
+    if (unsyncedCount > 0 || localTitle !== item?.title || localItems.length !== (item?.items?.length || 0)) {
         handleSyncToCloud('/snagging');
     } else {
         router.push('/snagging');
