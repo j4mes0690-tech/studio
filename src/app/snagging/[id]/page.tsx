@@ -41,9 +41,7 @@ import {
     Cloud,
     CloudUpload,
     Building2,
-    MapPin,
-    ExternalLink,
-    Clock
+    MapPin
 } from 'lucide-react';
 import Image from 'next/image';
 import { cn, scrollToFirstError, parseDateString } from '@/lib/utils';
@@ -537,7 +535,7 @@ function EditSnaggingContent() {
               <div className='flex-1 overflow-y-auto px-6 py-4'>
                   <div className="space-y-4">
                       {viewingHistoryRecord?.items.map((histItem, idx) => (
-                          <div key={idx} className="p-3 border rounded-lg bg-background flex items-center justify-between"><span className={cn("text-sm font-medium", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span><Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold'>{histStatus.toUpperCase()}</Badge></div>
+                          <div key={idx} className="p-3 border rounded-lg bg-background flex items-center justify-between"><span className={cn("text-sm font-medium", histItem.status === 'closed' && "line-through text-muted-foreground")}>{histItem.description}</span><Badge variant={histItem.status === 'closed' ? "secondary" : "outline"} className='text-[9px] uppercase font-bold'>{(histItem.status || 'open').toUpperCase()}</Badge></div>
                       ))}
                   </div>
               </div>

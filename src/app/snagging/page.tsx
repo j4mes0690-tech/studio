@@ -57,7 +57,7 @@ function SnaggingContent() {
     localStorage.setItem('sitecommand_grouping_snagging', String(newVal));
   };
 
-  // Profile check - Using email identity
+  // Profile check
   const profileRef = useMemoFirebase(() => {
     if (!db || !email) return null;
     return doc(db, 'users', email.toLowerCase().trim());
@@ -144,7 +144,6 @@ function SnaggingContent() {
       const entry = projectMap.get(list.projectId);
       entry.items.push(...(list.items || []));
       if (list.photos) entry.photos.push(...list.photos);
-      // Sort by latest activity
       if (new Date(list.createdAt) > new Date(entry.createdAt)) {
         entry.createdAt = list.createdAt;
       }
@@ -155,7 +154,7 @@ function SnaggingContent() {
 
   const isLoading = projectsLoading || snaggingLoading || subsLoading || profileLoading;
 
-  if (isLoading && !allChecklists) {
+  if (isLoading && !allItems) {
     return (
         <div className="flex flex-col w-full h-[50vh] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
