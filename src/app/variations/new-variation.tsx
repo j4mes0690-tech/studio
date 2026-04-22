@@ -27,7 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, Calculator, Loader2, Save, Plus, PlusCircle as PlusIcon, MinusCircle, Link as LinkIcon, Percent, ChevronDown, Check, Send, FileText } from 'lucide-react';
+import { Trash2, Calculator, Loader2, Save, Plus, PlusCircle as PlusIcon, MinusCircle, Link as LinkIcon, Percent, ChevronDown, Check, Send, FileText, ArrowUp, ArrowDown, Pencil, X } from 'lucide-react';
 import type { Project, DistributionUser, Variation, VariationItem, VariationItemType, ClientInstruction, Instruction } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -74,6 +74,8 @@ export function NewVariationDialog({
   const [isPending, startTransition] = useTransition();
 
   const [items, setItems] = useState<Omit<VariationItem, 'id'>[]>([]);
+  const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  
   const [pendingDesc, setPendingDesc] = useState('');
   const [pendingType, setPendingType] = useState<VariationItemType>('addition');
   const [pendingQty, setPendingQty] = useState<number | string>(1);
@@ -108,25 +110,70 @@ export function NewVariationDialog({
   const ohpAmount = useMemo(() => (grossCost * (currentOHP / 100)), [grossCost, currentOHP]);
   const netVariationTotal = useMemo(() => grossCost + ohpAmount, [grossCost, ohpAmount]);
 
-  const handleAddItem = () => {
+  const handleSaveItem = () => {
     const qty = typeof pendingQty === 'string' ? parseFloat(pendingQty) : pendingQty;
     const rate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
     if (!pendingDesc || isNaN(qty) || isNaN(rate)) return;
 
-    setItems([...items, {
+    const newItem = {
       description: pendingDesc,
       type: pendingType,
       quantity: qty,
       unit: pendingUnit,
       rate: rate,
       total: qty * rate
-    }]);
+    };
+
+    if (editingIdx !== null) {
+      const updated = [...items];
+      updated[editingIdx] = newItem;
+      setItems(updated);
+      setEditingIdx(null);
+    } else {
+      setItems([...items, newItem]);
+    }
 
     setPendingDesc('');
     setPendingRate(0);
+    setPendingQty(1);
+    setPendingUnit('item');
+    setPendingType('addition');
   };
 
-  const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
+  const handleEditItem = (idx: number) => {
+    const item = items[idx];
+    setPendingDesc(item.description);
+    setPendingType(item.type);
+    setPendingQty(item.quantity);
+    setPendingUnit(item.unit);
+    setPendingRate(item.rate);
+    setEditingIdx(idx);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIdx(null);
+    setPendingDesc('');
+    setPendingRate(0);
+    setPendingQty(1);
+    setPendingUnit('item');
+    setPendingType('addition');
+  };
+
+  const removeItem = (idx: number) => {
+    setItems(items.filter((_, i) => i !== idx));
+    if (editingIdx === idx) handleCancelEdit();
+  };
+
+  const moveItem = (idx: number, direction: 'up' | 'down') => {
+    const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= items.length) return;
+    const updated = [...items];
+    const [moved] = updated.splice(idx, 1);
+    updated.splice(newIdx, 0, moved);
+    setItems(updated);
+    if (editingIdx === idx) setEditingIdx(newIdx);
+    else if (editingIdx === newIdx) setEditingIdx(idx);
+  };
 
   const onSubmit = (values: NewVariationFormValues, shouldPrint = false) => {
     if (items.length === 0) {
@@ -157,14 +204,7 @@ export function NewVariationDialog({
         };
 
         const colRef = collection(db, 'variations');
-        await addDoc(colRef, variationData).catch((error) => {
-          errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: 'variations',
-            operation: 'create',
-            requestResourceData: variationData,
-          }));
-          throw error;
-        });
+        await addDoc(colRef, variationData);
 
         if (shouldPrint) {
           toast({ title: 'Variation Recorded', description: 'Generating PDF document...' });
@@ -185,6 +225,7 @@ export function NewVariationDialog({
   useEffect(() => {
     if (!open) {
       setItems([]);
+      setEditingIdx(null);
       form.reset();
     }
   }, [open, form]);
@@ -262,7 +303,7 @@ export function NewVariationDialog({
                                   >
                                     <Checkbox 
                                       checked={field.value?.includes(ci.id)} 
-                                      onCheckedChange={() => {}} // Controlled by div click
+                                      onCheckedChange={() => {}} 
                                     />
                                     <div className="flex flex-col min-w-0">
                                       <span className="text-xs font-bold truncate">{ci.reference}</span>
@@ -328,7 +369,7 @@ export function NewVariationDialog({
                                   >
                                     <Checkbox 
                                       checked={field.value?.includes(si.id)} 
-                                      onCheckedChange={() => {}} // Controlled by div click
+                                      onCheckedChange={() => {}} 
                                     />
                                     <div className="flex flex-col min-w-0">
                                       <span className="text-xs font-bold truncate">{si.reference}</span>
@@ -365,7 +406,10 @@ export function NewVariationDialog({
                   </div>
                 </div>
 
-                <div className="bg-muted/30 p-4 rounded-lg border space-y-4">
+                <div className={cn(
+                  "p-4 rounded-lg border space-y-4 transition-colors",
+                  editingIdx !== null ? "bg-primary/5 border-primary/20" : "bg-muted/30"
+                )}>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                       <div className="space-y-4">
                           <div className="space-y-2">
@@ -383,26 +427,46 @@ export function NewVariationDialog({
                               <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Unit</Label><Input value={pendingUnit} onChange={e => setPendingUnit(e.target.value)} className="bg-background h-9" /></div>
                               <div className="space-y-1"><Label className="text-[10px] uppercase font-bold text-muted-foreground">Rate £</Label><Input type="number" step="0.01" value={pendingRate} onChange={e => setPendingRate(e.target.value)} className="bg-background h-9" /></div>
                           </div>
-                          <Button type="button" onClick={handleAddItem} disabled={!pendingDesc} className="w-full h-10"><Plus className="h-4 w-4 mr-2" /> Add Line Item</Button>
+                          <div className="flex gap-2">
+                              {editingIdx !== null && (
+                                <Button type="button" variant="ghost" onClick={handleCancelEdit} className="h-10">Cancel</Button>
+                              )}
+                              <Button type="button" onClick={handleSaveItem} disabled={!pendingDesc} className="flex-1 h-10 font-bold">
+                                {editingIdx !== null ? <Check className="h-4 w-4 mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                                {editingIdx !== null ? 'Update Item' : 'Add Item'}
+                              </Button>
+                          </div>
                       </div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   {items.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 rounded border bg-background group shadow-sm">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          {item.type === 'addition' ? <PlusIcon className="h-3 w-3 text-green-600" /> : <MinusCircle className="h-3 w-3 text-red-600" />}
-                          <p className="text-sm font-bold truncate">{item.description}</p>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground ml-5">{item.quantity} {item.unit} @ £{item.rate.toFixed(2)}</p>
+                    <div key={idx} className={cn(
+                        "flex items-center justify-between p-3 rounded border bg-background group shadow-sm transition-all",
+                        editingIdx === idx && "ring-2 ring-primary border-transparent"
+                    )}>
+                      <div className="flex items-center gap-3">
+                          <div className="flex flex-col gap-0.5">
+                              <Button variant="ghost" size="icon" className="h-5 w-5 h-fit p-0.5 hover:text-primary disabled:opacity-30" onClick={() => moveItem(idx, 'up')} disabled={idx === 0}><ArrowUp className="h-3 w-3" /></Button>
+                              <Button variant="ghost" size="icon" className="h-5 w-5 h-fit p-0.5 hover:text-primary disabled:opacity-30" onClick={() => moveItem(idx, 'down')} disabled={idx === items.length - 1}><ArrowDown className="h-3 w-3" /></Button>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              {item.type === 'addition' ? <PlusIcon className="h-3 w-3 text-green-600" /> : <MinusCircle className="h-3 w-3 text-red-600" />}
+                              <p className="text-sm font-bold truncate">{item.description}</p>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground ml-5">{item.quantity} {item.unit} @ £{item.rate.toFixed(2)}</p>
+                          </div>
                       </div>
                       <div className="flex items-center gap-4">
                           <span className={cn("text-sm font-bold", item.type === 'addition' ? "text-green-600" : "text-red-600")}>
                               {item.type === 'omission' ? '-' : ''}£{item.total.toFixed(2)}
                           </span>
-                          <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleEditItem(idx)}><Pencil className="h-4 w-4" /></Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(idx)}><Trash2 className="h-4 w-4" /></Button>
+                          </div>
                       </div>
                     </div>
                   ))}

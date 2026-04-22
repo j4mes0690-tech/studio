@@ -544,7 +544,7 @@ export function EditSnaggingItem({ item, projects, subContractors, allSnaggingLi
                             disabled={isPending} 
                             onClick={() => { setSubmitMode('issue'); form.handleSubmit((v) => onSubmit(v))(); }}
                         >
-                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Sync & Send
+                            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />} Sync & Send Reports
                         </Button>
                     </div>
                   </form>
