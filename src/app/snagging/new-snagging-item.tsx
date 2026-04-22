@@ -30,6 +30,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SelectGroup,
+  SelectLabel
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -37,12 +39,10 @@ import { useToast } from '@/hooks/use-toast';
 import { 
   PlusCircle, 
   Camera, 
-  Upload, 
   X, 
   Trash2, 
   Plus, 
   UserPlus, 
-  RefreshCw, 
   Loader2, 
   Save, 
   CheckCircle2, 
@@ -439,7 +439,10 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                                               ) : <UserPlus className="h-4 w-4 text-primary" />}
                                           </div>
                                       </SelectTrigger>
-                                      <SelectContent position="popper" className="max-h-[300px]"><SelectItem value="unassigned">Unassigned</SelectItem>{projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
+                                      <SelectContent position="popper" className="max-h-[300px]">
+                                          <SelectItem value="unassigned">Unassigned</SelectItem>
+                                          {projectSubs.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                                      </SelectContent>
                                   </Select>
                                   <Button type="button" variant="outline" className="h-11" onClick={() => setIsItemCameraOpen(true)}><Camera className="h-5 w-5 text-primary" /></Button>
                                   <Button type="button" size="icon" className="h-11 rounded-lg" onClick={handleAddItem} disabled={isPending}>
