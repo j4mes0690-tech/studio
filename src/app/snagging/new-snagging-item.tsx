@@ -220,7 +220,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
     }
   };
 
-  const onSubmit = (values: NewSnaggingListFormValues) => {
+  const onSubmit = (values: SnaggingListFormValues) => {
     const isIssuing = submitMode === 'issue';
     const isDrafting = submitMode === 'draft';
 

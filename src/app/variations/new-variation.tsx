@@ -176,8 +176,22 @@ export function NewVariationDialog({
   };
 
   const onSubmit = (values: NewVariationFormValues, shouldPrint = false) => {
-    if (items.length === 0) {
-      toast({ title: 'No items', description: 'Add at least one line item to the variation.', variant: 'destructive' });
+    // Synchronize: If user has a pending item filled out, add it automatically
+    let finalItems = [...items];
+    const pRate = typeof pendingRate === 'string' ? parseFloat(pendingRate) : pendingRate;
+    if (pendingDesc && !isNaN(pRate) && pRate > 0) {
+        finalItems.push({
+            description: pendingDesc,
+            type: pendingType,
+            quantity: typeof pendingQty === 'string' ? parseFloat(pendingQty) : pendingQty,
+            unit: pendingUnit || 'item',
+            rate: pRate,
+            total: (typeof pendingQty === 'string' ? parseFloat(pendingQty) : pendingQty) * pRate
+        });
+    }
+
+    if (finalItems.length === 0) {
+      toast({ title: 'Order is empty', description: 'Add at least one line item to the variation.', variant: 'destructive' });
       return;
     }
 
@@ -195,7 +209,7 @@ export function NewVariationDialog({
           description: values.description || '',
           clientInstructionIds: values.clientInstructionIds || [],
           siteInstructionIds: values.siteInstructionIds || [],
-          items: items.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })),
+          items: finalItems.map((item, i) => ({ ...item, id: `item-${Date.now()}-${i}` })) as VariationItem[],
           ohpPercentage: values.ohpPercentage,
           totalAmount: netVariationTotal,
           status: values.status,
@@ -267,6 +281,7 @@ export function NewVariationDialog({
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button 
+                              type="button"
                               variant="outline" 
                               role="combobox" 
                               className={cn(
@@ -333,6 +348,7 @@ export function NewVariationDialog({
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button 
+                              type="button"
                               variant="outline" 
                               role="combobox" 
                               className={cn(
@@ -448,8 +464,8 @@ export function NewVariationDialog({
                     )}>
                       <div className="flex items-center gap-3">
                           <div className="flex flex-col gap-0.5">
-                              <Button variant="ghost" size="icon" className="h-5 w-5 h-fit p-0.5 hover:text-primary disabled:opacity-30" onClick={() => moveItem(idx, 'up')} disabled={idx === 0}><ArrowUp className="h-3 w-3" /></Button>
-                              <Button variant="ghost" size="icon" className="h-5 w-5 h-fit p-0.5 hover:text-primary disabled:opacity-30" onClick={() => moveItem(idx, 'down')} disabled={idx === items.length - 1}><ArrowDown className="h-3 w-3" /></Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-5 w-5 h-fit p-0.5 hover:text-primary disabled:opacity-30" onClick={() => moveItem(idx, 'up')} disabled={idx === 0}><ArrowUp className="h-3 w-3" /></Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-5 w-5 h-fit p-0.5 hover:text-primary disabled:opacity-30" onClick={() => moveItem(idx, 'down')} disabled={idx === items.length - 1}><ArrowDown className="h-3 w-3" /></Button>
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">

@@ -170,141 +170,141 @@ function SnaggingContent() {
   }) || [];
 
   return (
-    <main className="flex-1 p-3 md:p-6 lg:p-8 flex flex-col gap-6">
-        <div className="flex flex-col gap-4">
-          <div className='flex flex-col gap-1'>
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
-                {isGroupedByProject ? 'Project Snagging Status' : 'Snagging Log'}
-            </h2>
-            {hasFullVisibility && (
-                <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-widest">
-                    <ShieldCheck className="h-3 w-3" />
-                    <span className="hidden xs:inline">Administrative Visibility Active</span>
-                    <span className="xs:hidden">Admin Access</span>
-                </div>
-            )}
+    <div className="flex flex-col w-full min-h-screen">
+      <Header title="Snagging Lists" />
+      <main className="flex-1 p-3 md:p-6 lg:p-8 flex flex-col gap-6">
+          <div className="flex flex-col gap-4">
+            <div className='flex flex-col gap-1'>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+                  {isGroupedByProject ? 'Project Snagging Status' : 'Snagging Log'}
+              </h2>
+              {hasFullVisibility && (
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase tracking-widest">
+                      <ShieldCheck className="h-3 w-3" />
+                      <span className="hidden xs:inline">Administrative Visibility Active</span>
+                      <span className="xs:hidden">Admin Access</span>
+                  </div>
+              )}
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-2 md:gap-3">
+              <NewSnaggingItem 
+                projects={allowedProjects} 
+                subContractors={subContractors || []} 
+                allSnaggingLists={allItems || []}
+              />
+
+              {profile?.permissions?.hasFullVisibility && (
+                  <ConsolidateListsButton allLists={allItems || []} profile={profile} />
+              )}
+
+              {allowedProjects.length > 0 && (
+                <ProjectReportButton 
+                    projects={allowedProjects} 
+                    allSnaggingLists={allItems || []}
+                    subContractors={subContractors || []}
+                    allUsers={allUsers || []}
+                    initialProjectId={projectId}
+                />
+              )}
+
+              <div className="flex items-center border rounded-md p-0.5 bg-muted/20">
+                  <TooltipProvider>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button 
+                                  variant={isGroupedByProject ? "ghost" : "secondary"} 
+                                  size="icon" 
+                                  onClick={() => { if(isGroupedByProject) toggleGrouping(); }}
+                                  className={cn("h-9 w-9", !isGroupedByProject && "bg-background shadow-sm")}
+                              >
+                                  <LayoutList className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Individual Audit Lists</p></TooltipContent>
+                      </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider>
+                      <Tooltip>
+                          <TooltipTrigger asChild>
+                              <Button 
+                                  variant={isGroupedByProject ? "secondary" : "ghost"} 
+                                  size="icon" 
+                                  onClick={() => { if(!isGroupedByProject) toggleGrouping(); }}
+                                  className={cn("h-9 w-9", isGroupedByProject && "bg-background shadow-sm")}
+                              >
+                                  <Layers className="h-4 w-4" />
+                              </Button>
+                          </TooltipTrigger>
+                          <TooltipContent><p>Group by Project</p></TooltipContent>
+                      </Tooltip>
+                  </TooltipProvider>
+              </div>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      onClick={toggleView}
+                      className="flex h-9 w-9 shrink-0"
+                    >
+                      {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Switch to {isCompact ? 'Card' : 'Compact'} View</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
           
-          <div className="flex flex-wrap items-center gap-2 md:gap-3">
-            <NewSnaggingItem 
-              projects={allowedProjects} 
-              subContractors={subContractors || []} 
-              allSnaggingLists={allItems || []}
-            />
+          <SnaggingFilters projects={allowedProjects} />
 
-            {profile?.permissions?.hasFullVisibility && (
-                <ConsolidateListsButton allLists={allItems || []} profile={profile} />
-            )}
-
-            {allowedProjects.length > 0 && (
-              <ProjectReportButton 
-                  projects={allowedProjects} 
-                  allSnaggingLists={allItems || []}
-                  subContractors={subContractors || []}
-                  allUsers={allUsers || []}
-                  initialProjectId={projectId}
-              />
-            )}
-
-            <div className="flex items-center border rounded-md p-0.5 bg-muted/20">
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button 
-                                variant={isGroupedByProject ? "ghost" : "secondary"} 
-                                size="icon" 
-                                onClick={() => { if(isGroupedByProject) toggleGrouping(); }}
-                                className={cn("h-9 w-9", !isGroupedByProject && "bg-background shadow-sm")}
-                            >
-                                <LayoutList className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Individual Audit Lists</p></TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button 
-                                variant={isGroupedByProject ? "secondary" : "ghost"} 
-                                size="icon" 
-                                onClick={() => { if(!isGroupedByProject) toggleGrouping(); }}
-                                className={cn("h-9 w-9", isGroupedByProject && "bg-background shadow-sm")}
-                            >
-                                <Layers className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent><p>Group by Project</p></TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            </div>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={toggleView}
-                    className="flex h-9 w-9 shrink-0"
-                  >
-                    {isCompact ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Switch to {isCompact ? 'Card' : 'Compact'} View</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-        </div>
-        
-        <SnaggingFilters projects={allowedProjects} />
-
-        {displayItems.length > 0 ? (
-          isCompact ? (
-            <div className="overflow-x-auto">
-                <SnaggingTable 
-                items={displayItems}
-                projects={allProjects || []}
-                subContractors={subContractors || []}
-                allUsers={allUsers || []}
-                />
-            </div>
-          ) : (
-            <div className="grid gap-4 md:gap-6">
-              {displayItems.map((item) => (
-                <SnaggingItemCard
-                  key={item.id}
-                  item={item}
+          {displayItems.length > 0 ? (
+            isCompact ? (
+              <div className="overflow-x-auto">
+                  <SnaggingTable 
+                  items={displayItems}
                   projects={allProjects || []}
                   subContractors={subContractors || []}
                   allUsers={allUsers || []}
-                />
-              ))}
+                  />
+              </div>
+            ) : (
+              <div className="grid gap-4 md:gap-6">
+                {displayItems.map((item) => (
+                  <SnaggingItemCard
+                    key={item.id}
+                    item={item}
+                    projects={allProjects || []}
+                    subContractors={subContractors || []}
+                    allUsers={allUsers || []}
+                  />
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="text-center py-12 px-4 text-muted-foreground border-2 border-dashed rounded-lg bg-muted/5">
+              <p className="text-lg font-semibold">No records found</p>
+              <p className="text-sm">You only see snagging data for projects you are explicitly assigned to.</p>
             </div>
-          )
-        ) : (
-          <div className="text-center py-12 px-4 text-muted-foreground border-2 border-dashed rounded-lg bg-muted/5">
-            <p className="text-lg font-semibold">No records found</p>
-            <p className="text-sm">You only see snagging data for projects you are explicitly assigned to.</p>
-          </div>
-        )}
-      </main>
+          )}
+        </main>
+    </div>
   );
 }
 
 export default function SnaggingPage() {
   return (
-    <div className="flex flex-col w-full min-h-screen">
-      <Header title="Snagging Lists" />
-      <Suspense fallback={
-        <div className="flex flex-col w-full h-screen items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      }>
-        <SnaggingContent />
-      </Suspense>
-    </div>
+    <Suspense fallback={
+      <div className="flex flex-col w-full h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <SnaggingContent />
+    </Suspense>
   );
 }

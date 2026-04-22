@@ -26,7 +26,7 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, Calculator, Loader2, Save, Plus, PlusCircle as PlusIcon, MinusCircle, Link as LinkIcon, Percent, ChevronDown, Check, FileText, ArrowUp, ArrowDown, Pencil } from 'lucide-react';
+import { Trash2, Calculator, Loader2, Save, Plus, PlusCircle as PlusIcon, MinusCircle, Link as LinkIcon, Percent, ChevronDown, Check, FileText, ArrowUp, ArrowDown, Pencil, X } from 'lucide-react';
 import type { Project, DistributionUser, Variation, VariationItem, VariationItemType, ClientInstruction, Instruction } from '@/lib/types';
 import { useFirestore } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -264,6 +264,7 @@ export function EditVariationDialog({
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button 
+                              type="button"
                               variant="outline" 
                               role="combobox" 
                               className={cn(
@@ -330,6 +331,7 @@ export function EditVariationDialog({
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button 
+                              type="button"
                               variant="outline" 
                               role="combobox" 
                               className={cn(
@@ -440,8 +442,8 @@ export function EditVariationDialog({
                     )}>
                       <div className="flex items-center gap-3">
                           <div className="flex flex-col gap-0.5">
-                              <Button variant="ghost" size="icon" className="h-5 w-5 h-fit p-0.5 hover:text-primary disabled:opacity-30" onClick={() => moveItem(idx, 'up')} disabled={idx === 0}><ArrowUp className="h-3 w-3" /></Button>
-                              <Button variant="ghost" size="icon" className="h-5 w-5 h-fit p-0.5 hover:text-primary disabled:opacity-30" onClick={() => moveItem(idx, 'down')} disabled={idx === items.length - 1}><ArrowDown className="h-3 w-3" /></Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-5 w-5 h-fit p-0.5 hover:text-primary disabled:opacity-30" onClick={() => moveItem(idx, 'up')} disabled={idx === 0}><ArrowUp className="h-3 w-3" /></Button>
+                              <Button type="button" variant="ghost" size="icon" className="h-5 w-5 h-fit p-0.5 hover:text-primary disabled:opacity-30" onClick={() => moveItem(idx, 'down')} disabled={idx === items.length - 1}><ArrowDown className="h-3 w-3" /></Button>
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className={cn("text-sm font-bold truncate", item.type === 'addition' ? "text-green-700" : "text-red-700")}>
