@@ -85,9 +85,6 @@ const SnaggingListSchema = z.object({
 
 type NewSnaggingListFormValues = z.infer<typeof SnaggingListSchema>;
 
-/**
- * sanitizeSnagItem - Ensures all fields are Firestore-compliant (no undefined).
- */
 const sanitizeSnagItem = (itm: any): SnaggingListItem => ({
     id: itm.id || `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
     description: itm.description || 'No description',
@@ -116,7 +113,6 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
   const [pendingSubId, setPendingSubId] = useState<string | undefined>(undefined);
   const [pendingItemPhotos, setPendingItemPhotos] = useState<Photo[]>([]);
   
-  // Item Editing State
   const [editingItemIdx, setEditingItemIdx] = useState<number | null>(null);
   const [editItemText, setEditItemText] = useState('');
   const [editItemSubId, setEditItemSubId] = useState<string | undefined>(undefined);
@@ -303,11 +299,9 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
         }
 
         if (isIssuing && allUsers) {
-            toast({ title: 'Distributing', description: 'Generating trade-specific reports...' });
             const area = selectedProject?.areas?.find(a => a.id === values.areaId);
             const subIds = Array.from(new Set(uploadedItems.map(i => i.subContractorId).filter(id => !!id))) as string[];
-            let sentCount = 0;
-
+            
             for (const subId of subIds) {
                 const sub = subContractors.find(s => s.id === subId);
                 const recipientEmails = getPartnerEmails(subId, subContractors, allUsers);
@@ -330,7 +324,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                     const pdfBase64 = pdf.output('datauristring').split(',')[1];
                     const reportFileName = `SnagReport-${sub.name.replace(/\s+/g, '-')}-${values.title.replace(/\s+/g, '-')}.pdf`;
 
-                    const result = await sendSubcontractorReportAction({
+                    await sendSubcontractorReportAction({
                         email: sub.email,
                         name: sub.name,
                         projectName: selectedProject?.name || 'Project',
@@ -338,14 +332,7 @@ export function NewSnaggingItem({ projects, subContractors, allSnaggingLists }: 
                         pdfBase64,
                         fileName: reportFileName
                     });
-
-                    if (result.success) {
-                        sentCount++;
-                    }
                 }
-            }
-            if (sentCount > 0) {
-                toast({ title: 'Distribution Done', description: `${sentCount} trade partners notified.` });
             }
         }
 
